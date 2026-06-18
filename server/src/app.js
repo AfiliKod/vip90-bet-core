@@ -40,6 +40,7 @@ export const corsOptions = {
 
 export function createApp() {
   const app = express();
+  app.set('trust proxy', 1); // Railway / Render reverse proxy arkasında req.protocol doğru olsun
   app.use(helmet({
     contentSecurityPolicy: false, // Casino iframe relay kendi CSP'sini yönetiyor
     crossOriginEmbedderPolicy: false,
