@@ -1,5 +1,5 @@
 # Playwright resmi imajı — Chromium + tüm sistem bağımlılıkları dahil
-FROM mcr.microsoft.com/playwright:v1.52.0-jammy
+FROM mcr.microsoft.com/playwright:v1.60.0-jammy
 
 WORKDIR /app
 
