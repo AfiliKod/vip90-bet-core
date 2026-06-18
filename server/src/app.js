@@ -42,6 +42,22 @@ export function createApp() {
   app.use(cors(corsOptions));
   app.use(express.json());
   app.use(cookieParser());
+
+  // Production: static assets'i API routes'lardan ÖNCE serve et
+  // Böylece /assets/*.js ve /assets/*.css istekleri doğru MIME type ile döner
+  if (isProd) {
+    const clientDist = join(__dirname, '../../client/dist');
+    if (existsSync(clientDist)) {
+      app.use(express.static(clientDist, {
+        // Vite build çıktısı content-hash içerdiğinden uzun cache güvenlidir
+        maxAge: '1y',
+        immutable: true,
+        // index.html'i static olarak servis etme; SPA fallback bunu halleder
+        index: false,
+      }));
+    }
+  }
+
   app.use('/api/auth', authRoutes);
   app.use('/api/events', eventsRoutes);
   app.use('/api/bets', betsRoutes);
@@ -80,19 +96,19 @@ export function createApp() {
     proxyReq.end();
   });
 
-  // Production: client build'i serve et
+  // API 404 — tanımsız /api/* route'ları için
+  app.use('/api', notFound);
+
+  // SPA fallback — tüm non-API isteklerini index.html'e yönlendir
   if (isProd) {
     const clientDist = join(__dirname, '../../client/dist');
     if (existsSync(clientDist)) {
-      app.use(express.static(clientDist));
-      app.get('*', (req, res, next) => {
-        if (req.path.startsWith('/api/')) return next();
+      app.get('*', (req, res) => {
         res.sendFile(join(clientDist, 'index.html'));
       });
     }
   }
 
-  app.use('/api', notFound);
   app.use(errorHandler);
   return app;
 }
