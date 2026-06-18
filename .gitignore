@@ -37,3 +37,7 @@ pp-visual-test.png
 .idea/
 *.suo
 *.sw?
+
+# Claude Code / tooling
+.superpowers/
+.claude/
