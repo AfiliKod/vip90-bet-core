@@ -1,0 +1,13 @@
+import { Router } from 'express';
+import { requireAuth } from '../middleware/auth.js';
+import * as ctrl from '../controllers/users.js';
+const r = Router();
+r.use(requireAuth);
+r.get('/me', ctrl.getMe);
+r.get('/me/bets', ctrl.getMyBets);
+r.get('/me/transactions', ctrl.getMyTransactions);
+r.get('/me/preferences', ctrl.getPreferences);
+r.put('/me/preferences', ctrl.updatePreferences);
+r.put('/me/password', ctrl.updatePassword);
+r.put('/me/email', ctrl.updateEmail);
+export default r;

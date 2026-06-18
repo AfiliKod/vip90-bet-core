@@ -1,0 +1,10 @@
+import { Router } from 'express';
+import { requireAuth } from '../middleware/auth.js';
+import { validate } from '../middleware/validate.js';
+import { placeBetSchema } from '../validators/bet.js';
+import * as ctrl from '../controllers/bets.js';
+const r = Router();
+r.use(requireAuth);
+r.post('/', validate(placeBetSchema), ctrl.place);
+r.get('/:id', ctrl.getById);
+export default r;

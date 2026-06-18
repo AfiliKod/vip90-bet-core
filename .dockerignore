@@ -1,0 +1,16 @@
+node_modules
+server/node_modules
+client/node_modules
+client/dist
+.git
+.gitignore
+*.log
+logs/
+server/.env
+# Test dosyaları
+test-*.mjs
+test-*.js
+test-*.png
+investigate-*.js
+*.png
+dist/

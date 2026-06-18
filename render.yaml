@@ -1,0 +1,20 @@
+services:
+  - type: web
+    name: betzone
+    runtime: docker
+    dockerfilePath: ./Dockerfile
+    plan: starter
+    healthCheckPath: /api/health
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: PORT
+        value: 3001
+      - key: MONGODB_URI
+        sync: false   # Render dashboard'dan set edilecek
+      - key: JWT_SECRET
+        generateValue: true
+      - key: JWT_REFRESH_SECRET
+        generateValue: true
+      - key: CLIENT_URL
+        sync: false   # Deploy sonrası onrender.com URL'i girilecek (ya da * geçici olarak)

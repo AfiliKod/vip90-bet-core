@@ -1,0 +1,10 @@
+import { Router } from 'express';
+import { requireAuth } from '../middleware/auth.js';
+import { validate } from '../middleware/validate.js';
+import { depositSchema, withdrawSchema } from '../validators/transaction.js';
+import * as ctrl from '../controllers/transactions.js';
+const r = Router();
+r.use(requireAuth);
+r.post('/deposit', validate(depositSchema), ctrl.deposit);
+r.post('/withdraw', validate(withdrawSchema), ctrl.withdraw);
+export default r;

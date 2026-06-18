@@ -1,0 +1,33 @@
+:root {
+  --color-primary: #00d4ff;
+  --color-primary-dark: #00aed4;
+}
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+* { box-sizing: border-box; }
+
+/* ── Custom scrollbar ────────────────────────────────────────────────────── */
+::-webkit-scrollbar          { width: 4px; height: 4px; }
+::-webkit-scrollbar-track    { background: transparent; }
+::-webkit-scrollbar-corner   { background: transparent; }
+::-webkit-scrollbar-thumb    {
+  background: transparent;
+  border-radius: 4px;
+  transition: background 0.2s ease;
+}
+.is-scrolling::-webkit-scrollbar-thumb { background: rgba(0, 212, 255, 0.22); }
+::-webkit-scrollbar-thumb:hover        { background: rgba(0, 212, 255, 0.40) !important; }
+
+/* Firefox */
+*            { scrollbar-width: thin; scrollbar-color: transparent transparent; }
+.is-scrolling { scrollbar-color: rgba(0, 212, 255, 0.22) transparent; }
+html { font-size: 110%; }
+body {
+  background-color: #060d1a;
+  color: #f0f4ff;
+  font-family: Inter, system-ui, -apple-system, sans-serif;
+  margin: 0;
+}

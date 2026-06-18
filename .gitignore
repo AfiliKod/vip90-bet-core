@@ -1,0 +1,39 @@
+# Deps
+node_modules/
+
+# Build outputs
+dist/
+dist-ssr/
+*.local
+
+# Env
+.env
+.env.*
+!.env.example
+
+# Logs
+logs/
+*.log
+npm-debug.log*
+yarn-debug.log*
+pnpm-debug.log*
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Test/investigation artifacts (root-level dev scripts)
+test-*.mjs
+test-*.js
+test-*.png
+investigate-*.js
+investigate-*.mjs
+rakipsite-screenshot.png
+debug-endorphina.png
+pp-visual-test.png
+
+# Editor
+.vscode/
+.idea/
+*.suo
+*.sw?
