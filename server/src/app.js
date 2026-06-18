@@ -21,13 +21,18 @@ import helpRoutes from './routes/help.js';
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const isProd = process.env.NODE_ENV === 'production';
 
-const allowedOrigins = (process.env.CLIENT_URL || 'http://localhost:5173')
+const baseOrigins = (process.env.CLIENT_URL || 'http://localhost:5173')
   .split(',').map(s => s.trim()).filter(Boolean);
+
+// Railway injects RAILWAY_PUBLIC_DOMAIN automatically — add it so <script crossorigin>
+// same-origin requests pass CORS when CLIENT_URL isn't explicitly configured.
+if (process.env.RAILWAY_PUBLIC_DOMAIN) {
+  baseOrigins.push(`https://${process.env.RAILWAY_PUBLIC_DOMAIN}`);
+}
 
 export const corsOptions = {
   origin: (origin, cb) => {
-    // Production single-service: same-origin requests (no Origin header) always allowed
-    if (!origin || allowedOrigins.includes('*') || allowedOrigins.includes(origin)) return cb(null, true);
+    if (!origin || baseOrigins.includes('*') || baseOrigins.includes(origin)) return cb(null, true);
     cb(new Error('CORS: ' + origin));
   },
   credentials: true,
