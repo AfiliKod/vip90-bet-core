@@ -1,7 +1,10 @@
-# Playwright resmi imajı — Chromium + tüm sistem bağımlılıkları dahil
 FROM mcr.microsoft.com/playwright:v1.60.0-jammy
 
 WORKDIR /app
+
+# Playwright kurulum sırasında browser indirmesin — image'da zaten mevcut
+ENV PLAYWRIGHT_BROWSERS_PATH=/ms-playwright
+ENV PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD=1
 
 # Bağımlılıkları önce yükle (layer cache)
 COPY package*.json ./
@@ -17,9 +20,6 @@ RUN npm run build --prefix client
 
 # Server
 COPY server/ ./server/
-
-# Playwright'ın chromium executable path'ini ayarla
-ENV PLAYWRIGHT_BROWSERS_PATH=/ms-playwright
 
 EXPOSE 3001
 CMD ["node", "server/src/server.js"]
