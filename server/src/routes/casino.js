@@ -678,7 +678,7 @@ console.log('[bz] PP sendToAdapter hook installed');
 
     // type="module" scriptler ve link:stylesheet için CORS bypass — src/href relay'e yönlendir
     // Origin: <base href> PP CDN'ine işaret ettiğinden absolute URL gerekli
-    const reqOrigin = req.protocol + '://' + req.get('host');
+    const reqOrigin = (req.get('x-forwarded-proto') || req.protocol) + '://' + req.get('host');
     modified = rewriteAssets(modified, base, reqOrigin);
 
     res.setHeader('Content-Type', 'text/html; charset=utf-8');
@@ -778,7 +778,7 @@ r.all('/relay', (req, res) => {
       proxyRes.on('data', c => chunks.push(c));
       proxyRes.on('end', () => {
         let body = Buffer.concat(chunks).toString('utf8');
-        const reqOrigin = req.protocol + '://' + req.get('host');
+        const reqOrigin = (req.get('x-forwarded-proto') || req.protocol) + '://' + req.get('host');
 
         // GWT B() fonksiyonu: <script src="...ncd.nocache.js"> src'ini alır, base path çıkarır.
         // Script src relay URL'si olduğunda B() bozuk base döndürür.
