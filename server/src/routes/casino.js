@@ -2,10 +2,33 @@ import { Router } from 'express';
 import https from 'https';
 import http from 'http';
 import jwt from 'jsonwebtoken';
+import { readFileSync, existsSync } from 'fs';
+import { resolve, dirname } from 'path';
+import { fileURLToPath } from 'url';
+import { getoddsSourceGameUrl } from '../services/oddsSourceService.js';
 import { requireAuth } from '../middleware/auth.js';
 import User from '../models/User.js';
 import GameTask from '../models/GameTask.js';
 import CasinoRound from '../models/CasinoRound.js';
+
+const __dirname = dirname(fileURLToPath(import.meta.url));
+const oddsSource_GAMES_PATH = resolve(__dirname, '../../data/oddsSource-games.json');
+const oddsSource_SESSION_PATH = resolve(__dirname, '../../scripts/session.json');
+
+function loadoddsSourceGames() {
+  if (!existsSync(oddsSource_GAMES_PATH)) return [];
+  try { return JSON.parse(readFileSync(oddsSource_GAMES_PATH, 'utf-8')); } catch { return []; }
+}
+
+function buildCookieStr() {
+  if (!existsSync(oddsSource_SESSION_PATH)) return '';
+  try {
+    const raw = JSON.parse(readFileSync(oddsSource_SESSION_PATH, 'utf-8'));
+    const list = Array.isArray(raw) ? raw : (raw._cookies || []);
+    return list.map(c => `${c.name}=${c.value}`).join('; ');
+  } catch { return ''; }
+}
+
 
 const r = Router();
 
@@ -36,12 +59,17 @@ const ALLOWED = [
   'relaxgaming.com',
   'relaxg.net',                      // Relax Gaming API (stag-casino-client.api.relaxg.net)
   'd2drhksbtcqozo.cloudfront.net',  // Relax Gaming CDN
+  'w5tpzfk7ugytdghuzt8y.com',       // oddsSource game launcher (aggregator)
+  'progaindia.com',                  // Ninja Gaming game engine (dev-games.progaindia.com)
+  'ninjagaming.com',                 // Ninja Gaming assets
 ];
 
 const UA = 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36';
 
 // fetchRaw sırasında set edilen session/CF cookie'leri — relay'e iletmek için domain→cookie
 const proxyCookieCache = new Map();
+// gameId → resolved game origin — relay'in doğru Origin/Referer header göndermesi için
+const gameOriginCache = new Map();
 
 function isAllowed(url) {
   try {
@@ -411,8 +439,10 @@ window.fetch=function(url,opts){
   var us=typeof url==='string'?url:(url&&url.url)||String(url||'');
   if(ok(us)){
     sendAlive();
-    var relay=__bzH+'/api/casino/relay?url='+encodeURIComponent(us);
-    var p=_f.call(this,relay,opts);
+    var relay=__bzH+'/api/casino/relay?gid='+encodeURIComponent(__bzGID)+'&url='+encodeURIComponent(us);
+    var _bzOpts=opts?Object.assign({},opts):{};
+    try{var _bzGO=new URL(document.baseURI).origin;if(_bzGO&&!_bzGO.includes('localhost')){var _bzHdr=new Headers(_bzOpts.headers||{});_bzHdr.set('X-BZ-Origin',_bzGO);_bzOpts.headers=_bzHdr;}}catch(_){}
+    var p=_f.call(this,relay,_bzOpts);
     p=p.then(function(r){
       var ct=r.headers.get('content-type')||'';
       if(!ct.includes('json'))return r;
@@ -480,7 +510,7 @@ XMLHttpRequest.prototype.open=function(m,url){
   if(ok(u)){
     sendAlive();
     this.__bzP=true;this.__bzU=u;this.__bzMethod=(m||'GET').toUpperCase();
-    return _op.call(this,m,__bzH+'/api/casino/relay?url='+encodeURIComponent(u));
+    return _op.call(this,m,__bzH+'/api/casino/relay?gid='+encodeURIComponent(__bzGID)+'&url='+encodeURIComponent(u));
   }
   // PP oyunu /gs2c/ path'ine local origin üzerinden XHR POST yapabilir
   try{
@@ -495,6 +525,7 @@ XMLHttpRequest.prototype.open=function(m,url){
 XMLHttpRequest.prototype.send=function(b){
   if(this.__bzP||this.__bzGS){
     var x=this;
+    try{var _bzXO=new URL(document.baseURI).origin;if(_bzXO&&!_bzXO.includes('localhost'))this.setRequestHeader('X-BZ-Origin',_bzXO);}catch(_){}
     var __bzXhrBody=String(b||'');
     x.addEventListener('readystatechange',function(){
       if(x.readyState!==4)return;
@@ -594,7 +625,30 @@ r.get('/game/:gameId', casinoAuth, async (req, res, next) => {
     const { demoUrl } = req.query;
     if (!demoUrl || !isAllowed(demoUrl)) return res.status(400).send('Geçersiz URL');
 
-    const { status, body, finalUrl, headers: fetchHeaders } = await fetchRaw(demoUrl).catch(e => { throw e; });
+    // oddsSource launcher URL'leri server-side resolve et: SvelteKit SPA'sını bypass edip
+    // gerçek PP oyun URL'ini doğrudan proxy'le. SPA router sorununu (localhost route çakışması) önler.
+    let activeDemoUrl = demoUrl;
+    const _parsedDemo = new URL(demoUrl);
+    if (_parsedDemo.hostname.startsWith('launch-') && _parsedDemo.hostname.endsWith('w5tpzfk7ugytdghuzt8y.com')) {
+      const _gameId = _parsedDemo.searchParams.get('id');
+      if (_gameId) {
+        try {
+          const _linkUrl = `https://${_parsedDemo.hostname}/link?id=${encodeURIComponent(_gameId)}`;
+          const { status: _ls, body: _lb } = await fetchRaw(_linkUrl);
+          if (_ls === 200) {
+            const _ld = JSON.parse(_lb.toString('utf-8'));
+            if (_ld.url && isAllowed(_ld.url)) {
+              activeDemoUrl = _ld.url;
+              console.log('[oddsSource] launcher resolved → PP URL:', activeDemoUrl.slice(0, 80));
+              // Resolved game origin'ini cache'le — relay Origin spoofing için
+              gameOriginCache.set(req.params.gameId, new URL(activeDemoUrl).origin);
+            }
+          }
+        } catch (_e) { console.warn('[oddsSource] /link failed:', _e.message); }
+      }
+    }
+
+    const { status, body, finalUrl, headers: fetchHeaders } = await fetchRaw(activeDemoUrl).catch(e => { throw e; });
     if (status >= 400) return res.status(status).send('Oyun şu an erişilemiyor');
 
     // PP ve diğer provider'ların set ettiği session cookie'lerini relay için sakla
@@ -664,7 +718,69 @@ console.log('[bz] PP sendToAdapter hook installed');
 </script>` : '';
 
     const dbUser = await User.findById(req.user.id).select('balance').lean();
-    const inject = `<base href="${base}">${searchFix}${ppConfigInject}${monitorScript(req.user.id, req.query.t, dbUser?.balance ?? 0, req.params.gameId, req.query.gt || '', req.query.gp || '')}`;
+    const reqOrigin = (req.get('x-forwarded-proto') || req.protocol) + '://' + req.get('host');
+
+    // oddsSource SPA tespiti — yalnızca launch- prefix'li URL'ler (server-side resolve fallback)
+    // activeDemoUrl launcher URL kalırsa (resolve başarısız) bu yol çalışır
+    const isoddsSourceSPA = new URL(resolvedUrl).hostname.startsWith('launch-') && new URL(resolvedUrl).hostname.endsWith('w5tpzfk7ugytdghuzt8y.com');
+    const launchHost = new URL(resolvedUrl).hostname;
+    // oddsSource SPA: <base href>'i CDN proxy'e yönlendir — Svelte dinamik import'ları
+    // document.baseURI kullandığından CORS hatası olmadan same-origin'de yüklensin
+    const effectiveBase = isoddsSourceSPA ? `${reqOrigin}/api/casino/cdn/${launchHost}/` : base;
+
+    // oddsSource SPA: /link ve /freerounds API çağrılarını gerçek launcher backend'e yönlendir.
+    // SPA, window.location.hostname kullandığından port olmadan "localhost" → http://localhost (port 80) gider.
+    // Bu script fetch'i override eder, çağrıyı /api/casino/launcher-proxy/* üzerinden proxy'ler.
+    // Ayrıca /link yanıtındaki oyun URL'ini BZ inject'li proxy URL'ine çevirir.
+    // postMessage relay: PP game iframe'den gelen bz_ mesajlarını casino UI'a iletir.
+    const oddsSourceSpaFix = isoddsSourceSPA ? `<script>
+(function(){
+  const _LH=${JSON.stringify(launchHost)};
+  const _GID=${JSON.stringify(req.params.gameId)};
+  const _SRV=${JSON.stringify(reqOrigin)};
+  const _T=${JSON.stringify(req.query.t||'')};
+  const _GT=${JSON.stringify(req.query.gt||'')};
+  const _GP=${JSON.stringify(req.query.gp||'')};
+  const _oFetch=window.fetch.bind(window);
+  window.fetch=async function(input,init){
+    let url=typeof input==='string'?input:(input instanceof Request?input.url:String(input));
+    const m=url.match(/\\/(link|freerounds)(\\?.*)?$/);
+    if(m){
+      const path='/'+m[1]+(m[2]||'');
+      const proxyUrl=_SRV+'/api/casino/launcher-proxy/'+_LH+path;
+      console.log('[BZ-oddsSource]',m[1],'→',proxyUrl.slice(-60));
+      if(m[1]==='link'){
+        const resp=await _oFetch(proxyUrl,init);
+        if(resp.ok){
+          try{
+            const data=await resp.json();
+            if(data.url){
+              data.url=_SRV+'/api/casino/game/'+_GID
+                +'?demoUrl='+encodeURIComponent(data.url)
+                +'&t='+encodeURIComponent(_T)
+                +'&gt='+encodeURIComponent(_GT)
+                +'&gp='+encodeURIComponent(_GP);
+              console.log('[BZ-oddsSource] game URL rewrite:',data.url.slice(0,80));
+            }
+            return new Response(JSON.stringify(data),{status:resp.status,headers:{'Content-Type':'application/json'}});
+          }catch(e){console.warn('[BZ-oddsSource] /link parse err:',e.message);}
+        }
+        return resp;
+      }
+      return _oFetch(proxyUrl,init);
+    }
+    return _oFetch(input,init);
+  };
+  window.addEventListener('message',function(e){
+    if(e.data&&typeof e.data==='object'&&e.data.type&&(e.data.type.startsWith('bz_')||e.data.type.startsWith('bz-'))){
+      try{parent.postMessage(e.data,'*');}catch(_){}
+    }
+  });
+  console.log('[BZ-oddsSource] SPA fix installed:',_LH);
+})();
+</script>` : '';
+
+    const inject = `<base href="${effectiveBase}">${searchFix}${ppConfigInject}${oddsSourceSpaFix}${monitorScript(req.user.id, req.query.t, dbUser?.balance ?? 0, req.params.gameId, req.query.gt || '', req.query.gp || '')}`;
 
     let modified = html
       .replace(/<meta[^>]*content-security-policy[^>]*>/gi, '')
@@ -676,9 +792,25 @@ console.log('[bz] PP sendToAdapter hook installed');
     // <head> tag yoksa başa ekle
     if (!/<head/i.test(html)) modified = inject + html;
 
+    // oddsSource SPA: root-relative import() yollarını CDN proxy'e yönlendir
+    // Svelte runtime inline script içinde import("/_app/...") kullanır — root-relative
+    // olduğundan <base href>'ten bağımsız, mevcut origin'e gider (localhost:3001/_app/ = 404)
+    // Çözüm: /_app/ → /api/casino/cdn/LAUNCH_HOST/_app/ şeklinde rewrite et
+    if (isoddsSourceSPA) {
+      const cdnRoot = `/api/casino/cdn/${launchHost}`;
+      modified = modified.replace(
+        /import\(([`"'])(\/_app\/[^`"']+)\1\)/g,
+        (_, q, p) => `import(${q}${cdnRoot}${p}${q})`
+      );
+      // <link rel="modulepreload" href="/_app/..."> — preload ipuçları da rewrite et
+      modified = modified.replace(
+        /(<link\b[^>]*\brel=["']modulepreload["'][^>]*\bhref=["'])(\/_app\/[^"']+)(["'])/gi,
+        (_, pre, p, suf) => `${pre}${cdnRoot}${p}${suf}`
+      );
+    }
+
     // type="module" scriptler ve link:stylesheet için CORS bypass — src/href relay'e yönlendir
     // Origin: <base href> PP CDN'ine işaret ettiğinden absolute URL gerekli
-    const reqOrigin = (req.get('x-forwarded-proto') || req.protocol) + '://' + req.get('host');
     modified = rewriteAssets(modified, base, reqOrigin);
 
     res.setHeader('Content-Type', 'text/html; charset=utf-8');
@@ -711,8 +843,24 @@ r.all('/relay', (req, res) => {
   delete fwd['accept-encoding'];
   fwd.host = parsed.host;
   // Origin ve Referer'ı hedef domain gibi göster — CDN hotlink/same-origin koruması bypass
-  fwd['origin'] = parsed.origin;
-  fwd['referer'] = parsed.origin + '/';
+  // BZ script oyunun gerçek origin'ini X-BZ-Origin header'ı ile iletirse onu kullan
+  // (gp-1-*.w5tpzfk7ugytdghuzt8y.com gibi game frame origin'i, localhost:3001 değil)
+  // Origin/Referer belirleme: X-BZ-Origin header → gameOriginCache → fallback
+  const _qGid = req.query.gid;
+  const _bzGameOrigin = req.headers['x-bz-origin'];
+  const _cachedFromGid = _qGid ? gameOriginCache.get(_qGid) : undefined;
+  let _effectiveOrigin = _cachedFromGid || _bzGameOrigin || null;
+  if (!_effectiveOrigin) {
+    // Fallback: Referer header'dan gameId çıkar
+    try {
+      const _ref = new URL(req.headers['referer'] || '');
+      const _gidMatch = _ref.pathname.match(/\/api\/casino\/game\/([^/?]+)/);
+      if (_gidMatch) _effectiveOrigin = gameOriginCache.get(_gidMatch[1]);
+    } catch(_e) {}
+  }
+  fwd['origin'] = _effectiveOrigin || parsed.origin;
+  fwd['referer'] = (_effectiveOrigin ? _effectiveOrigin + '/' : parsed.origin + '/');
+  delete fwd['x-bz-origin'];
   fwd['user-agent'] = UA;
   // fetchRaw'dan önbelleğe alınan session cookie'lerini ekle (CF clearance, PP session vb.)
   const cachedCookie = proxyCookieCache.get(parsed.hostname);
@@ -978,6 +1126,73 @@ r.all('/relay', (req, res) => {
   proxyReq.end();
 });
 
+// ── GET /api/casino/cdn/* — oddsSource SPA JavaScript CDN pass-through (CORS bypass) ──
+// Svelte dinamik import'ları CDN'den CORS başlığı olmadan yüklenemez; bu endpoint
+// CDN JS/CSS dosyalarını same-origin üzerinden serve ederek sorunu çözer.
+// Whitelist koruması: yalnızca ALLOWED domain'lere erişim.
+r.get('/cdn/*', (req, res) => {
+  console.log('[CDN] HIT:', req.url.slice(0, 80), 'params:', req.params[0]?.slice(0, 50));
+  const rest = req.params[0]; // "launch-HASH.w5tpzfk7ugytdghuzt8y.com/_app/..."
+  const slashIdx = rest.indexOf('/');
+  const host = slashIdx === -1 ? rest : rest.slice(0, slashIdx);
+  const pathStr = slashIdx === -1 ? '/' : rest.slice(slashIdx);
+  const qs = req.url.includes('?') ? req.url.slice(req.url.indexOf('?')) : '';
+  const target = `https://${host}${pathStr}${qs}`;
+
+  if (!isAllowed(target)) return res.status(403).end();
+
+  fetchRaw(target).then(({ status, headers: fwdH, body }) => {
+    console.log('[CDN] fetchRaw status:', status, 'body bytes:', body.length, 'target:', target.slice(-40));
+    const h = { ...fwdH };
+    delete h['access-control-allow-origin'];
+    delete h['content-security-policy'];
+    delete h['x-frame-options'];
+    delete h['transfer-encoding'];
+    delete h['cross-origin-resource-policy'];
+    delete h['cross-origin-opener-policy'];
+    delete h['cross-origin-embedder-policy'];
+    h['access-control-allow-origin'] = '*';
+    h['cross-origin-resource-policy'] = 'cross-origin';
+    h['cache-control'] = 'public, max-age=300';
+    res.writeHead(status, h);
+    res.end(body);
+  }).catch(err => {
+    console.error('[cdn-proxy]', target, err.message);
+    if (!res.headersSent) res.status(502).end();
+  });
+});
+
+// ── GET /api/casino/launcher-proxy/* — oddsSource SPA launcher API proxy ───────────
+// Svelte SPA /link ve /freerounds çağrılarını gerçek launcher backend'e iletir.
+// Whitelist koruması: yalnızca ALLOWED domain'lere erişim.
+r.get('/launcher-proxy/*', (req, res) => {
+  const rest = req.params[0];
+  const slashIdx = rest.indexOf('/');
+  const host = slashIdx === -1 ? rest : rest.slice(0, slashIdx);
+  const pathStr = slashIdx === -1 ? '/' : rest.slice(slashIdx);
+  const qs = req.url.includes('?') ? req.url.slice(req.url.indexOf('?')) : '';
+  const target = `https://${host}${pathStr}${qs}`;
+
+  if (!isAllowed(target)) return res.status(403).end();
+
+  fetchRaw(target).then(({ status, headers: fwdH, body }) => {
+    const h = { ...fwdH };
+    delete h['transfer-encoding'];
+    delete h['content-security-policy'];
+    delete h['x-frame-options'];
+    delete h['cross-origin-resource-policy'];
+    delete h['cross-origin-opener-policy'];
+    delete h['cross-origin-embedder-policy'];
+    h['access-control-allow-origin'] = '*';
+    h['cross-origin-resource-policy'] = 'cross-origin';
+    res.writeHead(status, h);
+    res.end(body);
+  }).catch(err => {
+    console.error('[launcher-proxy]', target, err.message);
+    if (!res.headersSent) res.status(502).end();
+  });
+});
+
 // ── GET /api/casino/logo-stub.js — PP logo_info.js yerine boş JS döner ────────
 r.get('/logo-stub.js', (req, res) => {
   res.setHeader('Content-Type', 'application/javascript; charset=utf-8');
@@ -1037,6 +1252,36 @@ r.post('/spin', requireAuth, async (req, res, next) => {
     }
 
     res.json({ balance: user.balance, netChange });
+  } catch (e) { next(e); }
+});
+
+// ── GET /api/casino/oddsSource-game/:id — Tek oyun bilgisi + launch URL ────────
+r.get('/oddsSource-game/:id', casinoAuth, async (req, res, next) => {
+  try {
+    const games = loadoddsSourceGames();
+    const game = games.find(g => g.id === req.params.id);
+    if (!game) return res.status(404).json({ error: 'Oyun bulunamadı' });
+
+    const url = await getoddsSourceGameUrl(game.id, game.oddsSourceProvider, true);
+    res.json({ game, url });
+  } catch (e) { next(e); }
+});
+
+// ── GET /api/casino/oddsSource-games — oddsSource oyun kataloğu ───────────────────
+r.get('/oddsSource-games', casinoAuth, (req, res) => {
+  const games = loadoddsSourceGames();
+  res.json({ total: games.length, games });
+});
+
+// ── POST /api/casino/oddsSource-launch — oddsSource üzerinden oyun URL'si al ──────
+// Body: { gameId: "<uuid>", provider: "pragmatic-play", fun?: true }
+r.post('/oddsSource-launch', casinoAuth, async (req, res, next) => {
+  try {
+    const { gameId, provider, fun = true } = req.body;
+    if (!gameId || !provider) return res.status(400).json({ error: 'gameId ve provider zorunlu' });
+
+    const url = await getoddsSourceGameUrl(gameId, provider, fun !== false);
+    res.json({ url });
   } catch (e) { next(e); }
 });
 
