@@ -72,6 +72,20 @@ const ALLOWED = [
   'onobipjhlj.net',                  // PP CDN — build.js, GUI/other resources, meta.html
   'progaindia.com',                  // Ninja Gaming game engine (dev-games.progaindia.com)
   'ninjagaming.com',                 // Ninja Gaming assets
+  // oddsSource aggregator launcher'ları — provider'a göre farklı domain
+  'lnchtr-game78.click',             // Spinomenal, Yggdrasil launcher
+  'ozz7wxai.click',                  // Red Tiger launcher (chlrcjyg.ozz7wxai.click)
+  'dor593kel.com',                   // Amusnet launcher (oddsSource365com.dor593kel.com)
+  'spinfortuneslots.com',            // Fazi launcher (gameserver-store-ms-2.spinfortuneslots.com)
+  'bschoice2.com',                   // Betsoft launcher (tapking-c2ss.bschoice2.com)
+  'd2sx83al1f82za.cloudfront.net',  // Hacksaw Gaming launcher CDN
+  'd17rio01vionhx.cloudfront.net',  // Voltent launcher CDN
+  'ply-cdn-p1gzx-d9b65ya-in7vta.com', // Habanero oyun CDN (gsplauncher.de redirect hedefi)
+  'gameserver-api-ms-2.spinfortuneslots.com', // Fazi API
+  'cdn.dor593kel.com',              // Amusnet CDN
+  'habanero.co',                    // Habanero replay/analytics (replay.habanero.co)
+  'games-c2ss.bschoice2.com',       // Betsoft oyun CDN
+  'voltent.com',                    // Voltent oyun CDN
 ];
 
 const UA = 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36';
