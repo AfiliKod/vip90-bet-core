@@ -623,12 +623,31 @@ function rewriteAssets(html, base, origin = '') {
 r.get('/game/:gameId', casinoAuth, async (req, res, next) => {
   try {
     const { demoUrl } = req.query;
-    if (!demoUrl || !isAllowed(demoUrl)) return res.status(400).send('Geçersiz URL');
+    if (!demoUrl) return res.status(400).send('Geçersiz URL');
+
+    // BGaming S3 interlayer → beta.bgaming-network.com'a çevir
+    // Örnek: https://s3.eu-central-1.amazonaws.com/bg-beta-interl/beta-interlayer.html?_target=/games/X/TRY?launch_token=JWT
+    let activeDemoUrl = demoUrl;
+    try {
+      const _p = new URL(demoUrl);
+      if (_p.hostname === 's3.eu-central-1.amazonaws.com' && _p.pathname.includes('beta-interlayer')) {
+        const _rawTarget = _p.searchParams.get('_target');
+        if (_rawTarget) {
+          const _targetUrl = new URL(decodeURIComponent(_rawTarget), 'https://beta.bgaming-network.com');
+          _targetUrl.hostname = 'beta.bgaming-network.com';
+          _targetUrl.protocol = 'https:';
+          activeDemoUrl = _targetUrl.href;
+          gameOriginCache.set(req.params.gameId, 'https://beta.bgaming-network.com');
+          console.log('[bgaming] interlayer resolved →', activeDemoUrl.slice(0, 80));
+        }
+      }
+    } catch (_e) {}
+
+    if (!isAllowed(activeDemoUrl)) return res.status(400).send('Geçersiz URL');
 
     // oddsSource launcher URL'leri server-side resolve et: SvelteKit SPA'sını bypass edip
     // gerçek PP oyun URL'ini doğrudan proxy'le. SPA router sorununu (localhost route çakışması) önler.
-    let activeDemoUrl = demoUrl;
-    const _parsedDemo = new URL(demoUrl);
+    const _parsedDemo = new URL(activeDemoUrl);
     if (_parsedDemo.hostname.startsWith('launch-') && _parsedDemo.hostname.endsWith('w5tpzfk7ugytdghuzt8y.com')) {
       const _gameId = _parsedDemo.searchParams.get('id');
       if (_gameId) {
