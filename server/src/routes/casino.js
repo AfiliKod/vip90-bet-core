@@ -32,6 +32,9 @@ function buildCookieStr() {
 
 const r = Router();
 
+// PP main_resources chunk merge cache: game CDN base URL → merged JSON string
+const ppMainResCache = new Map();
+
 // iframe navigation ve monitoring script fetch'i Bearer header göndermez —
 // ?t= query param'ı da kabul eden hafif auth (sadece casino endpoint'leri için)
 function casinoAuth(req, res, next) {
@@ -65,6 +68,8 @@ const ALLOWED = [
   'd2drhksbtcqozo.cloudfront.net',  // Relax Gaming CDN
   'd8nmy0stul6d0.cloudfront.net',   // Relax Gaming launcher CDN
   'w5tpzfk7ugytdghuzt8y.com',       // oddsSource game launcher (aggregator)
+  'efjdztlklg.net',                  // oddsSource PP aggregator (52nrfbn3yn.efjdztlklg.net)
+  'onobipjhlj.net',                  // PP CDN — build.js, GUI/other resources, meta.html
   'progaindia.com',                  // Ninja Gaming game engine (dev-games.progaindia.com)
   'ninjagaming.com',                 // Ninja Gaming assets
 ];
@@ -568,6 +573,29 @@ XMLHttpRequest.prototype.send=function(b){
   return _sn.apply(this,arguments);
 };
 
+// ── WebSocket intercept — WS üzerinden spin tespiti (Endorphina vb.) ──────────
+(function(){
+  var _WS=window.WebSocket;
+  if(!_WS)return;
+  function BzWS(url,protocols){
+    var ws=protocols!=null?new _WS(url,protocols):new _WS(url);
+    ws.addEventListener('message',function(e){
+      try{
+        var d=typeof e.data==='string'?JSON.parse(e.data):null;
+        if(d){var s=exSpin(d);if(s){sendAlive();report(s);}}
+      }catch(_e){}
+    });
+    return ws;
+  }
+  BzWS.prototype=_WS.prototype;
+  BzWS.CONNECTING=_WS.CONNECTING;
+  BzWS.OPEN=_WS.OPEN;
+  BzWS.CLOSING=_WS.CLOSING;
+  BzWS.CLOSED=_WS.CLOSED;
+  window.WebSocket=BzWS;
+  console.log('[BZ-ws] WebSocket override installed');
+})();
+
 // ── Script src interception — dinamik <script> tag'larını relay'e yönlendir ──
 // Kapsam: tüm ALLOWED domain script'leri (GWT/Wazdan, PP build.js, logo_info.js vb.)
 // Kısıtlama: ok() testi geçmeyen URL'ler değiştirilmez (harici CDN, data:, blob: vb.)
@@ -584,15 +612,87 @@ XMLHttpRequest.prototype.send=function(b){
       get:__sd.get,configurable:true,enumerable:__sd.enumerable
     });
   }
+  // iframe .src = url — property setter (Relax Gaming launcher kullanır)
+  var __ifrD=Object.getOwnPropertyDescriptor(HTMLIFrameElement.prototype,'src');
+  if(__ifrD&&__ifrD.set){
+    Object.defineProperty(HTMLIFrameElement.prototype,'src',{
+      set:function(v){
+        try{
+          if(typeof v==='string'&&ok(v)){
+            v=__bzH+'/api/casino/game/'+encodeURIComponent(__bzGID)
+              +'?demoUrl='+encodeURIComponent(v)
+              +'&t='+encodeURIComponent(tok)
+              +'&gt='+encodeURIComponent(__bzGTIT)
+              +'&gp='+encodeURIComponent(__bzGPROV);
+            console.log('[BZ-iframe-prop] intercepted →',v.slice(0,80));
+          }
+        }catch(_e){}
+        __ifrD.set.call(this,v);
+      },
+      get:__ifrD.get,configurable:true
+    });
+  }
   // GWT ve bazı framework'ler setAttribute('src',url) kullanır — prototype setter'ı bypass eder
   var _sa=Element.prototype.setAttribute;
   Element.prototype.setAttribute=function(name,val){
     if(this.tagName==='SCRIPT'&&name==='src'&&typeof val==='string'&&ok(val)){
       val=__bzH+'/api/casino/relay?url='+encodeURIComponent(val);
+    }else if(this.tagName==='IFRAME'&&name==='src'&&typeof val==='string'&&ok(val)){
+      val=__bzH+'/api/casino/game/'+encodeURIComponent(__bzGID)
+        +'?demoUrl='+encodeURIComponent(val)
+        +'&t='+encodeURIComponent(tok)
+        +'&gt='+encodeURIComponent(__bzGTIT)
+        +'&gp='+encodeURIComponent(__bzGPROV);
+      console.log('[BZ-iframe-sa] intercepted');
     }
     return _sa.call(this,name,val);
   };
 })();
+
+// ── Window navigation intercept — oyun URL'lerini proxy'e yönlendir ──────────
+// Relax Gaming launcher gibi dinamik navigation yapan oyunlar için
+(function(){
+  function _bzInterceptNav(url,method){
+    try{
+      if(typeof url!=='string'||!ok(url))return false;
+      var _pURL=__bzH+'/api/casino/game/'+encodeURIComponent(__bzGID)
+        +'?demoUrl='+encodeURIComponent(url)
+        +'&t='+encodeURIComponent(tok)
+        +'&gt='+encodeURIComponent(__bzGTIT)
+        +'&gp='+encodeURIComponent(__bzGPROV);
+      console.log('[BZ-nav] intercepted '+method+' →',url.slice(0,80));
+      if(method==='replace')window.location.replace(_pURL);
+      else window.location.assign(_pURL);
+      return true;
+    }catch(_e){return false;}
+  }
+  try{
+    var _origAssign=window.location.assign.bind(window.location);
+    var _origReplace=window.location.replace.bind(window.location);
+    window.location.assign=function(url){if(!_bzInterceptNav(url,'assign'))_origAssign(url);};
+    window.location.replace=function(url){if(!_bzInterceptNav(url,'replace'))_origReplace(url);};
+  }catch(_e2){}
+  try{
+    var _locDesc=Object.getOwnPropertyDescriptor(Location.prototype,'href');
+    if(_locDesc&&_locDesc.set){
+      Object.defineProperty(Location.prototype,'href',{
+        set:function(v){
+          if(!_bzInterceptNav(v,'href'))_locDesc.set.call(this,v);
+        },
+        get:_locDesc.get,configurable:true
+      });
+    }
+  }catch(_e3){}
+  console.log('[BZ-nav] navigation override installed');
+})();
+
+// ── bz_ mesaj relay — child frame'lerden parent'a ilet (çok katmanlı frame setup) ──
+window.addEventListener('message',function(e){
+  if(e.source!==window&&e.data&&typeof e.data.type==='string'&&e.data.type.slice(0,3)==='bz_'){
+    if(window.parent!==window)window.parent.postMessage(e.data,'*');
+  }
+});
+
 window.parent.postMessage({type:'bz_loaded'},'*');
 })();
 </script>`;
@@ -602,14 +702,19 @@ window.parent.postMessage({type:'bz_loaded'},'*');
 // Sadece type="module" script ve crossorigin link tag'ları rewrite edilir.
 // Normal <script src> (Unity Loader vb.) asla dokunulmaz — Loader kendi URL'sinden
 // asset path hesaplar; relay URL'ye çekilirse bundle yüklemesi bozulur.
-function rewriteAssets(html, base, origin = '') {
+function rewriteAssets(html, base, origin = '', cacheBust = '') {
   function toRelay(url) {
     if (!url || /^(data:|blob:|#|javascript:|\/api\/)/.test(url)) return url;
     try {
       const abs = /^https?:\/\//.test(url) ? url : new URL(url, base).href;
       // <base href> PP CDN'ini işaret ettiğinden relative URL relay'e değil PP'ye resolve edilir.
       // Absolute URL kullan — base href'ten bağımsız.
-      if (isAllowed(abs)) return `${origin}/api/casino/relay?url=${encodeURIComponent(abs)}`;
+      if (isAllowed(abs)) {
+        const relayUrl = `${origin}/api/casino/relay?url=${encodeURIComponent(abs)}`;
+        // build.js için cache-bust: her oyun açılışında farklı URL → browser cache bypass
+        if (cacheBust && /build\.js/.test(abs)) return relayUrl + `&_bz=${cacheBust}`;
+        return relayUrl;
+      }
     } catch {}
     return url;
   }
@@ -690,9 +795,25 @@ r.get('/game/:gameId', casinoAuth, async (req, res, next) => {
     const path = new URL(resolvedUrl).pathname;
     const base = origin + path.substring(0, path.lastIndexOf('/') + 1);
 
+    // Tüm provider'lar için game origin'ini relay Origin spoofing için cache'le
+    if (!gameOriginCache.has(req.params.gameId)) {
+      gameOriginCache.set(req.params.gameId, origin);
+    }
+
     // PP: openGame.do → html5Game.do?mgckey=...SESSION@xxx redirect yapar.
     // Session ID redirect URL'sindedir — resolvedUrl öncelikli, yoksa orijinal.
-    const origSearch = new URL(resolvedUrl).search || new URL(demoUrl).search;
+    let origSearch = new URL(resolvedUrl).search || new URL(demoUrl).search;
+
+    // Fugaso mode=external — parent init protokolü bekler, başsız çalışmaz.
+    // mode=external'ı kaldırarak oyunun standalone init akışını kullanmasını sağla.
+    if (origSearch && base.includes('cgaminghub.online') && origSearch.includes('mode=external')) {
+      try {
+        const _sp = new URLSearchParams(origSearch.slice(1));
+        _sp.delete('mode');
+        origSearch = '?' + _sp.toString();
+        console.log('[fugaso] mode=external kaldırıldı');
+      } catch (_e) {}
+    }
     const searchFix = origSearch ? `<script>
 (function(){
 var __os=${JSON.stringify(origSearch)};
@@ -835,7 +956,7 @@ console.log('[bz] PP sendToAdapter hook installed');
 
     // type="module" scriptler ve link:stylesheet için CORS bypass — src/href relay'e yönlendir
     // Origin: <base href> PP CDN'ine işaret ettiğinden absolute URL gerekli
-    modified = rewriteAssets(modified, base, reqOrigin);
+    modified = rewriteAssets(modified, base, reqOrigin, Date.now().toString());
 
     res.setHeader('Content-Type', 'text/html; charset=utf-8');
     res.setHeader('X-Frame-Options', 'SAMEORIGIN');
@@ -848,7 +969,7 @@ console.log('[bz] PP sendToAdapter hook installed');
 
 // ── ALL /api/casino/relay — provider API çağrılarını proxyle ─────────────────
 // Auth yok — whitelist domain kontrolü yeterli güvenlik sağlar
-r.all('/relay', (req, res) => {
+r.all('/relay', async (req, res) => {
   const { url: rawUrl } = req.query;
   if (!rawUrl) return res.status(400).end();
 
@@ -857,6 +978,94 @@ r.all('/relay', (req, res) => {
   catch { return res.status(400).end(); }
 
   if (!isAllowed(target)) return res.status(403).end();
+
+  // PP CDN resource chunk birleştirme:
+  // GUI/other_resources: 000+001 concat → geçerli JSON
+  // main_resources: 000-034+ arası tüm chunk'lar concat → geçerli JSON
+  const _ppResMatch = target.match(/\/(GUI_resources|other_resources|main_resources)(\d+)\.json/);
+  if (_ppResMatch && target.includes('onobipjhlj.net')) {
+    const resType = _ppResMatch[1];
+    const idx = parseInt(_ppResMatch[2]);
+    const hdr = { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*', 'Cache-Control': 'public, max-age=300' };
+    if (idx > 0) {
+      // 001+ dosyası 000 yanıtına birleştirildi → boş resource listesi döndür
+      res.writeHead(200, hdr);
+      return res.end('{"resources":[]}');
+    }
+
+    if (resType === 'GUI_resources' || resType === 'other_resources') {
+      // idx=0 → 000 + 001 birleştir
+      const url001 = target.replace(new RegExp(resType + '000'), resType + '001').split('?')[0];
+      const url000 = target.split('?')[0];
+      try {
+        const [r0, r1] = await Promise.all([fetchRaw(url000), fetchRaw(url001)]);
+        const t0 = r0.body.toString('utf8');
+        const t1 = r1.body.toString('utf8');
+        const combined = JSON.parse(t0 + t1);
+        if (Array.isArray(combined.resources)) {
+          combined.resources = combined.resources.filter(r => r.type !== 'Font');
+        }
+        console.log('[pp-res-merge]', resType, 'resources:', combined.resources?.length);
+        res.writeHead(200, hdr);
+        return res.end(JSON.stringify(combined));
+      } catch (e) {
+        console.warn('[pp-res-merge] birleştirme hatası:', e.message);
+        res.writeHead(200, hdr);
+        return res.end('{"resources":[]}');
+      }
+    }
+
+    // main_resources: idx=0, tüm chunk'ları sırayla fetch et
+    const url000clean = target.split('?')[0];
+    const baseChunkUrl = url000clean.slice(0, url000clean.lastIndexOf('main_resources')) + 'main_resources';
+    const cacheKey = baseChunkUrl;
+
+    if (ppMainResCache.has(cacheKey)) {
+      console.log('[pp-main-cache] hit');
+      res.writeHead(200, hdr);
+      return res.end(ppMainResCache.get(cacheKey));
+    }
+
+    try {
+      let combined = '';
+      let done = false;
+      // Chunk'ları 10'lu batch'ler halinde paralel fetch et
+      for (let batchStart = 0; batchStart <= 100 && !done; batchStart += 10) {
+        const indices = Array.from({ length: 10 }, (_, i) => batchStart + i);
+        const results = await Promise.all(indices.map(i => {
+          const num = String(i).padStart(3, '0');
+          return fetchRaw(`${baseChunkUrl}${num}.json`).catch(() => null);
+        }));
+        for (const r of results) {
+          if (!r || r.status === 404) { done = true; break; }
+          combined += r.body.toString('utf8');
+          // Son chunk "]}" ile bitiyor — geçerli JSON mı?
+          const tail = combined.slice(-4);
+          if (tail.includes(']}')) {
+            try {
+              const parsed = JSON.parse(combined);
+              if (Array.isArray(parsed.resources)) {
+                parsed.resources = parsed.resources.filter(r => r.type !== 'Font');
+              }
+              const json = JSON.stringify(parsed);
+              ppMainResCache.set(cacheKey, json);
+              console.log('[pp-main-merge] resources:', parsed.resources?.length);
+              res.writeHead(200, hdr);
+              return res.end(json);
+            } catch (_e) { /* henüz tamamlanmadı, devam */ }
+          }
+        }
+      }
+      // Hata durumu: boş döndür
+      console.warn('[pp-main-merge] birleştirme başarısız');
+      res.writeHead(200, hdr);
+      return res.end('{"resources":[]}');
+    } catch (e) {
+      console.warn('[pp-main-merge] hata:', e.message);
+      res.writeHead(200, hdr);
+      return res.end('{"resources":[]}');
+    }
+  }
 
   const parsed = new URL(target);
   const mod = parsed.protocol === 'https:' ? https : http;
@@ -890,15 +1099,62 @@ r.all('/relay', (req, res) => {
   const cachedCookie = proxyCookieCache.get(parsed.hostname);
   if (cachedCookie) fwd.cookie = cachedCookie;
 
-  // Eğer JSON body parse edildiyse yeniden serialize et
+  // Body'yi orijinal Content-Type'ı koruyarak serialize et
+  // Endorphina gibi URL-encoded bekleyen endpoint'ler için kritik
   let bodyBuf;
+  const _origCT = (req.headers['content-type'] || '').toLowerCase();
   if (req.body && typeof req.body === 'object' && Object.keys(req.body).length > 0) {
-    bodyBuf = Buffer.from(JSON.stringify(req.body));
-    fwd['content-type'] = 'application/json';
+    if (_origCT.includes('application/x-www-form-urlencoded')) {
+      // URL-encoded body'yi koru — JSON'a dönüştürme
+      bodyBuf = Buffer.from(new URLSearchParams(req.body).toString());
+      fwd['content-type'] = 'application/x-www-form-urlencoded';
+    } else {
+      bodyBuf = Buffer.from(JSON.stringify(req.body));
+      fwd['content-type'] = 'application/json';
+    }
     fwd['content-length'] = String(bodyBuf.length);
   } else if (typeof req.body === 'string' && req.body.length > 0) {
     bodyBuf = Buffer.from(req.body);
     fwd['content-length'] = String(bodyBuf.length);
+  }
+
+  // HTTP/2 gerektiren endpoint'ler için fetch tabanlı relay (undici HTTP/2 destekli)
+  // Endorphina /organic/websocket/launch — HTTP/1.1 ECONNRESET alır
+  const needsH2 = parsed.hostname.includes('ambition-demcibel-shack.space') ||
+                  parsed.hostname.includes('endorphina.online') ||
+                  parsed.hostname.includes('endorphina.network');
+  if (needsH2) {
+    const fetchHeaders = { ...fwd };
+    delete fetchHeaders['content-length']; // fetch kendi hesaplar
+    delete fetchHeaders['host'];           // fetch URL'den belirler
+    delete fetchHeaders['connection'];     // HTTP/2'de geçersiz
+    console.log('[relay-h2]', req.method, target.slice(0, 80), '| body:', bodyBuf?.length || 0, 'bytes | status →');
+    try {
+      const fetchResp = await fetch(target, {
+        method: req.method,
+        headers: fetchHeaders,
+        body: bodyBuf || undefined,
+      });
+      console.log('[relay-h2]', fetchResp.status, target.slice(0, 60));
+      const h = {};
+      for (const [k, v] of fetchResp.headers.entries()) h[k] = v;
+      delete h['access-control-allow-origin'];
+      delete h['access-control-allow-credentials'];
+      delete h['content-security-policy'];
+      // undici fetch decompresses automatically — content-encoding header'ı iletme
+      // aksi hâlde browser double-decompress dener → ERR_CONTENT_DECODING_FAILED
+      delete h['content-encoding'];
+      delete h['transfer-encoding'];
+      h['access-control-allow-origin'] = '*';
+      h['cross-origin-resource-policy'] = 'cross-origin';
+      res.writeHead(fetchResp.status, h);
+      const buf = await fetchResp.arrayBuffer();
+      res.end(Buffer.from(buf));
+    } catch (e) {
+      console.error('[relay-h2 502]', req.method, target.slice(0, 80), '|', e.code || e.message);
+      if (!res.headersSent) res.status(502).end();
+    }
+    return;
   }
 
   const proxyReq = mod.request({
@@ -1020,9 +1276,12 @@ r.all('/relay', (req, res) => {
         body = body.replaceAll('globalRuntime.sceneRoots.length', '(globalRuntime&&globalRuntime.sceneRoots||[]).length');
         // PatchPlayNowButton: tSOI null ise .RemoveButtonAndPatchText assign hatası
         body = body.replace('tSOI.RemoveButtonAndPatchText = function()', 'if(!tSOI)return; tSOI.RemoveButtonAndPatchText = function()');
-        console.log('[bz-logo-patch] sceneRoots + tSOI null-safe patched');
+        // Grafana Faro telemetri SDK'sı clctr.ltguevmavv.com'a CORS hatası üretir — no-op ile sustur
+        body = 'window.initFaro=function(){};window.faro={api:{pushError:function(){},pushEvent:function(){}}};' + body;
+        console.log('[bz-logo-patch] sceneRoots + tSOI + initFaro patched');
         delete h['content-length'];
         h['content-type'] = 'application/javascript; charset=utf-8';
+        h['cache-control'] = 'no-store';
         res.writeHead(200, h);
         res.end(body);
       });
@@ -1092,23 +1351,33 @@ r.all('/relay', (req, res) => {
         } else {
           console.warn('[bz-build-patch] WARNING: CallOnGameObjectList ORIG not found');
         }
-        // PP ServerOptions.serverUrl — build.js içinde yanlış domain (studio.game-service.biz)
-        // hardcoded. PP demo oyunlarında spin istekleri bu domain'e gider, ALLOWED listesinde yok.
-        // Doğru demo sunucusuna yönlendir → relay interceptleyebilsin.
-        const SRV_ORIG = 'serverUrl:"https://studio.game-service.biz"';
-        const SRV_PATCH = 'serverUrl:"https://demogamesfree.pragmaticplay.net"';
-        if (body.includes(SRV_ORIG)) {
-          body = body.replace(SRV_ORIG, SRV_PATCH);
-          console.log('[bz-build-patch] serverUrl → demogamesfree.pragmaticplay.net');
+        // studio.game-service.biz: PP'nin gerçek game server'ı — oddsSource AUTHTOKEN ile çalışıyor.
+        // Patch kaldırıldı: demogamesfree yönlendirmesi oddsSource token'larını reddediyordu.
+        if (body.includes('studio.game-service.biz')) {
+          console.log('[bz-build-patch] serverUrl studio.game-service.biz → doğrudan bırakıldı');
+        }
+
+        // PIXI.BaseTexture.fromImage null URL guard — UIFont.LoadFont null texture URL geçtiğinde crash önle
+        // Stack: UIFont.deserialize→LoadFont→i.fromImage→null.indexOf("data:")
+        const FI_ORIG = 'i.fromImage=function(t,e,r){void 0===e&&0!==t.indexOf("data:")&&(e=!0);';
+        const FI_PATCH = 'i.fromImage=function(t,e,r){if(t==null){console.warn("[bz] fromImage null url skipped");return new i(new Image(),r);}void 0===e&&0!==t.indexOf("data:")&&(e=!0);';
+        if (body.includes(FI_ORIG)) {
+          body = body.replace(FI_ORIG, FI_PATCH);
+          console.log('[bz-build-patch] PIXI.BaseTexture.fromImage null-safe patched (exact)');
         } else {
-          // Tek tırnak versiyonu dene
-          const SRV_ORIG2 = "serverUrl:'https://studio.game-service.biz'";
-          if (body.includes(SRV_ORIG2)) {
-            body = body.replace(SRV_ORIG2, "serverUrl:'https://demogamesfree.pragmaticplay.net'");
-            console.log('[bz-build-patch] serverUrl (sq) → demogamesfree.pragmaticplay.net');
-          } else {
-            console.warn('[bz-build-patch] WARNING: serverUrl studio.game-service.biz NOT found in build.js');
-          }
+          // Fallback: sadece null-unsafe indexOf çağrısını guard'la
+          const FI_FALLBACK_ORIG = '0!==t.indexOf("data:")';
+          const FI_FALLBACK_PATCH = 't!=null&&0!==t.indexOf("data:")';
+          const cnt = (body.match(new RegExp(FI_FALLBACK_ORIG.replace(/[.*+?^${}()|[\]\\]/g,'\\$&'), 'g')) || []).length;
+          body = body.replaceAll(FI_FALLBACK_ORIG, FI_FALLBACK_PATCH);
+          console.log('[bz-build-patch] PIXI.BaseTexture.fromImage null-safe patched (fallback, replaced:', cnt + ')');
+        }
+        // PIXI.Texture.fromImage null guard — build.js:327'deki Texture.fromImage da null alabilir
+        const FI2_ORIG = 'return new i(n.fromImage(t,e,r))';
+        const FI2_PATCH = 'return new i(n.fromImage(t||"",e,r))';
+        if (body.includes(FI2_ORIG)) {
+          body = body.replaceAll(FI2_ORIG, FI2_PATCH);
+          console.log('[bz-build-patch] PIXI.Texture.fromImage null-safe patched');
         }
 
         // tryToHide güvenlik ağı: PP OnRequestToHideLoader event'i tetiklenmezse
@@ -1130,21 +1399,31 @@ r.all('/relay', (req, res) => {
         console.log('[bz-build-patch] build.js Advance-safety patched');
         delete h['content-length'];
         h['content-type'] = 'application/javascript; charset=utf-8';
+        h['cache-control'] = 'no-store';
         res.writeHead(200, h);
         res.end(body);
       });
       proxyRes.on('error', () => { if (!res.headersSent) res.status(502).end(); });
     } else {
       res.writeHead(proxyRes.statusCode, h);
-      proxyRes.pipe(res);
+      const pipe = proxyRes.pipe(res);
+      proxyRes.on('error', (err) => {
+        console.error('[relay pipe-err]', target.slice(0, 80), '|', err.code || err.message);
+        if (!res.writableEnded) res.destroy();
+      });
+      // Client disconnect → upstream'i de kapat
+      res.on('close', () => { if (!proxyRes.destroyed) proxyRes.destroy(); });
     }
   });
 
   proxyReq.on('error', (err) => {
-    console.error('[relay err]', target, err.message);
+    console.error('[relay 502]', req.method, target.slice(0, 100), '|', err.code, err.message);
     if (!res.headersSent) res.status(502).end();
   });
-  proxyReq.setTimeout(60000, () => { proxyReq.destroy(); });
+  proxyReq.setTimeout(120000, () => {
+    console.warn('[relay timeout]', target.slice(0, 80));
+    proxyReq.destroy();
+  });
 
   if (bodyBuf) proxyReq.write(bodyBuf);
   proxyReq.end();
