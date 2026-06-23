@@ -53,12 +53,17 @@ const ALLOWED = [
   'gamelogs.wazdan.com',
   'fugaso.com',
   'gs.fugaso.com',
+  'gsplauncher.de',                   // Fugaso launcher (launcher-eu1.gsplauncher.de)
+  'cgaminghub.online',                // Fugaso game assets CDN (ns.cgaminghub.online)
   'endorphina.com',
   'endorphina.network',               // Endorphina demo CDN (demo.endorphina.network)
+  'endorphina.online',                // Endorphina API CDN (cdn1.endorphina.online)
+  'ambition-demcibel-shack.space',    // Endorphina game data CDN
   'relax-gaming.com',
   'relaxgaming.com',
   'relaxg.net',                      // Relax Gaming API (stag-casino-client.api.relaxg.net)
   'd2drhksbtcqozo.cloudfront.net',  // Relax Gaming CDN
+  'd8nmy0stul6d0.cloudfront.net',   // Relax Gaming launcher CDN
   'w5tpzfk7ugytdghuzt8y.com',       // oddsSource game launcher (aggregator)
   'progaindia.com',                  // Ninja Gaming game engine (dev-games.progaindia.com)
   'ninjagaming.com',                 // Ninja Gaming assets
