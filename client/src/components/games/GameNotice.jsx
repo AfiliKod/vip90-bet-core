@@ -18,10 +18,10 @@ export function useGameNotice() {
   return { notices, notify };
 }
 
-export function GameNoticeArea({ notices, className = '' }) {
+export function GameNoticeArea({ notices, className = '', style }) {
   if (!notices.length) return null;
   return (
-    <div className={`absolute inset-x-0 bottom-5 flex flex-col items-center gap-2 z-30 pointer-events-none px-8 ${className}`}>
+    <div className={`absolute inset-x-0 bottom-5 flex flex-col items-center gap-2 z-30 pointer-events-none px-8 ${className}`} style={style}>
       {notices.map(n => {
         const s = STYLE[n.type] ?? STYLE.info;
         return (
