@@ -26,7 +26,10 @@ export default {
         'gem-pop':     'gemPop 0.25s cubic-bezier(0.34,1.56,0.64,1) forwards',
         'mine-flash':  'mineFlash 0.35s ease-out forwards',
         'win-wave':    'winWave 0.6s ease-in-out',
-        'astro-hover': 'astrotremor 0.18s ease-in-out',
+        'astro-hover':  'astrotremor 0.18s ease-in-out',
+        'blast-flash':  'blastFlash 0.8s ease-out forwards',
+        'win-flash':    'winFlash 1.2s ease-out forwards',
+        'balloon':      'balloon 0.38s cubic-bezier(0.34,1.56,0.64,1) forwards',
       },
       keyframes: {
         marquee:     { '0%': { transform: 'translateX(0)' }, '100%': { transform: 'translateX(-50%)' } },
@@ -53,9 +56,32 @@ export default {
         mineFlash: { '0%': { filter: 'brightness(1)' }, '20%': { filter: 'brightness(3)' }, '50%': { transform: 'scale(1.25)' }, '100%': { transform: 'scale(1)', filter: 'brightness(1)' } },
         winWave:   { '0%,100%': { boxShadow: '0 0 0 rgba(251,191,36,0)' }, '50%': { boxShadow: '0 0 24px rgba(251,191,36,0.8)' } },
         astrotremor: { '0%,100%': { transform: 'scale(1.05)' }, '33%': { transform: 'scale(1.05) rotate(0.6deg)' }, '66%': { transform: 'scale(1.05) rotate(-0.5deg)' } },
+        blastFlash: {
+          '0%':   { opacity: '1' },
+          '40%':  { opacity: '0.85' },
+          '100%': { opacity: '0' },
+        },
+        balloon: {
+          '0%':   { transform: 'scale(0.22) translateY(10px)', opacity: '0' },
+          '68%':  { transform: 'scale(1.07) translateY(-2px)', opacity: '1' },
+          '100%': { transform: 'scale(1)    translateY(0)',    opacity: '1' },
+        },
+        winFlash: {
+          '0%':   { opacity: '0', transform: 'scale(0.85)' },
+          '25%':  { opacity: '1', transform: 'scale(1.05)' },
+          '60%':  { opacity: '0.7' },
+          '100%': { opacity: '0', transform: 'scale(1)' },
+        },
       },
     }
   },
-  plugins: []
+  plugins: [
+    function({ addUtilities }) {
+      addUtilities({
+        '.no-scrollbar::-webkit-scrollbar': { display: 'none' },
+        '.no-scrollbar': { '-ms-overflow-style': 'none', 'scrollbar-width': 'none' },
+      });
+    }
+  ]
 }
 

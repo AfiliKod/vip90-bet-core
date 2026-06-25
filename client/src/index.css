@@ -1,6 +1,7 @@
 :root {
   --color-primary: #00d4ff;
   --color-primary-dark: #00aed4;
+  --game-h: calc(100dvh - 56px);
 }
 
 @tailwind base;
@@ -24,6 +25,13 @@
 /* Firefox */
 *            { scrollbar-width: thin; scrollbar-color: transparent transparent; }
 .is-scrolling { scrollbar-color: rgba(0, 212, 255, 0.22) transparent; }
+@keyframes planet-fly {
+  from  { transform: translateX(-50%) translateY(0);            opacity: 0; }
+  8%    { opacity: 0.95; }
+  92%   { opacity: 0.95; }
+  to    { transform: translateX(-50%) translateY(calc(100vh + 180px)); opacity: 0; }
+}
+
 html { font-size: 110%; }
 body {
   background-color: #060d1a;

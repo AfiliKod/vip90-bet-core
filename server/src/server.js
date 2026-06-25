@@ -13,6 +13,8 @@ import { Server } from 'socket.io';
 import { createApp, corsOptions } from './app.js';
 import { connectDB } from './db.js';
 import { initSocket } from './socket/handler.js';
+import { initCrashGame } from './services/inhouse/crashGame.js';
+import { initRouletteGame } from './services/inhouse/rouletteGame.js';
 import { startoddsSourceLiveSync } from './jobs/oddsSourceLiveSync.js';
 import { startoddsSourceUpcomingSync } from './jobs/oddsSourceUpcomingSync.js';
 import { startStatusTransition } from './jobs/statusTransition.js';
@@ -26,6 +28,8 @@ connectDB()
   .then(async () => {
     httpServer.listen(PORT, () => console.log(`Server :${PORT} üzerinde çalışıyor`));
     initSocket(io);
+    initCrashGame(io);
+    initRouletteGame(io);
     startCleanupJob();
     startStatusTransition(io);
     startoddsSourceLiveSync(io);
