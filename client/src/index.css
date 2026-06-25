@@ -31,6 +31,21 @@
   92%   { opacity: 0.95; }
   to    { transform: translateX(-50%) translateY(calc(100vh + 180px)); opacity: 0; }
 }
+@keyframes asteroid-spin {
+  from { transform: rotate(0deg); }
+  to   { transform: rotate(360deg); }
+}
+@keyframes asteroid-drift {
+  0%,100% { transform: translate(0px,0px); }
+  28%     { transform: translate(-2.5px,-1.5px); }
+  55%     { transform: translate(1.5px,-2px); }
+  78%     { transform: translate(-1px,1.8px); }
+}
+.asteroid-spin  { animation: asteroid-spin  12s linear infinite; }
+.asteroid-drift { animation: asteroid-drift 6s ease-in-out infinite; }
+@keyframes sparkleOut {
+  to { transform: translate(calc(cos(var(--angle)) * var(--dist)), calc(sin(var(--angle)) * var(--dist))) scale(0); opacity: 0; }
+}
 
 html { font-size: 110%; }
 body {
