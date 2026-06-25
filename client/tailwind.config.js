@@ -16,11 +16,13 @@ export default {
       animation: {
         'marquee': 'marquee 30s linear infinite',
         'fade-in': 'fadeIn 0.2s ease-out',
+        'slide-up': 'slideUp 0.15s ease-out',
       },
       keyframes: {
         marquee: { '0%': { transform: 'translateX(0)' }, '100%': { transform: 'translateX(-50%)' } },
         fadeIn: { from: { opacity: '0', transform: 'translateY(-8px)' }, to: { opacity: '1', transform: 'translateY(0)' } },
         shrink: { '0%': { width: '100%' }, '100%': { width: '0%' } },
+        slideUp: { from: { opacity: '0', transform: 'translateY(6px) scale(0.97)' }, to: { opacity: '1', transform: 'translateY(0) scale(1)' } },
       },
     }
   },

@@ -24,6 +24,19 @@ import AdminGameTasks from './pages/admin/GameTasks';
 import AdminCasinoStats from './pages/admin/CasinoStats';
 import Casino from './pages/Casino';
 import CasinoGame from './pages/CasinoGame';
+import Crash from './pages/games/Crash';
+import Mines from './pages/games/Mines';
+import Plinko from './pages/games/Plinko';
+import Dice from './pages/games/Dice';
+import Limbo from './pages/games/Limbo';
+import Wheel from './pages/games/Wheel';
+import Hilo from './pages/games/Hilo';
+import Keno from './pages/games/Keno';
+import Blackjack from './pages/games/Blackjack';
+import Roulette from './pages/games/Roulette';
+import Baccarat from './pages/games/Baccarat';
+import VideoPoker from './pages/games/VideoPoker';
+import DragonTiger from './pages/games/DragonTiger';
 
 export default function App() {
   const { init, user } = useAuthStore();
@@ -59,6 +72,19 @@ export default function App() {
         <Route path="/events/:id" element={<ProtectedRoute><Layout><EventDetail /></Layout></ProtectedRoute>} />
         <Route path="/casino" element={<ProtectedRoute><Layout><Casino /></Layout></ProtectedRoute>} />
         <Route path="/casino/:gameSymbol" element={<ProtectedRoute><CasinoGame /></ProtectedRoute>} />
+        <Route path="/games/crash" element={<ProtectedRoute><Crash /></ProtectedRoute>} />
+        <Route path="/games/mines" element={<ProtectedRoute><Mines /></ProtectedRoute>} />
+        <Route path="/games/plinko" element={<ProtectedRoute><Plinko /></ProtectedRoute>} />
+        <Route path="/games/dice" element={<ProtectedRoute><Dice /></ProtectedRoute>} />
+        <Route path="/games/limbo" element={<ProtectedRoute><Limbo /></ProtectedRoute>} />
+        <Route path="/games/wheel" element={<ProtectedRoute><Wheel /></ProtectedRoute>} />
+        <Route path="/games/hilo" element={<ProtectedRoute><Hilo /></ProtectedRoute>} />
+        <Route path="/games/keno" element={<ProtectedRoute><Keno /></ProtectedRoute>} />
+        <Route path="/games/blackjack" element={<ProtectedRoute><Blackjack /></ProtectedRoute>} />
+        <Route path="/games/roulette" element={<ProtectedRoute><Roulette /></ProtectedRoute>} />
+        <Route path="/games/baccarat" element={<ProtectedRoute><Baccarat /></ProtectedRoute>} />
+        <Route path="/games/videopoker" element={<ProtectedRoute><VideoPoker /></ProtectedRoute>} />
+        <Route path="/games/dragontiger" element={<ProtectedRoute><DragonTiger /></ProtectedRoute>} />
         <Route path="/my-bets" element={<ProtectedRoute><Layout><MyBets /></Layout></ProtectedRoute>} />
         <Route path="/profile" element={<ProtectedRoute><Layout><Profile /></Layout></ProtectedRoute>} />
         <Route path="/settings" element={<ProtectedRoute><Layout><Settings /></Layout></ProtectedRoute>} />
