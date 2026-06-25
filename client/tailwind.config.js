@@ -23,6 +23,10 @@ export default {
         'float':         'float 3.2s ease-in-out infinite',
         'fade-up':       'fadeUp 0.3s ease-out',
         'countdown-ring':'countdownRing 1s linear',
+        'gem-pop':     'gemPop 0.25s cubic-bezier(0.34,1.56,0.64,1) forwards',
+        'mine-flash':  'mineFlash 0.35s ease-out forwards',
+        'win-wave':    'winWave 0.6s ease-in-out',
+        'astro-hover': 'astrotremor 0.18s ease-in-out',
       },
       keyframes: {
         marquee:     { '0%': { transform: 'translateX(0)' }, '100%': { transform: 'translateX(-50%)' } },
@@ -45,6 +49,10 @@ export default {
         float:       { '0%,100%': { transform: 'translateY(0px)' }, '50%': { transform: 'translateY(-5px)' } },
         fadeUp:      { from: { opacity: '0', transform: 'translateY(12px)' }, to: { opacity: '1', transform: 'translateY(0)' } },
         countdownRing: { from: { strokeDashoffset: '0' }, to: { strokeDashoffset: '100' } },
+        gemPop:    { '0%': { transform: 'scale(0.25)', opacity: '0' }, '70%': { transform: 'scale(1.2)', opacity: '1' }, '100%': { transform: 'scale(1)', opacity: '1' } },
+        mineFlash: { '0%': { filter: 'brightness(1)' }, '20%': { filter: 'brightness(3)' }, '50%': { transform: 'scale(1.25)' }, '100%': { transform: 'scale(1)', filter: 'brightness(1)' } },
+        winWave:   { '0%,100%': { boxShadow: '0 0 0 rgba(251,191,36,0)' }, '50%': { boxShadow: '0 0 24px rgba(251,191,36,0.8)' } },
+        astrotremor: { '0%,100%': { transform: 'scale(1.05)' }, '33%': { transform: 'scale(1.05) rotate(0.6deg)' }, '66%': { transform: 'scale(1.05) rotate(-0.5deg)' } },
       },
     }
   },
