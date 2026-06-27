@@ -86,6 +86,11 @@ const ALLOWED = [
   'habanero.co',                    // Habanero replay/analytics (replay.habanero.co)
   'games-c2ss.bschoice2.com',       // Betsoft oyun CDN
   'voltent.com',                    // Voltent oyun CDN
+  // Swintt / TapKing game CDN
+  'ky151jsx.link',                  // Swintt game HTML CDN (sam-*.ky151jsx.link)
+  'kt0gpi42p6.net',                 // TapKing demo CDN (static-cf.kt0gpi42p6.net)
+  '6wjfxx.org',                     // Swintt production game server
+  'sj23kls.com',                    // Swintt demo game server
 ];
 
 const UA = 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36';
@@ -1579,18 +1584,37 @@ r.get('/oddsSource-game/:id', casinoAuth, async (req, res, next) => {
     const game = games.find(g => g.id === req.params.id);
     if (!game) return res.status(404).json({ error: 'Oyun bulunamadı' });
 
+    const ua = req.headers['user-agent'] || null;
     let url;
     try {
-      url = await getoddsSourceGameUrl(game.id, game.oddsSourceProvider, false);
+      url = await getoddsSourceGameUrl(game.id, game.oddsSourceProvider, false, ua);
       if (url) console.log(`[casino] real URL alındı: ${game.oddsSourceProvider}/${game.id}`);
     } catch (e) {
       if (e.message === 'SESSION_EXPIRED') {
         return res.status(503).json({ error: 'oddsSource session süresi dolmuş — session.json yenileyin' });
       }
       console.warn(`[casino] real URL başarısız (${e.message}), demo'ya fallback`);
-      try { url = await getoddsSourceGameUrl(game.id, game.oddsSourceProvider, true); } catch {}
+      try { url = await getoddsSourceGameUrl(game.id, game.oddsSourceProvider, true, ua); } catch {}
     }
     if (!url) return res.status(503).json({ error: 'oddsSource session süresi dolmuş — session.json yenileyin' });
+
+    // Swintt/TapKing için url= parametresini proxy'ye yönlendir
+    if (game.oddsSourceProvider === 'tapking' && url) {
+      try {
+        const lu = new URL(url);
+        const realGs = lu.searchParams.get('url'); // https://gs6-ro-cl-str.6wjfxx.org/casino/game2
+        if (realGs) {
+          const token = req.headers.authorization?.split(' ')[1] || req.query.t;
+          const serverBase = (req.get('x-forwarded-proto') || req.protocol) + '://' + req.get('host');
+          lu.searchParams.set('url', `${serverBase}/api/casino/swintt-proxy?t=${token}&gs=${encodeURIComponent(realGs)}`);
+          url = lu.toString();
+          console.log(`[swintt] url= proxy'ye yönlendirildi: ${game.id}`);
+        }
+      } catch (e) {
+        console.warn('[swintt] URL rewrite başarısız:', e.message);
+      }
+    }
+
     res.json({ game, url });
   } catch (e) { next(e); }
 });
@@ -1612,5 +1636,110 @@ r.post('/oddsSource-launch', casinoAuth, async (req, res, next) => {
     res.json({ url });
   } catch (e) { next(e); }
 });
+
+// ── POST /api/casino/swintt-proxy — Swintt/TapKing oyun server proxy ─────────
+// Oyun istemcisi tüm /casino/game2 çağrılarını buraya yönlendirir.
+// ?t=JWT  → kullanıcı kimliği (casinoAuth ile)
+// ?gs=URL → gerçek Swintt game server URL (encode edilmiş)
+// Spin yanıtlarında balance.amount MongoDB bakiyesiyle değiştirilir.
+r.options('/swintt-proxy', (req, res) => {
+  res.set({
+    'Access-Control-Allow-Origin': '*',
+    'Access-Control-Allow-Methods': 'POST, OPTIONS',
+    'Access-Control-Allow-Headers': 'Content-Type, Authorization',
+  }).status(204).end();
+});
+
+const SWINTT_DEMO_SERVER = 'https://gs-cl-str.sj23kls.com/casino/game2';
+
+r.post('/swintt-proxy', casinoAuth, async (req, res, next) => {
+  try {
+    res.set('Access-Control-Allow-Origin', '*');
+
+    const body = req.body;
+
+    // Init: her zaman demo sunucusuna yönlendir, startGameToken'ı demo formatına çevir
+    // Demo sunucusu seamless wallet çağrısı yapmaz — oddsSource bakiyesi gerekmez
+    if (body?.request === 'init') {
+      const gameCode = body.gameId; // sw_alme, sw_tigome vb.
+      body.startGameToken = {
+        brandId: 1,
+        currency: 'TRY',
+        gameCode,
+        jCode: '',
+        playerCode: `usr_${req.user.id}`,
+        playmode: '',
+        providerGameCode: gameCode,
+      };
+      body.language = body.language || 'tr';
+    }
+
+    // Tüm istekler demo sunucusuna gider
+    const data = await swinttForward(SWINTT_DEMO_SERVER, body);
+
+    // Balance varsa MongoDB bakiyesiyle değiştir
+    if (data?.balance) {
+      const user = await User.findById(req.user.id).select('balance');
+      if (user) {
+        const isSpinDone = body?.request === 'spin' && data.roundEnded;
+
+        if (isSpinDone) {
+          const bet = Number(data.roundTotalBet) || 0;
+          const win = Number(data.roundTotalWin) || 0;
+          const net = win - bet;
+          const updated = await User.findByIdAndUpdate(
+            req.user.id,
+            { $inc: { balance: net } },
+            { new: true, select: 'balance' }
+          );
+          const newBal = updated?.balance ?? user.balance;
+          data.balance.amount = newBal;
+          if (data.balance.real) data.balance.real.amount = newBal;
+          if (data.balance.bonus) data.balance.bonus.amount = 0;
+          console.log(`[swintt] spin — bet:${bet} win:${win} net:${net>=0?'+':''}${net} bakiye:${newBal}`);
+        } else {
+          const user2 = await User.findById(req.user.id).select('balance');
+          data.balance.amount = user2?.balance ?? user.balance;
+          if (data.balance.real) data.balance.real.amount = data.balance.amount;
+          if (data.balance.bonus) data.balance.bonus.amount = 0;
+        }
+      }
+    }
+
+    res.json(data);
+  } catch (e) { next(e); }
+});
+
+function swinttForward(serverUrl, body) {
+  return new Promise((resolve, reject) => {
+    const parsed = new URL(serverUrl);
+    const bodyStr = JSON.stringify(body);
+    const req = https.request({
+      hostname: parsed.hostname,
+      port: 443,
+      path: parsed.pathname + parsed.search,
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Content-Length': Buffer.byteLength(bodyStr),
+        'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 Chrome/124 Safari/537.36',
+        'Accept': 'application/json, */*',
+        'Origin': 'https://static-cf.kt0gpi42p6.net',
+        'Referer': 'https://static-cf.kt0gpi42p6.net/',
+      },
+    }, (resp) => {
+      const chunks = [];
+      resp.on('data', c => chunks.push(c));
+      resp.on('end', () => {
+        try { resolve(JSON.parse(Buffer.concat(chunks).toString())); }
+        catch { reject(new Error(`Swintt yanıt parse hatası (HTTP ${resp.statusCode})`)); }
+      });
+    });
+    req.on('error', reject);
+    req.setTimeout(15000, () => { req.destroy(); reject(new Error('Swintt timeout')); });
+    req.write(bodyStr);
+    req.end();
+  });
+}
 
 export default r;

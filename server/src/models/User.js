@@ -20,7 +20,8 @@ const schema = new mongoose.Schema({
   },
   isActive:    { type: Boolean, default: true },
   kycVerified: { type: Boolean, default: false },
-  referredBy:  { type: mongoose.Schema.Types.ObjectId, ref: 'User', default: null },
+  referredBy:        { type: mongoose.Schema.Types.ObjectId, ref: 'User', default: null },
+  cryptoDepositIndex: { type: Number, default: null },  // HD wallet index (atandıktan sonra değişmez)
   deletedAt:   { type: Date, default: null },
 }, { timestamps: true });
 
