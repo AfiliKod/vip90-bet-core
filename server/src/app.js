@@ -17,6 +17,7 @@ import promotionsRoutes from './routes/promotions.js';
 import adminRoutes from './routes/admin.js';
 import casinoRoutes from './routes/casino.js';
 import helpRoutes from './routes/help.js';
+import inhouseRoutes from './routes/inhouse.js';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const isProd = process.env.NODE_ENV === 'production';
@@ -73,6 +74,7 @@ export function createApp() {
   app.use('/api/promotions', promotionsRoutes);
   app.use('/api/admin', adminRoutes);
   app.use('/api/casino', casinoRoutes);
+  app.use('/api/inhouse', inhouseRoutes);
   app.use('/api/help', helpRoutes);
 
   // Health check — Render uptime monitoring için

@@ -1579,7 +1579,18 @@ r.get('/oddsSource-game/:id', casinoAuth, async (req, res, next) => {
     const game = games.find(g => g.id === req.params.id);
     if (!game) return res.status(404).json({ error: 'Oyun bulunamadı' });
 
-    const url = await getoddsSourceGameUrl(game.id, game.oddsSourceProvider, true);
+    let url;
+    try {
+      url = await getoddsSourceGameUrl(game.id, game.oddsSourceProvider, false);
+      if (url) console.log(`[casino] real URL alındı: ${game.oddsSourceProvider}/${game.id}`);
+    } catch (e) {
+      if (e.message === 'SESSION_EXPIRED') {
+        return res.status(503).json({ error: 'oddsSource session süresi dolmuş — session.json yenileyin' });
+      }
+      console.warn(`[casino] real URL başarısız (${e.message}), demo'ya fallback`);
+      try { url = await getoddsSourceGameUrl(game.id, game.oddsSourceProvider, true); } catch {}
+    }
+    if (!url) return res.status(503).json({ error: 'oddsSource session süresi dolmuş — session.json yenileyin' });
     res.json({ game, url });
   } catch (e) { next(e); }
 });

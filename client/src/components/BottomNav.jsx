@@ -10,6 +10,8 @@ const TABS = [
 
 export default function BottomNav() {
   const { unread, reset } = useBetNotificationStore();
+  const location = useLocation();
+  if (location.pathname.startsWith('/games/') || /^\/casino\/[^/]+/.test(location.pathname)) return null;
 
   return (
     <nav className="fixed bottom-0 left-0 right-0 z-40 bg-bg-base border-t border-white/10 flex lg:hidden">
