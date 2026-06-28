@@ -279,6 +279,24 @@ function injectBal(obj,bal,d){
   }
   return out;
 }
+// Demo para birimi → TRY
+// 'code' anahtarı genel (hata kodu, dil kodu vb.) olduğundan sadece 'FUN' yakalanır
+// Daha spesifik anahtarlar için demo işaretleyicileri eklenebilir (EUR/USD kasıtlı hariç)
+var __bzCUR_CODE_ONLY=['FUN'];
+var __bzCUR_KEYS=['currencyCode','currency_code','currencyId','cur'];
+var __bzDEMO_CURS=['FUN','DEMO','FP','FPL','COIN','SC','GC','DEM','PLAY'];
+function patchCur(obj,d){
+  d=d||0;if(d>6||!obj||typeof obj!=='object')return obj;
+  if(Array.isArray(obj)){var a=[];for(var i=0;i<obj.length;i++)a.push(patchCur(obj[i],d+1));return a;}
+  var out={};var ks=Object.keys(obj);
+  for(var i=0;i<ks.length;i++){
+    var k=ks[i];
+    if(k==='code'&&__bzCUR_CODE_ONLY.indexOf(String(obj[k]))!==-1){out[k]='TRY';}
+    else if(__bzCUR_KEYS.indexOf(k)!==-1&&__bzDEMO_CURS.indexOf(String(obj[k]))!==-1){out[k]='TRY';}
+    else{out[k]=patchCur(obj[k],d+1);}
+  }
+  return out;
+}
 
 // ── alive signal ──────────────────────────────────────────────────────────
 var __bzAlive=false;
@@ -474,7 +492,39 @@ window.fetch=function(url,opts){
     var p=_f.call(this,relay,_bzOpts);
     p=p.then(function(r){
       var ct=r.headers.get('content-type')||'';
-      if(!ct.includes('json'))return r;
+      if(!ct.includes('json')){
+        // PP gameService URL-encoded response (text/plain;charset=ISO-8859-1)
+        var mthP=((opts&&opts.method)||'GET').toUpperCase();
+        if(mthP==='POST'){
+          return r.clone().text().then(function(body){
+            __bzPPTrackBal(body);
+            var postBody=String((opts&&opts.body)||'');
+            var s=exSpinPP(body,postBody);
+            if(s){
+              var sub=__bzGetSub();
+              var betTRY=Math.max(0.01,parseFloat((s.bet/sub).toFixed(4)));
+              var winTRY=Math.max(0,parseFloat((s.win/sub).toFixed(4)));
+              __bzBal=Math.max(0,__bzBal-betTRY+winTRY);
+              __bzOvUpdate(__bzBal);
+              report(s);
+            }
+            if(body.indexOf('balance=')!==-1){
+              try{
+                var newBal=__bzBal.toFixed(2);
+                var modified=body
+                  .replace(/(^|&)balance=[^&]*/g,'$1balance='+newBal)
+                  .replace(/(^|&)balance_cash=[^&]*/g,'$1balance_cash='+newBal);
+                return new Response(modified,{
+                  status:r.status,
+                  headers:new Headers({'content-type':ct,'access-control-allow-origin':'*'})
+                });
+              }catch(__bzPPRE){}
+            }
+            return r;
+          }).catch(function(){return r;});
+        }
+        return r;
+      }
       return r.clone().json().then(function(d){
         console.log('[BZ-json-fetch] keys='+Object.keys(d||{}).slice(0,8).join(','));
         var s=exSpin(d);
@@ -485,6 +535,7 @@ window.fetch=function(url,opts){
           var balToInject=Math.round(__bzBal*__bzGetSub());
           outD=injectBal(d,balToInject,0);
         }
+        outD=patchCur(outD,0);
         return new Response(JSON.stringify(outD),{
           status:r.status,
           headers:new Headers({'content-type':'application/json; charset=utf-8','access-control-allow-origin':'*'})
@@ -506,17 +557,12 @@ window.fetch=function(url,opts){
       p2=p2.then(function(r2){
         var ct2=r2.headers.get('content-type')||'';
         if(ct2.includes('json')){
-          // JSON response (bazı PP versiyonları)
+          // JSON response (bazı PP versiyonları) — spin tespiti yap, PP balance'ını bozma
           return r2.clone().json().then(function(d2){
             console.log('[BZ-json-gs] keys='+Object.keys(d2||{}).slice(0,8).join(','));
             var s2=exSpin(d2);
             if(s2){report(s2);}
-            var balToInject2=Math.round(__bzBal*__bzGetSub());
-            var outD2=injectBal(d2,balToInject2,0);
-            return new Response(JSON.stringify(outD2),{
-              status:r2.status,
-              headers:new Headers({'content-type':'application/json; charset=utf-8'})
-            });
+            return r2;
           }).catch(function(){return r2;});
         }
         // URL-encoded response (PP native format: tw=X&balance=Y&...)
@@ -568,10 +614,12 @@ XMLHttpRequest.prototype.send=function(b){
             var s=exSpin(d);
             if(s){report(s);}
             var xMod=d;
-            if(x.__bzMethod==='POST'){
+            // PP /gs2c/ (x.__bzGS) balance'ını bozma — subunit bilinmiyor
+            if(x.__bzMethod==='POST'&&!x.__bzGS){
               var balToInject=Math.round(__bzBal*__bzGetSub());
               xMod=injectBal(d,balToInject,0);
             }
+            xMod=patchCur(xMod,0);
             var mStr=JSON.stringify(xMod);
             try{Object.defineProperty(x,'response',{get:function(){return mStr;},configurable:true});}catch(e){}
             try{Object.defineProperty(x,'responseText',{get:function(){return mStr;},configurable:true});}catch(e){}
@@ -600,8 +648,21 @@ XMLHttpRequest.prototype.send=function(b){
     var ws=protocols!=null?new _WS(url,protocols):new _WS(url);
     ws.addEventListener('message',function(e){
       try{
-        var d=typeof e.data==='string'?JSON.parse(e.data):null;
-        if(d){var s=exSpin(d);if(s){sendAlive();report(s);}}
+        if(typeof e.data!=='string')return;
+        var d=JSON.parse(e.data);
+        if(!d)return;
+        var s=exSpin(d);if(s){sendAlive();report(s);}
+        // Sadece spin/balance mesajlarında inject et, init mesajlarını bozma
+        var hasBalField=false;
+        var __bzBALK=['balance','Balance','playerBalance','wallet','currentBalance','availableBalance'];
+        for(var _bi=0;_bi<__bzBALK.length;_bi++){if(d[__bzBALK[_bi]]!==undefined){hasBalField=true;break;}}
+        if(hasBalField||s){
+          var wsBal=Math.round(__bzBal*__bzGetSub());
+          d=injectBal(d,wsBal,0);
+          d=patchCur(d,0);
+          var wsStr=JSON.stringify(d);
+          Object.defineProperty(e,'data',{get:function(){return wsStr;},configurable:true});
+        }
       }catch(_e){}
     });
     return ws;
@@ -637,13 +698,17 @@ XMLHttpRequest.prototype.send=function(b){
     Object.defineProperty(HTMLIFrameElement.prototype,'src',{
       set:function(v){
         try{
-          if(typeof v==='string'&&ok(v)){
-            v=__bzH+'/api/casino/game/'+encodeURIComponent(__bzGID)
-              +'?demoUrl='+encodeURIComponent(v)
-              +'&t='+encodeURIComponent(tok)
-              +'&gt='+encodeURIComponent(__bzGTIT)
-              +'&gp='+encodeURIComponent(__bzGPROV);
-            console.log('[BZ-iframe-prop] intercepted →',v.slice(0,80));
+          if(typeof v==='string'){
+            // root-relative → CDN origin üzerinden resolve et
+            if(v.charAt(0)==='/'&&v.charAt(1)!=='/'){ try{var _b2=document.querySelector('base');if(_b2&&_b2.href)v=new URL(_b2.href).origin+v;}catch(_){}  }
+            if(ok(v)){
+              v=__bzH+'/api/casino/game/'+encodeURIComponent(__bzGID)
+                +'?demoUrl='+encodeURIComponent(v)
+                +'&t='+encodeURIComponent(tok)
+                +'&gt='+encodeURIComponent(__bzGTIT)
+                +'&gp='+encodeURIComponent(__bzGPROV);
+              console.log('[BZ-iframe-prop] intercepted →',v.slice(0,80));
+            }
           }
         }catch(_e){}
         __ifrD.set.call(this,v);
@@ -656,13 +721,16 @@ XMLHttpRequest.prototype.send=function(b){
   Element.prototype.setAttribute=function(name,val){
     if(this.tagName==='SCRIPT'&&name==='src'&&typeof val==='string'&&ok(val)){
       val=__bzH+'/api/casino/relay?url='+encodeURIComponent(val);
-    }else if(this.tagName==='IFRAME'&&name==='src'&&typeof val==='string'&&ok(val)){
-      val=__bzH+'/api/casino/game/'+encodeURIComponent(__bzGID)
-        +'?demoUrl='+encodeURIComponent(val)
-        +'&t='+encodeURIComponent(tok)
-        +'&gt='+encodeURIComponent(__bzGTIT)
-        +'&gp='+encodeURIComponent(__bzGPROV);
-      console.log('[BZ-iframe-sa] intercepted');
+    }else if(this.tagName==='IFRAME'&&name==='src'&&typeof val==='string'){
+      if(val.charAt(0)==='/'&&val.charAt(1)!=='/'){ try{var _b3=document.querySelector('base');if(_b3&&_b3.href)val=new URL(_b3.href).origin+val;}catch(_){} }
+      if(ok(val)){
+        val=__bzH+'/api/casino/game/'+encodeURIComponent(__bzGID)
+          +'?demoUrl='+encodeURIComponent(val)
+          +'&t='+encodeURIComponent(tok)
+          +'&gt='+encodeURIComponent(__bzGTIT)
+          +'&gp='+encodeURIComponent(__bzGPROV);
+        console.log('[BZ-iframe-sa] intercepted');
+      }
     }
     return _sa.call(this,name,val);
   };
@@ -671,15 +739,29 @@ XMLHttpRequest.prototype.send=function(b){
 // ── Window navigation intercept — oyun URL'lerini proxy'e yönlendir ──────────
 // Relax Gaming launcher gibi dinamik navigation yapan oyunlar için
 (function(){
+  // Root-relative URL'leri base href CDN origin'ine göre resolve et
+  // (Relax Gaming /casino/apex/layer/? gibi URL'ler localhost'a resolve edilir aksi hâlde)
+  function _bzResolveNav(url){
+    if(typeof url!=='string')return url;
+    if(url.charAt(0)==='/'&&url.charAt(1)!=='/'){ // root-relative: /path/...
+      try{
+        var _b=document.querySelector('base');
+        if(_b&&_b.href){return new URL(_b.href).origin+url;}
+      }catch(_e){}
+    }
+    return url;
+  }
   function _bzInterceptNav(url,method){
     try{
-      if(typeof url!=='string'||!ok(url))return false;
+      if(typeof url!=='string')return false;
+      var resolved=_bzResolveNav(url);
+      if(!ok(resolved))return false;
       var _pURL=__bzH+'/api/casino/game/'+encodeURIComponent(__bzGID)
-        +'?demoUrl='+encodeURIComponent(url)
+        +'?demoUrl='+encodeURIComponent(resolved)
         +'&t='+encodeURIComponent(tok)
         +'&gt='+encodeURIComponent(__bzGTIT)
         +'&gp='+encodeURIComponent(__bzGPROV);
-      console.log('[BZ-nav] intercepted '+method+' →',url.slice(0,80));
+      console.log('[BZ-nav] intercepted '+method+' →',resolved.slice(0,80));
       if(method==='replace')window.location.replace(_pURL);
       else window.location.assign(_pURL);
       return true;
@@ -1295,8 +1377,11 @@ r.all('/relay', async (req, res) => {
         body = body.replaceAll('globalRuntime.sceneRoots.length', '(globalRuntime&&globalRuntime.sceneRoots||[]).length');
         // PatchPlayNowButton: tSOI null ise .RemoveButtonAndPatchText assign hatası
         body = body.replace('tSOI.RemoveButtonAndPatchText = function()', 'if(!tSOI)return; tSOI.RemoveButtonAndPatchText = function()');
-        // Grafana Faro telemetri SDK'sı clctr.ltguevmavv.com'a CORS hatası üretir — no-op ile sustur
-        body = 'window.initFaro=function(){};window.faro={api:{pushError:function(){},pushEvent:function(){}}};' + body;
+        // Grafana Faro stub — logo_info.js initFaro çağrısı getSession dahil tüm API'yi kullanır
+        // Grafana Faro stub — logo_info.js initFaro çağrısı getSession dahil tüm API'yi kullanır
+        // Object.defineProperty ile hem faro hem initFaro kilitlenir (script redefine edemez)
+        const faroStub = '(function(){var _a={getSession:function(){return{id:"bz",attributes:{}};},pushError:function(){},pushEvent:function(){},pushLog:function(){},pushMeasurement:function(){},pushTrace:function(){},setUser:function(){},resetUser:function(){},getOTELApi:function(){return{};}};try{Object.defineProperty(window,"faro",{value:{api:_a,pause:function(){},unpause:function(){}},writable:false,configurable:false});}catch(e){window.faro={api:_a};}try{Object.defineProperty(window,"initFaro",{value:function(){},writable:false,configurable:false});}catch(e){window.initFaro=function(){};}})();';
+        body = faroStub + body;
         console.log('[bz-logo-patch] sceneRoots + tSOI + initFaro patched');
         delete h['content-length'];
         h['content-type'] = 'application/javascript; charset=utf-8';
