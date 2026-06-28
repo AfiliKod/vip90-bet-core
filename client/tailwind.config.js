@@ -12,6 +12,13 @@ export default {
         warning: '#f59e0b',
         live: '#ef4444',
         text: { 1:'#f0f4ff', 2:'#8a9bc0', 3:'#4a5a78' },
+        neon: {
+          cyan:   '#00d4ff',
+          purple: '#9d00ff',
+          green:  '#00ff88',
+        },
+        'bg-void': '#05080f',
+        'bg-cell': '#0c1220',
       },
       animation: {
         'marquee':       'marquee 30s linear infinite',
@@ -30,6 +37,7 @@ export default {
         'blast-flash':  'blastFlash 0.8s ease-out forwards',
         'win-flash':    'winFlash 1.2s ease-out forwards',
         'balloon':      'balloon 0.38s cubic-bezier(0.34,1.56,0.64,1) forwards',
+        'scan-line':    'scanLine 4s linear infinite',
       },
       keyframes: {
         marquee:     { '0%': { transform: 'translateX(0)' }, '100%': { transform: 'translateX(-50%)' } },
@@ -71,6 +79,12 @@ export default {
           '25%':  { opacity: '1', transform: 'scale(1.05)' },
           '60%':  { opacity: '0.7' },
           '100%': { opacity: '0', transform: 'scale(1)' },
+        },
+        scanLine: {
+          '0%':   { top: '-2px', opacity: '0' },
+          '10%':  { opacity: '0.25' },
+          '90%':  { opacity: '0.25' },
+          '100%': { top: '100%', opacity: '0' },
         },
       },
     }
