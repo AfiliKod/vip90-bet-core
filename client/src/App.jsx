@@ -22,7 +22,7 @@ import AdminEvents from './pages/admin/Events';
 import AdminUsers from './pages/admin/Users';
 import AdminGameTasks from './pages/admin/GameTasks';
 import AdminCasinoStats from './pages/admin/CasinoStats';
-import Casino from './pages/CasinoV2';
+import Casino from './pages/Casino';
 import CasinoGame from './pages/CasinoGame';
 import Crash from './pages/games/Crash';
 import Mines from './pages/games/Mines';
