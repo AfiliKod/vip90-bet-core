@@ -698,17 +698,13 @@ XMLHttpRequest.prototype.send=function(b){
     Object.defineProperty(HTMLIFrameElement.prototype,'src',{
       set:function(v){
         try{
-          if(typeof v==='string'){
-            // root-relative → CDN origin üzerinden resolve et
-            if(v.charAt(0)==='/'&&v.charAt(1)!=='/'){ try{var _b2=document.querySelector('base');if(_b2&&_b2.href)v=new URL(_b2.href).origin+v;}catch(_){}  }
-            if(ok(v)){
-              v=__bzH+'/api/casino/game/'+encodeURIComponent(__bzGID)
-                +'?demoUrl='+encodeURIComponent(v)
-                +'&t='+encodeURIComponent(tok)
-                +'&gt='+encodeURIComponent(__bzGTIT)
-                +'&gp='+encodeURIComponent(__bzGPROV);
-              console.log('[BZ-iframe-prop] intercepted →',v.slice(0,80));
-            }
+          if(typeof v==='string'&&ok(v)){
+            v=__bzH+'/api/casino/game/'+encodeURIComponent(__bzGID)
+              +'?demoUrl='+encodeURIComponent(v)
+              +'&t='+encodeURIComponent(tok)
+              +'&gt='+encodeURIComponent(__bzGTIT)
+              +'&gp='+encodeURIComponent(__bzGPROV);
+            console.log('[BZ-iframe-prop] intercepted →',v.slice(0,80));
           }
         }catch(_e){}
         __ifrD.set.call(this,v);
@@ -721,16 +717,13 @@ XMLHttpRequest.prototype.send=function(b){
   Element.prototype.setAttribute=function(name,val){
     if(this.tagName==='SCRIPT'&&name==='src'&&typeof val==='string'&&ok(val)){
       val=__bzH+'/api/casino/relay?url='+encodeURIComponent(val);
-    }else if(this.tagName==='IFRAME'&&name==='src'&&typeof val==='string'){
-      if(val.charAt(0)==='/'&&val.charAt(1)!=='/'){ try{var _b3=document.querySelector('base');if(_b3&&_b3.href)val=new URL(_b3.href).origin+val;}catch(_){} }
-      if(ok(val)){
-        val=__bzH+'/api/casino/game/'+encodeURIComponent(__bzGID)
-          +'?demoUrl='+encodeURIComponent(val)
-          +'&t='+encodeURIComponent(tok)
-          +'&gt='+encodeURIComponent(__bzGTIT)
-          +'&gp='+encodeURIComponent(__bzGPROV);
-        console.log('[BZ-iframe-sa] intercepted');
-      }
+    }else if(this.tagName==='IFRAME'&&name==='src'&&typeof val==='string'&&ok(val)){
+      val=__bzH+'/api/casino/game/'+encodeURIComponent(__bzGID)
+        +'?demoUrl='+encodeURIComponent(val)
+        +'&t='+encodeURIComponent(tok)
+        +'&gt='+encodeURIComponent(__bzGTIT)
+        +'&gp='+encodeURIComponent(__bzGPROV);
+      console.log('[BZ-iframe-sa] intercepted');
     }
     return _sa.call(this,name,val);
   };
@@ -1380,7 +1373,7 @@ r.all('/relay', async (req, res) => {
         // Grafana Faro stub — logo_info.js initFaro çağrısı getSession dahil tüm API'yi kullanır
         // Grafana Faro stub — logo_info.js initFaro çağrısı getSession dahil tüm API'yi kullanır
         // Object.defineProperty ile hem faro hem initFaro kilitlenir (script redefine edemez)
-        const faroStub = '(function(){var _a={getSession:function(){return{id:"bz",attributes:{}};},pushError:function(){},pushEvent:function(){},pushLog:function(){},pushMeasurement:function(){},pushTrace:function(){},setUser:function(){},resetUser:function(){},getOTELApi:function(){return{};}};try{Object.defineProperty(window,"faro",{value:{api:_a,pause:function(){},unpause:function(){}},writable:false,configurable:false});}catch(e){window.faro={api:_a};}try{Object.defineProperty(window,"initFaro",{value:function(){},writable:false,configurable:false});}catch(e){window.initFaro=function(){};}})();';
+        const faroStub = '(function(){var _a={getSession:function(){return{id:"bz",attributes:{}};},pushError:function(){},pushEvent:function(){},pushLog:function(){},pushMeasurement:function(){},pushTrace:function(){},setUser:function(){},resetUser:function(){},getOTELApi:function(){return{};}};var _f={api:_a,pause:function(){},unpause:function(){}};try{Object.defineProperty(window,"faro",{value:_f,writable:false,configurable:false});}catch(e){window.faro=_f;}try{Object.defineProperty(window,"initFaro",{value:function(){return _f;},writable:false,configurable:false});}catch(e){window.initFaro=function(){return _f;};}})();';
         body = faroStub + body;
         console.log('[bz-logo-patch] sceneRoots + tSOI + initFaro patched');
         delete h['content-length'];
