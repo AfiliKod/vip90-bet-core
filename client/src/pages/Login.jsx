@@ -21,7 +21,15 @@ export default function Login() {
         navigate('/');
       }
     } catch (e) {
-      addToast(e.response?.data?.error?.message || 'Bir hata oluştu', 'error');
+      const msg = e.response?.data?.error?.message;
+      const status = e.response?.status;
+      if (status === 401) {
+        addToast('Kullanıcı adı veya şifre hatalı.', 'error');
+      } else if (status === 429) {
+        addToast('Çok fazla deneme. Lütfen biraz bekleyin.', 'error');
+      } else {
+        addToast(msg || 'Giriş yapılamadı, lütfen tekrar deneyin.', 'error');
+      }
     }
   };
 

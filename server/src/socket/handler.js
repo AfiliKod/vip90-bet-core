@@ -1,14 +1,42 @@
+import jwt from 'jsonwebtoken';
+import { startStream, handleInput, stopStream, spinGame } from '../services/streamService.js';
+
 export function initSocket(io) {
+  // Ana namespace — mevcut event/user subscription'ları
   io.on('connection', (socket) => {
     socket.on('subscribe:event', ({ eventId }) => socket.join(`event:${eventId}`));
     socket.on('unsubscribe:event', ({ eventId }) => socket.leave(`event:${eventId}`));
 
-    // Kullanıcı bağlandığında kendi odasına katıl
     socket.on('subscribe:user', ({ userId }) => {
       if (userId) socket.join(`user:${userId}`);
     });
     socket.on('unsubscribe:user', ({ userId }) => {
       if (userId) socket.leave(`user:${userId}`);
     });
+  });
+
+  // /stream namespace — oyun streaming (auth zorunlu)
+  const streamNS = io.of('/stream');
+
+  streamNS.use((socket, next) => {
+    const token = socket.handshake.auth?.token;
+    if (!token) return next(new Error('auth'));
+    try {
+      socket.user = jwt.verify(token, process.env.JWT_SECRET);
+      next();
+    } catch {
+      next(new Error('auth'));
+    }
+  });
+
+  streamNS.on('connection', (socket) => {
+    socket.on('stream:start', (data) => startStream(socket, data));
+    socket.on('stream:input', (input) => handleInput(socket.id, input));
+    socket.on('stream:spin', async () => {
+      const result = await spinGame(socket.id);
+      if (result) socket.emit('stream:spinResult', result);
+    });
+    socket.on('stream:stop', () => stopStream(socket.id));
+    socket.on('disconnect', () => stopStream(socket.id));
   });
 }

@@ -17,6 +17,8 @@ import promotionsRoutes from './routes/promotions.js';
 import adminRoutes from './routes/admin.js';
 import casinoRoutes from './routes/casino.js';
 import helpRoutes from './routes/help.js';
+import inhouseRoutes from './routes/inhouse.js';
+import cryptoRoutes from './routes/crypto.js';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const isProd = process.env.NODE_ENV === 'production';
@@ -32,7 +34,9 @@ if (process.env.RAILWAY_PUBLIC_DOMAIN) {
 
 export const corsOptions = {
   origin: (origin, cb) => {
-    if (!origin || baseOrigins.includes('*') || baseOrigins.includes(origin)) return cb(null, true);
+    if (!origin) return cb(null, true);
+    if (baseOrigins.includes('*') || baseOrigins.includes(origin)) return cb(null, true);
+    if (origin.endsWith('.ngrok-free.dev') || origin === 'https://ngrok-free.dev') return cb(null, true);
     cb(new Error('CORS: ' + origin));
   },
   credentials: true,
@@ -47,6 +51,7 @@ export function createApp() {
   }));
   app.use(cors(corsOptions));
   app.use(express.json());
+  app.use(express.urlencoded({ extended: false }));
   app.use(cookieParser());
 
   // Production: static assets'i API routes'lardan ÖNCE serve et
@@ -72,7 +77,9 @@ export function createApp() {
   app.use('/api/promotions', promotionsRoutes);
   app.use('/api/admin', adminRoutes);
   app.use('/api/casino', casinoRoutes);
+  app.use('/api/inhouse', inhouseRoutes);
   app.use('/api/help', helpRoutes);
+  app.use('/api/crypto', cryptoRoutes);
 
   // Health check — Render uptime monitoring için
   app.get('/api/health', (req, res) => res.json({ ok: true, env: process.env.NODE_ENV }));

@@ -1,4 +1,5 @@
 import axios from 'axios';
+import { useToastStore } from '../store/toastStore';
 
 const api = axios.create({
   baseURL: '/api',
@@ -25,7 +26,8 @@ api.interceptors.response.use(
       } catch {
         localStorage.removeItem('accessToken');
         if (window.location.pathname !== '/login') {
-          window.location.href = '/login';
+          useToastStore.getState().add('Oturumunuz sona erdi, lütfen tekrar giriş yapın.', 'error');
+          setTimeout(() => { window.location.href = '/login'; }, 1500);
         }
       }
     }
