@@ -8,8 +8,8 @@ export default function Navbar() {
   const ref = useRef(null);
 
   const handleLogout = async () => { setOpen(false); await logout(); navigate('/login'); };
+  const nav = (to) => { setOpen(false); navigate(to); };
 
-  // Close on outside click
   useEffect(() => {
     function handleClick(e) {
       if (ref.current && !ref.current.contains(e.target)) setOpen(false);
@@ -39,17 +39,31 @@ export default function Navbar() {
             onClick={() => setOpen(o => !o)}
             className="flex items-center gap-2 bg-bg-card border border-white/10 rounded-full px-3 py-1.5 hover:border-primary/30 transition"
           >
-            <span className="text-sm font-bold text-primary">₺{user?.balance?.toFixed(2) || '0.00'}</span>
+            <span className="text-sm text-text-2">👤 Profil</span>
             <span className="text-text-3 text-xs">{open ? '▲' : '▼'}</span>
           </button>
 
           {open && (
-            <div className="absolute right-0 top-full mt-2 w-48 bg-bg-card border border-white/10 rounded-xl shadow-xl z-50 overflow-hidden animate-fade-in">
-              <div className="px-4 py-3 border-b border-white/10">
-                <p className="text-xs text-text-3">Giriş yapıldı</p>
-                <p className="text-sm font-semibold text-text-1 truncate">{user?.username}</p>
-                <p className="text-base font-bold text-primary">₺{user?.balance?.toFixed(2) || '0.00'}</p>
+            <div className="absolute right-0 top-full mt-2 w-56 bg-bg-card border border-white/10 rounded-xl shadow-xl z-50 overflow-hidden animate-fade-in">
+              {/* Bakiye & Hızlı İşlem */}
+              <div className="px-4 pt-3 pb-2 border-b border-white/10">
+                <p className="text-xs text-text-3">{user?.username}</p>
+                <p className="text-lg font-bold text-primary">₺{user?.balance?.toFixed(2) || '0.00'}</p>
+                <div className="flex gap-2 mt-3">
+                  <button onClick={() => nav('/profile?tab=bank_deposit')}
+                    className="flex-1 flex items-center justify-center gap-1.5 py-2 bg-primary/20 text-primary text-sm font-semibold rounded-lg hover:bg-primary/30 transition"
+                  >
+                    🏦 Yatır
+                  </button>
+                  <button onClick={() => nav('/profile?tab=crypto_deposit')}
+                    className="flex-1 flex items-center justify-center gap-1.5 py-2 bg-amber-500/20 text-amber-400 text-sm font-semibold rounded-lg hover:bg-amber-500/30 transition"
+                  >
+                    🪙 Kripto
+                  </button>
+                </div>
               </div>
+
+              {/* Menü linkleri */}
               <div className="py-1">
                 {[
                   { to: '/profile',    icon: '👤', label: 'Profil' },
@@ -68,6 +82,8 @@ export default function Navbar() {
                   </Link>
                 ))}
               </div>
+
+              {/* Çıkış */}
               <div className="border-t border-white/10 py-1">
                 <button
                   onClick={handleLogout}

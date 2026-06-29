@@ -1,3 +1,4 @@
+import { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { useBetSlipStore } from '../store/betSlipStore';
 import { formatOdd } from '../utils/oddsUtils';
@@ -5,9 +6,20 @@ import { useSettingsStore } from '../store/settingsStore';
 import { sportIcon } from '../utils/sportMeta';
 import { translateTeam } from '../utils/i18n';
 
-// Sütun genişlikleri — LeagueGroup'ta da aynı sıra kullanılmalı
-export const ROW_GRID = '52px 1fr 56px 56px 56px 4px 56px 56px 56px 36px';
-//                       time  teams  1    X    2  sep  Alt  Üst  Top  +N
+// Desktop: time teams 1 X 2 | Alt Üst Top +N
+export const ROW_GRID        = '52px 1fr 56px 56px 56px 4px 56px 56px 56px 36px';
+// Mobile:  time teams 1 X 2 +N  (Alt/Üst/Handikap gizli)
+export const ROW_GRID_MOBILE = '40px 1fr 48px 48px 48px 28px';
+
+export function useIsMobile() {
+  const [m, setM] = useState(() => window.innerWidth < 640);
+  useEffect(() => {
+    const h = () => setM(window.innerWidth < 640);
+    window.addEventListener('resize', h);
+    return () => window.removeEventListener('resize', h);
+  }, []);
+  return m;
+}
 
 function OddCell({ eventId, eventLabel, market, targetLabel, fallbackIndex, showLabel }) {
   const oddsFormat = useSettingsStore(s => s.preferences.oddsFormat);
@@ -36,6 +48,7 @@ function OddCell({ eventId, eventLabel, market, targetLabel, fallbackIndex, show
 }
 
 export default function EventRow({ event, isDrawerOpen, onToggleDrawer }) {
+  const isMobile = useIsMobile();
   const lang = useSettingsStore(s => s.preferences.language);
   const locale = lang === 'en' ? 'en-GB' : 'tr-TR';
   const homeName = translateTeam(event.homeTeam.name, lang);
@@ -49,11 +62,12 @@ export default function EventRow({ event, isDrawerOpen, onToggleDrawer }) {
   const date = new Date(event.startTime);
   const dateStr = date.toLocaleDateString(locale, { day: '2-digit', month: 'short' });
   const timeStr = date.toLocaleTimeString(locale, { hour: '2-digit', minute: '2-digit' });
+  const grid = isMobile ? ROW_GRID_MOBILE : ROW_GRID;
 
   return (
     <div
       className={`grid items-center border-b border-white/5 transition-colors hover:bg-white/[0.02] ${isDrawerOpen ? 'bg-white/[0.03]' : ''}`}
-      style={{ gridTemplateColumns: ROW_GRID, gap: '3px', padding: '6px 10px' }}
+      style={{ gridTemplateColumns: grid, gap: '3px', padding: '6px 10px' }}
     >
       {/* Zaman */}
       <div className="text-center">
@@ -96,15 +110,11 @@ export default function EventRow({ event, isDrawerOpen, onToggleDrawer }) {
       <OddCell eventId={event._id} eventLabel={label} market={mainMarket} targetLabel="X" fallbackIndex={1} />
       <OddCell eventId={event._id} eventLabel={label} market={mainMarket} targetLabel="2" fallbackIndex={2} />
 
-      {/* Ayraç */}
-      <div className="h-8 w-px bg-white/10 mx-auto" />
-
-      {/* Alt / Üst (Over/Under ilk hat) */}
-      <OddCell eventId={event._id} eventLabel={label} market={ouMarket} targetLabel="Under" fallbackIndex={1} showLabel />
-      <OddCell eventId={event._id} eventLabel={label} market={ouMarket} targetLabel="Over"  fallbackIndex={0} showLabel />
-
-      {/* Handikap (TOPLAM) */}
-      <OddCell eventId={event._id} eventLabel={label} market={handikapMarket} fallbackIndex={0} showLabel />
+      {/* Mobilde gizli: Ayraç + Alt/Üst + Handikap */}
+      {!isMobile && <div className="h-8 w-px bg-white/10 mx-auto" />}
+      {!isMobile && <OddCell eventId={event._id} eventLabel={label} market={ouMarket} targetLabel="Under" fallbackIndex={1} showLabel />}
+      {!isMobile && <OddCell eventId={event._id} eventLabel={label} market={ouMarket} targetLabel="Over"  fallbackIndex={0} showLabel />}
+      {!isMobile && <OddCell eventId={event._id} eventLabel={label} market={handikapMarket} fallbackIndex={0} showLabel />}
 
       {/* +N */}
       <button

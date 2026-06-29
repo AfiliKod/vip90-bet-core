@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { useForm } from 'react-hook-form';
 import { QRCodeSVG } from 'qrcode.react';
+import { useSearchParams } from 'react-router-dom';
 import { useAuthStore } from '../store/authStore';
 import { useToastStore } from '../store/toastStore';
 import api from '../services/api';
@@ -139,9 +140,9 @@ function CryptoWithdraw({ onBalanceUpdate }) {
 export default function Profile() {
   const { user, updateBalance } = useAuthStore();
   const addToast = useToastStore(s => s.add);
+  const [searchParams, setSearchParams] = useSearchParams();
   const [transactions, setTransactions] = useState([]);
-  const [activeTab, setActiveTab]       = useState('deposit');
-  const [cryptoSub, setCryptoSub]       = useState('deposit'); // deposit | withdraw
+  const [activeTab, setActiveTab]       = useState(searchParams.get('tab') || 'bank_deposit');
   const { register, handleSubmit, reset, formState: { isSubmitting } } = useForm();
 
   const fetchTx = useCallback(() => {
@@ -157,7 +158,7 @@ export default function Profile() {
 
   const onFiatSubmit = async (data) => {
     try {
-      const endpoint = activeTab === 'deposit' ? '/transactions/deposit' : '/transactions/withdraw';
+      const endpoint = activeTab === 'bank_deposit' ? '/transactions/deposit' : '/transactions/withdraw';
       const { data: res } = await api.post(endpoint, { amount: parseFloat(data.amount) });
       onBalanceUpdate(res.newBalance);
       addToast(res.message, 'success');
@@ -166,15 +167,16 @@ export default function Profile() {
   };
 
   const TABS = [
-    ['deposit',  '📥 Para Yatır'],
-    ['withdraw', '📤 Para Çek'],
-    ['crypto',   '🪙 Kripto'],
+    ['bank_deposit',    '🏦 Bankayla Yatır'],
+    ['bank_withdraw',   '🏦 Bankayla Çek'],
+    ['crypto_deposit',  '🪙 Kriptoyla Yatır'],
+    ['crypto_withdraw', '🪙 Kriptoyla Çek'],
   ];
 
   return (
-    <div className="max-w-2xl mx-auto px-4 py-6">
+    <div className="max-w-2xl mx-auto px-3 sm:px-4 py-6">
       {/* Profil başlık */}
-      <div className="bg-bg-card border border-white/10 rounded-xl p-6 mb-4">
+      <div className="bg-bg-card border border-white/10 rounded-xl p-4 sm:p-6 mb-4">
         <div className="flex items-center gap-4 mb-6">
           <div className="w-14 h-14 rounded-full bg-accent/20 border border-accent/30 flex items-center justify-center text-2xl font-bold text-accent">
             {user?.username?.[0]?.toUpperCase()}
@@ -184,54 +186,42 @@ export default function Profile() {
             <div className="text-text-2 text-sm">{user?.email}</div>
           </div>
           <div className="ml-auto text-right">
-            <div className="text-3xl font-black text-primary">₺{user?.balance?.toFixed(2)}</div>
+            <div className="text-2xl sm:text-3xl font-black text-primary">₺{user?.balance?.toFixed(2)}</div>
             <div className="text-text-3 text-xs mt-1">Ana Bakiye</div>
           </div>
         </div>
 
         {/* Sekme butonları */}
-        <div className="flex gap-2 mb-4">
+        <div className="grid grid-cols-2 sm:flex gap-2 mb-4">
           {TABS.map(([v, l]) => (
-            <button key={v} onClick={() => setActiveTab(v)}
-              className={`flex-1 py-2 rounded-lg text-sm font-medium transition ${
+            <button key={v} onClick={() => { setActiveTab(v); setSearchParams(v === 'bank_deposit' ? {} : { tab: v }); }}
+              className={`py-2 px-1 rounded-lg text-xs sm:text-sm font-medium transition leading-tight ${
                 activeTab === v ? 'bg-accent text-white' : 'text-text-2 hover:bg-bg-hover border border-white/10'
               }`}>{l}</button>
           ))}
         </div>
 
-        {/* Fiat yatır/çek */}
-        {(activeTab === 'deposit' || activeTab === 'withdraw') && (
+        {/* Banka yatır/çek */}
+        {(activeTab === 'bank_deposit' || activeTab === 'bank_withdraw') && (
           <form onSubmit={handleSubmit(onFiatSubmit)} className="flex gap-2">
             <input
-              {...register('amount', { required: true, min: activeTab === 'deposit' ? 10 : 20 })}
+              {...register('amount', { required: true, min: activeTab === 'bank_deposit' ? 10 : 20 })}
               type="number"
-              placeholder={activeTab === 'deposit' ? 'Min. 10₺' : 'Min. 20₺'}
+              placeholder={activeTab === 'bank_deposit' ? 'Min. 10₺' : 'Min. 20₺'}
               className="flex-1 bg-bg-base border border-white/10 rounded-lg px-4 py-2.5 text-text-1 focus:outline-none focus:border-primary"
             />
             <button type="submit" disabled={isSubmitting}
               className="px-6 py-2.5 bg-primary text-bg-deep font-semibold rounded-lg hover:opacity-90 transition disabled:opacity-50">
-              {activeTab === 'deposit' ? 'Yatır' : 'Çek'}
+              {activeTab === 'bank_deposit' ? 'Yatır' : 'Çek'}
             </button>
           </form>
         )}
 
-        {/* Kripto sekmesi */}
-        {activeTab === 'crypto' && (
-          <div>
-            <div className="flex gap-2 mb-4">
-              {[['deposit', 'Yatırım'], ['withdraw', 'Çekim']].map(([v, l]) => (
-                <button key={v} onClick={() => setCryptoSub(v)}
-                  className={`flex-1 py-1.5 rounded-lg text-xs font-medium transition ${
-                    cryptoSub === v ? 'bg-white/15 text-text-1' : 'text-text-3 hover:text-text-2'
-                  }`}>{l}</button>
-              ))}
-            </div>
-            {cryptoSub === 'deposit'
-              ? <CryptoDeposit onBalanceUpdate={onBalanceUpdate} />
-              : <CryptoWithdraw onBalanceUpdate={onBalanceUpdate} />
-            }
-          </div>
-        )}
+        {/* Kripto yatır */}
+        {activeTab === 'crypto_deposit' && <CryptoDeposit onBalanceUpdate={onBalanceUpdate} />}
+
+        {/* Kripto çek */}
+        {activeTab === 'crypto_withdraw' && <CryptoWithdraw onBalanceUpdate={onBalanceUpdate} />}
       </div>
 
       {/* İşlem geçmişi */}
@@ -242,7 +232,7 @@ export default function Profile() {
             <div key={tx._id} className="flex items-center justify-between text-sm py-2 border-b border-white/5 last:border-0">
               <div>
                 <span className="text-text-2">{TX_LABEL[tx.type] || tx.type}</span>
-                {tx.note && <div className="text-text-3 text-xs truncate max-w-[200px]">{tx.note}</div>}
+                {tx.note && <div className="text-text-3 text-xs truncate max-w-[100px] sm:max-w-[200px]">{tx.note}</div>}
                 <div className="text-text-3 text-xs">{new Date(tx.createdAt).toLocaleDateString('tr-TR')}</div>
               </div>
               <div className="text-right">

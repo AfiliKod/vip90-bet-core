@@ -30,7 +30,9 @@ function StopIcon() {
 //   value, onChange, disabled, presets
 //   onAuto, autoActive   — optional; shows auto icon in the row
 //   potWin               — optional number; compact potential win row
-export default function BetControls({ value, onChange, disabled, presets, onAuto, autoActive, potWin }) {
+//   balance              — optional number; shows balance bar at top
+//   lastResult           — optional { net: number }; shows last round result
+export default function BetControls({ value, onChange, disabled, presets, onAuto, autoActive, potWin, balance, lastResult }) {
   const [open, setOpen]   = useState(false);
   const inputRef          = useRef(null);
   const wrapRef           = useRef(null);
@@ -61,6 +63,25 @@ export default function BetControls({ value, onChange, disabled, presets, onAuto
 
   return (
     <div className="flex flex-col gap-1.5" ref={wrapRef}>
+
+      {/* ── Balance + last result row ─────────────────────────────────────── */}
+      {balance != null && (
+        <div className="flex items-center justify-between px-3 py-2 rounded-xl"
+          style={{ background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.07)' }}>
+          <div>
+            <div className="text-[9px] text-white/30 uppercase tracking-widest leading-tight">Bakiye</div>
+            <div className="text-sm font-black text-white tabular-nums">₺{balance.toFixed(2)}</div>
+          </div>
+          {lastResult != null && (
+            <div className="text-right">
+              <div className="text-[9px] text-white/30 uppercase tracking-widest leading-tight">Son El</div>
+              <div className={`text-sm font-black tabular-nums ${lastResult.net > 0 ? 'text-green-400' : lastResult.net < 0 ? 'text-red-400' : 'text-white/40'}`}>
+                {lastResult.net > 0 ? '+' : ''}{lastResult.net.toFixed(2)} ₺
+              </div>
+            </div>
+          )}
+        </div>
+      )}
 
       {/* ── Main row: [−]  [amount select trigger]  [+]  [auto?] ─────────── */}
       <div className="flex items-center gap-1.5">

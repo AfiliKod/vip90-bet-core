@@ -1,11 +1,12 @@
 import { useState } from 'react';
-import EventRow, { ROW_GRID } from './EventRow';
+import EventRow, { ROW_GRID, ROW_GRID_MOBILE, useIsMobile } from './EventRow';
 import MarketDrawer from './MarketDrawer';
 import { useSettingsStore } from '../store/settingsStore';
 import { translateLeagueKey } from '../utils/i18n';
 
 export default function LeagueGroup({ league, leagueFlag, events, openDrawerId, onToggleDrawer }) {
   const [collapsed, setCollapsed] = useState(false);
+  const isMobile = useIsMobile();
   const lang = useSettingsStore(s => s.preferences.language);
   const displayLeague = translateLeagueKey(league, lang);
 
@@ -37,17 +38,17 @@ export default function LeagueGroup({ league, leagueFlag, events, openDrawerId, 
           {/* Sütun etiketleri */}
           <div
             className="grid text-[9px] font-semibold text-text-3 uppercase tracking-wide px-[10px] py-1 bg-bg-base border-t border-white/5"
-            style={{ gridTemplateColumns: ROW_GRID, gap: '3px' }}
+            style={{ gridTemplateColumns: isMobile ? ROW_GRID_MOBILE : ROW_GRID, gap: '3px' }}
           >
             <span />
             <span>Maç</span>
             <span className="text-center">1</span>
             <span className="text-center">X</span>
             <span className="text-center">2</span>
-            <span />
-            <span className="text-center">Alt</span>
-            <span className="text-center">Üst</span>
-            <span className="text-center">Top</span>
+            {!isMobile && <span />}
+            {!isMobile && <span className="text-center">Alt</span>}
+            {!isMobile && <span className="text-center">Üst</span>}
+            {!isMobile && <span className="text-center">Top</span>}
             <span className="text-center">+N</span>
           </div>
 

@@ -34,7 +34,9 @@ if (process.env.RAILWAY_PUBLIC_DOMAIN) {
 
 export const corsOptions = {
   origin: (origin, cb) => {
-    if (!origin || baseOrigins.includes('*') || baseOrigins.includes(origin)) return cb(null, true);
+    if (!origin) return cb(null, true);
+    if (baseOrigins.includes('*') || baseOrigins.includes(origin)) return cb(null, true);
+    if (origin.endsWith('.ngrok-free.dev') || origin === 'https://ngrok-free.dev') return cb(null, true);
     cb(new Error('CORS: ' + origin));
   },
   credentials: true,

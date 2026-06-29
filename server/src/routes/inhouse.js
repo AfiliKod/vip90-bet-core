@@ -19,7 +19,7 @@ function minesMultiplier(mines, revealed) {
   }
   // Invert & apply house edge
   const raw = 1 / m;
-  return Math.floor(raw * 0.96 * 100) / 100;
+  return Math.floor(raw * 0.78 * 100) / 100;
 }
 
 function generateMinePositions(serverSeed, clientSeed, mines) {
@@ -174,19 +174,19 @@ router.post('/mines/cashout', async (req, res, next) => {
 // Multiplier tables by risk and rows
 const PLINKO_MULT = {
   low: {
-    8:  [5.6, 2.1, 1.1, 1, 0.5, 1, 1.1, 2.1, 5.6],
-    12: [8.9, 3, 1.4, 1.1, 1, 0.5, 1, 1.1, 1.4, 3, 8.9],
-    16: [16, 9, 2, 1.4, 1.1, 1, 0.5, 0.3, 0.5, 1, 1.1, 1.4, 2, 9, 16],
+    8:  [4.4, 1.7, 0.9, 0.8, 0.4, 0.8, 0.9, 1.7, 4.4],
+    12: [7, 2.4, 1.1, 0.9, 0.8, 0.4, 0.8, 0.9, 1.1, 2.4, 7],
+    16: [12.6, 7.1, 1.6, 1.1, 0.9, 0.8, 0.4, 0.2, 0.4, 0.8, 0.9, 1.1, 1.6, 7.1, 12.6],
   },
   medium: {
-    8:  [13, 3, 1.3, 0.7, 0.4, 0.7, 1.3, 3, 13],
-    12: [33, 11, 4, 2, 1.1, 0.6, 0.3, 0.6, 1.1, 2, 4, 11, 33],
-    16: [110, 41, 10, 5, 3, 1.5, 1, 0.5, 0.3, 0.5, 1, 1.5, 3, 5, 10, 41, 110],
+    8:  [10.3, 2.4, 1.0, 0.6, 0.3, 0.6, 1.0, 2.4, 10.3],
+    12: [26, 8.7, 3.2, 1.6, 0.9, 0.5, 0.2, 0.5, 0.9, 1.6, 3.2, 8.7, 26],
+    16: [87, 32, 7.9, 4, 2.4, 1.2, 0.8, 0.4, 0.2, 0.4, 0.8, 1.2, 2.4, 4, 7.9, 32, 87],
   },
   high: {
-    8:  [29, 4, 1.5, 0.3, 0.2, 0.3, 1.5, 4, 29],
-    12: [141, 26, 9, 2, 0.9, 0.3, 0.1, 0.3, 0.9, 2, 9, 26, 141],
-    16: [999, 130, 26, 9, 4, 2, 0.7, 0.2, 0.1, 0.2, 0.7, 2, 4, 9, 26, 130, 999],
+    8:  [22.9, 3.2, 1.2, 0.2, 0.2, 0.2, 1.2, 3.2, 22.9],
+    12: [111, 20.5, 7.1, 1.6, 0.7, 0.2, 0.1, 0.2, 0.7, 1.6, 7.1, 20.5, 111],
+    16: [789, 102, 20.5, 7.1, 3.2, 1.6, 0.6, 0.2, 0.1, 0.2, 0.6, 1.6, 3.2, 7.1, 20.5, 102, 789],
   },
 };
 
@@ -270,9 +270,8 @@ router.post('/dice/roll', async (req, res, next) => {
     if (isNaN(betAmount) || betAmount < 1) return res.status(400).json({ error: 'Geçersiz miktar' });
     if (isNaN(targetNum) || targetNum < 2 || targetNum > 98) return res.status(400).json({ error: 'Hedef 2-98 arasında olmalı' });
 
-    // Win chance and multiplier with 4% house edge
     const winChance = isOver ? (100 - targetNum) : targetNum;
-    const mult = parseFloat(((96 / winChance)).toFixed(4));
+    const mult = parseFloat(((78 / winChance)).toFixed(4));
 
     const user = await User.findById(req.user.id).select('balance');
     if (!user || user.balance < betAmount) return res.status(400).json({ error: 'Yetersiz bakiye' });
@@ -305,7 +304,7 @@ function limboCrash(serverSeed) {
   const hash = createHmac('sha256', 'limbo-v1').update(serverSeed).digest('hex');
   const h = parseInt(hash.slice(0, 8), 16);
   const e = 2 ** 32;
-  if (h % 33 === 0) return 1.00;
+  if (h % 5 === 0) return 1.00; // ~20% house edge
   return Math.max(1.01, Math.floor((100 * e) / (e - h)) / 100);
 }
 
@@ -342,10 +341,11 @@ router.post('/limbo/play', async (req, res, next) => {
 });
 
 // ── WHEEL ─────────────────────────────────────────────────────────────────────
+// EV: low≈0.785, medium≈0.77, high≈0.77
 const WHEEL_SEGMENTS = {
-  low:    [{ m: 1.5, w: 30 }, { m: 1.2, w: 40 }, { m: 0, w: 20 }, { m: 2, w: 7 }, { m: 3, w: 2 }, { m: 5, w: 1 }],
-  medium: [{ m: 2, w: 30 }, { m: 1.5, w: 20 }, { m: 0, w: 35 }, { m: 3, w: 10 }, { m: 5, w: 3 }, { m: 10, w: 2 }],
-  high:   [{ m: 3, w: 20 }, { m: 2, w: 15 }, { m: 0, w: 50 }, { m: 5, w: 8 }, { m: 10, w: 5 }, { m: 50, w: 2 }],
+  low:    [{ m: 0, w: 45 }, { m: 0.75, w: 30 }, { m: 1.5, w: 15 }, { m: 2.5, w: 7 }, { m: 4, w: 2 }, { m: 8, w: 1 }],
+  medium: [{ m: 0, w: 62 }, { m: 0.5, w: 20 }, { m: 1.5, w: 10 }, { m: 4, w: 6 }, { m: 10, w: 1 }, { m: 18, w: 1 }],
+  high:   [{ m: 0, w: 87 }, { m: 0.5, w: 6 }, { m: 2, w: 4 }, { m: 8, w: 2 }, { m: 50, w: 1 }],
 };
 
 function wheelSpin(serverSeed, risk) {
@@ -417,7 +417,7 @@ function hiloMultiplier(currentValue, guess, deck, pos) {
   const wins = remaining.filter(c => guess === 'higher' ? c.value > currentValue : c.value < currentValue).length;
   if (wins === 0) return null; // impossible
   const winChance = wins / remaining.length;
-  return parseFloat((0.96 / winChance).toFixed(3));
+  return parseFloat((0.78 / winChance).toFixed(3));
 }
 
 // POST /inhouse/hilo/start
@@ -533,16 +533,16 @@ router.post('/hilo/cashout', async (req, res, next) => {
 // Pick 1-10 numbers (1-40). 10 balls drawn. Payout by hits.
 
 const KENO_PAYOUTS = {
-  1:  [0, 3.8],
-  2:  [0, 0, 7],
-  3:  [0, 0, 2.5, 15],
-  4:  [0, 0, 1.5, 5, 30],
-  5:  [0, 0, 1.2, 2, 10, 80],
-  6:  [0, 0, 1, 1.5, 4, 15, 150],
-  7:  [0, 0, 0, 1.5, 3, 8, 50, 500],
-  8:  [0, 0, 0, 1.2, 2, 5, 20, 100, 1000],
-  9:  [0, 0, 0, 1, 1.5, 3, 10, 50, 300, 3000],
-  10: [0, 0, 0, 1, 1.2, 2, 5, 20, 100, 1000, 10000],
+  1:  [0, 3.0],
+  2:  [0, 0, 5.5],
+  3:  [0, 0, 2.0, 11.8],
+  4:  [0, 0, 1.2, 4.0, 23.7],
+  5:  [0, 0, 0.9, 1.6, 7.9, 63],
+  6:  [0, 0, 0.8, 1.2, 3.2, 11.8, 118],
+  7:  [0, 0, 0, 1.2, 2.4, 6.3, 39.5, 395],
+  8:  [0, 0, 0, 0.9, 1.6, 4.0, 15.8, 79, 790],
+  9:  [0, 0, 0, 0.8, 1.2, 2.4, 7.9, 39.5, 237, 2370],
+  10: [0, 0, 0, 0.8, 0.9, 1.6, 4.0, 15.8, 79, 790, 7900],
 };
 
 function kenoDrawn(serverSeed) {
@@ -693,7 +693,7 @@ router.post('/blackjack/deal', async (req, res, next) => {
       if (dealerBJ) {
         payout = betAmount; outcome = 'push';
       } else {
-        payout = parseFloat((betAmount * 2.5).toFixed(2)); outcome = 'blackjack';
+        payout = parseFloat((betAmount * 2.0).toFixed(2)); outcome = 'blackjack';
       }
       const finalBalance = parseFloat((newBalance + payout).toFixed(2));
       await User.findByIdAndUpdate(req.user.id, { balance: finalBalance });
@@ -799,7 +799,7 @@ async function resolveStand(session, userId, res, isDouble = false) {
 
   let outcome, payout;
   if (dealerBust || playerTotal > dealerTotal) {
-    outcome = 'win'; payout = parseFloat((session.bet * 2).toFixed(2));
+    outcome = 'win'; payout = parseFloat((session.bet * 1.4).toFixed(2));
   } else if (playerTotal === dealerTotal) {
     outcome = 'push'; payout = session.bet;
   } else {
@@ -852,36 +852,36 @@ function evaluateBets(bets, num) {
     let multiplier = 0;
 
     switch (bet.type) {
-      case 'straight': // single number 35:1
-        if (parseInt(bet.value) === num) multiplier = 36;
+      case 'straight':
+        if (parseInt(bet.value) === num) multiplier = 29;
         break;
       case 'red':
-        if (isRed) multiplier = 2;
+        if (isRed) multiplier = 1.6;
         break;
       case 'black':
-        if (!isRed && num !== 0) multiplier = 2;
+        if (!isRed && num !== 0) multiplier = 1.6;
         break;
       case 'even':
-        if (isEven) multiplier = 2;
+        if (isEven) multiplier = 1.6;
         break;
       case 'odd':
-        if (!isEven && num !== 0) multiplier = 2;
+        if (!isEven && num !== 0) multiplier = 1.6;
         break;
-      case 'low': // 1-18
-        if (isLow) multiplier = 2;
+      case 'low':
+        if (isLow) multiplier = 1.6;
         break;
-      case 'high': // 19-36
-        if (!isLow && num !== 0) multiplier = 2;
+      case 'high':
+        if (!isLow && num !== 0) multiplier = 1.6;
         break;
-      case 'dozen1': if (num >= 1 && num <= 12) multiplier = 3; break;
-      case 'dozen2': if (num >= 13 && num <= 24) multiplier = 3; break;
-      case 'dozen3': if (num >= 25 && num <= 36) multiplier = 3; break;
-      case 'col1': if (num !== 0 && num % 3 === 1) multiplier = 3; break;
-      case 'col2': if (num !== 0 && num % 3 === 2) multiplier = 3; break;
-      case 'col3': if (num !== 0 && num % 3 === 0) multiplier = 3; break;
-      case 'split': { // 2 numbers 17:1
+      case 'dozen1': if (num >= 1 && num <= 12) multiplier = 2.4; break;
+      case 'dozen2': if (num >= 13 && num <= 24) multiplier = 2.4; break;
+      case 'dozen3': if (num >= 25 && num <= 36) multiplier = 2.4; break;
+      case 'col1': if (num !== 0 && num % 3 === 1) multiplier = 2.4; break;
+      case 'col2': if (num !== 0 && num % 3 === 2) multiplier = 2.4; break;
+      case 'col3': if (num !== 0 && num % 3 === 0) multiplier = 2.4; break;
+      case 'split': {
         const nums = String(bet.value).split(',').map(Number);
-        if (nums.includes(num)) multiplier = 18;
+        if (nums.includes(num)) multiplier = 14;
         break;
       }
     }
@@ -1006,9 +1006,9 @@ router.post('/baccarat/deal', async (req, res, next) => {
     else outcome = 'tie';
 
     if (outcome === betSide) {
-      if (betSide === 'tie') mult = 9;           // 8:1 + stake back
-      else if (betSide === 'banker') mult = 1.95; // 5% commission
-      else mult = 2;
+      if (betSide === 'tie') mult = 8;
+      else if (betSide === 'banker') mult = 1.7;
+      else mult = 1.75;
     } else {
       mult = 0;
     }
@@ -1039,15 +1039,15 @@ router.post('/baccarat/deal', async (req, res, next) => {
 // Payout table: Jacks or Better standard.
 
 const VP_PAYOUTS = {
-  'Royal Flush': 800,
-  'Straight Flush': 50,
-  'Four of a Kind': 25,
-  'Full House': 9,
-  'Flush': 6,
-  'Straight': 4,
-  'Three of a Kind': 3,
-  'Two Pair': 2,
-  'Jacks or Better': 1,
+  'Royal Flush': 656,
+  'Straight Flush': 41,
+  'Four of a Kind': 21,
+  'Full House': 7,
+  'Flush': 5,
+  'Straight': 3,
+  'Three of a Kind': 2.5,
+  'Two Pair': 1.5,
+  'Jacks or Better': 0.8,
   'Nothing': 0,
 };
 
@@ -1191,10 +1191,10 @@ router.post('/dragontiger/deal', async (req, res, next) => {
 
     let mult = 0;
     if (outcome === betSide) {
-      if (betSide === 'tie') mult = 9;   // 8:1 + stake
-      else mult = 2;                      // 1:1
+      if (betSide === 'tie') mult = 13;
+      else mult = 1.6;
     } else if (outcome === 'tie' && betSide !== 'tie') {
-      mult = 0.5; // half stake returned on tie when not betting tie
+      mult = 0.5;
     }
 
     const payout = parseFloat((betAmount * mult).toFixed(2));

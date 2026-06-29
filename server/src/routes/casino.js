@@ -160,6 +160,17 @@ function ok(u){
   try{var h=new URL(u,location.href).hostname;return AD.some(function(d){return h===d||h.endsWith('.'+d);});}
   catch(e){return false;}
 }
+// same-origin /gs2c/ yollarını base href'teki CDN origin'ine yönlendir
+// PP reloadBalance.do vb. game server API çağrıları mutlak yol kullanır
+function _bzGsRewrite(u){
+  if(typeof u!=='string')return u;
+  var path=null;
+  if(u.indexOf('/')==0&&u.indexOf('/gs2c/')==0)path=u;
+  else if(u.indexOf(location.origin)==0&&u.indexOf(location.origin+'/gs2c/')==0)path=u.slice(location.origin.length);
+  if(!path)return u;
+  try{var b=document.querySelector('base');if(b&&b.href)return new URL(b.href).origin+path;}catch(_){}
+  return u;
+}
 
 // ── balance overlay — oyun iframe'i içinde floating gösterge ─────────────
 // Oyunun kendi canvas'ındaki bakiyenin üstüne gelecek şekilde positioned.
@@ -484,6 +495,7 @@ function __bzGetSub(){
 // ── fetch override — CORS bypass + spin + balance injection ──────────────
 window.fetch=function(url,opts){
   var us=typeof url==='string'?url:(url&&url.url)||String(url||'');
+  us=_bzGsRewrite(us);
   if(ok(us)){
     sendAlive();
     var relay=__bzH+'/api/casino/relay?gid='+encodeURIComponent(__bzGID)+'&url='+encodeURIComponent(us);
@@ -582,6 +594,7 @@ window.fetch=function(url,opts){
 // ── XHR override — CORS bypass + spin + balance injection ────────────────
 XMLHttpRequest.prototype.open=function(m,url){
   var u=String(url||'');
+  u=_bzGsRewrite(u);
   if(ok(u)){
     sendAlive();
     this.__bzP=true;this.__bzU=u;this.__bzMethod=(m||'GET').toUpperCase();
@@ -1370,10 +1383,18 @@ r.all('/relay', async (req, res) => {
         body = body.replaceAll('globalRuntime.sceneRoots.length', '(globalRuntime&&globalRuntime.sceneRoots||[]).length');
         // PatchPlayNowButton: tSOI null ise .RemoveButtonAndPatchText assign hatası
         body = body.replace('tSOI.RemoveButtonAndPatchText = function()', 'if(!tSOI)return; tSOI.RemoveButtonAndPatchText = function()');
-        // Grafana Faro stub — logo_info.js initFaro çağrısı getSession dahil tüm API'yi kullanır
-        // Grafana Faro stub — logo_info.js initFaro çağrısı getSession dahil tüm API'yi kullanır
-        // Object.defineProperty ile hem faro hem initFaro kilitlenir (script redefine edemez)
-        const faroStub = '(function(){var _a={getSession:function(){return{id:"bz",attributes:{}};},pushError:function(){},pushEvent:function(){},pushLog:function(){},pushMeasurement:function(){},pushTrace:function(){},setUser:function(){},resetUser:function(){},getOTELApi:function(){return{};}};var _f={api:_a,pause:function(){},unpause:function(){}};try{Object.defineProperty(window,"faro",{value:_f,writable:false,configurable:false});}catch(e){window.faro=_f;}try{Object.defineProperty(window,"initFaro",{value:function(){return _f;},writable:false,configurable:false});}catch(e){window.initFaro=function(){return _f;};}})();';
+        // Grafana Faro stub — gerçek sorun: logo_info.js window.GrafanaFaroWebSdk.faro.api
+        // kullanıyor. SDK script GrafanaFaroWebSdk'yi set ediyor ama faro.api undefined kalıyor.
+        // Ayrıca window.initFaro kilitli olduğundan logo_info.js'in initFaro arrow fn'ı hiç çalışmıyor.
+        // Çözüm: GrafanaFaroWebSdk namespace'ini de stub'a ekle + tüm erişim yollarını kapat.
+        const faroStub = '(function(){' +
+          'var _a={getSession:function(){return{id:"bz",attributes:{}};},pushError:function(){},pushEvent:function(){},pushLog:function(){},pushMeasurement:function(){},pushTrace:function(){},setUser:function(){},resetUser:function(){},getOTELApi:function(){return{};}};' +
+          'var _f={api:_a,pause:function(){},unpause:function(){}};' +
+          'var _sdk={faro:_f,initializeFaro:function(){return _f;},FetchTransport:function(){},getWebInstrumentations:function(){return[];},TracingInstrumentation:function(){}};' +
+          'try{Object.defineProperty(window,"faro",{value:_f,writable:false,configurable:false});}catch(e){window.faro=_f;}' +
+          'try{Object.defineProperty(window,"initFaro",{value:function(){return _f;},writable:false,configurable:false});}catch(e){window.initFaro=function(){return _f;};}' +
+          'try{Object.defineProperty(window,"GrafanaFaroWebSdk",{value:_sdk,writable:false,configurable:false});}catch(e){window.GrafanaFaroWebSdk=_sdk;}' +
+          '})();';
         body = faroStub + body;
         console.log('[bz-logo-patch] sceneRoots + tSOI + initFaro patched');
         delete h['content-length'];
