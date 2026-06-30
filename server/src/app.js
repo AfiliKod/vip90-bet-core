@@ -19,6 +19,8 @@ import casinoRoutes from './routes/casino.js';
 import helpRoutes from './routes/help.js';
 import inhouseRoutes from './routes/inhouse.js';
 import cryptoRoutes from './routes/crypto.js';
+import bankRoutes from './routes/bank.js';
+import analyticsRoutes from './routes/analytics.js';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const isProd = process.env.NODE_ENV === 'production';
@@ -80,6 +82,8 @@ export function createApp() {
   app.use('/api/inhouse', inhouseRoutes);
   app.use('/api/help', helpRoutes);
   app.use('/api/crypto', cryptoRoutes);
+  app.use('/api/bank', bankRoutes);
+  app.use('/api/admin/analytics', analyticsRoutes);
 
   // Health check — Render uptime monitoring için
   app.get('/api/health', (req, res) => res.json({ ok: true, env: process.env.NODE_ENV }));

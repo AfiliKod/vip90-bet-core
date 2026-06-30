@@ -39,7 +39,7 @@ export default function Navbar() {
             onClick={() => setOpen(o => !o)}
             className="flex items-center gap-2 bg-bg-card border border-white/10 rounded-full px-3 py-1.5 hover:border-primary/30 transition"
           >
-            <span className="text-sm text-text-2">👤 Profil</span>
+            <span className="text-sm text-text-2 max-w-24 truncate">👤 {user?.username || 'Profil'}</span>
             <span className="text-text-3 text-xs">{open ? '▲' : '▼'}</span>
           </button>
 
@@ -50,12 +50,12 @@ export default function Navbar() {
                 <p className="text-xs text-text-3">{user?.username}</p>
                 <p className="text-lg font-bold text-primary">₺{user?.balance?.toFixed(2) || '0.00'}</p>
                 <div className="flex gap-2 mt-3">
-                  <button onClick={() => nav('/profile?tab=bank_deposit')}
+                  <button onClick={() => nav('/profile?mode=deposit&method=bank')}
                     className="flex-1 flex items-center justify-center gap-1.5 py-2 bg-primary/20 text-primary text-sm font-semibold rounded-lg hover:bg-primary/30 transition"
                   >
                     🏦 Yatır
                   </button>
-                  <button onClick={() => nav('/profile?tab=crypto_deposit')}
+                  <button onClick={() => nav('/profile?mode=deposit&method=crypto')}
                     className="flex-1 flex items-center justify-center gap-1.5 py-2 bg-amber-500/20 text-amber-400 text-sm font-semibold rounded-lg hover:bg-amber-500/30 transition"
                   >
                     🪙 Kripto
@@ -66,7 +66,7 @@ export default function Navbar() {
               {/* Menü linkleri */}
               <div className="py-1">
                 {[
-                  { to: '/profile',    icon: '👤', label: 'Profil' },
+                  { to: '/profile',    icon: '👤', label: 'Hesabım' },
                   { to: '/my-bets',    icon: '📋', label: 'Bahislerim' },
                   { to: '/promotions', icon: '🎁', label: 'Kampanyalar' },
                   { to: '/settings',   icon: '⚙️', label: 'Ayarlar' },

@@ -6,9 +6,14 @@ import api from '../../services/api';
 export default function AdminDashboard() {
   const [stats, setStats] = useState(null);
   const [pendingTasks, setPendingTasks] = useState(0);
+  const [pendingBank, setPendingBank] = useState(0);
   useEffect(() => {
     api.get('/admin/stats').then(r => setStats(r.data)).catch(() => {});
     api.get('/admin/tasks?status=pending').then(r => setPendingTasks(r.data.tasks?.length ?? 0)).catch(() => {});
+    Promise.all([
+      api.get('/bank/admin/pending?type=deposit'),
+      api.get('/bank/admin/pending?type=withdraw'),
+    ]).then(([d, w]) => setPendingBank(d.data.requests.length + w.data.requests.length)).catch(() => {});
   }, []);
 
   const cards = stats ? [
@@ -55,6 +60,21 @@ export default function AdminDashboard() {
           <div className="text-3xl mb-2">📊</div>
           <div className="font-semibold text-text-1">Casino İstatistikleri</div>
           <div className="text-text-3 text-sm mt-1">GGR, oyuncu ve oyun analizi</div>
+        </Link>
+        <Link to="/admin/bank" className="bg-bg-card border border-white/10 rounded-xl p-5 hover:border-accent/30 transition text-center relative">
+          {pendingBank > 0 && (
+            <span className="absolute top-3 right-3 bg-accent text-white text-[10px] font-black rounded-full w-5 h-5 flex items-center justify-center">
+              {pendingBank}
+            </span>
+          )}
+          <div className="text-3xl mb-2">🏦</div>
+          <div className="font-semibold text-text-1">Banka Talepleri</div>
+          <div className="text-text-3 text-sm mt-1">Yatırma/Çekme onayla</div>
+        </Link>
+        <Link to="/admin/analytics" className="bg-bg-card border border-white/10 rounded-xl p-5 hover:border-accent/30 transition text-center">
+          <div className="text-3xl mb-2">📈</div>
+          <div className="font-semibold text-text-1">Analitik</div>
+          <div className="text-text-3 text-sm mt-1">Detaylı istatistik ve grafikler</div>
         </Link>
       </div>
     </div>

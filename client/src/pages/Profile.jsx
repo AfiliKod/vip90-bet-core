@@ -17,6 +17,8 @@ const TX_LABEL = {
   crypto_withdraw: '🪙 Kripto Çekim',
 };
 
+const AMOUNT_PRESETS = [100, 250, 500, 1000, 2000, 5000];
+
 function CopyButton({ text }) {
   const [copied, setCopied] = useState(false);
   const copy = () => {
@@ -142,7 +144,16 @@ export default function Profile() {
   const addToast = useToastStore(s => s.add);
   const [searchParams, setSearchParams] = useSearchParams();
   const [transactions, setTransactions] = useState([]);
-  const [activeTab, setActiveTab]       = useState(searchParams.get('tab') || 'bank_deposit');
+
+  const [mode, setMode]       = useState(searchParams.get('mode') || 'deposit');
+  const [method, setMethod]   = useState(searchParams.get('method') || 'bank');
+  const [step, setStep]       = useState('amount');
+  const [selectedAmount, setSelectedAmount] = useState(null);
+  const [customAmount, setCustomAmount]     = useState('');
+  const [bankInfo, setBankInfo]             = useState(null);
+  const [submitting, setSubmitting]         = useState(false);
+  const [successRequest, setSuccessRequest] = useState(null);
+
   const { register, handleSubmit, reset, formState: { isSubmitting } } = useForm();
 
   const fetchTx = useCallback(() => {
@@ -151,14 +162,81 @@ export default function Profile() {
 
   useEffect(() => { fetchTx(); }, [fetchTx]);
 
+  useEffect(() => {
+    if (method === 'bank') {
+      api.get('/bank/info').then(r => setBankInfo(r.data)).catch(() => {});
+    }
+  }, [method]);
+
   const onBalanceUpdate = (newBalance) => {
     updateBalance(newBalance);
     fetchTx();
   };
 
+  const syncParams = (m, meth) => {
+    const params = {};
+    if (m !== 'deposit') params.mode = m;
+    if (meth !== 'bank') params.method = meth;
+    setSearchParams(params, { replace: true });
+  };
+
+  const switchMode = (m) => {
+    setMode(m);
+    setStep('amount');
+    setSelectedAmount(null);
+    setCustomAmount('');
+    setSuccessRequest(null);
+    syncParams(m, method);
+  };
+
+  const switchMethod = (m) => {
+    setMethod(m);
+    setStep('amount');
+    setSelectedAmount(null);
+    setCustomAmount('');
+    setSuccessRequest(null);
+    syncParams(mode, m);
+  };
+
+  const handleAmountSelect = (amount) => {
+    setSelectedAmount(amount);
+    setCustomAmount('');
+    if (method === 'bank' && mode === 'deposit') {
+      setStep('confirm');
+    } else if (method === 'bank' && mode === 'withdraw') {
+      setStep('confirm');
+    }
+  };
+
+  const handleCustomChange = (e) => {
+    const v = e.target.value;
+    setCustomAmount(v);
+    setSelectedAmount(null);
+  };
+
+  const handleBankSubmit = async () => {
+    const amount = selectedAmount || parseFloat(customAmount);
+    if (!amount || amount <= 0) return;
+    setSubmitting(true);
+    try {
+      const endpoint = mode === 'deposit' ? '/bank/deposit' : '/bank/withdraw';
+      const { data } = await api.post(endpoint, { amount });
+      setSuccessRequest({ amount, ...data });
+      addToast(data.message, 'success');
+    } catch (e) {
+      addToast(e.response?.data?.error || 'İşlem başarısız', 'error');
+    } finally { setSubmitting(false); }
+  };
+
+  const refCode = user?._id
+    ? `${user._id.slice(-6).toUpperCase()}-${Date.now().toString(36).toUpperCase()}`
+    : '';
+
+  const amount = selectedAmount || (customAmount ? parseFloat(customAmount) : 0);
+
   const onFiatSubmit = async (data) => {
     try {
-      const endpoint = activeTab === 'bank_deposit' ? '/transactions/deposit' : '/transactions/withdraw';
+      const endpoint = '/transactions/deposit';
       const { data: res } = await api.post(endpoint, { amount: parseFloat(data.amount) });
       onBalanceUpdate(res.newBalance);
       addToast(res.message, 'success');
@@ -166,16 +244,9 @@ export default function Profile() {
     } catch (e) { addToast(e.response?.data?.error?.message || 'İşlem başarısız', 'error'); }
   };
 
-  const TABS = [
-    ['bank_deposit',    '🏦 Bankayla Yatır'],
-    ['bank_withdraw',   '🏦 Bankayla Çek'],
-    ['crypto_deposit',  '🪙 Kriptoyla Yatır'],
-    ['crypto_withdraw', '🪙 Kriptoyla Çek'],
-  ];
-
   return (
     <div className="max-w-2xl mx-auto px-3 sm:px-4 py-6">
-      {/* Profil başlık */}
+      {/* Kullanıcı bilgi kartı */}
       <div className="bg-bg-card border border-white/10 rounded-xl p-4 sm:p-6 mb-4">
         <div className="flex items-center gap-4 mb-6">
           <div className="w-14 h-14 rounded-full bg-accent/20 border border-accent/30 flex items-center justify-center text-2xl font-bold text-accent">
@@ -191,37 +262,266 @@ export default function Profile() {
           </div>
         </div>
 
-        {/* Sekme butonları */}
-        <div className="grid grid-cols-2 sm:flex gap-2 mb-4">
-          {TABS.map(([v, l]) => (
-            <button key={v} onClick={() => { setActiveTab(v); setSearchParams(v === 'bank_deposit' ? {} : { tab: v }); }}
-              className={`py-2 px-1 rounded-lg text-xs sm:text-sm font-medium transition leading-tight ${
-                activeTab === v ? 'bg-accent text-white' : 'text-text-2 hover:bg-bg-hover border border-white/10'
-              }`}>{l}</button>
-          ))}
+        {/* ── Para Yatır / Para Çek konteynırı ── */}
+        <div className="bg-bg-base/60 border border-white/[0.06] rounded-2xl p-4 sm:p-5">
+          {/* Üst: Para Yatır / Para Çek toggle */}
+          <div className="flex bg-bg-deep/40 rounded-xl p-1 mb-4">
+            {[
+              { key: 'deposit', label: '📥 Para Yatır' },
+              { key: 'withdraw', label: '📤 Para Çek' },
+            ].map(m => (
+              <button key={m.key} onClick={() => switchMode(m.key)}
+                className={`flex-1 py-2.5 rounded-lg text-sm font-semibold transition ${
+                  mode === m.key
+                    ? 'bg-accent text-white shadow-lg shadow-accent/25'
+                    : 'text-text-3 hover:text-text-1'
+                }`}>{m.label}</button>
+            ))}
+          </div>
+
+          {/* Alt: Banka / Kripto seçici */}
+          <div className="flex gap-2 mb-4">
+            {[
+              { key: 'bank', label: '🏦 Banka ile', desc: 'Havale / EFT' },
+              { key: 'crypto', label: '🪙 Kripto ile', desc: 'USDT TRC20' },
+            ].map(m => (
+              <button key={m.key} onClick={() => switchMethod(m.key)}
+                className={`flex-1 flex flex-col items-center gap-0.5 py-3 rounded-xl text-sm font-medium border transition ${
+                  method === m.key
+                    ? 'bg-accent/10 border-accent/40 text-accent'
+                    : 'bg-bg-deep/30 border-white/[0.06] text-text-3 hover:text-text-2 hover:border-white/20'
+                }`}>
+                <span>{m.label}</span>
+                <span className="text-[10px] opacity-60">{m.desc}</span>
+              </button>
+            ))}
+          </div>
+
+          {/* ── BANK DEPOSIT ── */}
+          {method === 'bank' && mode === 'deposit' && !successRequest && step === 'amount' && (
+            <div className="space-y-4">
+              <p className="text-sm text-text-2 font-medium">Yatırılacak Tutarı Seçin</p>
+              <div className="grid grid-cols-3 gap-2">
+                {AMOUNT_PRESETS.map(a => (
+                  <button key={a} onClick={() => handleAmountSelect(a)}
+                    className={`py-3 rounded-xl text-base font-bold border transition ${
+                      selectedAmount === a
+                        ? 'bg-accent text-white border-accent shadow-lg shadow-accent/20'
+                        : 'bg-bg-deep/40 border-white/[0.06] text-text-2 hover:border-accent/30 hover:text-text-1'
+                    }`}>₺{a}</button>
+                ))}
+              </div>
+              <div className="relative">
+                <div className="absolute inset-0 flex items-center"><div className="w-full border-t border-white/10" /></div>
+                <div className="relative flex justify-center"><span className="bg-bg-base/60 px-2 text-xs text-text-3">veya</span></div>
+              </div>
+              <div className="flex gap-2">
+                <input type="number" value={customAmount}
+                  onChange={handleCustomChange}
+                  placeholder="Özel tutar (min. 10₺)"
+                  className="flex-1 bg-bg-deep/40 border border-white/10 rounded-xl px-4 py-2.5 text-text-1 text-sm focus:outline-none focus:border-accent/50" />
+                <button onClick={() => {
+                  const v = parseFloat(customAmount);
+                  if (v >= 10) handleAmountSelect(v);
+                  else addToast('Minimum 10₺', 'error');
+                }} disabled={!customAmount || parseFloat(customAmount) < 10}
+                  className="px-5 py-2.5 bg-accent text-white font-semibold rounded-xl text-sm hover:opacity-90 transition disabled:opacity-40">
+                  Devam
+                </button>
+              </div>
+            </div>
+          )}
+
+          {method === 'bank' && mode === 'deposit' && !successRequest && step === 'confirm' && (
+            <div className="space-y-4 animate-fade-in">
+              <div className="text-center">
+                <div className="text-3xl font-black text-primary mb-1">₺{amount.toFixed(2)}</div>
+                <div className="text-xs text-text-3">Yatırma Talebi</div>
+              </div>
+
+              {bankInfo && (
+                <div className="bg-bg-deep/40 border border-white/[0.06] rounded-xl p-4 space-y-3">
+                  <div className="flex items-center justify-between">
+                    <span className="text-xs text-text-3">Banka</span>
+                    <span className="text-sm text-text-1 font-medium">{bankInfo.bankName}</span>
+                  </div>
+                  <div className="flex items-center justify-between">
+                    <span className="text-xs text-text-3">Şube</span>
+                    <span className="text-sm text-text-1">{bankInfo.bankBranch}</span>
+                  </div>
+                  <div className="flex items-center justify-between">
+                    <span className="text-xs text-text-3">Alıcı</span>
+                    <span className="text-sm text-text-1 font-medium">{bankInfo.accountHolder}</span>
+                  </div>
+                  <div>
+                    <div className="flex items-center justify-between mb-1">
+                      <span className="text-xs text-text-3">IBAN</span>
+                      <CopyButton text={bankInfo.iban} />
+                    </div>
+                    <div className="bg-bg-base border border-white/10 rounded-lg px-3 py-2 font-mono text-sm text-text-1 tracking-wide break-all">
+                      {bankInfo.iban}
+                    </div>
+                  </div>
+                  <div>
+                    <div className="flex items-center justify-between mb-1">
+                      <span className="text-xs text-text-3">Hesap No</span>
+                      <CopyButton text={bankInfo.accountNo} />
+                    </div>
+                    <div className="bg-bg-base border border-white/10 rounded-lg px-3 py-2 font-mono text-sm text-text-1">
+                      {bankInfo.accountNo}
+                    </div>
+                  </div>
+                  <div>
+                    <div className="flex items-center justify-between mb-1">
+                      <span className="text-xs text-text-3">Referans Kodu</span>
+                      <CopyButton text={refCode} />
+                    </div>
+                    <div className="bg-amber-500/10 border border-amber-500/30 rounded-lg px-3 py-2 font-mono text-sm text-amber-400 font-bold tracking-wider text-center">
+                      {refCode}
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              <div className="bg-accent/5 border border-accent/20 rounded-xl p-3 text-xs text-text-2 leading-relaxed space-y-1">
+                <p>1️⃣ Yukarıdaki hesaba <strong className="text-text-1">₺{amount.toFixed(2)}</strong> gönderin</p>
+                <p>2️⃣ Açıklama kısmına <strong className="text-amber-400">{refCode}</strong> referans kodunu yazın</p>
+                <p>3️⃣ Admin onayından sonra bakiye otomatik yüklenecektir</p>
+              </div>
+
+              <div className="flex gap-2">
+                <button onClick={() => setStep('amount')}
+                  className="flex-1 py-2.5 border border-white/20 text-text-3 rounded-xl text-sm font-medium hover:bg-bg-hover transition">
+                  Geri
+                </button>
+                <button onClick={handleBankSubmit} disabled={submitting}
+                  className="flex-1 py-2.5 bg-accent text-white font-semibold rounded-xl text-sm hover:opacity-90 transition disabled:opacity-50">
+                  {submitting ? 'Gönderiliyor...' : '✅ Havale Bildirimi Yap'}
+                </button>
+              </div>
+            </div>
+          )}
+
+          {method === 'bank' && mode === 'deposit' && successRequest && (
+            <div className="text-center py-4 space-y-3 animate-fade-in">
+              <div className="text-4xl">✅</div>
+              <div className="text-lg font-bold text-text-1">Talep Oluşturuldu</div>
+              <div className="text-3xl font-black text-primary">₺{successRequest.amount.toFixed(2)}</div>
+              <p className="text-sm text-text-3 max-w-xs mx-auto">
+                Hesaba havale yaptıktan sonra admin onayını bekleyin. Onaylandığında bakiyenize yansıyacaktır.
+              </p>
+              <button onClick={() => { setStep('amount'); setSelectedAmount(null); setSuccessRequest(null); }}
+                className="px-5 py-2 border border-accent/40 text-accent rounded-xl text-sm font-medium hover:bg-accent/10 transition">
+                Yeni Talep
+              </button>
+            </div>
+          )}
+
+          {/* ── BANK WITHDRAW ── */}
+          {method === 'bank' && mode === 'withdraw' && !successRequest && (
+            <div className="space-y-4">
+              {step === 'amount' && (
+                <>
+                  <p className="text-sm text-text-2 font-medium">Çekilecek Tutarı Seçin</p>
+                  <div className="grid grid-cols-3 gap-2">
+                    {AMOUNT_PRESETS.map(a => (
+                      <button key={a} onClick={() => handleAmountSelect(a)}
+                        className={`py-3 rounded-xl text-base font-bold border transition ${
+                          selectedAmount === a
+                            ? 'bg-accent text-white border-accent shadow-lg shadow-accent/20'
+                            : 'bg-bg-deep/40 border-white/[0.06] text-text-2 hover:border-accent/30 hover:text-text-1'
+                        }`}>₺{a}</button>
+                    ))}
+                  </div>
+                  <div className="relative">
+                    <div className="absolute inset-0 flex items-center"><div className="w-full border-t border-white/10" /></div>
+                    <div className="relative flex justify-center"><span className="bg-bg-base/60 px-2 text-xs text-text-3">veya</span></div>
+                  </div>
+                  <div className="flex gap-2">
+                    <input type="number" value={customAmount}
+                      onChange={handleCustomChange}
+                      placeholder="Özel tutar (min. 20₺)"
+                      className="flex-1 bg-bg-deep/40 border border-white/10 rounded-xl px-4 py-2.5 text-text-1 text-sm focus:outline-none focus:border-accent/50" />
+                    <button onClick={() => {
+                      const v = parseFloat(customAmount);
+                      if (v >= 20) { handleAmountSelect(v); }
+                      else addToast('Minimum 20₺', 'error');
+                    }} disabled={!customAmount || parseFloat(customAmount) < 20}
+                      className="px-5 py-2.5 bg-accent text-white font-semibold rounded-xl text-sm hover:opacity-90 transition disabled:opacity-40">
+                      Devam
+                    </button>
+                  </div>
+
+                  {selectedAmount && selectedAmount > (user?.balance || 0) && (
+                    <div className="bg-danger/10 border border-danger/30 rounded-lg p-2.5 text-danger text-xs text-center">
+                      Yetersiz bakiye. Mevcut bakiyeniz: ₺{user?.balance?.toFixed(2)}
+                    </div>
+                  )}
+                </>
+              )}
+
+              {step === 'confirm' && (
+                <div className="space-y-4 animate-fade-in">
+                  <div className="text-center">
+                    <div className="text-3xl font-black text-danger mb-1">₺{amount.toFixed(2)}</div>
+                    <div className="text-xs text-text-3">Çekim Talebi</div>
+                  </div>
+
+                  <div className="bg-bg-deep/40 border border-white/[0.06] rounded-xl p-4 space-y-3">
+                    <div className="flex items-center justify-between">
+                      <span className="text-xs text-text-3">Mevcut Bakiye</span>
+                      <span className="text-sm text-text-1 font-medium">₺{user?.balance?.toFixed(2)}</span>
+                    </div>
+                    <div className="flex items-center justify-between">
+                      <span className="text-xs text-text-3">Çekim Tutarı</span>
+                      <span className="text-sm text-text-1 font-medium text-danger">₺{amount.toFixed(2)}</span>
+                    </div>
+                    <div className="border-t border-white/10 pt-3 flex items-center justify-between">
+                      <span className="text-xs text-text-3">Kalan Bakiye</span>
+                      <span className="text-base font-bold text-text-1">₺{((user?.balance || 0) - amount).toFixed(2)}</span>
+                    </div>
+                  </div>
+
+                  <div className="bg-blue-500/10 border border-blue-500/30 rounded-xl p-3 text-xs text-text-2 leading-relaxed">
+                    Çekim talebiniz admin onayına gönderilecektir. Onaylandığında tutar banka hesabınıza aktarılır. İşlem 1-2 iş günü sürebilir.
+                  </div>
+
+                  <div className="flex gap-2">
+                    <button onClick={() => setStep('amount')}
+                      className="flex-1 py-2.5 border border-white/20 text-text-3 rounded-xl text-sm font-medium hover:bg-bg-hover transition">
+                      Geri
+                    </button>
+                    <button onClick={handleBankSubmit} disabled={submitting || amount > (user?.balance || 0)}
+                      className="flex-1 py-2.5 bg-accent text-white font-semibold rounded-xl text-sm hover:opacity-90 transition disabled:opacity-50">
+                      {submitting ? 'Gönderiliyor...' : '✅ Çekim Talebi Oluştur'}
+                    </button>
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
+
+          {method === 'bank' && mode === 'withdraw' && successRequest && (
+            <div className="text-center py-4 space-y-3 animate-fade-in">
+              <div className="text-4xl">✅</div>
+              <div className="text-lg font-bold text-text-1">Çekim Talebi Alındı</div>
+              <div className="text-3xl font-black text-danger">₺{successRequest.amount.toFixed(2)}</div>
+              <p className="text-sm text-text-3 max-w-xs mx-auto">
+                Talebiniz admin tarafından incelenecek ve onaylandığında hesabınıza aktarılacaktır.
+              </p>
+              <button onClick={() => { setStep('amount'); setSelectedAmount(null); setSuccessRequest(null); onBalanceUpdate(user?.balance); }}
+                className="px-5 py-2 border border-accent/40 text-accent rounded-xl text-sm font-medium hover:bg-accent/10 transition">
+                Yeni Talep
+              </button>
+            </div>
+          )}
+
+          {/* ── CRYPTO DEPOSIT ── */}
+          {method === 'crypto' && mode === 'deposit' && <CryptoDeposit onBalanceUpdate={onBalanceUpdate} />}
+
+          {/* ── CRYPTO WITHDRAW ── */}
+          {method === 'crypto' && mode === 'withdraw' && <CryptoWithdraw onBalanceUpdate={onBalanceUpdate} />}
         </div>
-
-        {/* Banka yatır/çek */}
-        {(activeTab === 'bank_deposit' || activeTab === 'bank_withdraw') && (
-          <form onSubmit={handleSubmit(onFiatSubmit)} className="flex gap-2">
-            <input
-              {...register('amount', { required: true, min: activeTab === 'bank_deposit' ? 10 : 20 })}
-              type="number"
-              placeholder={activeTab === 'bank_deposit' ? 'Min. 10₺' : 'Min. 20₺'}
-              className="flex-1 bg-bg-base border border-white/10 rounded-lg px-4 py-2.5 text-text-1 focus:outline-none focus:border-primary"
-            />
-            <button type="submit" disabled={isSubmitting}
-              className="px-6 py-2.5 bg-primary text-bg-deep font-semibold rounded-lg hover:opacity-90 transition disabled:opacity-50">
-              {activeTab === 'bank_deposit' ? 'Yatır' : 'Çek'}
-            </button>
-          </form>
-        )}
-
-        {/* Kripto yatır */}
-        {activeTab === 'crypto_deposit' && <CryptoDeposit onBalanceUpdate={onBalanceUpdate} />}
-
-        {/* Kripto çek */}
-        {activeTab === 'crypto_withdraw' && <CryptoWithdraw onBalanceUpdate={onBalanceUpdate} />}
       </div>
 
       {/* İşlem geçmişi */}

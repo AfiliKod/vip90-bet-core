@@ -22,6 +22,8 @@ import AdminEvents from './pages/admin/Events';
 import AdminUsers from './pages/admin/Users';
 import AdminGameTasks from './pages/admin/GameTasks';
 import AdminCasinoStats from './pages/admin/CasinoStats';
+import AdminBankRequests from './pages/admin/BankRequests';
+import AdminAnalytics from './pages/admin/Analytics';
 import Casino from './pages/Casino';
 import CasinoGame from './pages/CasinoGame';
 import Crash from './pages/games/Crash';
@@ -94,6 +96,8 @@ export default function App() {
         <Route path="/admin/users" element={<ProtectedRoute adminOnly><AdminUsers /></ProtectedRoute>} />
         <Route path="/admin/tasks" element={<ProtectedRoute adminOnly><AdminGameTasks /></ProtectedRoute>} />
         <Route path="/admin/casino" element={<ProtectedRoute adminOnly><AdminCasinoStats /></ProtectedRoute>} />
+        <Route path="/admin/bank" element={<ProtectedRoute adminOnly><AdminBankRequests /></ProtectedRoute>} />
+        <Route path="/admin/analytics" element={<ProtectedRoute adminOnly><AdminAnalytics /></ProtectedRoute>} />
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
     </BrowserRouter>
