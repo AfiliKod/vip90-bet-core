@@ -25,7 +25,9 @@ import AdminCasinoStats from './pages/admin/CasinoStats';
 import AdminBankRequests from './pages/admin/BankRequests';
 import AdminAnalytics from './pages/admin/Analytics';
 import Casino from './pages/Casino';
+import CasinoV2 from './pages/CasinoV2';
 import CasinoGame from './pages/CasinoGame';
+import PalaceGame from './pages/PalaceGame';
 import Crash from './pages/games/Crash';
 import Mines from './pages/games/Mines';
 import Plinko from './pages/games/Plinko';
@@ -73,7 +75,9 @@ export default function App() {
         <Route path="/canli" element={<ProtectedRoute><Layout><Live /></Layout></ProtectedRoute>} />
         <Route path="/events/:id" element={<ProtectedRoute><Layout><EventDetail /></Layout></ProtectedRoute>} />
         <Route path="/casino" element={<ProtectedRoute><Layout><Casino /></Layout></ProtectedRoute>} />
+        <Route path="/casino-v2" element={<ProtectedRoute><Layout><CasinoV2 /></Layout></ProtectedRoute>} />
         <Route path="/casino/:gameSymbol" element={<ProtectedRoute><CasinoGame /></ProtectedRoute>} />
+        <Route path="/palace/:gameId" element={<ProtectedRoute><PalaceGame /></ProtectedRoute>} />
         <Route path="/games/crash" element={<ProtectedRoute><Crash /></ProtectedRoute>} />
         <Route path="/games/mines" element={<ProtectedRoute><Mines /></ProtectedRoute>} />
         <Route path="/games/plinko" element={<ProtectedRoute><Plinko /></ProtectedRoute>} />

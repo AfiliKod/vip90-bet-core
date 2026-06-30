@@ -16,6 +16,7 @@ import transactionsRoutes from './routes/transactions.js';
 import promotionsRoutes from './routes/promotions.js';
 import adminRoutes from './routes/admin.js';
 import casinoRoutes from './routes/casino.js';
+import palaceRoutes from './routes/palace.js';
 import helpRoutes from './routes/help.js';
 import inhouseRoutes from './routes/inhouse.js';
 import cryptoRoutes from './routes/crypto.js';
@@ -79,6 +80,7 @@ export function createApp() {
   app.use('/api/promotions', promotionsRoutes);
   app.use('/api/admin', adminRoutes);
   app.use('/api/casino', casinoRoutes);
+  app.use('/api/palace', palaceRoutes);
   app.use('/api/inhouse', inhouseRoutes);
   app.use('/api/help', helpRoutes);
   app.use('/api/crypto', cryptoRoutes);

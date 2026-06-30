@@ -27,4 +27,10 @@ r.patch('/tasks/:id', ctrl.updateTask);
 r.get('/casino/stats',            ctrl.getCasinoStats);
 r.get('/users/:id/casino-rounds', ctrl.getUserCasinoRounds);
 
+// Palace Casino
+r.get('/palace/agent/info',       ctrl.getPalaceAgentInfo);
+r.post('/palace/user/create',     ctrl.createPalaceUser);
+r.post('/palace/game/launch',     ctrl.launchPalaceGame);
+r.post('/palace/game/list',       ctrl.getPalaceGameList);
+
 export default r;

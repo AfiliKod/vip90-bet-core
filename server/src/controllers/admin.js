@@ -312,3 +312,50 @@ export async function getUserCasinoRounds(req, res, next) {
     res.json({ rounds, total, page: Number(page), pages: Math.ceil(total / Number(limit)) });
   } catch(e) { next(e); }
 }
+
+// ─── Palace Casino Admin Handlers ─────────────────────────────────────────────
+
+export async function getPalaceAgentInfo(req, res, next) {
+  try {
+    const palace = await import('../services/palaceCasinoService.js');
+    const result = await palace.getAgentInfo();
+    res.json(result.data);
+  } catch(e) { next(e); }
+}
+
+export async function createPalaceUser(req, res, next) {
+  try {
+    const palace = await import('../services/palaceCasinoService.js');
+    const { name, linkToUserId } = req.validated || req.body;
+    const result = await palace.createUser(name);
+    if (result.data?.code !== 0) {
+      throw createError(400, 'PALACE_ERROR', result.data?.message || 'User oluşturulamadı');
+    }
+    // Optionally link palace user_code to local user
+    if (linkToUserId && result.data?.data?.user_code) {
+      await User.findByIdAndUpdate(linkToUserId, { palaceUserCode: result.data.data.user_code });
+    }
+    res.json(result.data);
+  } catch(e) { next(e); }
+}
+
+export async function launchPalaceGame(req, res, next) {
+  try {
+    const palace = await import('../services/palaceCasinoService.js');
+    const { user_code, game_id, mode, language, return_url } = req.body;
+    const result = await palace.launchGame({ userCode: user_code, gameId: game_id, mode, language, returnUrl: return_url });
+    if (result.data?.code !== 0) {
+      throw createError(400, 'PALACE_ERROR', result.data?.message || 'Oyun başlatılamadı');
+    }
+    res.json(result.data);
+  } catch(e) { next(e); }
+}
+
+export async function getPalaceGameList(req, res, next) {
+  try {
+    const palace = await import('../services/palaceCasinoService.js');
+    const { provider, page, limit } = req.query;
+    const result = await palace.getGameList(provider, Number(page) || 1, Number(limit) || 50);
+    res.json(result.data);
+  } catch(e) { next(e); }
+}
