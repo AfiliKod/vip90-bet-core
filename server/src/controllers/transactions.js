@@ -31,6 +31,18 @@ export async function withdraw(req, res, next) {
     await user.save({ session });
     await Transaction.create([{ userId: user._id, type:'withdraw', amount: -amount, balanceBefore, balanceAfter: user.balance }], { session });
     await session.commitTransaction();
+    session.endSession();
+
+    // Aktif bonus wagering varsa bilgilendir (forfeit bilgilendirmesi)
+    try {
+      const BonusWagering = (await import('../models/BonusWagering.js')).default;
+      const activeWagerings = await BonusWagering.find({ userId: user._id, status: 'active' });
+      if (activeWagerings.length > 0) {
+        // Not: bonus forfeit sadece kullanıcı onaylarsa olur
+        // Şu an otomatik forfeit YOK — kullanıcıya info veriyoruz
+      }
+    } catch (e) {}
+
     res.json({ newBalance: user.balance, message: `${amount}₺ çekildi` });
   } catch(e) { await session.abortTransaction(); next(e); }
   finally { session.endSession(); }

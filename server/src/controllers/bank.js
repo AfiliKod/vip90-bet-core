@@ -42,12 +42,16 @@ export async function createWithdraw(req, res, next) {
 
 export async function getMyRequests(req, res, next) {
   try {
-    const { type, status } = req.query;
+    const { type, status, page=1, limit=20 } = req.query;
     const filter = { userId: req.user.id };
     if (type) filter.type = type;
     if (status) filter.status = status;
-    const requests = await BankDepositRequest.find(filter).sort({ createdAt: -1 }).limit(20);
-    res.json({ requests });
+    const skip = (+page - 1) * +limit;
+    const [requests, total] = await Promise.all([
+      BankDepositRequest.find(filter).sort({ createdAt: -1 }).limit(+limit).skip(skip),
+      BankDepositRequest.countDocuments(filter),
+    ]);
+    res.json({ requests, total, page: +page, limit: +limit });
   } catch (e) { next(e); }
 }
 
@@ -55,13 +59,19 @@ export async function getMyRequests(req, res, next) {
 
 export async function getAllPending(req, res, next) {
   try {
-    const { type } = req.query;
+    const { type, page=1, limit=50 } = req.query;
     const filter = { status: 'pending' };
     if (type) filter.type = type;
-    const requests = await BankDepositRequest.find(filter)
-      .populate('userId', 'username email balance')
-      .sort({ createdAt: -1 });
-    res.json({ requests });
+    const skip = (+page - 1) * +limit;
+    // Phase E11 — pagination added (KRİTİK fix — önceden NO LIMIT)
+    const [requests, total] = await Promise.all([
+      BankDepositRequest.find(filter)
+        .populate('userId', 'username email balance')
+        .sort({ createdAt: -1 })
+        .limit(+limit).skip(skip),
+      BankDepositRequest.countDocuments(filter),
+    ]);
+    res.json({ requests, total, page: +page, limit: +limit });
   } catch (e) { next(e); }
 }
 

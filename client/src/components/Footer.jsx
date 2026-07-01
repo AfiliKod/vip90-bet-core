@@ -22,19 +22,21 @@ const LINKS = [
   {
     heading: 'Destek',
     items: [
-      { label: 'Yardım Merkezi', href: '#' },
+      { label: 'Yardım Merkezi', to: '/status' },
       { label: 'Para Yatır / Çek', to: '/profile' },
       { label: 'Canlı Yardım', action: 'livehelp' },
-      { label: 'Sorumlu Oyun', href: '#' },
+      { label: 'Sorumlu Oyun', to: '/legal/responsible-gaming' },
     ],
   },
   {
     heading: 'Yasal',
     items: [
-      { label: 'Kullanım Koşulları', href: '#' },
-      { label: 'Gizlilik Politikası', href: '#' },
-      { label: 'Çerez Politikası', href: '#' },
-      { label: 'Lisans', href: '#' },
+      { label: 'Kullanım Koşulları', to: '/legal/terms' },
+      { label: 'Gizlilik Politikası', to: '/legal/privacy' },
+      { label: 'KVKK Aydınlatma', to: '/legal/kvkk' },
+      { label: 'Çerez Politikası', to: '/legal/cookies' },
+      { label: 'Bonus Koşulları', to: '/legal/bonus-terms' },
+      { label: 'Sistem Durumu', to: '/status' },
     ],
   },
 ];

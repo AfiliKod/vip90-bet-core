@@ -11,4 +11,9 @@ const schema = new mongoose.Schema({
   creditedAt:   { type: Date, default: null },
 }, { timestamps: true });
 
+// Indexes (Phase E1)
+schema.index({ userId: 1, createdAt: -1 });
+schema.index({ toAddress: 1, status: 1 });
+schema.index({ status: 1 });
+
 export default mongoose.model('CryptoDeposit', schema);

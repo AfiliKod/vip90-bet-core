@@ -10,11 +10,25 @@ const CasinoRoundSchema = new mongoose.Schema({
   net:           { type: Number, required: true },
   balanceBefore: { type: Number, required: true },
   balanceAfter:  { type: Number, required: true },
-  palaceUserCode: { type: String, default: null, index: true }, // Palace Casino user_code (for callbacks)
+  palaceUserCode: { type: String, default: null, index: true },
+  note:          { type: String, default: '' },  // 'bet_cancel' | 'bonus_call:<id>'
 }, { timestamps: { createdAt: true, updatedAt: false } });
 
 CasinoRoundSchema.index({ userId: 1, createdAt: -1 });
 CasinoRoundSchema.index({ gameId: 1, createdAt: -1 });
 CasinoRoundSchema.index({ createdAt: -1 });
+
+// Bet oluşturulduğunda otomatik wagering credit
+CasinoRoundSchema.post('save', async function() {
+  if (!this.bet || this.bet <= 0) return;
+  if (this.provider !== 'palace' && this.provider !== 'inhouse') return;
+  try {
+    const { recordWagering } = await import('../services/wagering.js');
+    const gameType = this.provider === 'palace' ? 'casino_slot' : 'inhouse';
+    await recordWagering(this.userId, gameType, this.bet);
+  } catch (e) {
+    console.error('[wagering] CasinoRound post-save error:', e.message);
+  }
+});
 
 export default mongoose.model('CasinoRound', CasinoRoundSchema);

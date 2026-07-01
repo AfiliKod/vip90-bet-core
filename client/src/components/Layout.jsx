@@ -3,6 +3,7 @@ import { useLocation } from 'react-router-dom';
 import Sidebar from './Sidebar';
 import Footer from './Footer';
 import LiveHelp from './LiveHelp';
+import CookieConsent from './CookieConsent';
 
 export default function Layout({ children }) {
   const { pathname } = useLocation();
@@ -30,6 +31,7 @@ export default function Layout({ children }) {
         </button>
 
         <LiveHelp open={helpOpen} onClose={() => setHelpOpen(false)} />
+        <CookieConsent />
       </div>
     </div>
   );

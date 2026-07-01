@@ -56,21 +56,32 @@ function TabHesap() {
   return (
     <div className="space-y-6">
       <div className="bg-bg-card border border-white/10 rounded-xl p-5">
-        <h3 className="text-sm font-semibold text-text-1 mb-4">Avatar Rengi</h3>
-        <div className="flex items-center gap-4">
-          <div className="w-16 h-16 rounded-full flex items-center justify-center text-2xl font-black text-white"
-            style={{ backgroundColor: preferences.avatarColor }}>
+        <h3 className="text-sm font-semibold text-text-1 mb-4">Avatar</h3>
+        <div className="flex flex-col sm:flex-row sm:items-center gap-5">
+          <div
+            className="shrink-0 w-24 h-24 rounded-full flex items-center justify-center text-4xl font-black text-white shadow-xl ring-2 ring-white/10"
+            style={{ backgroundColor: preferences.avatarColor, aspectRatio: '1 / 1' }}
+          >
             {user?.username?.[0]?.toUpperCase()}
           </div>
-          <div className="flex gap-2 flex-wrap">
-            {AVATAR_COLORS.map(c => (
-              <button key={c} onClick={() => updatePreference('avatarColor', c)}
-                className={`w-8 h-8 rounded-full border-2 transition-all ${preferences.avatarColor === c ? 'border-white scale-110' : 'border-transparent hover:scale-105'}`}
-                style={{ backgroundColor: c }} />
-            ))}
+          <div className="flex-1 min-w-0">
+            <div className="text-xs uppercase tracking-widest font-bold mb-2" style={{ color: '#4a5a78' }}>
+              Renk Seçin
+            </div>
+            <div className="flex gap-2 flex-wrap">
+              {AVATAR_COLORS.map(c => (
+                <button key={c} onClick={() => updatePreference('avatarColor', c)}
+                  className={`w-9 h-9 rounded-full border-2 transition-all ${
+                    preferences.avatarColor === c
+                      ? 'border-white scale-110 shadow-lg'
+                      : 'border-transparent hover:scale-105'
+                  }`}
+                  style={{ backgroundColor: c }} />
+              ))}
+            </div>
           </div>
         </div>
-        <div className="mt-3 text-sm text-text-2">
+        <div className="mt-4 pt-4 border-t border-white/5 text-sm text-text-2">
           <span className="font-semibold text-text-1">{user?.username}</span>
           <span className="mx-2 text-text-3">·</span>
           <span>{user?.email}</span>

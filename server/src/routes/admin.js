@@ -33,4 +33,19 @@ r.post('/palace/user/create',     ctrl.createPalaceUser);
 r.post('/palace/game/launch',     ctrl.launchPalaceGame);
 r.post('/palace/game/list',       ctrl.getPalaceGameList);
 
+// Palace Casino (admin operations)
+r.get('/palace/test-users',        ctrl.getPalaceTestUsers);
+r.post('/palace/withdraw-test-users', ctrl.withdrawPalaceTestUsers);
+r.post('/palace/rtp',              ctrl.setPalaceRtp);
+r.post('/palace/bonus/start',       ctrl.startPalaceBonusCall);
+r.post('/palace/bonus/cancel',      ctrl.cancelPalaceBonusCall);
+r.get('/palace/bonus/config',       ctrl.getPalaceBonusCallConfig);
+r.get('/palace/summary',            ctrl.getPalaceSummary);
+
+// Error log (admin monitoring)
+r.get('/errors/recent',     ctrl.getRecentErrors);
+r.get('/errors/status',     ctrl.getErrorLogStatus);
+r.post('/errors/clear',     ctrl.clearErrorLog);
+
 export default r;
+

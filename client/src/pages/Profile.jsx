@@ -13,6 +13,8 @@ const TX_LABEL = {
   win: '🏆 Kazanç',
   bonus: '🎁 Bonus',
   refund: '↩️ İade',
+  casino_return: '🎰 Casino Dönüş',
+  bonus_conversion: '💰 Bonus Çevrimi',
   crypto_deposit: '🪙 Kripto Yatırım',
   crypto_withdraw: '🪙 Kripto Çekim',
 };
@@ -153,6 +155,10 @@ export default function Profile() {
   const [bankInfo, setBankInfo]             = useState(null);
   const [submitting, setSubmitting]         = useState(false);
   const [successRequest, setSuccessRequest] = useState(null);
+  const [wagerings, setWagerings]           = useState([]);
+  const [showPrivacyModal, setShowPrivacyModal] = useState(false);
+  const [privacyPassword, setPrivacyPassword] = useState('');
+  const [privacyError, setPrivacyError] = useState('');
 
   const { register, handleSubmit, reset, formState: { isSubmitting } } = useForm();
 
@@ -160,7 +166,11 @@ export default function Profile() {
     api.get('/users/me/transactions').then(r => setTransactions(r.data.transactions)).catch(() => {});
   }, []);
 
-  useEffect(() => { fetchTx(); }, [fetchTx]);
+  const fetchWagerings = useCallback(() => {
+    api.get('/promotions/my-wagerings').then(r => setWagerings(r.data.wagerings || [])).catch(() => setWagerings([]));
+  }, []);
+
+  useEffect(() => { fetchTx(); fetchWagerings(); }, [fetchTx, fetchWagerings]);
 
   useEffect(() => {
     if (method === 'bank') {
@@ -257,10 +267,140 @@ export default function Profile() {
             <div className="text-text-2 text-sm">{user?.email}</div>
           </div>
           <div className="ml-auto text-right">
-            <div className="text-2xl sm:text-3xl font-black text-primary">₺{user?.balance?.toFixed(2)}</div>
+            <div className="text-2xl sm:text-3xl font-black" style={{ color: '#00d4ff' }}>₺{(user?.balance ?? 0).toFixed(2)}</div>
             <div className="text-text-3 text-xs mt-1">Ana Bakiye</div>
+            {user?.bonusBalance > 0 && (
+              <div className="text-sm font-bold mt-1" style={{ background: 'linear-gradient(90deg, #00d4ff, #7c3aed)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent', backgroundClip: 'text' }}>
+                + ₺{user.bonusBalance.toFixed(2)} Bonus
+              </div>
+            )}
+            {user?.activePalaceBalance != null && (
+              <div className="text-xs mt-1.5" style={{ color: '#7c8aae' }}>
+                🏰 Casino'da ₺{user.activePalaceBalance.toFixed(2)}
+              </div>
+            )}
           </div>
         </div>
+
+        {/* ── Aktif bonus wagering'leri ── */}
+        {wagerings.filter(w => w.status === 'active').length > 0 && (
+          <div className="mb-5 space-y-2">
+            <div className="text-[10px] uppercase tracking-widest font-bold" style={{ color: '#8899bb' }}>
+              Aktif Bonus Wagering
+            </div>
+            {wagerings.filter(w => w.status === 'active').map(w => {
+              const pct = w.wageringRequired > 0
+                ? Math.min(100, Math.floor((w.wageringProgress / w.wageringRequired) * 100))
+                : 100;
+              const remaining = Math.max(0, w.wageringRequired - w.wageringProgress);
+              const now = Date.now();
+              const deadlineTs = w.deadline ? new Date(w.deadline).getTime() : null;
+              const msLeft = deadlineTs ? deadlineTs - now : null;
+              const daysLeft = msLeft !== null ? Math.floor(msLeft / 86400000) : null;
+              const hoursLeft = msLeft !== null ? Math.floor((msLeft % 86400000) / 3600000) : null;
+              const expired = msLeft !== null && msLeft <= 0;
+              const urgent = !expired && daysLeft !== null && daysLeft < 3;
+              const deadlineColor = expired ? '#ef4444' : urgent ? '#fbbf24' : '#8899bb';
+              const deadlineText = expired
+                ? '⛔ Süresi doldu'
+                : daysLeft !== null && daysLeft >= 1
+                  ? `⏰ ${daysLeft}g ${hoursLeft}s kaldı`
+                  : hoursLeft !== null
+                    ? `⏰ ${hoursLeft}s kaldı`
+                    : null;
+              return (
+                <div
+                  key={w._id}
+                  className="rounded-xl p-3"
+                  style={{
+                    background: expired ? 'rgba(239,68,68,0.06)' : 'rgba(255,255,255,0.04)',
+                    border: expired ? '1px solid rgba(239,68,68,0.3)' : '1px solid rgba(255,255,255,0.06)',
+                    opacity: expired ? 0.65 : 1,
+                  }}
+                >
+                  <div className="flex items-center justify-between mb-2">
+                    <div className="min-w-0 flex-1">
+                      <div className="text-sm font-bold text-text-1 truncate">{w.description || 'Bonus'}</div>
+                      <div className="text-[10px] text-text-3 mt-0.5 flex flex-wrap items-center gap-x-2 gap-y-0.5">
+                        <span>₺{w.bonusAmount} bonus · {w.multiplier}x çevrim</span>
+                        {deadlineText && (
+                          <span
+                            className="font-bold"
+                            style={{
+                              color: deadlineColor,
+                              padding: expired ? '1px 6px' : 0,
+                              borderRadius: 4,
+                              background: expired ? 'rgba(239,68,68,0.15)' : 'transparent',
+                              border: expired ? '1px solid rgba(239,68,68,0.4)' : 'none',
+                            }}
+                          >
+                            {deadlineText}
+                          </span>
+                        )}
+                      </div>
+                    </div>
+                    <div className="text-right shrink-0 ml-2">
+                      <div className="text-sm font-black" style={{ background: 'linear-gradient(90deg, #00d4ff, #7c3aed)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent', backgroundClip: 'text' }}>
+                        {pct}%
+                      </div>
+                    </div>
+                  </div>
+                  <div className="h-2 rounded-full overflow-hidden" style={{ background: '#ffffff08' }}>
+                    <div
+                      className="h-full transition-all duration-500"
+                      style={{
+                        width: `${pct}%`,
+                        background: expired
+                          ? 'linear-gradient(90deg, #ef4444, #dc2626)'
+                          : 'linear-gradient(90deg, #00d4ff, #7c3aed)',
+                      }}
+                    />
+                  </div>
+                  <div className="flex justify-between text-[10px] text-text-3 mt-1.5">
+                    <span>₺{w.wageringProgress.toFixed(2)} / ₺{w.wageringRequired.toFixed(2)}</span>
+                    <span>Kalan: ₺{remaining.toFixed(2)}</span>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        )}
+
+        {/* ── Tamamlanmış bonuslar (cash'e çevrilebilir) ── */}
+        {wagerings.filter(w => w.status === 'completed').length > 0 && (
+          <div className="mb-5 space-y-2">
+            <div className="text-[10px] uppercase tracking-widest font-bold" style={{ color: '#8899bb' }}>
+              Çevrime Hazır Bonuslar
+            </div>
+            {wagerings.filter(w => w.status === 'completed').map(w => (
+              <div key={w._id} className="bg-bg-base/40 border border-[#00d4ff44] rounded-xl p-3 flex items-center justify-between gap-3">
+                <div className="min-w-0 flex-1">
+                  <div className="text-sm font-bold text-text-1 truncate">{w.description || 'Bonus'}</div>
+                  <div className="text-[10px] text-text-3 mt-0.5">
+                    ₺{w.bonusAmount} bonus · Wagering tamamlandı ✓
+                  </div>
+                </div>
+                <button
+                  onClick={async () => {
+                    try {
+                      const { data } = await api.post(`/promotions/${w.promotionId || 'manual'}/wagerings/${w._id}/convert`);
+                      addToast(data.message || 'Bonus cash\'e çevrildi', 'success');
+                      updateBalance(data.newBalance);
+                      fetchWagerings();
+                      fetchTx();
+                    } catch (e) {
+                      addToast(e.response?.data?.error?.message || 'Çevrim başarısız', 'error');
+                    }
+                  }}
+                  className="px-4 py-2 rounded-lg text-xs font-bold text-black whitespace-nowrap"
+                  style={{ background: 'linear-gradient(90deg, #00d4ff, #7c3aed)', boxShadow: '0 0 12px #00d4ff55' }}
+                >
+                  💰 Çevir
+                </button>
+              </div>
+            ))}
+          </div>
+        )}
 
         {/* ── Para Yatır / Para Çek konteynırı ── */}
         <div className="bg-bg-base/60 border border-white/[0.06] rounded-2xl p-4 sm:p-5">
@@ -547,9 +687,90 @@ export default function Profile() {
           ))}
           {!transactions.length && (
             <div className="text-text-3 text-center py-4 text-sm">İşlem bulunamadı</div>
-          )}
-        </div>
-      </div>
-    </div>
-  );
+)}
+         </div>
+       </div>
+
+       {/* KVKK Privacy & Account Section (Phase A6 / D5) */}
+       <div className="mb-5 mt-8">
+         <div className="text-[10px] uppercase tracking-widest font-bold mb-2" style={{ color: '#8899bb' }}>
+           Verilerim & KVKK
+         </div>
+         <div className="bg-bg-base/40 border border-white/[0.06] rounded-xl p-4 space-y-2">
+           <button
+             onClick={() => setShowPrivacyModal(true)}
+             className="w-full px-4 py-2.5 rounded-lg text-sm font-semibold border border-cyan-400/30 text-cyan-300 hover:bg-cyan-400/10 transition"
+           >
+             📥 Verilerimi indir (KVKK md.11)
+           </button>
+           <Link
+             to="/legal/kvkk"
+             className="block w-full px-4 py-2.5 rounded-lg text-sm font-semibold border border-white/10 text-text-1 hover:border-white/20 transition text-center"
+           >
+             📜 KVKK Aydınlatma Metni
+           </Link>
+           <Link
+             to="/legal/responsible-gaming"
+             className="block w-full px-4 py-2.5 rounded-lg text-sm font-semibold border border-white/10 text-text-1 hover:border-white/20 transition text-center"
+           >
+             🎲 Sorumlu Oyun & Limitler
+           </Link>
+         </div>
+       </div>
+
+       {/* Privacy Export Modal (Phase A6 / D5) */}
+       {showPrivacyModal && (
+         <div className="fixed inset-0 z-50 flex items-center justify-center p-4" style={{ background: 'rgba(0,0,0,0.7)' }}>
+           <div className="max-w-md w-full rounded-2xl p-6" style={{ background: '#0c1220', border: '1px solid rgba(0,212,255,0.3)' }}>
+             <div className="flex items-center justify-between mb-4">
+               <h3 className="text-lg font-bold text-text-1">📥 Verilerimi İndir</h3>
+               <button onClick={() => { setShowPrivacyModal(false); setPrivacyPassword(''); setPrivacyError(''); }} className="text-text-3 text-xl">×</button>
+             </div>
+             <p className="text-sm mb-4" style={{ color: '#8899bb' }}>
+               KVKK md.11 kapsamında tüm verilerinizi JSON formatında indirebilirsiniz.
+               Bahis, casino, bonus, para yatırma/çekme geçmişi dahil.
+             </p>
+             <input
+               type="password"
+               value={privacyPassword}
+               onChange={e => setPrivacyPassword(e.target.value)}
+               placeholder="Şifrenizi girin"
+               className="w-full bg-bg-base border border-white/10 rounded-lg px-3 py-2 text-sm text-text-1 mb-3 focus:outline-none focus:border-cyan-400/50"
+             />
+             {privacyError && <p className="text-xs text-red-400 mb-3">{privacyError}</p>}
+             <div className="flex gap-2">
+               <button
+                 onClick={() => { setShowPrivacyModal(false); setPrivacyPassword(''); setPrivacyError(''); }}
+                 className="flex-1 py-2.5 rounded-lg text-sm font-semibold border border-white/10"
+               >
+                 İptal
+               </button>
+               <button
+                 onClick={async () => {
+                   if (!privacyPassword) { setPrivacyError('Şifre gerekli'); return; }
+                   try {
+                     const res = await api.post('/users/me/data-export', { password: privacyPassword }, { responseType: 'blob' });
+                     const url = URL.createObjectURL(new Blob([res.data]));
+                     const a = document.createElement('a');
+                     a.href = url;
+                     a.download = `data-export-${user?.username}-${Date.now()}.json`;
+                     a.click();
+                     addToast('Verileriniz indirildi', 'success');
+                     setShowPrivacyModal(false);
+                     setPrivacyPassword('');
+                   } catch (e) {
+                     setPrivacyError(e.response?.data?.error?.message || 'İndirme başarısız');
+                   }
+                 }}
+                 className="flex-1 py-2.5 rounded-lg text-sm font-bold text-black"
+                 style={{ background: 'linear-gradient(90deg, #00d4ff, #7c3aed)' }}
+               >
+                 İndir
+               </button>
+             </div>
+           </div>
+         </div>
+       )}
+     </div>
+   );
 }

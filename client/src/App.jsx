@@ -1,4 +1,4 @@
-import { useEffect } from 'react';
+import { lazy, Suspense, useEffect } from 'react';
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { useAuthStore } from './store/authStore';
 import { useToastStore } from './store/toastStore';
@@ -9,38 +9,60 @@ import ToastSystem from './components/ToastSystem';
 import Navbar from './components/Navbar';
 import BottomNav from './components/BottomNav';
 import Layout from './components/Layout';
-import Login from './pages/Login';
-import Bahis from './pages/Bahis';
-import Live from './pages/Live';
-import EventDetail from './pages/EventDetail';
-import MyBets from './pages/MyBets';
-import Profile from './pages/Profile';
-import Promotions from './pages/Promotions';
-import Settings from './pages/Settings';
-import AdminDashboard from './pages/admin/Dashboard';
-import AdminEvents from './pages/admin/Events';
-import AdminUsers from './pages/admin/Users';
-import AdminGameTasks from './pages/admin/GameTasks';
-import AdminCasinoStats from './pages/admin/CasinoStats';
-import AdminBankRequests from './pages/admin/BankRequests';
-import AdminAnalytics from './pages/admin/Analytics';
-import Casino from './pages/Casino';
-import CasinoV2 from './pages/CasinoV2';
-import CasinoGame from './pages/CasinoGame';
-import PalaceGame from './pages/PalaceGame';
-import Crash from './pages/games/Crash';
-import Mines from './pages/games/Mines';
-import Plinko from './pages/games/Plinko';
-import Dice from './pages/games/Dice';
-import Limbo from './pages/games/Limbo';
-import Wheel from './pages/games/Wheel';
-import Hilo from './pages/games/Hilo';
-import Keno from './pages/games/Keno';
-import Blackjack from './pages/games/Blackjack';
-import Roulette from './pages/games/Roulette';
-import Baccarat from './pages/games/Baccarat';
-import VideoPoker from './pages/games/VideoPoker';
-import DragonTiger from './pages/games/DragonTiger';
+
+// Phase E3: Code splitting — initial bundle'dan büyük sayfalar lazy
+const Login = lazy(() => import('./pages/Login'));
+const Bahis = lazy(() => import('./pages/Bahis'));
+const Live = lazy(() => import('./pages/Live'));
+const EventDetail = lazy(() => import('./pages/EventDetail'));
+const MyBets = lazy(() => import('./pages/MyBets'));
+const Profile = lazy(() => import('./pages/Profile'));
+const Promotions = lazy(() => import('./pages/Promotions'));
+const Settings = lazy(() => import('./pages/Settings'));
+const AdminDashboard = lazy(() => import('./pages/admin/Dashboard'));
+const AdminEvents = lazy(() => import('./pages/admin/Events'));
+const AdminUsers = lazy(() => import('./pages/admin/Users'));
+const AdminGameTasks = lazy(() => import('./pages/admin/GameTasks'));
+const AdminCasinoStats = lazy(() => import('./pages/admin/CasinoStats'));
+const AdminBankRequests = lazy(() => import('./pages/admin/BankRequests'));
+const AdminAnalytics = lazy(() => import('./pages/admin/Analytics'));
+const AdminPalace = lazy(() => import('./pages/admin/Palace'));
+const Casino = lazy(() => import('./pages/Casino'));
+const CasinoV2 = lazy(() => import('./pages/CasinoV2'));
+const CasinoGame = lazy(() => import('./pages/CasinoGame'));
+const PalaceGame = lazy(() => import('./pages/PalaceGame'));
+const Crash = lazy(() => import('./pages/games/Crash'));
+const Mines = lazy(() => import('./pages/games/Mines'));
+const Plinko = lazy(() => import('./pages/games/Plinko'));
+const Dice = lazy(() => import('./pages/games/Dice'));
+const Limbo = lazy(() => import('./pages/games/Limbo'));
+const Wheel = lazy(() => import('./pages/games/Wheel'));
+const Hilo = lazy(() => import('./pages/games/Hilo'));
+const Keno = lazy(() => import('./pages/games/Keno'));
+const Blackjack = lazy(() => import('./pages/games/Blackjack'));
+const Roulette = lazy(() => import('./pages/games/Roulette'));
+const Baccarat = lazy(() => import('./pages/games/Baccarat'));
+const VideoPoker = lazy(() => import('./pages/games/VideoPoker'));
+const DragonTiger = lazy(() => import('./pages/games/DragonTiger'));
+const Terms = lazy(() => import('./pages/legal/Terms'));
+const Privacy = lazy(() => import('./pages/legal/Privacy'));
+const Kvkk = lazy(() => import('./pages/legal/Kvkk'));
+const Cookies = lazy(() => import('./pages/legal/Cookies'));
+const BonusTerms = lazy(() => import('./pages/legal/BonusTerms'));
+const ResponsibleGaming = lazy(() => import('./pages/legal/ResponsibleGaming'));
+const Status = lazy(() => import('./pages/Status'));
+const Welcome = lazy(() => import('./pages/Welcome'));
+
+function PageLoader() {
+  return (
+    <div className="min-h-screen flex items-center justify-center" style={{ background: '#05080f' }}>
+      <div className="text-center">
+        <div className="inline-block w-8 h-8 border-2 border-cyan-400 border-t-transparent rounded-full animate-spin" />
+        <p className="text-xs mt-3" style={{ color: '#8899bb' }}>Yükleniyor...</p>
+      </div>
+    </div>
+  );
+}
 
 export default function App() {
   const { init, user } = useAuthStore();
@@ -70,38 +92,49 @@ export default function App() {
       {user && <Navbar />}
       {user && <BottomNav />}
       <Routes>
-        <Route path="/login" element={<Login />} />
-        <Route path="/" element={<ProtectedRoute><Layout><Bahis /></Layout></ProtectedRoute>} />
-        <Route path="/canli" element={<ProtectedRoute><Layout><Live /></Layout></ProtectedRoute>} />
-        <Route path="/events/:id" element={<ProtectedRoute><Layout><EventDetail /></Layout></ProtectedRoute>} />
-        <Route path="/casino" element={<ProtectedRoute><Layout><Casino /></Layout></ProtectedRoute>} />
-        <Route path="/casino-v2" element={<ProtectedRoute><Layout><CasinoV2 /></Layout></ProtectedRoute>} />
-        <Route path="/casino/:gameSymbol" element={<ProtectedRoute><CasinoGame /></ProtectedRoute>} />
-        <Route path="/palace/:gameId" element={<ProtectedRoute><PalaceGame /></ProtectedRoute>} />
-        <Route path="/games/crash" element={<ProtectedRoute><Crash /></ProtectedRoute>} />
-        <Route path="/games/mines" element={<ProtectedRoute><Mines /></ProtectedRoute>} />
-        <Route path="/games/plinko" element={<ProtectedRoute><Plinko /></ProtectedRoute>} />
-        <Route path="/games/dice" element={<ProtectedRoute><Dice /></ProtectedRoute>} />
-        <Route path="/games/limbo" element={<ProtectedRoute><Limbo /></ProtectedRoute>} />
-        <Route path="/games/wheel" element={<ProtectedRoute><Wheel /></ProtectedRoute>} />
-        <Route path="/games/hilo" element={<ProtectedRoute><Hilo /></ProtectedRoute>} />
-        <Route path="/games/keno" element={<ProtectedRoute><Keno /></ProtectedRoute>} />
-        <Route path="/games/blackjack" element={<ProtectedRoute><Blackjack /></ProtectedRoute>} />
-        <Route path="/games/roulette" element={<ProtectedRoute><Roulette /></ProtectedRoute>} />
-        <Route path="/games/baccarat" element={<ProtectedRoute><Baccarat /></ProtectedRoute>} />
-        <Route path="/games/videopoker" element={<ProtectedRoute><VideoPoker /></ProtectedRoute>} />
-        <Route path="/games/dragontiger" element={<ProtectedRoute><DragonTiger /></ProtectedRoute>} />
-        <Route path="/my-bets" element={<ProtectedRoute><Layout><MyBets /></Layout></ProtectedRoute>} />
-        <Route path="/profile" element={<ProtectedRoute><Layout><Profile /></Layout></ProtectedRoute>} />
-        <Route path="/settings" element={<ProtectedRoute><Layout><Settings /></Layout></ProtectedRoute>} />
-        <Route path="/promotions" element={<ProtectedRoute><Layout><Promotions /></Layout></ProtectedRoute>} />
-        <Route path="/admin" element={<ProtectedRoute adminOnly><AdminDashboard /></ProtectedRoute>} />
-        <Route path="/admin/events" element={<ProtectedRoute adminOnly><AdminEvents /></ProtectedRoute>} />
-        <Route path="/admin/users" element={<ProtectedRoute adminOnly><AdminUsers /></ProtectedRoute>} />
-        <Route path="/admin/tasks" element={<ProtectedRoute adminOnly><AdminGameTasks /></ProtectedRoute>} />
-        <Route path="/admin/casino" element={<ProtectedRoute adminOnly><AdminCasinoStats /></ProtectedRoute>} />
-        <Route path="/admin/bank" element={<ProtectedRoute adminOnly><AdminBankRequests /></ProtectedRoute>} />
-        <Route path="/admin/analytics" element={<ProtectedRoute adminOnly><AdminAnalytics /></ProtectedRoute>} />
+        <Route path="/login" element={<Suspense fallback={<PageLoader />}><Login /></Suspense>} />
+        <Route path="/" element={<ProtectedRoute><Layout><Suspense fallback={<PageLoader />}><Bahis /></Suspense></Layout></ProtectedRoute>} />
+        <Route path="/canli" element={<ProtectedRoute><Layout><Suspense fallback={<PageLoader />}><Live /></Suspense></Layout></ProtectedRoute>} />
+        <Route path="/events/:id" element={<ProtectedRoute><Layout><Suspense fallback={<PageLoader />}><EventDetail /></Suspense></Layout></ProtectedRoute>} />
+        <Route path="/casino" element={<ProtectedRoute><Layout><Suspense fallback={<PageLoader />}><CasinoV2 /></Suspense></Layout></ProtectedRoute>} />
+        <Route path="/casino-v2" element={<ProtectedRoute><Layout><Suspense fallback={<PageLoader />}><CasinoV2 /></Suspense></Layout></ProtectedRoute>} />
+        <Route path="/casino/:gameSymbol" element={<ProtectedRoute><Suspense fallback={<PageLoader />}><CasinoGame /></Suspense></ProtectedRoute>} />
+        <Route path="/palace/:gameId" element={<ProtectedRoute><Suspense fallback={<PageLoader />}><PalaceGame /></Suspense></ProtectedRoute>} />
+        <Route path="/games/crash" element={<ProtectedRoute><Suspense fallback={<PageLoader />}><Crash /></Suspense></ProtectedRoute>} />
+        <Route path="/games/mines" element={<ProtectedRoute><Suspense fallback={<PageLoader />}><Mines /></Suspense></ProtectedRoute>} />
+        <Route path="/games/plinko" element={<ProtectedRoute><Suspense fallback={<PageLoader />}><Plinko /></Suspense></ProtectedRoute>} />
+        <Route path="/games/dice" element={<ProtectedRoute><Suspense fallback={<PageLoader />}><Dice /></Suspense></ProtectedRoute>} />
+        <Route path="/games/limbo" element={<ProtectedRoute><Suspense fallback={<PageLoader />}><Limbo /></Suspense></ProtectedRoute>} />
+        <Route path="/games/wheel" element={<ProtectedRoute><Suspense fallback={<PageLoader />}><Wheel /></Suspense></ProtectedRoute>} />
+        <Route path="/games/hilo" element={<ProtectedRoute><Suspense fallback={<PageLoader />}><Hilo /></Suspense></ProtectedRoute>} />
+        <Route path="/games/keno" element={<ProtectedRoute><Suspense fallback={<PageLoader />}><Keno /></Suspense></ProtectedRoute>} />
+        <Route path="/games/blackjack" element={<ProtectedRoute><Suspense fallback={<PageLoader />}><Blackjack /></Suspense></ProtectedRoute>} />
+        <Route path="/games/roulette" element={<ProtectedRoute><Suspense fallback={<PageLoader />}><Roulette /></Suspense></ProtectedRoute>} />
+        <Route path="/games/baccarat" element={<ProtectedRoute><Suspense fallback={<PageLoader />}><Baccarat /></Suspense></ProtectedRoute>} />
+        <Route path="/games/videopoker" element={<ProtectedRoute><Suspense fallback={<PageLoader />}><VideoPoker /></Suspense></ProtectedRoute>} />
+        <Route path="/games/dragontiger" element={<ProtectedRoute><Suspense fallback={<PageLoader />}><DragonTiger /></Suspense></ProtectedRoute>} />
+        <Route path="/my-bets" element={<ProtectedRoute><Layout><Suspense fallback={<PageLoader />}><MyBets /></Suspense></Layout></ProtectedRoute>} />
+        <Route path="/profile" element={<ProtectedRoute><Layout><Suspense fallback={<PageLoader />}><Profile /></Suspense></Layout></ProtectedRoute>} />
+        <Route path="/settings" element={<ProtectedRoute><Layout><Suspense fallback={<PageLoader />}><Settings /></Suspense></Layout></ProtectedRoute>} />
+        <Route path="/promotions" element={<ProtectedRoute><Layout><Suspense fallback={<PageLoader />}><Promotions /></Suspense></Layout></ProtectedRoute>} />
+        <Route path="/admin" element={<ProtectedRoute adminOnly><Suspense fallback={<PageLoader />}><AdminDashboard /></Suspense></ProtectedRoute>} />
+        <Route path="/admin/events" element={<ProtectedRoute adminOnly><Suspense fallback={<PageLoader />}><AdminEvents /></Suspense></ProtectedRoute>} />
+        <Route path="/admin/users" element={<ProtectedRoute adminOnly><Suspense fallback={<PageLoader />}><AdminUsers /></Suspense></ProtectedRoute>} />
+        <Route path="/admin/tasks" element={<ProtectedRoute adminOnly><Suspense fallback={<PageLoader />}><AdminGameTasks /></Suspense></ProtectedRoute>} />
+        <Route path="/admin/casino" element={<ProtectedRoute adminOnly><Suspense fallback={<PageLoader />}><AdminCasinoStats /></Suspense></ProtectedRoute>} />
+        <Route path="/admin/palace" element={<ProtectedRoute adminOnly><Suspense fallback={<PageLoader />}><AdminPalace /></Suspense></ProtectedRoute>} />
+        <Route path="/admin/bank" element={<ProtectedRoute adminOnly><Suspense fallback={<PageLoader />}><AdminBankRequests /></Suspense></ProtectedRoute>} />
+        <Route path="/admin/analytics" element={<ProtectedRoute adminOnly><Suspense fallback={<PageLoader />}><AdminAnalytics /></Suspense></ProtectedRoute>} />
+        {/* Legal pages (public) */}
+        <Route path="/legal/terms" element={<Suspense fallback={<PageLoader />}><Terms /></Suspense>} />
+        <Route path="/legal/privacy" element={<Suspense fallback={<PageLoader />}><Privacy /></Suspense>} />
+        <Route path="/legal/kvkk" element={<Suspense fallback={<PageLoader />}><Kvkk /></Suspense>} />
+        <Route path="/legal/cookies" element={<Suspense fallback={<PageLoader />}><Cookies /></Suspense>} />
+        <Route path="/legal/bonus-terms" element={<Suspense fallback={<PageLoader />}><BonusTerms /></Suspense>} />
+        <Route path="/legal/responsible-gaming" element={<Suspense fallback={<PageLoader />}><ResponsibleGaming /></Suspense>} />
+        <Route path="/status" element={<Suspense fallback={<PageLoader />}><Status /></Suspense>} />
+        {/* Phase D3 — 18+ yaş gate (auth required, no age check yet) */}
+        <Route path="/welcome" element={<ProtectedRoute><Suspense fallback={<PageLoader />}><Welcome /></Suspense></ProtectedRoute>} />
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
     </BrowserRouter>

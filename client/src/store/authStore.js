@@ -30,8 +30,14 @@ export const useAuthStore = create((set) => ({
     connectUserSocket(data.user._id || data.user.id);
     return data.user;
   },
-  register: async (username, email, password) => {
-    const { data } = await api.post('/auth/register', { username, email, password });
+  register: async (username, email, password, consents = {}) => {
+    const { data } = await api.post('/auth/register', {
+      username, email, password,
+      acceptedTerms: consents.acceptedTerms,
+      acceptedKvkk: consents.acceptedKvkk,
+      ageConfirmed: consents.ageConfirmed,
+      consentVersion: consents.consentVersion,
+    });
     localStorage.setItem('accessToken', data.accessToken);
     set({ user: data.user, token: data.accessToken });
     connectUserSocket(data.user._id || data.user.id);
@@ -44,5 +50,6 @@ export const useAuthStore = create((set) => ({
     localStorage.removeItem('accessToken');
     set({ user: null, token: null });
   },
+  setUser: (user) => set({ user }),
   updateBalance: (balance) => set(s => ({ user: s.user ? { ...s.user, balance } : null })),
 }));

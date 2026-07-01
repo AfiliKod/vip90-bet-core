@@ -14,27 +14,33 @@ export default function EventCard({ event }) {
   const mainMarket = event.markets[0];
   const isLive = event.status === 'live';
   return (
-    <div className="bg-bg-card border border-white/10 rounded-xl p-4 hover:border-white/20 transition-all">
-      <div className="flex items-center justify-between mb-3">
-        <span className="text-xs text-text-3">{sportIcon(event.sport)} {leagueName}</span>
+    <div
+      className="group relative bg-bg-card border border-white/10 rounded-2xl p-5 transition-all duration-300 overflow-hidden hover:border-[#00d4ff55] hover:shadow-[0_0_32px_rgba(0,212,255,0.15)] hover:-translate-y-0.5"
+    >
+      <div
+        className="absolute inset-0 opacity-0 group-hover:opacity-100 transition-opacity duration-300 pointer-events-none"
+        style={{ background: 'linear-gradient(135deg, rgba(0,212,255,0.06) 0%, rgba(124,58,237,0.06) 100%)' }}
+      />
+      <div className="relative flex items-center justify-between mb-4">
+        <span className="text-sm text-text-3 font-bold">{sportIcon(event.sport)} {leagueName}</span>
         {isLive ? (
-          <span className="flex items-center gap-1.5 text-xs text-live font-semibold">
-            <span className="w-1.5 h-1.5 rounded-full bg-live animate-pulse" />
+          <span className="flex items-center gap-2 text-sm text-live font-black">
+            <span className="w-2 h-2 rounded-full bg-live animate-pulse" />
             {event.liveScore.minute}' {event.liveScore.home}-{event.liveScore.away}
           </span>
         ) : (
-          <span className="text-xs text-text-3">
+          <span className="text-sm text-text-3 font-semibold">
             {new Date(event.startTime).toLocaleString(locale, { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' })}
           </span>
         )}
       </div>
-      <Link to={`/events/${event._id}`} className="flex items-center justify-between mb-4 group">
-        <span className="font-medium text-text-1 group-hover:text-primary transition">{homeName}</span>
-        <span className="text-text-3 text-sm">vs</span>
-        <span className="font-medium text-text-1 group-hover:text-primary transition">{awayName}</span>
+      <Link to={`/events/${event._id}`} className="relative flex items-center justify-between mb-5 group/link">
+        <span className="font-black text-base text-text-1 group-hover/link:text-cyan-400 transition">{homeName}</span>
+        <span className="text-text-3 text-sm font-black">vs</span>
+        <span className="font-black text-base text-text-1 group-hover/link:text-cyan-400 transition">{awayName}</span>
       </Link>
       {mainMarket && (
-        <div className="flex flex-wrap gap-2">
+        <div className="relative flex flex-wrap gap-2">
           {mainMarket.odds.filter(o => o.isActive !== false).map(odd => (
             <OddButton key={odd.id} eventId={event._id} eventLabel={label} marketType={mainMarket.type} odd={odd} />
           ))}

@@ -39,6 +39,16 @@ export async function place(req, res, next) {
     await Transaction.create([{ userId: user._id, type:'bet', amount: -stake, balanceBefore, balanceAfter: user.balance, referenceId: bet[0]._id }], { session });
 
     await session.commitTransaction();
+    session.endSession();
+
+    // Bonus wagering credit (transaction dışında, hata olursa bet'i etkilemesin)
+    try {
+      const { recordWagering } = await import('../services/wagering.js');
+      await recordWagering(user._id, 'sports', stake);
+    } catch (wageringErr) {
+      console.error('[wagering] record error:', wageringErr.message);
+    }
+
     res.status(201).json({ bet: bet[0], newBalance: user.balance });
   } catch(e) {
     await session.abortTransaction();

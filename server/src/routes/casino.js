@@ -35,15 +35,35 @@ const r = Router();
 // PP main_resources chunk merge cache: game CDN base URL → merged JSON string
 const ppMainResCache = new Map();
 
-// iframe navigation ve monitoring script fetch'i Bearer header göndermez —
-// ?t= query param'ı da kabul eden hafif auth (sadece casino endpoint'leri için)
+// Phase B11 — Casino iframe için kısa ömürlü (5dk) signed token.
+// `?t=` query param'ıyla token sızıntısını sınırla.
+// Üretim: client casino açarken `/api/casino/token` çağırır, 5dk geçerli token alır.
 function casinoAuth(req, res, next) {
-  const token = req.headers.authorization?.split(' ')[1] || req.query.t;
+  const token = req.headers.authorization?.split(' ')[1]
+    || req.cookies?.casinoToken
+    || req.query.t;
   if (!token) return res.status(401).send('Yetkisiz');
   try {
-    req.user = jwt.verify(token, process.env.JWT_SECRET);
+    // Casino token'ları "ct_" prefix ile başlar (JWT'den ayırt et)
+    if (token.startsWith('ct_')) {
+      const payload = jwt.verify(token, process.env.JWT_SECRET);
+      if (payload.scope !== 'casino') return res.status(401).send('Geçersiz token');
+      req.user = { id: payload.id, role: payload.role };
+    } else {
+      // Legacy full JWT (backward compat)
+      req.user = jwt.verify(token, process.env.JWT_SECRET);
+    }
     next();
   } catch { res.status(401).send('Geçersiz token'); }
+}
+
+// Casino iframe token üretici (5dk TTL) — Phase B11
+export function generateCasinoToken(user) {
+  return 'ct_' + jwt.sign(
+    { id: user._id, role: user.role, scope: 'casino' },
+    process.env.JWT_SECRET,
+    { expiresIn: '5m' }
+  );
 }
 
 // Whitelist — sadece bu domain'lerden gelen URL'leri proxy'leriz

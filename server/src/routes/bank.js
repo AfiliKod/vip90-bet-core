@@ -1,17 +1,15 @@
 import { Router } from 'express';
 import { requireAuth, requireAdmin } from '../middleware/auth.js';
 import { validate } from '../middleware/validate.js';
-import { z } from 'zod';
+import { depositSchema, withdrawSchema } from '../validators/transaction.js';
+import { financialLimiter } from '../middleware/rateLimit.js';
 import * as ctrl from '../controllers/bank.js';
 
 const r = Router();
 
-const depositSchema = z.object({ amount: z.number().min(10).max(50000) });
-const withdrawSchema = z.object({ amount: z.number().min(20).max(50000) });
-
 r.get('/info', ctrl.getInfo);
-r.post('/deposit', requireAuth, validate(depositSchema), ctrl.createDeposit);
-r.post('/withdraw', requireAuth, validate(withdrawSchema), ctrl.createWithdraw);
+r.post('/deposit', requireAuth, financialLimiter, validate(depositSchema), ctrl.createDeposit);
+r.post('/withdraw', requireAuth, financialLimiter, validate(withdrawSchema), ctrl.createWithdraw);
 r.get('/requests', requireAuth, ctrl.getMyRequests);
 
 /* Admin */

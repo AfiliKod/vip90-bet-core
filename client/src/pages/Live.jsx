@@ -3,6 +3,47 @@ import { useEventsStore, groupByLeague } from '../store/eventsStore';
 import { SPORT_META } from '../utils/sportMeta';
 import LeagueGroup from '../components/LeagueGroup';
 import BetSlip from '../components/BetSlip';
+import { BRAND_GRADIENT_H } from '../styles/brand';
+
+function SearchInput({ value, onChange, placeholder = 'Takım veya lig ara...' }) {
+  return (
+    <div className="relative group w-full sm:w-64">
+      <div
+        className="absolute inset-0 rounded-xl opacity-0 group-focus-within:opacity-100 transition-opacity duration-300 pointer-events-none"
+        style={{ background: BRAND_GRADIENT_H, padding: '1px', WebkitMask: 'linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0)', WebkitMaskComposite: 'xor', maskComposite: 'exclude' }}
+      />
+      <span className="absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none transition-colors group-focus-within:text-cyan-400" style={{ color: '#4a5a78' }}>
+        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-4.35-4.35M17 11A6 6 0 1 1 5 11a6 6 0 0 1 12 0z" />
+        </svg>
+      </span>
+      <input
+        value={value}
+        onChange={onChange}
+        placeholder={placeholder}
+        className="relative w-full rounded-xl pl-10 pr-9 py-2.5 text-sm outline-none transition-all backdrop-blur-sm font-medium"
+        style={{ background: '#0c1220aa', border: '1px solid #ffffff14', color: '#f0f4ff' }}
+        onFocus={e => {
+          e.currentTarget.style.background = '#0c1220ee';
+          e.currentTarget.style.boxShadow = '0 0 16px #00d4ff33, 0 0 24px #7c3aed22';
+        }}
+        onBlur={e => {
+          e.currentTarget.style.background = '#0c1220aa';
+          e.currentTarget.style.boxShadow = 'none';
+        }}
+      />
+      {value && (
+        <button
+          onClick={() => onChange({ target: { value: '' } })}
+          className="absolute right-3 top-1/2 -translate-y-1/2 leading-none transition-colors hover:text-cyan-400"
+          style={{ color: '#4a5a78' }}
+        >
+          ×
+        </button>
+      )}
+    </div>
+  );
+}
 
 export default function Live() {
   const {
@@ -69,22 +110,24 @@ export default function Live() {
 
   return (
     <div className="max-w-full px-4 py-4">
-      {/* Başlık */}
+      {/* Başlık + arama */}
       <div className="flex items-center gap-3 mb-4 flex-wrap">
         <div className="flex items-center gap-2">
-          <span className="w-2 h-2 rounded-full bg-live animate-pulse shrink-0" />
-          <h1 className="text-base font-bold text-text-1">Canlı Bahis</h1>
+          <span className="w-2.5 h-2.5 rounded-full bg-live animate-pulse shrink-0 shadow-[0_0_10px_rgba(239,68,68,0.7)]" />
+          <h1 className="text-xl font-black text-text-1">Canlı Bahis</h1>
           {liveEvents.length > 0 && (
-            <span className="text-[11px] bg-live/15 text-live px-2 py-0.5 rounded-full font-semibold border border-live/20">
+            <span
+              className="text-[11px] px-2.5 py-1 rounded-full font-bold border border-live/30"
+              style={{ background: '#ef444422', color: '#ef4444' }}
+            >
               {liveEvents.length} maç
             </span>
           )}
         </div>
-        <input
+        <SearchInput
           value={search}
           onChange={e => setSearch(e.target.value)}
           placeholder="Takım veya lig ara..."
-          className="ml-auto bg-bg-card border border-white/10 rounded-lg px-3 py-1 text-xs text-text-1 focus:outline-none focus:border-primary/50 w-44"
         />
       </div>
 

@@ -23,6 +23,7 @@
     "react-router-dom": "^7.16.0",
     "recharts": "^3.9.0",
     "socket.io-client": "^4.8.3",
+    "sweetalert2": "^11.26.25",
     "zustand": "^5.0.14"
   },
   "devDependencies": {
