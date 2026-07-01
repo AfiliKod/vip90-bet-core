@@ -84,7 +84,12 @@ export default function Login() {
   };
 
   return (
-    <div className="min-h-screen bg-bg-deep flex items-center justify-center px-4 py-8">
+    <div className="min-h-screen flex items-center justify-center px-4 py-8 relative"
+      style={{
+        background: '#05080f',
+      }}>
+      <div className="absolute inset-0 bg-cover bg-center opacity-20 pointer-events-none"
+        style={{ backgroundImage: 'url(/images/login-bg.png)' }} />
       <div className="w-full max-w-sm bg-bg-card border border-white/10 rounded-2xl p-8 shadow-2xl">
         <div className="text-center mb-8">
           <div className="text-5xl mb-3">💎</div>
@@ -106,8 +111,20 @@ export default function Login() {
             <input {...register('email', { required: true })} type="email" placeholder="E-posta"
               className="w-full bg-bg-base border border-white/10 rounded-lg px-4 py-3 text-text-1 placeholder-text-3 focus:outline-none focus:border-primary transition" />
           )}
-          <input {...register('password', { required: true })} type="password" placeholder="Şifre"
-            className="w-full bg-bg-base border border-white/10 rounded-lg px-4 py-3 text-text-1 placeholder-text-3 focus:outline-none focus:border-primary transition" />
+          <div className="relative">
+            <input {...register('password', { required: true })} type="password" placeholder="Şifre"
+              className="w-full bg-bg-base border border-white/10 rounded-lg px-4 py-3 text-text-1 placeholder-text-3 focus:outline-none focus:border-primary transition" />
+            {tab === 'login' && (
+              <Link to="/forgot-password"
+                className="absolute right-3 top-1/2 -translate-y-1/2 text-[11px] font-semibold underline transition"
+                style={{ color: '#7c8aae' }}
+                onMouseEnter={e => e.currentTarget.style.color = '#00d4ff'}
+                onMouseLeave={e => e.currentTarget.style.color = '#7c8aae'}
+              >
+                Şifremi Unuttum
+              </Link>
+            )}
+          </div>
 
           {/* Kayıt onayları */}
           {tab === 'register' && (
