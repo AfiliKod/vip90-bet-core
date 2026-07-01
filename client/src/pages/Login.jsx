@@ -89,7 +89,7 @@ export default function Login() {
         background: '#05080f',
       }}>
       <div className="absolute inset-0 bg-cover bg-center opacity-20 pointer-events-none"
-        style={{ backgroundImage: 'url(/images/login-bg.png?v=2)' }} />
+        style={{ backgroundImage: 'url(/images/login-bg-v2.png)' }} />
       <div className="w-full max-w-sm bg-bg-card border border-white/10 rounded-2xl p-8 shadow-2xl">
         <div className="text-center mb-8">
           <div className="text-5xl mb-3">💎</div>
