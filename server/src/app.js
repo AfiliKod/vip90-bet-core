@@ -77,6 +77,7 @@ export function createApp() {
         imgSrc: ["'self'", 'data:', 'https:'],
         fontSrc: ["'self'", 'data:', 'https://fonts.gstatic.com'],
         connectSrc: ["'self'", 'wss:'],
+        frameSrc: ["'self'", 'https://*.igames-provider.example.invalid', 'https://*.igames-provider.example.invalid', 'https://*.pragmaticplay.net'],
         frameAncestors: ["'self'"],
         objectSrc: ["'none'"],
         baseUri: ["'self'"],
