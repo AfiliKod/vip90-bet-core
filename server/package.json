@@ -21,6 +21,7 @@
     "cookie-parser": "^1.4.6",
     "cors": "^2.8.5",
     "dotenv": "^16.4.5",
+    "escape-string-regexp": "^5.0.0",
     "ethers": "^6.17.0",
     "express": "^4.19.2",
     "express-mongo-sanitize": "^2.2.0",
