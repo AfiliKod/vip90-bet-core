@@ -4,8 +4,21 @@ import Bet from '../models/Bet.js';
 import Transaction from '../models/Transaction.js';
 import GameTask from '../models/GameTask.js';
 import CasinoRound from '../models/CasinoRound.js';
+import CasinoSession from '../models/CasinoSession.js';
 import { settleEvent } from '../services/settlement.js';
 import { createError } from '../middleware/error.js';
+import { errorLogger } from '../services/errorLogger.js';
+import escapeStringRegexp from 'escape-string-regexp';
+
+// Phase B13 — ReDoS protection
+function safeRegex(input, maxLength = 100) {
+  if (!input || typeof input !== 'string') return null;
+  const trimmed = input.trim().slice(0, maxLength);
+  if (!trimmed) return null;
+  return new RegExp(escapeStringRegexp(trimmed), 'i');
+}
+
+// ─── Standard Admin Functions ──────────────────────────────────────
 
 export async function getUsers(req, res, next) {
   try {
@@ -14,8 +27,8 @@ export async function getUsers(req, res, next) {
 
     const filter = {};
     if (search) {
-      const re = new RegExp(search, 'i');
-      filter.$or = [{ username: re }, { email: re }];
+      const re = safeRegex(search);
+      if (re) filter.$or = [{ username: re }, { email: re }];
     }
     if (status === 'active')    { filter.isActive = true;  filter.deletedAt = null; }
     if (status === 'suspended') { filter.isActive = false; filter.deletedAt = null; }
@@ -127,8 +140,8 @@ export async function getArchivedEvents(req, res, next) {
     const skip = (Number(page) - 1) * Number(limit);
     const filter = { archivedAt: { $ne: null } };
     if (search) {
-      const re = new RegExp(search, 'i');
-      filter.$or = [
+      const re = safeRegex(search);
+      if (re) filter.$or = [
         { 'homeTeam.name': re },
         { 'awayTeam.name': re },
         { league: re },
@@ -310,5 +323,356 @@ export async function getUserCasinoRounds(req, res, next) {
     ]);
 
     res.json({ rounds, total, page: Number(page), pages: Math.ceil(total / Number(limit)) });
+  } catch(e) { next(e); }
+}
+
+// ─── Palace Casino Admin Handlers ─────────────────────────────────────
+
+// `_getPalaceService` palaceden test/mock için override edilebilir
+async function getPalace() {
+  const sessionMod = await import('../services/palaceSession.js');
+  if (sessionMod._getPalaceService) return sessionMod._getPalaceService();
+  return await import('../services/palaceCasinoService.js');
+}
+
+export async function getPalaceAgentInfo(req, res, next) {
+  try {
+    const palace = await getPalace();
+    const result = await palace.getAgentInfo();
+    res.json(result.data);
+  } catch(e) { next(e); }
+}
+
+export async function setPalaceRtp(req, res, next) {
+  try {
+    const { rtp } = req.body;
+    if (typeof rtp !== 'number' || rtp < 75 || rtp > 95) {
+      throw createError(400, 'INVALID_RTP', 'RTP 75-95 arasında olmalı');
+    }
+    const palace = await getPalace();
+    const result = await palace.setAgentRTP(rtp);
+    res.json(result.data);
+  } catch(e) { next(e); }
+}
+
+export async function startPalaceBonusCall(req, res, next) {
+  try {
+    const { username, gplay_id, set_point, memo } = req.body;
+    if (!username || !gplay_id) {
+      throw createError(400, 'MISSING_FIELDS', 'username ve gplay_id gerekli');
+    }
+    const user = await User.findOne({ username });
+    if (!user || !user.palaceUserCode) {
+      throw createError(404, 'USER_NOT_FOUND', 'Kullanıcı Palace hesabına bağlı değil');
+    }
+    const palace = await getPalace();
+    const result = await palace.startBonusCall(gplay_id, set_point || 0, 1, memo);
+    res.json({
+      ...result.data,
+      username,
+      palaceUserCode: user.palaceUserCode,
+    });
+  } catch(e) { next(e); }
+}
+
+export async function cancelPalaceBonusCall(req, res, next) {
+  try {
+    const { call_id } = req.body;
+    if (!call_id) throw createError(400, 'MISSING_FIELDS', 'call_id gerekli');
+    const palace = await getPalace();
+    const result = await palace.cancelBonusCall(call_id);
+    res.json(result.data);
+  } catch(e) { next(e); }
+}
+
+export async function getPalaceBonusCallConfig(req, res, next) {
+  try {
+    const palace = await getPalace();
+    const result = await palace.getCallConfig();
+    res.json(result.data);
+  } catch(e) { next(e); }
+}
+
+export async function createPalaceUser(req, res, next) {
+  try {
+    const palace = await getPalace();
+    const { name, linkToUserId } = req.validated || req.body;
+    const result = await palace.createUser(name);
+    if (result.data?.code !== 0) {
+      throw createError(400, 'PALACE_ERROR', result.data?.message || 'User oluşturulamadı');
+    }
+    // Optionally link palace user_code to local user
+    if (linkToUserId && result.data?.data?.user_code) {
+      await User.findByIdAndUpdate(linkToUserId, { palaceUserCode: result.data.data.user_code });
+    }
+    res.json(result.data);
+  } catch(e) { next(e); }
+}
+
+export async function launchPalaceGame(req, res, next) {
+  try {
+    const palace = await getPalace();
+    const { user_code, game_id, mode, language, return_url } = req.body;
+    // Ensure user_code exists for the authenticated user
+    const user = await User.findById(req.user.id);
+    if (!user) throw createError(404, 'USER_NOT_FOUND', 'Kullanıcı bulunamadı');
+    if (!user.palaceUserCode) {
+      throw createError(400, 'PALACE_USER_NOT_LINKED', 'Kullanıcı Palace hesabına bağlı değil. Önce kullanıcı oluşturun.');
+    }
+
+    const result = await palace.launchGame({
+      userCode: user.palaceUserCode,
+      gameId: game_id,
+      mode,
+      language,
+      returnUrl: return_url
+    });
+    if (result.data?.code !== 0) {
+      throw createError(400, 'PALACE_ERROR', result.data?.message || 'Oyun başlatılamadı');
+    }
+    res.json(result.data);
+  } catch(e) { next(e); }
+}
+
+export async function getPalaceGameList(req, res, next) {
+  try {
+    const palace = await getPalace();
+    const { provider, page, limit } = req.query;
+    const result = await palace.getGameList(provider, Number(page) || 1, Number(limit) || 50);
+    res.json(result.data);
+  } catch(e) { next(e); }
+}
+
+// Get all test users with Palace balances
+export async function getPalaceTestUsers(req, res, next) {
+  try {
+    const palace = await getPalace();
+
+    // Find users with palaceUserCode
+    const users = await User.find({
+      palaceUserCode: { $exists: true, $ne: null }
+    })
+    .select('username palaceUserCode balance createdAt')
+    .sort({ createdAt: -1 })
+    .limit(100);
+
+    const userList = [];
+    for (const user of users) {
+      try {
+        const info = await palace.getUserInfo(user.palaceUserCode);
+        userList.push({
+          _id: user._id,
+          username: user.username,
+          palaceUserCode: user.palaceUserCode,
+          casinoBalance: user.balance,
+          palaceBalance: info.data?.data?.balance || 0,
+          currency: info.data?.data?.currency || 4,
+          createdAt: user.createdAt
+        });
+      } catch (e) {
+        userList.push({
+          _id: user._id,
+          username: user.username,
+          palaceUserCode: user.palaceUserCode,
+          casinoBalance: user.balance,
+          palaceBalance: 'error',
+          error: e.message
+        });
+      }
+    }
+
+    res.json({
+      users: userList,
+      totalUsers: userList.length,
+      totalPalaceBalance: userList.reduce((sum, u) => sum + (typeof u.palaceBalance === 'number' ? u.palaceBalance : 0), 0)
+    });
+  } catch(e) { next(e); }
+}
+
+// Withdraw all Palace test user balances to main casino balance
+export async function withdrawPalaceTestUsers(req, res, next) {
+  try {
+    const palace = await getPalace();
+
+    // Find users with palaceUserCode
+    const users = await User.find({
+      palaceUserCode: { $exists: true, $ne: null }
+    })
+    .select('username palaceUserCode balance');
+
+    let totalWithdrawn = 0;
+    let successCount = 0;
+    let errorCount = 0;
+    const results = [];
+
+    for (const user of users) {
+      try {
+        // Get current Palace balance
+        const infoResult = await palace.getUserInfo(user.palaceUserCode);
+        const palaceBalance = parseFloat(infoResult.data?.data?.balance || 0);
+
+        if (palaceBalance > 0) {
+          // Withdraw all from Palace
+          const withdrawResult = await palace.withdrawAllUser(user.palaceUserCode);
+          
+          if (withdrawResult.data?.code === 0) {
+            // Add to main casino balance
+            user.balance += palaceBalance;
+            await user.save();
+
+            totalWithdrawn += palaceBalance;
+            successCount++;
+            results.push({
+              username: user.username,
+              palaceUserCode: user.palaceUserCode,
+              withdrawn: palaceBalance,
+              status: 'success'
+            });
+            console.log(`✅ ${user.username} (${user.palaceUserCode}): ${palaceBalance} TL çekildi`);
+          } else {
+            errorCount++;
+            results.push({
+              username: user.username,
+              palaceUserCode: user.palaceUserCode,
+              withdrawn: 0,
+              status: 'error',
+              message: withdrawResult.data?.message || 'Bilinmeyen hata'
+            });
+            console.log(`❌ ${user.username} (${user.palaceUserCode}): ${withdrawResult.data?.message}`);
+          }
+        } else {
+          results.push({
+            username: user.username,
+            palaceUserCode: user.palaceUserCode,
+            withdrawn: 0,
+            status: 'skipped',
+            message: 'Bakiye 0'
+          });
+        }
+      } catch (e) {
+        errorCount++;
+        results.push({
+          username: user.username,
+          palaceUserCode: user.palaceUserCode,
+          withdrawn: 0,
+          status: 'error',
+          message: e.message
+        });
+        console.log(`❌ ${user.username} (${user.palaceUserCode}): ${e.message}`);
+      }
+    }
+
+    res.json({
+      success: true,
+      totalUsersChecked: users.length,
+      successCount,
+      errorCount,
+      totalWithdrawn,
+      results
+    });
+  } catch(e) { next(e); }
+}
+
+// Palace özet bilgisi: agent bakiyesi, kullanıcı sayısı, aktif oturum, günlük istatistik
+export async function getPalaceSummary(req, res, next) {
+  try {
+    const palace = await getPalace();
+
+    // Agent bilgisi (Palace API)
+    let agent = null;
+    let agentError = null;
+    try {
+      const info = await palace.getAgentInfo();
+      if (info?.code === 0 && info.data) {
+        agent = info.data;
+      } else {
+        agentError = info?.message || 'Agent bilgisi alınamadı';
+      }
+    } catch (e) {
+      agentError = e.message;
+    }
+
+    // Kullanıcı sayıları
+    const [palaceUserCount, activeSessionCount, stuckSessionCount] = await Promise.all([
+      User.countDocuments({ palaceUserCode: { $exists: true, $ne: null } }),
+      CasinoSession.countDocuments({ status: 'active' }),
+      CasinoSession.countDocuments({ status: 'active', updatedAt: { $lt: new Date(Date.now() - 30 * 60 * 1000) } }),
+    ]);
+
+    // Bugünkü Palace istatistikleri (rounds + GGR)
+    const startOfDay = new Date();
+    startOfDay.setHours(0, 0, 0, 0);
+    const todayAgg = await CasinoRound.aggregate([
+      { $match: { provider: 'palace', createdAt: { $gte: startOfDay } } },
+      {
+        $group: {
+          _id: null,
+          rounds: { $sum: 1 },
+          totalBet: { $sum: '$betAmount' },
+          totalPayout: { $sum: '$payout' },
+          ggr: { $sum: { $subtract: ['$betAmount', '$payout'] } },
+          uniqueUsers: { $addToSet: '$userId' },
+        },
+      },
+      {
+        $project: {
+          _id: 0,
+          rounds: 1,
+          totalBet: 1,
+          totalPayout: 1,
+          ggr: 1,
+          uniqueUsers: { $size: '$uniqueUsers' },
+        },
+      },
+    ]);
+    const today = todayAgg[0] || { rounds: 0, totalBet: 0, totalPayout: 0, ggr: 0, uniqueUsers: 0 };
+
+    res.json({
+      agent,
+      agentError,
+      palaceUserCount,
+      activeSessionCount,
+      stuckSessionCount,
+      today,
+    });
+  } catch(e) { next(e); }
+}
+
+// ─── Error log admin endpoints ─────────────────────────────────────
+export async function getRecentErrors(req, res, next) {
+  try {
+    const limit = Math.min(parseInt(req.query.limit) || 100, 500);
+    const lines = errorLogger.readRecent(limit);
+    // Parse each line into structured entry
+    const entries = lines.map(line => {
+      const match = line.match(/^(\S+) \[(\w+)\] (\S+?): (.*?) \| (\{.*\})$/);
+      if (match) {
+        try {
+          return {
+            timestamp: match[1],
+            level: match[2],
+            category: match[3],
+            message: match[4],
+            meta: JSON.parse(match[5]),
+            raw: line,
+          };
+        } catch {}
+      }
+      return { timestamp: '', level: 'UNKNOWN', category: '', message: line, meta: null, raw: line };
+    });
+    res.json({ count: entries.length, entries });
+  } catch(e) { next(e); }
+}
+
+export async function getErrorLogStatus(req, res, next) {
+  try {
+    res.json(errorLogger.status());
+  } catch(e) { next(e); }
+}
+
+export async function clearErrorLog(req, res, next) {
+  try {
+    const ok = errorLogger.clear();
+    res.json({ success: ok });
   } catch(e) { next(e); }
 }

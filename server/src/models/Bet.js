@@ -17,4 +17,10 @@ const schema = new mongoose.Schema({
   settledAt:    Date,
 }, { timestamps: true });
 
+// Indexes (Phase E1)
+schema.index({ userId: 1, createdAt: -1 });
+schema.index({ userId: 1, status: 1, createdAt: -1 });
+schema.index({ status: 1 });
+schema.index({ createdAt: -1 });
+
 export default mongoose.model('Bet', schema);

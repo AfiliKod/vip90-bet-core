@@ -20,4 +20,10 @@ const schema = new mongoose.Schema({
   archivedAt: { type: Date, default: null },
 }, { timestamps: true });
 
+// Indexes (Phase E1)
+schema.index({ status: 1, startTime: 1 });
+schema.index({ sport: 1, startTime: 1 });
+schema.index({ archivedAt: 1 });
+schema.index({ startTime: 1 });
+
 export default mongoose.model('Event', schema);

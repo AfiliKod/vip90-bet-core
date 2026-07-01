@@ -2,12 +2,15 @@ import express from 'express';
 import helmet from 'helmet';
 import cors from 'cors';
 import cookieParser from 'cookie-parser';
+import compression from 'compression';
+import mongoSanitize from 'express-mongo-sanitize';
 import https from 'https';
 import http from 'http';
 import { fileURLToPath } from 'url';
 import { dirname, join } from 'path';
 import { existsSync } from 'fs';
 import { errorHandler, notFound } from './middleware/error.js';
+import { globalLimiter } from './middleware/rateLimit.js';
 import authRoutes from './routes/auth.js';
 import eventsRoutes from './routes/events.js';
 import betsRoutes from './routes/bets.js';
@@ -16,9 +19,13 @@ import transactionsRoutes from './routes/transactions.js';
 import promotionsRoutes from './routes/promotions.js';
 import adminRoutes from './routes/admin.js';
 import casinoRoutes from './routes/casino.js';
+import palaceRoutes from './routes/palace.js';
 import helpRoutes from './routes/help.js';
 import inhouseRoutes from './routes/inhouse.js';
 import cryptoRoutes from './routes/crypto.js';
+import bankRoutes from './routes/bank.js';
+import analyticsRoutes from './routes/analytics.js';
+import admin2faRoutes from './routes/admin2fa.js';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const isProd = process.env.NODE_ENV === 'production';
@@ -36,7 +43,10 @@ export const corsOptions = {
   origin: (origin, cb) => {
     if (!origin) return cb(null, true);
     if (baseOrigins.includes('*') || baseOrigins.includes(origin)) return cb(null, true);
-    if (origin.endsWith('.ngrok-free.dev') || origin === 'https://ngrok-free.dev') return cb(null, true);
+    // Development only: ngrok tunnel desteği (Phase B10 — production'da kapalı)
+    if (!isProd && (origin.endsWith('.ngrok-free.dev') || origin === 'https://ngrok-free.dev')) {
+      return cb(null, true);
+    }
     cb(new Error('CORS: ' + origin));
   },
   credentials: true,
@@ -45,14 +55,49 @@ export const corsOptions = {
 export function createApp() {
   const app = express();
   app.set('trust proxy', 1); // Railway / Render reverse proxy arkasında req.protocol doğru olsun
+  app.set('etag', 'strong'); // Phase E12
+
+  // HTTPS redirect (Phase B5)
+  if (isProd) {
+    app.use((req, res, next) => {
+      if (req.headers['x-forwarded-proto'] && req.headers['x-forwarded-proto'] !== 'https') {
+        return res.redirect(301, `https://${req.headers.host}${req.url}`);
+      }
+      next();
+    });
+  }
+
+  // Helmet + CSP (Phase B2)
   app.use(helmet({
-    contentSecurityPolicy: false, // Casino iframe relay kendi CSP'sini yönetiyor
+    contentSecurityPolicy: isProd ? {
+      directives: {
+        defaultSrc: ["'self'"],
+        scriptSrc: ["'self'", "'unsafe-inline'", 'https://challenges.cloudflare.com'],
+        styleSrc: ["'self'", "'unsafe-inline'", 'https://fonts.googleapis.com'],
+        imgSrc: ["'self'", 'data:', 'https:'],
+        fontSrc: ["'self'", 'data:', 'https://fonts.gstatic.com'],
+        connectSrc: ["'self'", 'wss:'],
+        frameAncestors: ["'self'"],
+        objectSrc: ["'none'"],
+        baseUri: ["'self'"],
+        formAction: ["'self'"],
+      },
+    } : false, // Dev: CSP kapalı (HMR için)
     crossOriginEmbedderPolicy: false,
+    hsts: isProd ? { maxAge: 31536000, includeSubDomains: true, preload: true } : false,
+    referrerPolicy: { policy: 'strict-origin-when-cross-origin' },
+    permittedCrossDomainPolicies: false,
   }));
+
   app.use(cors(corsOptions));
-  app.use(express.json());
-  app.use(express.urlencoded({ extended: false }));
+  app.use(compression({ level: 6, threshold: 1024 })); // Phase E2
+  app.use(express.json({ limit: '10kb' })); // Phase B3
+  app.use(express.urlencoded({ extended: false, limit: '10kb' }));
+  app.use(mongoSanitize()); // Phase B12
   app.use(cookieParser());
+
+  // Global rate limit (Phase B1)
+  app.use('/api', globalLimiter);
 
   // Production: static assets'i API routes'lardan ÖNCE serve et
   // Böylece /assets/*.js ve /assets/*.css istekleri doğru MIME type ile döner
@@ -77,12 +122,48 @@ export function createApp() {
   app.use('/api/promotions', promotionsRoutes);
   app.use('/api/admin', adminRoutes);
   app.use('/api/casino', casinoRoutes);
+  app.use('/api/palace', palaceRoutes);
   app.use('/api/inhouse', inhouseRoutes);
   app.use('/api/help', helpRoutes);
   app.use('/api/crypto', cryptoRoutes);
+  app.use('/api/bank', bankRoutes);
+  app.use('/api/admin/analytics', analyticsRoutes);
+  app.use('/api/auth/2fa', admin2faRoutes);
 
   // Health check — Render uptime monitoring için
   app.get('/api/health', (req, res) => res.json({ ok: true, env: process.env.NODE_ENV }));
+
+  // Derin health/status — Status Page için (public, cache-friendly)
+  app.get('/api/health/status', async (req, res) => {
+    const result = { api: 'up', db: 'unknown', palace: 'unknown', oddsSource: 'unknown', payment: 'up' };
+    try {
+      const mongoose = (await import('mongoose')).default;
+      result.db = mongoose.connection.readyState === 1 ? 'up' : 'down';
+    } catch { result.db = 'down'; }
+    try {
+      const start = Date.now();
+      const r = await fetch('https://api.casino-provider.example/api/agent/info', {
+        method: 'GET',
+        headers: { Authorization: `Bearer ${process.env.PALACE_API_TOKEN || ''}` },
+        signal: AbortSignal.timeout(3000),
+      }).catch(() => null);
+      if (!r) result.palace = 'down';
+      else if (Date.now() - start > 2000) result.palace = 'degraded';
+      else result.palace = 'up';
+    } catch { result.palace = 'down'; }
+    try {
+      const start = Date.now();
+      const r = await fetch('https://www.oddsSource7175.com', {
+        method: 'HEAD',
+        signal: AbortSignal.timeout(3000),
+      }).catch(() => null);
+      if (!r) result.oddsSource = 'down';
+      else if (Date.now() - start > 2000) result.oddsSource = 'degraded';
+      else result.oddsSource = 'up';
+    } catch { result.oddsSource = 'down'; }
+    res.set('Cache-Control', 'no-store');
+    res.json(result);
+  });
 
   // Görsel proxy — hotlink korumalı CDN'lerden Origin header olmadan çeker
   app.get('/api/img', (req, res) => {

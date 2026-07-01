@@ -13,9 +13,13 @@ const TX_LABEL = {
   win: '🏆 Kazanç',
   bonus: '🎁 Bonus',
   refund: '↩️ İade',
+  casino_return: '🎰 Casino Dönüş',
+  bonus_conversion: '💰 Bonus Çevrimi',
   crypto_deposit: '🪙 Kripto Yatırım',
   crypto_withdraw: '🪙 Kripto Çekim',
 };
+
+const AMOUNT_PRESETS = [100, 250, 500, 1000, 2000, 5000];
 
 function CopyButton({ text }) {
   const [copied, setCopied] = useState(false);
@@ -142,23 +146,107 @@ export default function Profile() {
   const addToast = useToastStore(s => s.add);
   const [searchParams, setSearchParams] = useSearchParams();
   const [transactions, setTransactions] = useState([]);
-  const [activeTab, setActiveTab]       = useState(searchParams.get('tab') || 'bank_deposit');
+
+  const [mode, setMode]       = useState(searchParams.get('mode') || 'deposit');
+  const [method, setMethod]   = useState(searchParams.get('method') || 'bank');
+  const [step, setStep]       = useState('amount');
+  const [selectedAmount, setSelectedAmount] = useState(null);
+  const [customAmount, setCustomAmount]     = useState('');
+  const [bankInfo, setBankInfo]             = useState(null);
+  const [submitting, setSubmitting]         = useState(false);
+  const [successRequest, setSuccessRequest] = useState(null);
+  const [wagerings, setWagerings]           = useState([]);
+  const [showPrivacyModal, setShowPrivacyModal] = useState(false);
+  const [privacyPassword, setPrivacyPassword] = useState('');
+  const [privacyError, setPrivacyError] = useState('');
+
   const { register, handleSubmit, reset, formState: { isSubmitting } } = useForm();
 
   const fetchTx = useCallback(() => {
     api.get('/users/me/transactions').then(r => setTransactions(r.data.transactions)).catch(() => {});
   }, []);
 
-  useEffect(() => { fetchTx(); }, [fetchTx]);
+  const fetchWagerings = useCallback(() => {
+    api.get('/promotions/my-wagerings').then(r => setWagerings(r.data.wagerings || [])).catch(() => setWagerings([]));
+  }, []);
+
+  useEffect(() => { fetchTx(); fetchWagerings(); }, [fetchTx, fetchWagerings]);
+
+  useEffect(() => {
+    if (method === 'bank') {
+      api.get('/bank/info').then(r => setBankInfo(r.data)).catch(() => {});
+    }
+  }, [method]);
 
   const onBalanceUpdate = (newBalance) => {
     updateBalance(newBalance);
     fetchTx();
   };
 
+  const syncParams = (m, meth) => {
+    const params = {};
+    if (m !== 'deposit') params.mode = m;
+    if (meth !== 'bank') params.method = meth;
+    setSearchParams(params, { replace: true });
+  };
+
+  const switchMode = (m) => {
+    setMode(m);
+    setStep('amount');
+    setSelectedAmount(null);
+    setCustomAmount('');
+    setSuccessRequest(null);
+    syncParams(m, method);
+  };
+
+  const switchMethod = (m) => {
+    setMethod(m);
+    setStep('amount');
+    setSelectedAmount(null);
+    setCustomAmount('');
+    setSuccessRequest(null);
+    syncParams(mode, m);
+  };
+
+  const handleAmountSelect = (amount) => {
+    setSelectedAmount(amount);
+    setCustomAmount('');
+    if (method === 'bank' && mode === 'deposit') {
+      setStep('confirm');
+    } else if (method === 'bank' && mode === 'withdraw') {
+      setStep('confirm');
+    }
+  };
+
+  const handleCustomChange = (e) => {
+    const v = e.target.value;
+    setCustomAmount(v);
+    setSelectedAmount(null);
+  };
+
+  const handleBankSubmit = async () => {
+    const amount = selectedAmount || parseFloat(customAmount);
+    if (!amount || amount <= 0) return;
+    setSubmitting(true);
+    try {
+      const endpoint = mode === 'deposit' ? '/bank/deposit' : '/bank/withdraw';
+      const { data } = await api.post(endpoint, { amount });
+      setSuccessRequest({ amount, ...data });
+      addToast(data.message, 'success');
+    } catch (e) {
+      addToast(e.response?.data?.error || 'İşlem başarısız', 'error');
+    } finally { setSubmitting(false); }
+  };
+
+  const refCode = user?._id
+    ? `${user._id.slice(-6).toUpperCase()}-${Date.now().toString(36).toUpperCase()}`
+    : '';
+
+  const amount = selectedAmount || (customAmount ? parseFloat(customAmount) : 0);
+
   const onFiatSubmit = async (data) => {
     try {
-      const endpoint = activeTab === 'bank_deposit' ? '/transactions/deposit' : '/transactions/withdraw';
+      const endpoint = '/transactions/deposit';
       const { data: res } = await api.post(endpoint, { amount: parseFloat(data.amount) });
       onBalanceUpdate(res.newBalance);
       addToast(res.message, 'success');
@@ -166,16 +254,9 @@ export default function Profile() {
     } catch (e) { addToast(e.response?.data?.error?.message || 'İşlem başarısız', 'error'); }
   };
 
-  const TABS = [
-    ['bank_deposit',    '🏦 Bankayla Yatır'],
-    ['bank_withdraw',   '🏦 Bankayla Çek'],
-    ['crypto_deposit',  '🪙 Kriptoyla Yatır'],
-    ['crypto_withdraw', '🪙 Kriptoyla Çek'],
-  ];
-
   return (
     <div className="max-w-2xl mx-auto px-3 sm:px-4 py-6">
-      {/* Profil başlık */}
+      {/* Kullanıcı bilgi kartı */}
       <div className="bg-bg-card border border-white/10 rounded-xl p-4 sm:p-6 mb-4">
         <div className="flex items-center gap-4 mb-6">
           <div className="w-14 h-14 rounded-full bg-accent/20 border border-accent/30 flex items-center justify-center text-2xl font-bold text-accent">
@@ -186,42 +267,401 @@ export default function Profile() {
             <div className="text-text-2 text-sm">{user?.email}</div>
           </div>
           <div className="ml-auto text-right">
-            <div className="text-2xl sm:text-3xl font-black text-primary">₺{user?.balance?.toFixed(2)}</div>
+            <div className="text-2xl sm:text-3xl font-black" style={{ color: '#00d4ff' }}>₺{(user?.balance ?? 0).toFixed(2)}</div>
             <div className="text-text-3 text-xs mt-1">Ana Bakiye</div>
+            {user?.bonusBalance > 0 && (
+              <div className="text-sm font-bold mt-1" style={{ background: 'linear-gradient(90deg, #00d4ff, #7c3aed)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent', backgroundClip: 'text' }}>
+                + ₺{user.bonusBalance.toFixed(2)} Bonus
+              </div>
+            )}
+            {user?.activePalaceBalance != null && (
+              <div className="text-xs mt-1.5" style={{ color: '#7c8aae' }}>
+                🏰 Casino'da ₺{user.activePalaceBalance.toFixed(2)}
+              </div>
+            )}
           </div>
         </div>
 
-        {/* Sekme butonları */}
-        <div className="grid grid-cols-2 sm:flex gap-2 mb-4">
-          {TABS.map(([v, l]) => (
-            <button key={v} onClick={() => { setActiveTab(v); setSearchParams(v === 'bank_deposit' ? {} : { tab: v }); }}
-              className={`py-2 px-1 rounded-lg text-xs sm:text-sm font-medium transition leading-tight ${
-                activeTab === v ? 'bg-accent text-white' : 'text-text-2 hover:bg-bg-hover border border-white/10'
-              }`}>{l}</button>
-          ))}
-        </div>
-
-        {/* Banka yatır/çek */}
-        {(activeTab === 'bank_deposit' || activeTab === 'bank_withdraw') && (
-          <form onSubmit={handleSubmit(onFiatSubmit)} className="flex gap-2">
-            <input
-              {...register('amount', { required: true, min: activeTab === 'bank_deposit' ? 10 : 20 })}
-              type="number"
-              placeholder={activeTab === 'bank_deposit' ? 'Min. 10₺' : 'Min. 20₺'}
-              className="flex-1 bg-bg-base border border-white/10 rounded-lg px-4 py-2.5 text-text-1 focus:outline-none focus:border-primary"
-            />
-            <button type="submit" disabled={isSubmitting}
-              className="px-6 py-2.5 bg-primary text-bg-deep font-semibold rounded-lg hover:opacity-90 transition disabled:opacity-50">
-              {activeTab === 'bank_deposit' ? 'Yatır' : 'Çek'}
-            </button>
-          </form>
+        {/* ── Aktif bonus wagering'leri ── */}
+        {wagerings.filter(w => w.status === 'active').length > 0 && (
+          <div className="mb-5 space-y-2">
+            <div className="text-[10px] uppercase tracking-widest font-bold" style={{ color: '#8899bb' }}>
+              Aktif Bonus Wagering
+            </div>
+            {wagerings.filter(w => w.status === 'active').map(w => {
+              const pct = w.wageringRequired > 0
+                ? Math.min(100, Math.floor((w.wageringProgress / w.wageringRequired) * 100))
+                : 100;
+              const remaining = Math.max(0, w.wageringRequired - w.wageringProgress);
+              const now = Date.now();
+              const deadlineTs = w.deadline ? new Date(w.deadline).getTime() : null;
+              const msLeft = deadlineTs ? deadlineTs - now : null;
+              const daysLeft = msLeft !== null ? Math.floor(msLeft / 86400000) : null;
+              const hoursLeft = msLeft !== null ? Math.floor((msLeft % 86400000) / 3600000) : null;
+              const expired = msLeft !== null && msLeft <= 0;
+              const urgent = !expired && daysLeft !== null && daysLeft < 3;
+              const deadlineColor = expired ? '#ef4444' : urgent ? '#fbbf24' : '#8899bb';
+              const deadlineText = expired
+                ? '⛔ Süresi doldu'
+                : daysLeft !== null && daysLeft >= 1
+                  ? `⏰ ${daysLeft}g ${hoursLeft}s kaldı`
+                  : hoursLeft !== null
+                    ? `⏰ ${hoursLeft}s kaldı`
+                    : null;
+              return (
+                <div
+                  key={w._id}
+                  className="rounded-xl p-3"
+                  style={{
+                    background: expired ? 'rgba(239,68,68,0.06)' : 'rgba(255,255,255,0.04)',
+                    border: expired ? '1px solid rgba(239,68,68,0.3)' : '1px solid rgba(255,255,255,0.06)',
+                    opacity: expired ? 0.65 : 1,
+                  }}
+                >
+                  <div className="flex items-center justify-between mb-2">
+                    <div className="min-w-0 flex-1">
+                      <div className="text-sm font-bold text-text-1 truncate">{w.description || 'Bonus'}</div>
+                      <div className="text-[10px] text-text-3 mt-0.5 flex flex-wrap items-center gap-x-2 gap-y-0.5">
+                        <span>₺{w.bonusAmount} bonus · {w.multiplier}x çevrim</span>
+                        {deadlineText && (
+                          <span
+                            className="font-bold"
+                            style={{
+                              color: deadlineColor,
+                              padding: expired ? '1px 6px' : 0,
+                              borderRadius: 4,
+                              background: expired ? 'rgba(239,68,68,0.15)' : 'transparent',
+                              border: expired ? '1px solid rgba(239,68,68,0.4)' : 'none',
+                            }}
+                          >
+                            {deadlineText}
+                          </span>
+                        )}
+                      </div>
+                    </div>
+                    <div className="text-right shrink-0 ml-2">
+                      <div className="text-sm font-black" style={{ background: 'linear-gradient(90deg, #00d4ff, #7c3aed)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent', backgroundClip: 'text' }}>
+                        {pct}%
+                      </div>
+                    </div>
+                  </div>
+                  <div className="h-2 rounded-full overflow-hidden" style={{ background: '#ffffff08' }}>
+                    <div
+                      className="h-full transition-all duration-500"
+                      style={{
+                        width: `${pct}%`,
+                        background: expired
+                          ? 'linear-gradient(90deg, #ef4444, #dc2626)'
+                          : 'linear-gradient(90deg, #00d4ff, #7c3aed)',
+                      }}
+                    />
+                  </div>
+                  <div className="flex justify-between text-[10px] text-text-3 mt-1.5">
+                    <span>₺{w.wageringProgress.toFixed(2)} / ₺{w.wageringRequired.toFixed(2)}</span>
+                    <span>Kalan: ₺{remaining.toFixed(2)}</span>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
         )}
 
-        {/* Kripto yatır */}
-        {activeTab === 'crypto_deposit' && <CryptoDeposit onBalanceUpdate={onBalanceUpdate} />}
+        {/* ── Tamamlanmış bonuslar (cash'e çevrilebilir) ── */}
+        {wagerings.filter(w => w.status === 'completed').length > 0 && (
+          <div className="mb-5 space-y-2">
+            <div className="text-[10px] uppercase tracking-widest font-bold" style={{ color: '#8899bb' }}>
+              Çevrime Hazır Bonuslar
+            </div>
+            {wagerings.filter(w => w.status === 'completed').map(w => (
+              <div key={w._id} className="bg-bg-base/40 border border-[#00d4ff44] rounded-xl p-3 flex items-center justify-between gap-3">
+                <div className="min-w-0 flex-1">
+                  <div className="text-sm font-bold text-text-1 truncate">{w.description || 'Bonus'}</div>
+                  <div className="text-[10px] text-text-3 mt-0.5">
+                    ₺{w.bonusAmount} bonus · Wagering tamamlandı ✓
+                  </div>
+                </div>
+                <button
+                  onClick={async () => {
+                    try {
+                      const { data } = await api.post(`/promotions/${w.promotionId || 'manual'}/wagerings/${w._id}/convert`);
+                      addToast(data.message || 'Bonus cash\'e çevrildi', 'success');
+                      updateBalance(data.newBalance);
+                      fetchWagerings();
+                      fetchTx();
+                    } catch (e) {
+                      addToast(e.response?.data?.error?.message || 'Çevrim başarısız', 'error');
+                    }
+                  }}
+                  className="px-4 py-2 rounded-lg text-xs font-bold text-black whitespace-nowrap"
+                  style={{ background: 'linear-gradient(90deg, #00d4ff, #7c3aed)', boxShadow: '0 0 12px #00d4ff55' }}
+                >
+                  💰 Çevir
+                </button>
+              </div>
+            ))}
+          </div>
+        )}
 
-        {/* Kripto çek */}
-        {activeTab === 'crypto_withdraw' && <CryptoWithdraw onBalanceUpdate={onBalanceUpdate} />}
+        {/* ── Para Yatır / Para Çek konteynırı ── */}
+        <div className="bg-bg-base/60 border border-white/[0.06] rounded-2xl p-4 sm:p-5">
+          {/* Üst: Para Yatır / Para Çek toggle */}
+          <div className="flex bg-bg-deep/40 rounded-xl p-1 mb-4">
+            {[
+              { key: 'deposit', label: '📥 Para Yatır' },
+              { key: 'withdraw', label: '📤 Para Çek' },
+            ].map(m => (
+              <button key={m.key} onClick={() => switchMode(m.key)}
+                className={`flex-1 py-2.5 rounded-lg text-sm font-semibold transition ${
+                  mode === m.key
+                    ? 'bg-accent text-white shadow-lg shadow-accent/25'
+                    : 'text-text-3 hover:text-text-1'
+                }`}>{m.label}</button>
+            ))}
+          </div>
+
+          {/* Alt: Banka / Kripto seçici */}
+          <div className="flex gap-2 mb-4">
+            {[
+              { key: 'bank', label: '🏦 Banka ile', desc: 'Havale / EFT' },
+              { key: 'crypto', label: '🪙 Kripto ile', desc: 'USDT TRC20' },
+            ].map(m => (
+              <button key={m.key} onClick={() => switchMethod(m.key)}
+                className={`flex-1 flex flex-col items-center gap-0.5 py-3 rounded-xl text-sm font-medium border transition ${
+                  method === m.key
+                    ? 'bg-accent/10 border-accent/40 text-accent'
+                    : 'bg-bg-deep/30 border-white/[0.06] text-text-3 hover:text-text-2 hover:border-white/20'
+                }`}>
+                <span>{m.label}</span>
+                <span className="text-[10px] opacity-60">{m.desc}</span>
+              </button>
+            ))}
+          </div>
+
+          {/* ── BANK DEPOSIT ── */}
+          {method === 'bank' && mode === 'deposit' && !successRequest && step === 'amount' && (
+            <div className="space-y-4">
+              <p className="text-sm text-text-2 font-medium">Yatırılacak Tutarı Seçin</p>
+              <div className="grid grid-cols-3 gap-2">
+                {AMOUNT_PRESETS.map(a => (
+                  <button key={a} onClick={() => handleAmountSelect(a)}
+                    className={`py-3 rounded-xl text-base font-bold border transition ${
+                      selectedAmount === a
+                        ? 'bg-accent text-white border-accent shadow-lg shadow-accent/20'
+                        : 'bg-bg-deep/40 border-white/[0.06] text-text-2 hover:border-accent/30 hover:text-text-1'
+                    }`}>₺{a}</button>
+                ))}
+              </div>
+              <div className="relative">
+                <div className="absolute inset-0 flex items-center"><div className="w-full border-t border-white/10" /></div>
+                <div className="relative flex justify-center"><span className="bg-bg-base/60 px-2 text-xs text-text-3">veya</span></div>
+              </div>
+              <div className="flex gap-2">
+                <input type="number" value={customAmount}
+                  onChange={handleCustomChange}
+                  placeholder="Özel tutar (min. 10₺)"
+                  className="flex-1 bg-bg-deep/40 border border-white/10 rounded-xl px-4 py-2.5 text-text-1 text-sm focus:outline-none focus:border-accent/50" />
+                <button onClick={() => {
+                  const v = parseFloat(customAmount);
+                  if (v >= 10) handleAmountSelect(v);
+                  else addToast('Minimum 10₺', 'error');
+                }} disabled={!customAmount || parseFloat(customAmount) < 10}
+                  className="px-5 py-2.5 bg-accent text-white font-semibold rounded-xl text-sm hover:opacity-90 transition disabled:opacity-40">
+                  Devam
+                </button>
+              </div>
+            </div>
+          )}
+
+          {method === 'bank' && mode === 'deposit' && !successRequest && step === 'confirm' && (
+            <div className="space-y-4 animate-fade-in">
+              <div className="text-center">
+                <div className="text-3xl font-black text-primary mb-1">₺{amount.toFixed(2)}</div>
+                <div className="text-xs text-text-3">Yatırma Talebi</div>
+              </div>
+
+              {bankInfo && (
+                <div className="bg-bg-deep/40 border border-white/[0.06] rounded-xl p-4 space-y-3">
+                  <div className="flex items-center justify-between">
+                    <span className="text-xs text-text-3">Banka</span>
+                    <span className="text-sm text-text-1 font-medium">{bankInfo.bankName}</span>
+                  </div>
+                  <div className="flex items-center justify-between">
+                    <span className="text-xs text-text-3">Şube</span>
+                    <span className="text-sm text-text-1">{bankInfo.bankBranch}</span>
+                  </div>
+                  <div className="flex items-center justify-between">
+                    <span className="text-xs text-text-3">Alıcı</span>
+                    <span className="text-sm text-text-1 font-medium">{bankInfo.accountHolder}</span>
+                  </div>
+                  <div>
+                    <div className="flex items-center justify-between mb-1">
+                      <span className="text-xs text-text-3">IBAN</span>
+                      <CopyButton text={bankInfo.iban} />
+                    </div>
+                    <div className="bg-bg-base border border-white/10 rounded-lg px-3 py-2 font-mono text-sm text-text-1 tracking-wide break-all">
+                      {bankInfo.iban}
+                    </div>
+                  </div>
+                  <div>
+                    <div className="flex items-center justify-between mb-1">
+                      <span className="text-xs text-text-3">Hesap No</span>
+                      <CopyButton text={bankInfo.accountNo} />
+                    </div>
+                    <div className="bg-bg-base border border-white/10 rounded-lg px-3 py-2 font-mono text-sm text-text-1">
+                      {bankInfo.accountNo}
+                    </div>
+                  </div>
+                  <div>
+                    <div className="flex items-center justify-between mb-1">
+                      <span className="text-xs text-text-3">Referans Kodu</span>
+                      <CopyButton text={refCode} />
+                    </div>
+                    <div className="bg-amber-500/10 border border-amber-500/30 rounded-lg px-3 py-2 font-mono text-sm text-amber-400 font-bold tracking-wider text-center">
+                      {refCode}
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              <div className="bg-accent/5 border border-accent/20 rounded-xl p-3 text-xs text-text-2 leading-relaxed space-y-1">
+                <p>1️⃣ Yukarıdaki hesaba <strong className="text-text-1">₺{amount.toFixed(2)}</strong> gönderin</p>
+                <p>2️⃣ Açıklama kısmına <strong className="text-amber-400">{refCode}</strong> referans kodunu yazın</p>
+                <p>3️⃣ Admin onayından sonra bakiye otomatik yüklenecektir</p>
+              </div>
+
+              <div className="flex gap-2">
+                <button onClick={() => setStep('amount')}
+                  className="flex-1 py-2.5 border border-white/20 text-text-3 rounded-xl text-sm font-medium hover:bg-bg-hover transition">
+                  Geri
+                </button>
+                <button onClick={handleBankSubmit} disabled={submitting}
+                  className="flex-1 py-2.5 bg-accent text-white font-semibold rounded-xl text-sm hover:opacity-90 transition disabled:opacity-50">
+                  {submitting ? 'Gönderiliyor...' : '✅ Havale Bildirimi Yap'}
+                </button>
+              </div>
+            </div>
+          )}
+
+          {method === 'bank' && mode === 'deposit' && successRequest && (
+            <div className="text-center py-4 space-y-3 animate-fade-in">
+              <div className="text-4xl">✅</div>
+              <div className="text-lg font-bold text-text-1">Talep Oluşturuldu</div>
+              <div className="text-3xl font-black text-primary">₺{successRequest.amount.toFixed(2)}</div>
+              <p className="text-sm text-text-3 max-w-xs mx-auto">
+                Hesaba havale yaptıktan sonra admin onayını bekleyin. Onaylandığında bakiyenize yansıyacaktır.
+              </p>
+              <button onClick={() => { setStep('amount'); setSelectedAmount(null); setSuccessRequest(null); }}
+                className="px-5 py-2 border border-accent/40 text-accent rounded-xl text-sm font-medium hover:bg-accent/10 transition">
+                Yeni Talep
+              </button>
+            </div>
+          )}
+
+          {/* ── BANK WITHDRAW ── */}
+          {method === 'bank' && mode === 'withdraw' && !successRequest && (
+            <div className="space-y-4">
+              {step === 'amount' && (
+                <>
+                  <p className="text-sm text-text-2 font-medium">Çekilecek Tutarı Seçin</p>
+                  <div className="grid grid-cols-3 gap-2">
+                    {AMOUNT_PRESETS.map(a => (
+                      <button key={a} onClick={() => handleAmountSelect(a)}
+                        className={`py-3 rounded-xl text-base font-bold border transition ${
+                          selectedAmount === a
+                            ? 'bg-accent text-white border-accent shadow-lg shadow-accent/20'
+                            : 'bg-bg-deep/40 border-white/[0.06] text-text-2 hover:border-accent/30 hover:text-text-1'
+                        }`}>₺{a}</button>
+                    ))}
+                  </div>
+                  <div className="relative">
+                    <div className="absolute inset-0 flex items-center"><div className="w-full border-t border-white/10" /></div>
+                    <div className="relative flex justify-center"><span className="bg-bg-base/60 px-2 text-xs text-text-3">veya</span></div>
+                  </div>
+                  <div className="flex gap-2">
+                    <input type="number" value={customAmount}
+                      onChange={handleCustomChange}
+                      placeholder="Özel tutar (min. 20₺)"
+                      className="flex-1 bg-bg-deep/40 border border-white/10 rounded-xl px-4 py-2.5 text-text-1 text-sm focus:outline-none focus:border-accent/50" />
+                    <button onClick={() => {
+                      const v = parseFloat(customAmount);
+                      if (v >= 20) { handleAmountSelect(v); }
+                      else addToast('Minimum 20₺', 'error');
+                    }} disabled={!customAmount || parseFloat(customAmount) < 20}
+                      className="px-5 py-2.5 bg-accent text-white font-semibold rounded-xl text-sm hover:opacity-90 transition disabled:opacity-40">
+                      Devam
+                    </button>
+                  </div>
+
+                  {selectedAmount && selectedAmount > (user?.balance || 0) && (
+                    <div className="bg-danger/10 border border-danger/30 rounded-lg p-2.5 text-danger text-xs text-center">
+                      Yetersiz bakiye. Mevcut bakiyeniz: ₺{user?.balance?.toFixed(2)}
+                    </div>
+                  )}
+                </>
+              )}
+
+              {step === 'confirm' && (
+                <div className="space-y-4 animate-fade-in">
+                  <div className="text-center">
+                    <div className="text-3xl font-black text-danger mb-1">₺{amount.toFixed(2)}</div>
+                    <div className="text-xs text-text-3">Çekim Talebi</div>
+                  </div>
+
+                  <div className="bg-bg-deep/40 border border-white/[0.06] rounded-xl p-4 space-y-3">
+                    <div className="flex items-center justify-between">
+                      <span className="text-xs text-text-3">Mevcut Bakiye</span>
+                      <span className="text-sm text-text-1 font-medium">₺{user?.balance?.toFixed(2)}</span>
+                    </div>
+                    <div className="flex items-center justify-between">
+                      <span className="text-xs text-text-3">Çekim Tutarı</span>
+                      <span className="text-sm text-text-1 font-medium text-danger">₺{amount.toFixed(2)}</span>
+                    </div>
+                    <div className="border-t border-white/10 pt-3 flex items-center justify-between">
+                      <span className="text-xs text-text-3">Kalan Bakiye</span>
+                      <span className="text-base font-bold text-text-1">₺{((user?.balance || 0) - amount).toFixed(2)}</span>
+                    </div>
+                  </div>
+
+                  <div className="bg-blue-500/10 border border-blue-500/30 rounded-xl p-3 text-xs text-text-2 leading-relaxed">
+                    Çekim talebiniz admin onayına gönderilecektir. Onaylandığında tutar banka hesabınıza aktarılır. İşlem 1-2 iş günü sürebilir.
+                  </div>
+
+                  <div className="flex gap-2">
+                    <button onClick={() => setStep('amount')}
+                      className="flex-1 py-2.5 border border-white/20 text-text-3 rounded-xl text-sm font-medium hover:bg-bg-hover transition">
+                      Geri
+                    </button>
+                    <button onClick={handleBankSubmit} disabled={submitting || amount > (user?.balance || 0)}
+                      className="flex-1 py-2.5 bg-accent text-white font-semibold rounded-xl text-sm hover:opacity-90 transition disabled:opacity-50">
+                      {submitting ? 'Gönderiliyor...' : '✅ Çekim Talebi Oluştur'}
+                    </button>
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
+
+          {method === 'bank' && mode === 'withdraw' && successRequest && (
+            <div className="text-center py-4 space-y-3 animate-fade-in">
+              <div className="text-4xl">✅</div>
+              <div className="text-lg font-bold text-text-1">Çekim Talebi Alındı</div>
+              <div className="text-3xl font-black text-danger">₺{successRequest.amount.toFixed(2)}</div>
+              <p className="text-sm text-text-3 max-w-xs mx-auto">
+                Talebiniz admin tarafından incelenecek ve onaylandığında hesabınıza aktarılacaktır.
+              </p>
+              <button onClick={() => { setStep('amount'); setSelectedAmount(null); setSuccessRequest(null); onBalanceUpdate(user?.balance); }}
+                className="px-5 py-2 border border-accent/40 text-accent rounded-xl text-sm font-medium hover:bg-accent/10 transition">
+                Yeni Talep
+              </button>
+            </div>
+          )}
+
+          {/* ── CRYPTO DEPOSIT ── */}
+          {method === 'crypto' && mode === 'deposit' && <CryptoDeposit onBalanceUpdate={onBalanceUpdate} />}
+
+          {/* ── CRYPTO WITHDRAW ── */}
+          {method === 'crypto' && mode === 'withdraw' && <CryptoWithdraw onBalanceUpdate={onBalanceUpdate} />}
+        </div>
       </div>
 
       {/* İşlem geçmişi */}
@@ -247,9 +687,90 @@ export default function Profile() {
           ))}
           {!transactions.length && (
             <div className="text-text-3 text-center py-4 text-sm">İşlem bulunamadı</div>
-          )}
-        </div>
-      </div>
-    </div>
-  );
+)}
+         </div>
+       </div>
+
+       {/* KVKK Privacy & Account Section (Phase A6 / D5) */}
+       <div className="mb-5 mt-8">
+         <div className="text-[10px] uppercase tracking-widest font-bold mb-2" style={{ color: '#8899bb' }}>
+           Verilerim & KVKK
+         </div>
+         <div className="bg-bg-base/40 border border-white/[0.06] rounded-xl p-4 space-y-2">
+           <button
+             onClick={() => setShowPrivacyModal(true)}
+             className="w-full px-4 py-2.5 rounded-lg text-sm font-semibold border border-cyan-400/30 text-cyan-300 hover:bg-cyan-400/10 transition"
+           >
+             📥 Verilerimi indir (KVKK md.11)
+           </button>
+           <Link
+             to="/legal/kvkk"
+             className="block w-full px-4 py-2.5 rounded-lg text-sm font-semibold border border-white/10 text-text-1 hover:border-white/20 transition text-center"
+           >
+             📜 KVKK Aydınlatma Metni
+           </Link>
+           <Link
+             to="/legal/responsible-gaming"
+             className="block w-full px-4 py-2.5 rounded-lg text-sm font-semibold border border-white/10 text-text-1 hover:border-white/20 transition text-center"
+           >
+             🎲 Sorumlu Oyun & Limitler
+           </Link>
+         </div>
+       </div>
+
+       {/* Privacy Export Modal (Phase A6 / D5) */}
+       {showPrivacyModal && (
+         <div className="fixed inset-0 z-50 flex items-center justify-center p-4" style={{ background: 'rgba(0,0,0,0.7)' }}>
+           <div className="max-w-md w-full rounded-2xl p-6" style={{ background: '#0c1220', border: '1px solid rgba(0,212,255,0.3)' }}>
+             <div className="flex items-center justify-between mb-4">
+               <h3 className="text-lg font-bold text-text-1">📥 Verilerimi İndir</h3>
+               <button onClick={() => { setShowPrivacyModal(false); setPrivacyPassword(''); setPrivacyError(''); }} className="text-text-3 text-xl">×</button>
+             </div>
+             <p className="text-sm mb-4" style={{ color: '#8899bb' }}>
+               KVKK md.11 kapsamında tüm verilerinizi JSON formatında indirebilirsiniz.
+               Bahis, casino, bonus, para yatırma/çekme geçmişi dahil.
+             </p>
+             <input
+               type="password"
+               value={privacyPassword}
+               onChange={e => setPrivacyPassword(e.target.value)}
+               placeholder="Şifrenizi girin"
+               className="w-full bg-bg-base border border-white/10 rounded-lg px-3 py-2 text-sm text-text-1 mb-3 focus:outline-none focus:border-cyan-400/50"
+             />
+             {privacyError && <p className="text-xs text-red-400 mb-3">{privacyError}</p>}
+             <div className="flex gap-2">
+               <button
+                 onClick={() => { setShowPrivacyModal(false); setPrivacyPassword(''); setPrivacyError(''); }}
+                 className="flex-1 py-2.5 rounded-lg text-sm font-semibold border border-white/10"
+               >
+                 İptal
+               </button>
+               <button
+                 onClick={async () => {
+                   if (!privacyPassword) { setPrivacyError('Şifre gerekli'); return; }
+                   try {
+                     const res = await api.post('/users/me/data-export', { password: privacyPassword }, { responseType: 'blob' });
+                     const url = URL.createObjectURL(new Blob([res.data]));
+                     const a = document.createElement('a');
+                     a.href = url;
+                     a.download = `data-export-${user?.username}-${Date.now()}.json`;
+                     a.click();
+                     addToast('Verileriniz indirildi', 'success');
+                     setShowPrivacyModal(false);
+                     setPrivacyPassword('');
+                   } catch (e) {
+                     setPrivacyError(e.response?.data?.error?.message || 'İndirme başarısız');
+                   }
+                 }}
+                 className="flex-1 py-2.5 rounded-lg text-sm font-bold text-black"
+                 style={{ background: 'linear-gradient(90deg, #00d4ff, #7c3aed)' }}
+               >
+                 İndir
+               </button>
+             </div>
+           </div>
+         </div>
+       )}
+     </div>
+   );
 }

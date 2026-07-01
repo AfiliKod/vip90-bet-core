@@ -2,13 +2,14 @@ import { useRef, useEffect, useState } from 'react';
 import { useBetSlipStore } from '../store/betSlipStore';
 import { formatOdd } from '../utils/oddsUtils';
 import { useSettingsStore } from '../store/settingsStore';
+import { BRAND_GRADIENT, BRAND_GLOW } from '../styles/brand';
 
 export default function OddButton({ eventId, eventLabel, marketType, odd }) {
   const oddsFormat = useSettingsStore(s => s.preferences.oddsFormat);
   const { selections, addSelection } = useBetSlipStore();
   const selected = selections.some(s => s.eventId === eventId && s.marketType === marketType && s.oddId === odd.id);
   const prevValue = useRef(odd.value);
-  const [flash, setFlash] = useState(null); // 'up' | 'down' | null
+  const [flash, setFlash] = useState(null);
 
   useEffect(() => {
     if (odd.value !== prevValue.current) {
@@ -28,14 +29,27 @@ export default function OddButton({ eventId, eventLabel, marketType, odd }) {
   return (
     <button
       onClick={() => addSelection({ eventId, eventLabel, marketType, oddId: odd.id, oddLabel: odd.label, oddValue: odd.value })}
-      className={`flex flex-col items-center px-3 py-2 rounded-lg border text-xs transition-all duration-300 ${flashClass} ${
+      className={`relative flex flex-col items-center justify-center min-h-[60px] px-4 py-3 rounded-xl text-sm transition-all duration-300 overflow-hidden ${flashClass} ${
         selected
-          ? 'bg-primary/20 border-primary text-primary'
-          : 'bg-bg-base border-white/10 text-text-2 hover:border-primary/50 hover:text-text-1'
+          ? 'text-black scale-[1.02]'
+          : 'bg-bg-base border-2 border-white/10 text-text-2 hover:border-[#00d4ff66] hover:text-text-1 hover:shadow-[0_0_16px_rgba(0,212,255,0.25)] hover:-translate-y-0.5'
       }`}
+      style={selected ? {
+        background: BRAND_GRADIENT,
+        boxShadow: BRAND_GLOW,
+        border: '2px solid #00d4ff66',
+      } : {}}
     >
-      <span className="text-text-3 mb-0.5 truncate max-w-[80px]">{odd.label}</span>
-      <span className={`font-bold text-sm ${flash === 'up' ? 'text-green-400' : flash === 'down' ? 'text-red-400' : ''}`}>
+      {selected && (
+        <span
+          className="absolute inset-x-0 top-0 h-[3px]"
+          style={{ background: 'linear-gradient(90deg, transparent, #ffffffcc, transparent)' }}
+        />
+      )}
+      <span className={`mb-1 truncate max-w-[90px] text-[11px] font-bold uppercase tracking-wide ${selected ? 'text-black/70' : 'text-text-3'}`}>
+        {odd.label}
+      </span>
+      <span className={`font-black text-lg leading-none ${flash === 'up' ? 'text-green-300' : flash === 'down' ? 'text-red-300' : ''}`}>
         {formatOdd(odd.value, oddsFormat)}
       </span>
     </button>
