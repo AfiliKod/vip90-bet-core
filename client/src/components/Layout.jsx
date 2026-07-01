@@ -4,6 +4,7 @@ import Sidebar from './Sidebar';
 import Footer from './Footer';
 import LiveHelp from './LiveHelp';
 import CookieConsent from './CookieConsent';
+import ScrollToTop from './ScrollToTop';
 
 export default function Layout({ children }) {
   const { pathname } = useLocation();
@@ -31,6 +32,7 @@ export default function Layout({ children }) {
         </button>
 
         <LiveHelp open={helpOpen} onClose={() => setHelpOpen(false)} />
+        <ScrollToTop />
         <CookieConsent />
       </div>
     </div>
