@@ -28,20 +28,24 @@ export default function ScrollToTop() {
   }, []);
 
   function scrollUp() {
-    window.scrollTo({ top: 0, behavior: 'smooth' });
+    const scrollContainer = document.querySelector('.overflow-y-auto');
+    if (scrollContainer) {
+      scrollContainer.scrollTo({ top: 0, behavior: 'smooth' });
+    } else {
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+    }
   }
 
   return (
     <button
       onClick={scrollUp}
       aria-label="Yukarı çık"
-      className={`fixed bottom-20 left-4 lg:bottom-6 lg:left-6 z-50 w-12 h-12 rounded-full flex items-center justify-center shadow-lg transition-all duration-300 hover:scale-110 active:scale-95 bg-cyan-500 text-white hover:bg-cyan-600 ${
+      className={`fixed bottom-20 left-4 lg:bottom-6 lg:left-6 z-50 w-10 h-10 rounded-lg flex items-center justify-center shadow-lg transition-all duration-300 hover:scale-110 active:scale-95 border border-white/20 ${
         visible ? 'opacity-100 pointer-events-auto' : 'opacity-0 pointer-events-none'
       }`}
       title="Yukarı çık"
-      disabled={!visible}
     >
-      ⬆️
+      ↑
     </button>
   );
 }
