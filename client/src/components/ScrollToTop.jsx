@@ -16,15 +16,16 @@ export default function ScrollToTop() {
   }
 
   return (
-    visible && (
-      <button
-        onClick={scrollUp}
-        aria-label="Yukarı çık"
-        className="fixed bottom-20 left-4 lg:bottom-6 lg:left-6 z-50 w-12 h-12 rounded-full flex items-center justify-center shadow-lg transition-all duration-300 hover:scale-110 active:scale-95 bg-cyan-500 text-white hover:bg-cyan-600"
-        title="Yukarı çık"
-      >
-        ⬆️
-      </button>
-    )
+    <button
+      onClick={scrollUp}
+      aria-label="Yukarı çık"
+      className={`fixed bottom-20 left-4 lg:bottom-6 lg:left-6 z-50 w-12 h-12 rounded-full flex items-center justify-center shadow-lg transition-all duration-300 hover:scale-110 active:scale-95 bg-cyan-500 text-white hover:bg-cyan-600 ${
+        visible ? 'opacity-100 pointer-events-auto' : 'opacity-0 pointer-events-none'
+      }`}
+      title="Yukarı çık"
+      disabled={!visible}
+    >
+      ⬆️
+    </button>
   );
 }
