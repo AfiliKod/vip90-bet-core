@@ -13,8 +13,8 @@ const LINKS = [
   {
     heading: 'Bahis',
     items: [
-      { label: 'Canlı Bahis', to: '/' },
-      { label: 'Yaklaşan Maçlar', to: '/' },
+      { label: 'Canlı Bahis', to: '/bahis' },
+      { label: 'Yaklaşan Maçlar', to: '/bahis' },
       { label: 'Casino', to: '/casino' },
       { label: 'Kampanyalar', to: '/promotions' },
     ],

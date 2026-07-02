@@ -1,7 +1,7 @@
 import { NavLink, useLocation } from 'react-router-dom';
 
 const TABS = [
-  { to: '/',          icon: '⚽', label: 'Bahis',  end: true  },
+  { to: '/bahis',     icon: '⚽', label: 'Bahis',  end: true  },
   { to: '/canli',     icon: '🔴', label: 'Canlı',  end: false },
   { to: '/casino-v2', icon: '🎰', label: 'Casino', end: false },
 ];

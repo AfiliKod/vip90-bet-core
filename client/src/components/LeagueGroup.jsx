@@ -1,18 +1,16 @@
 import { useState } from 'react';
-import EventRow, { ROW_GRID, ROW_GRID_MOBILE, useIsMobile } from './EventRow';
+import MiniEventCard from './MiniEventCard';
 import MarketDrawer from './MarketDrawer';
 import { useSettingsStore } from '../store/settingsStore';
 import { translateLeagueKey } from '../utils/i18n';
 
-export default function LeagueGroup({ league, leagueFlag, events, openDrawerId, onToggleDrawer }) {
+export default function LeagueGroup({ league, leagueFlag, events, openDrawerId, onToggleDrawer, accent, bgColor }) {
   const [collapsed, setCollapsed] = useState(false);
-  const isMobile = useIsMobile();
   const lang = useSettingsStore(s => s.preferences.language);
   const displayLeague = translateLeagueKey(league, lang);
 
   return (
-    <div className="mb-1 rounded-lg overflow-hidden border border-white/10">
-      {/* Lig başlığı */}
+    <div className="mb-2 rounded-xl overflow-hidden border border-white/10">
       <button
         onClick={() => setCollapsed(c => !c)}
         className="w-full flex items-center gap-2 px-3 py-2 bg-bg-card hover:bg-white/[0.04] transition-colors text-left"
@@ -34,36 +32,22 @@ export default function LeagueGroup({ league, leagueFlag, events, openDrawerId, 
       </button>
 
       {!collapsed && (
-        <>
-          {/* Sütun etiketleri */}
-          <div
-            className="grid text-[9px] font-semibold text-text-3 uppercase tracking-wide px-[10px] py-1 bg-bg-base border-t border-white/5"
-            style={{ gridTemplateColumns: isMobile ? ROW_GRID_MOBILE : ROW_GRID, gap: '3px' }}
-          >
-            <span />
-            <span>Maç</span>
-            <span className="text-center">1</span>
-            <span className="text-center">X</span>
-            <span className="text-center">2</span>
-            {!isMobile && <span />}
-            {!isMobile && <span className="text-center">Alt</span>}
-            {!isMobile && <span className="text-center">Üst</span>}
-            {!isMobile && <span className="text-center">Top</span>}
-            <span className="text-center">+N</span>
+        <div className="border-t border-white/5 p-2">
+          <div className="flex flex-col gap-2">
+            {events.map(event => (
+              <div key={event._id}>
+                <MiniEventCard
+                  event={event}
+                  live={event.status === 'live'}
+                  accent={accent}
+                  bgColor={bgColor}
+                  onExtraClick={() => onToggleDrawer(event._id)}
+                />
+                {openDrawerId === event._id && <MarketDrawer event={event} />}
+              </div>
+            ))}
           </div>
-
-          {/* Etkinlik satırları */}
-          {events.map(event => (
-            <div key={event._id}>
-              <EventRow
-                event={event}
-                isDrawerOpen={openDrawerId === event._id}
-                onToggleDrawer={() => onToggleDrawer(event._id)}
-              />
-              {openDrawerId === event._id && <MarketDrawer event={event} />}
-            </div>
-          ))}
-        </>
+        </div>
       )}
     </div>
   );

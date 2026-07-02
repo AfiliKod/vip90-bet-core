@@ -31,7 +31,7 @@ export default function Navbar() {
           <span className="text-2xl">💎</span> VIP90.bet
         </Link>
         <div className="hidden lg:flex items-center gap-1 flex-1 overflow-x-auto">
-          <NavLink to="/" end className={({isActive}) => `px-3 py-1.5 rounded-lg text-sm hover:text-text-1 hover:bg-bg-hover transition whitespace-nowrap ${isActive ? 'text-text-1 bg-bg-hover' : 'text-text-2'}`}>⚽ Bahis</NavLink>
+          <NavLink to="/bahis" end className={({isActive}) => `px-3 py-1.5 rounded-lg text-sm hover:text-text-1 hover:bg-bg-hover transition whitespace-nowrap ${isActive ? 'text-text-1 bg-bg-hover' : 'text-text-2'}`}>⚽ Bahis</NavLink>
           <NavLink to="/canli" className={({isActive}) => `px-3 py-1.5 rounded-lg text-sm hover:text-text-1 hover:bg-bg-hover transition whitespace-nowrap ${isActive ? 'text-text-1 bg-bg-hover' : 'text-text-2'}`}>🔴 Canlı</NavLink>
           <NavLink to="/casino-v2" className={({isActive}) => `px-3 py-1.5 rounded-lg text-sm hover:text-text-1 hover:bg-bg-hover transition whitespace-nowrap ${isActive ? 'text-text-1 bg-bg-hover' : 'text-text-2'}`}>🎰 Casino</NavLink>
           {user?.role === 'admin' && (

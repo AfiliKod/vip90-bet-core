@@ -33,8 +33,6 @@ export default function Sidebar() {
     sportLeagueMap[ev.sport][key].push(ev);
   }
 
-  const liveCount = events.filter(e => e.status === 'live').length;
-
   const allSportsInEvents = Object.keys(sportLeagueMap);
   const orderedSports = SPORT_ORDER.filter(s => sportLeagueMap[s]);
   const unorderedSports = allSportsInEvents.filter(s => !SPORT_ORDER.includes(s)).sort();
@@ -49,6 +47,15 @@ export default function Sidebar() {
     Object.fromEntries(sports.map(s => [s, s === selectedSport]))
   );
 
+  const topLeagues = Object.entries(sportLeagueMap).flatMap(([sport, leagues]) =>
+    Object.entries(leagues).map(([league, evs]) => ({ sport, league, evs, count: evs.length }))
+  ).sort((a, b) => b.count - a.count).slice(0, 5);
+
+  const importantEvents = events
+    .filter(e => e.status === 'live' || e.status === 'upcoming')
+    .sort((a, b) => a.status === 'live' ? -1 : 1)
+    .slice(0, 4);
+
   function toggleSport(sport) {
     setExpanded(prev => ({ ...prev, [sport]: !prev[sport] }));
   }
@@ -57,31 +64,10 @@ export default function Sidebar() {
     <aside className="hidden md:flex w-[200px] shrink-0 bg-bg-base border-r border-white/10 flex-col overflow-y-auto">
 
       <div className="px-3 pt-4 pb-1">
-        <button
-          onClick={() => navigate('/canli')}
-          className={`relative w-full flex items-center gap-2 px-2.5 py-2 rounded-lg text-xs transition-all overflow-hidden ${
-            isLivePage
-              ? 'text-white'
-              : 'text-text-2 hover:bg-[#00d4ff14] hover:text-text-1'
-          }`}
-          style={isLivePage ? {
-            background: 'linear-gradient(90deg, #ef444422 0%, #7c3aed22 100%)',
-            boxShadow: 'inset 2px 0 0 #ef4444',
-          } : {}}
-        >
-          <span className="w-5 text-center text-sm">🔴</span>
-          <span className="flex-1 text-left font-bold">Canlı</span>
-          {liveCount > 0 && (
-            <span className="bg-live text-white rounded-full px-1.5 py-px text-[10px] font-bold min-w-[18px] text-center shadow-[0_0_8px_rgba(239,68,68,0.6)]">
-              {liveCount}
-            </span>
-          )}
-        </button>
-
         {/* Tümü */}
         <button
-          onClick={() => { setSportFilter('all'); if (isLivePage) navigate('/'); }}
-          className={`relative w-full flex items-center gap-2 px-2.5 py-2 rounded-lg text-xs transition-all overflow-hidden mt-1 ${
+          onClick={() => { setSportFilter('all'); if (isLivePage) navigate('/bahis'); }}
+          className={`relative w-full flex items-center gap-2 px-2.5 py-2 rounded-lg text-xs transition-all overflow-hidden ${
             selectedSport === 'all' && !isLivePage
               ? 'text-black'
               : 'text-text-2 hover:bg-[#00d4ff14] hover:text-text-1'
@@ -100,7 +86,7 @@ export default function Sidebar() {
       </div>
 
       {/* Spor kategorileri + ligler */}
-      <div className="px-3 pb-1">
+      <div className="px-3">
         {sports.map(sport => {
           const meta = SPORT_META[sport];
           const leagues = sportLeagueMap[sport];
@@ -163,6 +149,68 @@ export default function Sidebar() {
             </div>
           );
         })}
+      </div>
+
+      <div className="px-3 pb-3 mt-2 border-t border-white/5 pt-3">
+        {topLeagues.length > 0 && (
+          <div className="mb-4">
+            <p className="text-[10px] font-bold uppercase tracking-wider text-text-2 mb-2 px-2">Popüler Ligler</p>
+            {topLeagues.map(({ sport, league, count }) => {
+              const meta = SPORT_META[sport] ?? { icon: '🏆', label: sport };
+              const isActive = selectedLeague === league && selectedSport === sport;
+              return (
+                <button
+                  key={`${sport}:${league}`}
+                  onClick={() => setLeagueFilter(sport, league)}
+                  className={`w-full flex items-center gap-2 px-2.5 py-2 rounded-lg text-xs transition text-left ${
+                    isActive
+                      ? 'text-cyan-400 font-bold bg-[#00d4ff14] border border-[#00d4ff44]'
+                      : 'text-text-2 hover:bg-[#00d4ff14]'
+                  }`}
+                >
+                  <span className="text-sm">{meta.icon}</span>
+                  <span className="flex-1 truncate font-semibold">
+                    {league.includes(' > ')
+                      ? <span>{league.split(' > ').at(-1)}</span>
+                      : league}
+                  </span>
+                  <span className="shrink-0 text-[11px] text-text-3 font-bold">{count}</span>
+                </button>
+              );
+            })}
+          </div>
+        )}
+
+        {importantEvents.length > 0 && (
+          <div>
+            <p className="text-[10px] font-bold uppercase tracking-wider text-text-2 mb-2 px-2">Önemli Maçlar</p>
+            {importantEvents.map(ev => {
+              const isLive = ev.status === 'live';
+              const meta = SPORT_META[ev.sport] ?? { icon: '🏆', label: ev.sport };
+              const date = new Date(ev.startTime);
+              const timeStr = date.toLocaleTimeString('tr-TR', { hour: '2-digit', minute: '2-digit' });
+              return (
+                <button
+                  key={ev._id}
+                  onClick={() => navigate(`/events/${ev._id}`)}
+                  className="w-full flex items-center gap-2 px-2.5 py-2 rounded-lg text-xs transition text-left text-text-2 hover:bg-[#00d4ff14]"
+                >
+                  <span className="text-sm shrink-0">{meta.icon}</span>
+                  <span className="flex-1 truncate">
+                    <span className="text-text-1 font-semibold">{ev.homeTeam?.name}</span>
+                    <span className="text-text-3 mx-1">vs</span>
+                    <span className="text-text-2">{ev.awayTeam?.name}</span>
+                  </span>
+                  {isLive ? (
+                    <span className="w-2 h-2 rounded-full bg-red-400 animate-pulse shrink-0 shadow-[0_0_6px_rgba(239,68,68,0.6)]" />
+                  ) : (
+                    <span className="text-[11px] text-text-3 font-bold shrink-0">{timeStr}</span>
+                  )}
+                </button>
+              );
+            })}
+          </div>
+        )}
       </div>
 
     </aside>

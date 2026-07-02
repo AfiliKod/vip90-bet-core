@@ -1,6 +1,7 @@
 import { useEffect, useState, useMemo } from 'react';
 import { useEventsStore, groupByLeague } from '../store/eventsStore';
 import { SPORT_META } from '../utils/sportMeta';
+import MiniEventCard from '../components/MiniEventCard';
 import LeagueGroup from '../components/LeagueGroup';
 import BetSlip from '../components/BetSlip';
 import { BRAND_GRADIENT_H } from '../styles/brand';
@@ -97,11 +98,7 @@ export default function Live() {
       if (!sportMap.has(ev.sport)) sportMap.set(ev.sport, []);
       sportMap.get(ev.sport).push(ev);
     }
-    const result = new Map();
-    for (const [s, sportEvs] of sportMap) {
-      result.set(s, groupByLeague(sportEvs));
-    }
-    return result.size > 0 ? result : null;
+    return sportMap.size > 0 ? sportMap : null;
   }, [liveEvents, selectedSport, selectedLeague, search]);
 
   function handleToggleDrawer(eventId) {
@@ -143,9 +140,9 @@ export default function Live() {
             </div>
           ) : hierarchicalGroups !== null ? (
             <div>
-              {[...hierarchicalGroups.entries()].map(([s, leagueMap]) => {
+              {[...hierarchicalGroups.entries()].map(([s, sportEvents]) => {
                 const meta = SPORT_META[s] ?? { icon: '🏆', label: s };
-                const totalCount = [...leagueMap.values()].reduce((n, evs) => n + evs.length, 0);
+                const totalCount = sportEvents.length;
                 const isCollapsed = !!collapsedSports[s];
                 return (
                   <div key={s} className="mb-2">
@@ -159,15 +156,15 @@ export default function Live() {
                       <span className="text-xs text-text-3">{isCollapsed ? '▸' : '▾'}</span>
                     </button>
                     {!isCollapsed && (
-                      <div className="ml-2">
-                        {[...leagueMap.entries()].map(([league, evs]) => (
-                          <LeagueGroup
-                            key={league}
-                            league={league}
-                            leagueFlag={evs[0]?.leagueFlag ?? '🏆'}
-                            events={evs}
-                            openDrawerId={openDrawerId}
-                            onToggleDrawer={handleToggleDrawer}
+                      <div className="flex flex-col gap-2 ml-2">
+                        {sportEvents.map(ev => (
+                          <MiniEventCard
+                            key={ev._id}
+                            event={ev}
+                            live
+                            accent="#ef4444"
+                            bgColor="#111d30"
+                            onExtraClick={() => handleToggleDrawer(ev._id)}
                           />
                         ))}
                       </div>
@@ -186,6 +183,8 @@ export default function Live() {
                   events={evs}
                   openDrawerId={openDrawerId}
                   onToggleDrawer={handleToggleDrawer}
+                  accent="#ef4444"
+                  bgColor="#111d30"
                 />
               ))}
             </div>
