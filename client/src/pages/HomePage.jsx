@@ -2,7 +2,6 @@ import { useState, useEffect, useRef } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import api from '../services/api';
 import MiniEventCard from '../components/MiniEventCard';
-import ScrollToTop from '../components/ScrollToTop';
 import { BRAND_GRADIENT, BRAND_GRADIENT_H, BRAND_GLOW } from '../styles/brand';
 import { CASINO_GAMES } from '../data/casinoGames';
 
@@ -488,8 +487,6 @@ export default function HomePage() {
           </div>
         </div>
       </section>
-
-      <ScrollToTop />
     </div>
   );
 }
