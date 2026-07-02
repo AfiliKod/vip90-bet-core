@@ -1,13 +1,29 @@
 import { useState, useEffect } from 'react';
 
 export default function ScrollToTop() {
-  const [visible, setVisible] = useState(true);
+  const [visible, setVisible] = useState(false);
 
   useEffect(() => {
     const onScroll = () => {
       setVisible(window.scrollY > 400);
     };
+
+    // Window scroll event'i (genel kullanım)
     window.addEventListener('scroll', onScroll, { passive: true });
+
+    // Layout'ın scroll container'ı (flex-1 overflow-y-auto div)
+    const scrollContainer = document.querySelector('.overflow-y-auto');
+    if (scrollContainer) {
+      scrollContainer.addEventListener('scroll', () => {
+        setVisible(scrollContainer.scrollTop > 400);
+      }, { passive: true });
+
+      return () => {
+        window.removeEventListener('scroll', onScroll);
+        scrollContainer.removeEventListener('scroll', onScroll);
+      };
+    }
+
     return () => window.removeEventListener('scroll', onScroll);
   }, []);
 
