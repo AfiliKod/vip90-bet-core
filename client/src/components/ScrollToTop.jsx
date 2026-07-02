@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 
 export default function ScrollToTop() {
-  const [visible, setVisible] = useState(false);
+  const [visible, setVisible] = useState(true);
 
   useEffect(() => {
     const onScroll = () => {
