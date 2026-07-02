@@ -44,6 +44,7 @@ const Roulette = lazy(() => import('./pages/games/Roulette'));
 const Baccarat = lazy(() => import('./pages/games/Baccarat'));
 const VideoPoker = lazy(() => import('./pages/games/VideoPoker'));
 const DragonTiger = lazy(() => import('./pages/games/DragonTiger'));
+const HomePage = lazy(() => import('./pages/HomePage'));
 const Terms = lazy(() => import('./pages/legal/Terms'));
 const Privacy = lazy(() => import('./pages/legal/Privacy'));
 const Kvkk = lazy(() => import('./pages/legal/Kvkk'));
@@ -95,7 +96,8 @@ export default function App() {
       {user && <BottomNav />}
       <Routes>
         <Route path="/login" element={<Suspense fallback={<PageLoader />}><Login /></Suspense>} />
-        <Route path="/" element={<ProtectedRoute><Layout><Suspense fallback={<PageLoader />}><Bahis /></Suspense></Layout></ProtectedRoute>} />
+        <Route path="/" element={<ProtectedRoute><Layout><Suspense fallback={<PageLoader />}><HomePage /></Suspense></Layout></ProtectedRoute>} />
+        <Route path="/bahis" element={<ProtectedRoute><Layout><Suspense fallback={<PageLoader />}><Bahis /></Suspense></Layout></ProtectedRoute>} />
         <Route path="/canli" element={<ProtectedRoute><Layout><Suspense fallback={<PageLoader />}><Live /></Suspense></Layout></ProtectedRoute>} />
         <Route path="/events/:id" element={<ProtectedRoute><Layout><Suspense fallback={<PageLoader />}><EventDetail /></Suspense></Layout></ProtectedRoute>} />
         <Route path="/casino" element={<ProtectedRoute><Layout><Suspense fallback={<PageLoader />}><CasinoV2 /></Suspense></Layout></ProtectedRoute>} />

@@ -224,19 +224,46 @@ export default function Profile() {
     setSelectedAmount(null);
   };
 
-  const handleBankSubmit = async () => {
-    const amount = selectedAmount || parseFloat(customAmount);
-    if (!amount || amount <= 0) return;
-    setSubmitting(true);
-    try {
-      const endpoint = mode === 'deposit' ? '/bank/deposit' : '/bank/withdraw';
-      const { data } = await api.post(endpoint, { amount });
-      setSuccessRequest({ amount, ...data });
-      addToast(data.message, 'success');
-    } catch (e) {
-      addToast(e.response?.data?.error || 'İşlem başarısız', 'error');
-    } finally { setSubmitting(false); }
-  };
+const handleBankSubmit = async () => {
+     const amount = selectedAmount || parseFloat(customAmount);
+     if (!amount || amount <= 0) return;
+     setSubmitting(true);
+     try {
+       const endpoint = mode === 'deposit' ? '/bank/deposit' : '/bank/withdraw';
+       
+       // Prepare data based on mode and method
+       let requestData = { amount };
+       if (method === 'bank') {
+         if (mode === 'withdraw') {
+           // For bank withdrawals, we need iban and fullName for validation
+           requestData = {
+             amount,
+             iban,
+             fullName
+           };
+         } else {
+           // For bank deposits, include all fields for completeness (though only amount is validated)
+           requestData = {
+             amount,
+             iban,
+             fullName,
+             bank
+           };
+         }
+       }
+       
+       const { data } = await api.post(endpoint, requestData);
+       setSuccessRequest({ amount, ...data });
+       addToast(data.message, 'success');
+     } catch (e) {
+       // Properly extract error message from response
+       const errorMessage = e.response?.data?.error?.message 
+                          || e.response?.data?.error 
+                          || e.response?.data 
+                          || 'İşlem başarısız';
+       addToast(errorMessage, 'error');
+     } finally { setSubmitting(false); }
+   };
 
   const refCode = user?._id
     ? `${user._id.slice(-6).toUpperCase()}-${Date.now().toString(36).toUpperCase()}`

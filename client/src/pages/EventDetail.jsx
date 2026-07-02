@@ -232,7 +232,7 @@ export default function EventDetail() {
   return (
     <div className="max-w-7xl mx-auto px-4 py-6 flex gap-6">
       <main className="flex-1 min-w-0">
-        <Link to="/" className="text-text-3 hover:text-text-1 text-sm mb-4 inline-flex items-center gap-1 transition">
+        <Link to="/bahis" className="text-text-3 hover:text-text-1 text-sm mb-4 inline-flex items-center gap-1 transition">
           ← Geri
         </Link>
 

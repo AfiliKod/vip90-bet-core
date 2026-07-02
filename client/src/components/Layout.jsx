@@ -8,7 +8,7 @@ import ScrollToTop from './ScrollToTop';
 
 export default function Layout({ children }) {
   const { pathname } = useLocation();
-  const showSidebar = !pathname.startsWith('/casino');
+  const showSidebar = !pathname.startsWith('/casino') && pathname !== '/';
   const [helpOpen, setHelpOpen] = useState(false);
 
   return (
