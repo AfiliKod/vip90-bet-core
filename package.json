@@ -9,9 +9,11 @@
     "collect-session": "node server/scripts/collect-session.js"
   },
   "devDependencies": {
-    "concurrently": "^8.2.2"
+    "concurrently": "^8.2.2",
+    "playwright": "^1.61.1"
   },
   "dependencies": {
-    "escape-string-regexp": "^5.0.0"
+    "escape-string-regexp": "^5.0.0",
+    "jsdom": "^27.0.1"
   }
 }
