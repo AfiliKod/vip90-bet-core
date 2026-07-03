@@ -21,6 +21,7 @@ const UNIT_SUITES = [
 const CASINO_SUITES = [
   'test-casino-callbacks.mjs',     // callback handler logic (no Palace API calls)
   'test-casino-lifecycle.mjs',     // full lifecycle with real Palace API
+  'test-popular-games.mjs',        // getPopularGames() aggregate (no Palace API calls)
 ];
 
 // ─── Palace Integration Tests (real Palace API, token required) ───────────
