@@ -70,7 +70,7 @@ async function createRound({ gameId, bet = 10, payout = 0, note = '', createdAt,
     note,
   });
   if (createdAt) {
-    await CasinoRound.updateOne({ _id: round._id }, { $set: { createdAt } });
+    await CasinoRound.updateOne({ _id: round._id }, { $set: { createdAt } }, { overwriteImmutable: true });
   }
   return round;
 }

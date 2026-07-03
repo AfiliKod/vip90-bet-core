@@ -12,8 +12,7 @@ const CasinoRoundSchema = new mongoose.Schema({
   balanceAfter:  { type: Number, required: true },
   palaceUserCode: { type: String, default: null, index: true },
   note:          { type: String, default: '' },  // 'bet_cancel' | 'bonus_call:<id>'
-  createdAt:     { type: Date, default: Date.now, immutable: false },
-}, { timestamps: { createdAt: false, updatedAt: false } });
+}, { timestamps: { createdAt: true, updatedAt: false } });
 
 CasinoRoundSchema.index({ userId: 1, createdAt: -1 });
 CasinoRoundSchema.index({ gameId: 1, createdAt: -1 });
