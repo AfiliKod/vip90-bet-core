@@ -14,6 +14,9 @@ RUN npm install --prefix client
 COPY client/ ./client/
 RUN npm run build --prefix client
 
+# Server kaynak kodu
+COPY server/src ./server/src
+
 # ─── Production image ──────────────────────────────────────────────
 FROM node:22-alpine
 
@@ -25,6 +28,8 @@ COPY --from=build /app/server/node_modules ./server/node_modules
 COPY --from=build /app/server/src ./server/src
 COPY --from=build /app/client/dist ./client/dist
 COPY --from=build /app/package.json ./
+
+RUN mkdir -p ./server/logs && chown -R appuser:appgroup /app
 
 USER appuser
 
