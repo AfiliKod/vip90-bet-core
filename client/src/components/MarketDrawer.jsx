@@ -1,7 +1,13 @@
 import { useRef, useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
+import api from '../services/api';
 import { useBetSlipStore } from '../store/betSlipStore';
 import { groupOddsIntoLines } from '../utils/oddsUtils';
+
+// Liste isteği (GET /events) sadece 3 market gönderiyor (bkz. server/src/controllers/events.js) —
+// drawer açıldığında tüm marketleri görmek için event detayı ayrıca çekilip kısa süre cache'leniyor.
+const FULL_EVENT_CACHE_TTL_MS = 5 * 60 * 1000;
+const fullEventCache = new Map();
 
 function DrawerOdd({ eventId, eventLabel, market, odd }) {
   const { selections, addSelection } = useBetSlipStore();
@@ -44,10 +50,40 @@ function DrawerOdd({ eventId, eventLabel, market, odd }) {
 
 export default function MarketDrawer({ event }) {
   const label = `${event.homeTeam.name} vs ${event.awayTeam.name}`;
-  const markets = event.markets ?? [];
+  const isTrimmed = (event.marketsCount ?? event.markets?.length ?? 0) > (event.markets?.length ?? 0);
+  const cached = fullEventCache.get(event._id);
+  const cachedFresh = cached && cached.expiresAt > Date.now() ? cached.markets : null;
+  const [fullMarkets, setFullMarkets] = useState(isTrimmed ? cachedFresh : null);
+  const [loading, setLoading] = useState(isTrimmed && !cachedFresh);
+
+  useEffect(() => {
+    if (!isTrimmed || cachedFresh) return;
+    let cancelled = false;
+    setLoading(true);
+    api.get(`/events/${event._id}`)
+      .then(({ data }) => {
+        if (cancelled) return;
+        const markets = data.event?.markets ?? [];
+        fullEventCache.set(event._id, { markets, expiresAt: Date.now() + FULL_EVENT_CACHE_TTL_MS });
+        setFullMarkets(markets);
+      })
+      .catch(() => {})
+      .finally(() => { if (!cancelled) setLoading(false); });
+    return () => { cancelled = true; };
+  }, [event._id, isTrimmed]);
+
+  const markets = fullMarkets ?? event.markets ?? [];
   // maç_sonucu hariç, ilk 6 market
   const shown = markets.filter(m => m.type !== 'maç_sonucu').slice(0, 6);
   const remaining = Math.max(0, markets.length - shown.length - 1);
+
+  if (loading) {
+    return (
+      <div className="bg-bg-base border-b border-white/5 px-3 py-3 text-center text-[11px] text-text-3">
+        Marketler yükleniyor...
+      </div>
+    );
+  }
 
   return (
     <div className="bg-bg-base border-b border-white/5 px-3 py-3">

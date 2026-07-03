@@ -11,7 +11,7 @@ function ActiveEvents() {
   const addToast = useToastStore(s => s.add);
   const { register, handleSubmit } = useForm();
 
-  const load = () => api.get('/events').then(r => setEvents(r.data.events)).catch(() => {});
+  const load = () => api.get('/events?full=1').then(r => setEvents(r.data.events)).catch(() => {});
   useEffect(() => { load(); }, []);
 
   const onSettle = async (eventId, data) => {
