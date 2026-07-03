@@ -4,9 +4,9 @@ export async function list(req, res, next) {
   try {
     const { sport, status, page = 1, limit = 2000 } = req.query;
     const filter = {};
-    if (sport && sport !== 'all') filter.sport = sport;
+    if (sport && sport !== 'all') filter.sport = String(sport);
     if (status) {
-      filter.status = status;
+      filter.status = String(status);
     } else {
       // Canlı etkinlikler her zaman + yaklaşanlar (son 3 saat veya gelecekte)
       const cutoff = new Date(Date.now() - 3 * 60 * 60 * 1000);

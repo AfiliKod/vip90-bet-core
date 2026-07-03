@@ -1,11 +1,12 @@
 import { Router } from 'express';
 import { requireAuth, requireAdmin } from '../middleware/auth.js';
+import { auditLog } from '../middleware/audit.js';
 import { validate } from '../middleware/validate.js';
 import { createEventSchema, settleEventSchema, createUserSchema, updateBalanceSchema } from '../validators/admin.js';
 import * as ctrl from '../controllers/admin.js';
 
 const r = Router();
-r.use(requireAuth, requireAdmin);
+r.use(requireAuth, requireAdmin, auditLog('ADMIN_ACTION'));
 
 r.get('/users',                  ctrl.getUsers);
 r.post('/users',                 validate(createUserSchema), ctrl.createUser);

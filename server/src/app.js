@@ -41,7 +41,7 @@ if (process.env.RAILWAY_PUBLIC_DOMAIN) {
 
 export const corsOptions = {
   origin: (origin, cb) => {
-    if (!origin) return cb(null, true);
+    if (!origin) return cb(null, false);
     if (baseOrigins.includes('*') || baseOrigins.includes(origin)) return cb(null, true);
     // Development only: ngrok tunnel desteği (Phase B10 — production'da kapalı)
     if (!isProd && (origin.endsWith('.ngrok-free.dev') || origin === 'https://ngrok-free.dev')) {
@@ -77,7 +77,7 @@ export function createApp() {
         imgSrc: ["'self'", 'data:', 'https:'],
         fontSrc: ["'self'", 'data:', 'https://fonts.gstatic.com'],
         connectSrc: ["'self'", 'wss:'],
-        frameSrc: ["'self'", 'https://*'],
+        frameSrc: ["'self'"],
         frameAncestors: ["'self'"],
         objectSrc: ["'none'"],
         baseUri: ["'self'"],

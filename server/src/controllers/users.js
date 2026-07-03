@@ -45,7 +45,7 @@ export async function getMyBets(req, res, next) {
   try {
     const { status, page=1, limit=20 } = req.query;
     const filter = { userId: req.user.id };
-    if (status) filter.status = status;
+    if (status) filter.status = String(status);
     const skip = (+page - 1) * +limit;
     const [bets, total] = await Promise.all([
       Bet.find(filter).sort({ createdAt:-1 }).limit(+limit).skip(skip),
