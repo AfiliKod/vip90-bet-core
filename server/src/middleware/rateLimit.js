@@ -60,3 +60,12 @@ export const bonusLimiter = rateLimit({
   standardHeaders: true,
   legacyHeaders: false,
 });
+
+// Spin — brute-force / crash exploitation koruması
+export const spinLimiter = rateLimit({
+  windowMs: 60 * 1000,
+  max: 60,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { error: { code: 'RATE_LIMIT', message: 'Çok fazla spin isteği. Lütfen yavaşlayın.' } },
+});

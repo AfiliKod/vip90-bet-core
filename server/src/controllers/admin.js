@@ -78,7 +78,7 @@ export async function deleteUser(req, res, next) {
 
 export async function updateUser(req, res, next) {
   try {
-    const allowed = ['isActive', 'balance', 'role', 'kycVerified'];
+    const allowed = ['isActive', 'kycVerified'];
     const update = Object.fromEntries(Object.entries(req.body).filter(([k]) => allowed.includes(k)));
     const user = await User.findByIdAndUpdate(req.params.id, update, { new:true }).select('-password');
     if (!user) throw createError(404,'NOT_FOUND','Kullanıcı bulunamadı');
@@ -213,7 +213,7 @@ export async function getStats(req, res, next) {
 export async function getTasks(req, res, next) {
   try {
     const { status } = req.query;
-    const filter = status ? { status } : {};
+    const filter = status ? { status: String(status) } : {};
     const tasks = await GameTask.find(filter).sort({ detectedAt: -1 }).limit(200);
     res.json({ tasks });
   } catch(e) { next(e); }

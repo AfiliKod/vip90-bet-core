@@ -3,13 +3,14 @@ import qrcode from 'qrcode';
 import crypto from 'crypto';
 import User from '../models/User.js';
 import { createError } from '../middleware/error.js';
+import { requireAuth } from '../middleware/auth.js';
 import { adminLimiter } from '../middleware/rateLimit.js';
 import { Router } from 'express';
 
 const r = Router();
 
 // Admin için 2FA setup (Phase B6)
-r.post('/admin/2fa/setup', adminLimiter, async (req, res, next) => {
+r.post('/setup', requireAuth, adminLimiter, async (req, res, next) => {
   try {
     const { password } = req.body;
     if (!password) return next(createError(400, 'MISSING_PASSWORD', 'Şifre gerekli'));
@@ -45,7 +46,7 @@ r.post('/admin/2fa/setup', adminLimiter, async (req, res, next) => {
 });
 
 // 2FA token doğrula + aktifleştir
-r.post('/admin/2fa/verify', adminLimiter, async (req, res, next) => {
+r.post('/verify', requireAuth, adminLimiter, async (req, res, next) => {
   try {
     const { token } = req.body;
     if (!token) return next(createError(400, 'MISSING_TOKEN', 'Token gerekli'));
@@ -77,7 +78,7 @@ r.post('/admin/2fa/verify', adminLimiter, async (req, res, next) => {
 });
 
 // 2FA disable
-r.post('/admin/2fa/disable', adminLimiter, async (req, res, next) => {
+r.post('/disable', requireAuth, adminLimiter, async (req, res, next) => {
   try {
     const { password, token } = req.body;
     const user = await User.findById(req.user.id).select('+password');
@@ -104,7 +105,7 @@ r.post('/admin/2fa/disable', adminLimiter, async (req, res, next) => {
 });
 
 // Status
-r.get('/admin/2fa/status', async (req, res, next) => {
+r.get('/status', requireAuth, async (req, res, next) => {
   try {
     const user = await User.findById(req.user.id).select('twoFactorEnabled role');
     res.json({

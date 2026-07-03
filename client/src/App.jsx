@@ -75,6 +75,11 @@ export default function App() {
   useEffect(() => { init(); }, []);
 
   useEffect(() => {
+    function onBalanceUpdate({ balance }) {
+      if (typeof balance === 'number') useAuthStore.getState().updateBalance(balance);
+    }
+    socket.on('balance:update', onBalanceUpdate);
+
     function onBetSettled({ eventTitle, result, payout, amount }) {
       incrementUnread();
       if (result === 'win') {
@@ -86,7 +91,10 @@ export default function App() {
       }
     }
     socket.on('bet:settled', onBetSettled);
-    return () => socket.off('bet:settled', onBetSettled);
+    return () => {
+      socket.off('balance:update', onBalanceUpdate);
+      socket.off('bet:settled', onBetSettled);
+    };
   }, []);
 
   return (

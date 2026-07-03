@@ -31,6 +31,8 @@ await initSentry(app);
 
 const httpServer = createServer(app);
 export const io = new Server(httpServer, { cors: corsOptions });
+import { setIO } from './services/socketEmitter.js';
+setIO(io);
 
 const PORT = process.env.PORT || 3001;
 

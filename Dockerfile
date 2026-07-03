@@ -1,10 +1,6 @@
-FROM mcr.microsoft.com/playwright:v1.60.0-jammy
+FROM node:22-slim AS build
 
 WORKDIR /app
-
-# Playwright kurulum sırasında browser indirmesin — image'da zaten mevcut
-ENV PLAYWRIGHT_BROWSERS_PATH=/ms-playwright
-ENV PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD=1
 
 # Bağımlılıkları önce yükle (layer cache)
 COPY package*.json ./
@@ -18,8 +14,21 @@ RUN npm install --prefix client
 COPY client/ ./client/
 RUN npm run build --prefix client
 
-# Server
-COPY server/ ./server/
+# ─── Production image ──────────────────────────────────────────────
+FROM node:22-alpine
+
+WORKDIR /app
+
+RUN addgroup -S appgroup && adduser -S appuser -G appgroup
+
+COPY --from=build /app/server/node_modules ./server/node_modules
+COPY --from=build /app/server/src ./server/src
+COPY --from=build /app/client/dist ./client/dist
+COPY --from=build /app/package.json ./
+
+USER appuser
 
 EXPOSE 3001
+HEALTHCHECK --interval=30s --timeout=3s --start-period=5s --retries=3 \
+  CMD node -e "require('http').get('http://localhost:3001/api/health',r=>process.exit(r.statusCode===200?0:1)).on('error',()=>process.exit(1))"
 CMD ["node", "server/src/server.js"]

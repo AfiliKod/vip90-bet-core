@@ -30,6 +30,10 @@ export async function createWithdraw(req, res, next) {
   try {
     const { amount } = req.validated;
     const user = await User.findById(req.user.id);
+    if (user.withdrawalLockUntil && user.withdrawalLockUntil > new Date()) {
+      const remaining = Math.ceil((user.withdrawalLockUntil - new Date()) / 1000 / 60);
+      throw createError(400, 'WITHDRAWAL_LOCKED', `Şifre değişikliğinden sonra ${remaining} dakika beklemelisiniz`);
+    }
     if (user.balance < amount) throw createError(400, 'INSUFFICIENT_BALANCE', 'Yetersiz bakiye');
     const withdraw = await BankDepositRequest.create({
       userId: req.user.id,
@@ -44,8 +48,8 @@ export async function getMyRequests(req, res, next) {
   try {
     const { type, status, page=1, limit=20 } = req.query;
     const filter = { userId: req.user.id };
-    if (type) filter.type = type;
-    if (status) filter.status = status;
+    if (type) filter.type = String(type);
+    if (status) filter.status = String(status);
     const skip = (+page - 1) * +limit;
     const [requests, total] = await Promise.all([
       BankDepositRequest.find(filter).sort({ createdAt: -1 }).limit(+limit).skip(skip),
@@ -61,7 +65,7 @@ export async function getAllPending(req, res, next) {
   try {
     const { type, page=1, limit=50 } = req.query;
     const filter = { status: 'pending' };
-    if (type) filter.type = type;
+    if (type) filter.type = String(type);
     const skip = (+page - 1) * +limit;
     // Phase E11 — pagination added (KRİTİK fix — önceden NO LIMIT)
     const [requests, total] = await Promise.all([

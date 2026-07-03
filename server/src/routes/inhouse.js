@@ -54,11 +54,14 @@ router.post('/mines/start', async (req, res, next) => {
     if (isNaN(betAmount) || betAmount < 1) return res.status(400).json({ error: 'Geçersiz miktar' });
     if (isNaN(minesCount) || minesCount < 1 || minesCount > 24) return res.status(400).json({ error: 'Geçersiz mayın sayısı (1-24)' });
 
-    const user = await User.findById(req.user.id).select('balance');
-    if (!user || user.balance < betAmount) return res.status(400).json({ error: 'Yetersiz bakiye' });
+    const user = await User.findOneAndUpdate(
+      { _id: req.user.id, balance: { $gte: betAmount } },
+      { $inc: { balance: -betAmount } },
+      { new: true }
+    );
+    if (!user) return res.status(400).json({ error: 'Yetersiz bakiye' });
 
-    const newBalance = parseFloat((user.balance - betAmount).toFixed(2));
-    await User.findByIdAndUpdate(req.user.id, { balance: newBalance });
+    const newBalance = user.balance;
 
     const serverSeed = randomBytes(16).toString('hex');
     const clientSeed = randomBytes(8).toString('hex');
@@ -70,7 +73,7 @@ router.post('/mines/start', async (req, res, next) => {
       minePos,
       mines: minesCount,
       bet: betAmount,
-      balanceBefore: user.balance,
+      balanceBefore: user.balance + betAmount,
       revealed: [],
       cashedOut: false,
     });
@@ -147,9 +150,12 @@ router.post('/mines/cashout', async (req, res, next) => {
     const mult = minesMultiplier(session.mines, session.revealed.length);
     const payout = parseFloat((session.bet * mult).toFixed(2));
 
-    const user = await User.findById(req.user.id).select('balance');
-    const newBalance = parseFloat(((user?.balance ?? 0) + payout).toFixed(2));
-    await User.findByIdAndUpdate(req.user.id, { balance: newBalance });
+    const user = await User.findByIdAndUpdate(
+      req.user.id,
+      { $inc: { balance: payout } },
+      { new: true }
+    );
+    const newBalance = user.balance;
 
     await CasinoRound.create({
       userId: req.user.id, gameId: 'inhouse-mines', gameTitle: 'Mines',
@@ -214,9 +220,6 @@ router.post('/plinko/drop', async (req, res, next) => {
 
     if (isNaN(betAmount) || betAmount < 1) return res.status(400).json({ error: 'Geçersiz miktar' });
 
-    const user = await User.findById(req.user.id).select('balance');
-    if (!user || user.balance < betAmount) return res.status(400).json({ error: 'Yetersiz bakiye' });
-
     const serverSeed = randomBytes(16).toString('hex');
     const clientSeed = randomBytes(8).toString('hex');
     const { slot, path } = dropBall(serverSeed, clientSeed, actualRows);
@@ -225,9 +228,15 @@ router.post('/plinko/drop', async (req, res, next) => {
     const mult = multTable[slot];
     const payout = parseFloat((betAmount * mult).toFixed(2));
 
-    const balanceBefore = user.balance;
-    const newBalance = parseFloat((balanceBefore - betAmount + payout).toFixed(2));
-    await User.findByIdAndUpdate(req.user.id, { balance: Math.max(0, newBalance) });
+    const netChange = parseFloat((payout - betAmount).toFixed(2));
+    const user = await User.findOneAndUpdate(
+      { _id: req.user.id, balance: { $gte: betAmount } },
+      { $inc: { balance: netChange } },
+      { new: true }
+    );
+    if (!user) return res.status(400).json({ error: 'Yetersiz bakiye' });
+    const balanceBefore = parseFloat((user.balance - netChange).toFixed(2));
+    const newBalance = user.balance;
 
     await CasinoRound.create({
       userId: req.user.id, gameId: 'inhouse-plinko', gameTitle: 'Plinko',
@@ -273,19 +282,22 @@ router.post('/dice/roll', async (req, res, next) => {
     const winChance = isOver ? (100 - targetNum) : targetNum;
     const mult = parseFloat(((78 / winChance)).toFixed(4));
 
-    const user = await User.findById(req.user.id).select('balance');
-    if (!user || user.balance < betAmount) return res.status(400).json({ error: 'Yetersiz bakiye' });
-
     const serverSeed = randomBytes(16).toString('hex');
     const clientSeed = randomBytes(8).toString('hex');
     const roll = diceRoll(serverSeed, clientSeed);
 
     const win = isOver ? roll > targetNum : roll < targetNum;
     const payout = win ? parseFloat((betAmount * mult).toFixed(2)) : 0;
-    const balanceBefore = user.balance;
-    const newBalance = parseFloat((balanceBefore - betAmount + payout).toFixed(2));
+    const netChange = parseFloat((payout - betAmount).toFixed(2));
+    const user = await User.findOneAndUpdate(
+      { _id: req.user.id, balance: { $gte: betAmount } },
+      { $inc: { balance: netChange } },
+      { new: true }
+    );
+    if (!user) return res.status(400).json({ error: 'Yetersiz bakiye' });
+    const balanceBefore = parseFloat((user.balance - netChange).toFixed(2));
+    const newBalance = user.balance;
 
-    await User.findByIdAndUpdate(req.user.id, { balance: Math.max(0, newBalance) });
     await CasinoRound.create({
       userId: req.user.id, gameId: 'inhouse-dice', gameTitle: 'Dice',
       provider: 'inhouse', bet: betAmount, payout,
@@ -318,17 +330,19 @@ router.post('/limbo/play', async (req, res, next) => {
     if (isNaN(betAmount) || betAmount < 1) return res.status(400).json({ error: 'Geçersiz miktar' });
     if (isNaN(targetMult) || targetMult < 1.01 || targetMult > 1000000) return res.status(400).json({ error: 'Geçersiz çarpan (1.01-1000000)' });
 
-    const user = await User.findById(req.user.id).select('balance');
-    if (!user || user.balance < betAmount) return res.status(400).json({ error: 'Yetersiz bakiye' });
-
     const serverSeed = randomBytes(16).toString('hex');
     const result = limboCrash(serverSeed);
     const win = result >= targetMult;
     const payout = win ? parseFloat((betAmount * targetMult).toFixed(2)) : 0;
-    const balanceBefore = user.balance;
-    const newBalance = parseFloat((balanceBefore - betAmount + payout).toFixed(2));
-
-    await User.findByIdAndUpdate(req.user.id, { balance: Math.max(0, newBalance) });
+    const netChange = parseFloat((payout - betAmount).toFixed(2));
+    const user = await User.findOneAndUpdate(
+      { _id: req.user.id, balance: { $gte: betAmount } },
+      { $inc: { balance: netChange } },
+      { new: true }
+    );
+    if (!user) return res.status(400).json({ error: 'Yetersiz bakiye' });
+    const balanceBefore = parseFloat((user.balance - netChange).toFixed(2));
+    const newBalance = user.balance;
     await CasinoRound.create({
       userId: req.user.id, gameId: 'inhouse-limbo', gameTitle: 'Limbo',
       provider: 'inhouse', bet: betAmount, payout,
@@ -370,16 +384,19 @@ router.post('/wheel/spin', async (req, res, next) => {
 
     if (isNaN(betAmount) || betAmount < 1) return res.status(400).json({ error: 'Geçersiz miktar' });
 
-    const user = await User.findById(req.user.id).select('balance');
-    if (!user || user.balance < betAmount) return res.status(400).json({ error: 'Yetersiz bakiye' });
-
     const serverSeed = randomBytes(16).toString('hex');
     const { segIndex, mult } = wheelSpin(serverSeed, riskLevel);
     const payout = parseFloat((betAmount * mult).toFixed(2));
-    const balanceBefore = user.balance;
-    const newBalance = parseFloat((balanceBefore - betAmount + payout).toFixed(2));
+    const netChange = parseFloat((payout - betAmount).toFixed(2));
+    const user = await User.findOneAndUpdate(
+      { _id: req.user.id, balance: { $gte: betAmount } },
+      { $inc: { balance: netChange } },
+      { new: true }
+    );
+    if (!user) return res.status(400).json({ error: 'Yetersiz bakiye' });
+    const balanceBefore = parseFloat((user.balance - netChange).toFixed(2));
+    const newBalance = user.balance;
 
-    await User.findByIdAndUpdate(req.user.id, { balance: Math.max(0, newBalance) });
     await CasinoRound.create({
       userId: req.user.id, gameId: 'inhouse-wheel', gameTitle: 'Wheel',
       provider: 'inhouse', bet: betAmount, payout,
@@ -427,18 +444,20 @@ router.post('/hilo/start', async (req, res, next) => {
     const betAmount = parseFloat(amount);
     if (isNaN(betAmount) || betAmount < 1) return res.status(400).json({ error: 'Geçersiz miktar' });
 
-    const user = await User.findById(req.user.id).select('balance');
-    if (!user || user.balance < betAmount) return res.status(400).json({ error: 'Yetersiz bakiye' });
-
-    const newBalance = parseFloat((user.balance - betAmount).toFixed(2));
-    await User.findByIdAndUpdate(req.user.id, { balance: newBalance });
+    const user = await User.findOneAndUpdate(
+      { _id: req.user.id, balance: { $gte: betAmount } },
+      { $inc: { balance: -betAmount } },
+      { new: true }
+    );
+    if (!user) return res.status(400).json({ error: 'Yetersiz bakiye' });
+    const newBalance = user.balance;
 
     const serverSeed = randomBytes(16).toString('hex');
     const deck = shuffleDeck(serverSeed);
 
     hiloSessions.set(req.user.id.toString(), {
       deck, pos: 0, serverSeed,
-      mult: 1, bet: betAmount, balanceBefore: user.balance, cashedOut: false,
+      mult: 1, bet: betAmount, balanceBefore: user.balance + betAmount, cashedOut: false,
     });
 
     const firstCard = deck[0];
@@ -514,9 +533,12 @@ router.post('/hilo/cashout', async (req, res, next) => {
     hiloSessions.delete(req.user.id.toString());
 
     const payout = parseFloat((session.bet * session.mult).toFixed(2));
-    const user = await User.findById(req.user.id).select('balance');
-    const newBalance = parseFloat(((user?.balance ?? 0) + payout).toFixed(2));
-    await User.findByIdAndUpdate(req.user.id, { balance: newBalance });
+    const user = await User.findByIdAndUpdate(
+      req.user.id,
+      { $inc: { balance: payout } },
+      { new: true }
+    );
+    const newBalance = user.balance;
 
     await CasinoRound.create({
       userId: req.user.id, gameId: 'inhouse-hilo', gameTitle: 'HiLo',
@@ -570,19 +592,22 @@ router.post('/keno/play', async (req, res, next) => {
     if (isNaN(betAmount) || betAmount < 1) return res.status(400).json({ error: 'Geçersiz miktar' });
     if (picksArr.length < 1 || picksArr.length > 10) return res.status(400).json({ error: '1-10 arası sayı seçin' });
 
-    const user = await User.findById(req.user.id).select('balance');
-    if (!user || user.balance < betAmount) return res.status(400).json({ error: 'Yetersiz bakiye' });
-
     const serverSeed = randomBytes(16).toString('hex');
     const drawn = kenoDrawn(serverSeed);
     const hits = picksArr.filter(p => drawn.includes(p)).length;
     const payoutTable = KENO_PAYOUTS[picksArr.length];
     const mult = payoutTable[hits] ?? 0;
     const payout = parseFloat((betAmount * mult).toFixed(2));
-    const balanceBefore = user.balance;
-    const newBalance = parseFloat((balanceBefore - betAmount + payout).toFixed(2));
+    const netChange = parseFloat((payout - betAmount).toFixed(2));
+    const user = await User.findOneAndUpdate(
+      { _id: req.user.id, balance: { $gte: betAmount } },
+      { $inc: { balance: netChange } },
+      { new: true }
+    );
+    if (!user) return res.status(400).json({ error: 'Yetersiz bakiye' });
+    const balanceBefore = parseFloat((user.balance - netChange).toFixed(2));
+    const newBalance = user.balance;
 
-    await User.findByIdAndUpdate(req.user.id, { balance: Math.max(0, newBalance) });
     await CasinoRound.create({
       userId: req.user.id, gameId: 'inhouse-keno', gameTitle: 'Keno',
       provider: 'inhouse', bet: betAmount, payout,
@@ -660,11 +685,13 @@ router.post('/blackjack/deal', async (req, res, next) => {
     const betAmount = parseFloat(amount);
     if (isNaN(betAmount) || betAmount < 1) return res.status(400).json({ error: 'Geçersiz miktar' });
 
-    const user = await User.findById(req.user.id).select('balance');
-    if (!user || user.balance < betAmount) return res.status(400).json({ error: 'Yetersiz bakiye' });
-
-    const newBalance = parseFloat((user.balance - betAmount).toFixed(2));
-    await User.findByIdAndUpdate(req.user.id, { balance: newBalance });
+    const user = await User.findOneAndUpdate(
+      { _id: req.user.id, balance: { $gte: betAmount } },
+      { $inc: { balance: -betAmount } },
+      { new: true }
+    );
+    if (!user) return res.status(400).json({ error: 'Yetersiz bakiye' });
+    const newBalance = user.balance;
 
     const serverSeed = randomBytes(16).toString('hex');
     const shoe = buildShoe(serverSeed);
@@ -675,7 +702,7 @@ router.post('/blackjack/deal', async (req, res, next) => {
     const session = {
       serverSeed, shoe, shoePos: pos,
       playerCards, dealerCards,
-      bet: betAmount, balanceBefore: user.balance,
+      bet: betAmount, balanceBefore: user.balance + betAmount,
       done: false,
     };
     bjSessions.set(req.user.id.toString(), session);
@@ -695,12 +722,16 @@ router.post('/blackjack/deal', async (req, res, next) => {
       } else {
         payout = parseFloat((betAmount * 2.0).toFixed(2)); outcome = 'blackjack';
       }
-      const finalBalance = parseFloat((newBalance + payout).toFixed(2));
-      await User.findByIdAndUpdate(req.user.id, { balance: finalBalance });
+      const updated = await User.findByIdAndUpdate(
+        req.user.id,
+        { $inc: { balance: payout } },
+        { new: true }
+      );
+      const finalBalance = updated.balance;
       await CasinoRound.create({
         userId: req.user.id, gameId: 'inhouse-blackjack', gameTitle: 'Blackjack',
         provider: 'inhouse', bet: betAmount, payout,
-        net: payout - betAmount, balanceBefore: user.balance, balanceAfter: finalBalance,
+        net: payout - betAmount, balanceBefore: user.balance + betAmount, balanceAfter: finalBalance,
       });
       return res.json({
         playerCards, dealerCards, playerTotal, dealerTotal,
@@ -776,11 +807,13 @@ router.post('/blackjack/double', async (req, res, next) => {
     const session = bjSessions.get(req.user.id.toString());
     if (!session || session.done || session.playerCards.length !== 2) return res.status(400).json({ error: 'Double down yapılamaz' });
 
-    const user = await User.findById(req.user.id).select('balance');
-    if (!user || user.balance < session.bet) return res.status(400).json({ error: 'Yetersiz bakiye' });
-
     const extraBet = session.bet;
-    await User.findByIdAndUpdate(req.user.id, { balance: parseFloat((user.balance - extraBet).toFixed(2)) });
+    const user = await User.findOneAndUpdate(
+      { _id: req.user.id, balance: { $gte: extraBet } },
+      { $inc: { balance: -extraBet } },
+      { new: true }
+    );
+    if (!user) return res.status(400).json({ error: 'Yetersiz bakiye' });
     session.bet = parseFloat((session.bet * 2).toFixed(2));
 
     session.playerCards.push(session.shoe[session.shoePos++]);
@@ -809,9 +842,12 @@ async function resolveStand(session, userId, res, isDouble = false) {
   session.done = true;
   bjSessions.delete(userId.toString());
 
-  const user = await User.findById(userId).select('balance');
-  const newBalance = parseFloat(((user?.balance ?? 0) + payout).toFixed(2));
-  await User.findByIdAndUpdate(userId, { balance: newBalance });
+  const user = await User.findByIdAndUpdate(
+    userId,
+    { $inc: { balance: payout } },
+    { new: true }
+  );
+  const newBalance = user.balance;
 
   await CasinoRound.create({
     userId, gameId: 'inhouse-blackjack', gameTitle: 'Blackjack',
@@ -899,16 +935,19 @@ router.post('/roulette/spin', async (req, res, next) => {
     if (isNaN(totalBet) || totalBet < 1) return res.status(400).json({ error: 'Geçersiz miktar' });
     if (!Array.isArray(bets) || bets.length === 0) return res.status(400).json({ error: 'Bahis seçin' });
 
-    const user = await User.findById(req.user.id).select('balance');
-    if (!user || user.balance < totalBet) return res.status(400).json({ error: 'Yetersiz bakiye' });
-
     const serverSeed = randomBytes(16).toString('hex');
     const num = rouletteNumber(serverSeed);
     const payout = evaluateBets(bets, num);
 
-    const balanceBefore = user.balance;
-    const newBalance = parseFloat((balanceBefore - totalBet + payout).toFixed(2));
-    await User.findByIdAndUpdate(req.user.id, { balance: Math.max(0, newBalance) });
+    const netChange = parseFloat((payout - totalBet).toFixed(2));
+    const user = await User.findOneAndUpdate(
+      { _id: req.user.id, balance: { $gte: totalBet } },
+      { $inc: { balance: netChange } },
+      { new: true }
+    );
+    if (!user) return res.status(400).json({ error: 'Yetersiz bakiye' });
+    const balanceBefore = parseFloat((user.balance - netChange).toFixed(2));
+    const newBalance = user.balance;
 
     await CasinoRound.create({
       userId: req.user.id, gameId: 'inhouse-roulette', gameTitle: 'European Roulette',
@@ -994,9 +1033,6 @@ router.post('/baccarat/deal', async (req, res, next) => {
     if (isNaN(betAmount) || betAmount < 1) return res.status(400).json({ error: 'Geçersiz miktar' });
     if (!['player','banker','tie'].includes(betSide)) return res.status(400).json({ error: 'player, banker veya tie seçin' });
 
-    const user = await User.findById(req.user.id).select('balance');
-    if (!user || user.balance < betAmount) return res.status(400).json({ error: 'Yetersiz bakiye' });
-
     const serverSeed = randomBytes(16).toString('hex');
     const { player, banker, playerTotal, bankerTotal } = baccaratDeal(serverSeed);
 
@@ -1014,9 +1050,15 @@ router.post('/baccarat/deal', async (req, res, next) => {
     }
 
     const payout = parseFloat((betAmount * mult).toFixed(2));
-    const balanceBefore = user.balance;
-    const newBalance = parseFloat((balanceBefore - betAmount + payout).toFixed(2));
-    await User.findByIdAndUpdate(req.user.id, { balance: Math.max(0, newBalance) });
+    const netChange = parseFloat((payout - betAmount).toFixed(2));
+    const user = await User.findOneAndUpdate(
+      { _id: req.user.id, balance: { $gte: betAmount } },
+      { $inc: { balance: netChange } },
+      { new: true }
+    );
+    if (!user) return res.status(400).json({ error: 'Yetersiz bakiye' });
+    const balanceBefore = parseFloat((user.balance - netChange).toFixed(2));
+    const newBalance = user.balance;
 
     await CasinoRound.create({
       userId: req.user.id, gameId: 'inhouse-baccarat', gameTitle: 'Baccarat',
@@ -1104,11 +1146,13 @@ router.post('/videopoker/deal', async (req, res, next) => {
     const betAmount = parseFloat(amount);
     if (isNaN(betAmount) || betAmount < 1) return res.status(400).json({ error: 'Geçersiz miktar' });
 
-    const user = await User.findById(req.user.id).select('balance');
-    if (!user || user.balance < betAmount) return res.status(400).json({ error: 'Yetersiz bakiye' });
-
-    const newBalance = parseFloat((user.balance - betAmount).toFixed(2));
-    await User.findByIdAndUpdate(req.user.id, { balance: newBalance });
+    const user = await User.findOneAndUpdate(
+      { _id: req.user.id, balance: { $gte: betAmount } },
+      { $inc: { balance: -betAmount } },
+      { new: true }
+    );
+    if (!user) return res.status(400).json({ error: 'Yetersiz bakiye' });
+    const newBalance = user.balance;
 
     const serverSeed = randomBytes(16).toString('hex');
     const deck = buildDeck52(serverSeed);
@@ -1117,7 +1161,7 @@ router.post('/videopoker/deal', async (req, res, next) => {
 
     vpSessions.set(req.user.id.toString(), {
       serverSeed, hand, remaining,
-      bet: betAmount, balanceBefore: user.balance, done: false,
+      bet: betAmount, balanceBefore: user.balance + betAmount, done: false,
     });
 
     res.json({ hand, balance: newBalance });
@@ -1140,9 +1184,12 @@ router.post('/videopoker/draw', async (req, res, next) => {
     const handName = evaluatePokerHand(newHand);
     const mult = VP_PAYOUTS[handName] ?? 0;
     const payout = parseFloat((session.bet * mult).toFixed(2));
-    const user = await User.findById(req.user.id).select('balance');
-    const newBalance = parseFloat(((user?.balance ?? 0) + payout).toFixed(2));
-    await User.findByIdAndUpdate(req.user.id, { balance: newBalance });
+    const user = await User.findByIdAndUpdate(
+      req.user.id,
+      { $inc: { balance: payout } },
+      { new: true }
+    );
+    const newBalance = user.balance;
 
     await CasinoRound.create({
       userId: req.user.id, gameId: 'inhouse-videopoker', gameTitle: 'Video Poker',
@@ -1175,9 +1222,6 @@ router.post('/dragontiger/deal', async (req, res, next) => {
     if (isNaN(betAmount) || betAmount < 1) return res.status(400).json({ error: 'Geçersiz miktar' });
     if (!['dragon','tiger','tie'].includes(betSide)) return res.status(400).json({ error: 'dragon, tiger veya tie seçin' });
 
-    const user = await User.findById(req.user.id).select('balance');
-    if (!user || user.balance < betAmount) return res.status(400).json({ error: 'Yetersiz bakiye' });
-
     const serverSeed = randomBytes(16).toString('hex');
     const { dragon, tiger } = dragonTigerDeal(serverSeed);
 
@@ -1198,9 +1242,15 @@ router.post('/dragontiger/deal', async (req, res, next) => {
     }
 
     const payout = parseFloat((betAmount * mult).toFixed(2));
-    const balanceBefore = user.balance;
-    const newBalance = parseFloat((balanceBefore - betAmount + payout).toFixed(2));
-    await User.findByIdAndUpdate(req.user.id, { balance: Math.max(0, newBalance) });
+    const netChange = parseFloat((payout - betAmount).toFixed(2));
+    const user = await User.findOneAndUpdate(
+      { _id: req.user.id, balance: { $gte: betAmount } },
+      { $inc: { balance: netChange } },
+      { new: true }
+    );
+    if (!user) return res.status(400).json({ error: 'Yetersiz bakiye' });
+    const balanceBefore = parseFloat((user.balance - netChange).toFixed(2));
+    const newBalance = user.balance;
 
     await CasinoRound.create({
       userId: req.user.id, gameId: 'inhouse-dragontiger', gameTitle: 'Dragon Tiger',
