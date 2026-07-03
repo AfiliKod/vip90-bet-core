@@ -33,7 +33,7 @@ export default function MiniEventCard({ event, live, onExtraClick, accent: accen
   const hasValidOdds = (odd1?.value ?? 0) > 0 || (oddX?.value ?? 0) > 0 || (odd2?.value ?? 0) > 0;
   if (!hasValidOdds) return null;
 
-  const extraCount = Math.max(0, (event.markets?.length ?? 0) - 1);
+  const extraCount = Math.max(0, (event.marketsCount ?? event.markets?.length ?? 0) - 1);
   const accent = accentProp || (live ? '#ef4444' : '#00d4ff');
   const eventLabel = `${event.homeTeam?.name} vs ${event.awayTeam?.name}`;
 

@@ -26,7 +26,9 @@ export const useEventsStore = create((set, get) => ({
   setSportFilter: (sport) => set({ selectedSport: sport, selectedLeague: null, statusFilter: '' }),
   setLeagueFilter: (sport, league) => set({ selectedSport: sport, selectedLeague: league, statusFilter: '' }),
   fetchEvents: async (sport, status) => {
-    set({ isLoading: true });
+    // Elimizde zaten event varsa (sayfaya ikinci girişte store hâlâ dolu) "Yükleniyor"
+    // ekranı göstermeden arka planda sessizce güncelle — stale-while-revalidate.
+    set({ isLoading: get().events.length === 0 });
     try {
       const params = new URLSearchParams({ limit: '2000' });
       if (sport && sport !== 'all') params.set('sport', sport);
