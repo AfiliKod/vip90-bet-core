@@ -29,19 +29,26 @@ function sportGradient(sport) {
   return SPORT_GRADIENTS[sport] ?? 'from-indigo-950 via-violet-950 to-indigo-900';
 }
 
-async function fetchLogo(teamName) {
-  const cacheKey = `tdb_logo_${teamName}`;
+async function fetchTeamInfo(teamName) {
+  const cacheKey = `tdb_team_v2_${teamName}`;
   const cached = localStorage.getItem(cacheKey);
-  if (cached !== null) return cached; // '' = not found, URL = found
+  if (cached !== null) {
+    try {
+      return JSON.parse(cached);
+    } catch {
+      // bozuk/eski cache girdisi — aşağıda yeniden fetch edilecek
+    }
+  }
 
   try {
     const r = await fetch(`${TSDB_URL}${encodeURIComponent(teamName)}`, { signal: AbortSignal.timeout(5000) });
     const data = await r.json();
-    const logo = data?.teams?.[0]?.strTeamBadge ?? '';
-    localStorage.setItem(cacheKey, logo);
-    return logo;
+    const team = data?.teams?.[0];
+    const info = { logo: team?.strTeamBadge ?? '', color: team?.strColour1 ?? '' };
+    localStorage.setItem(cacheKey, JSON.stringify(info));
+    return info;
   } catch {
-    return '';
+    return { logo: '', color: '' };
   }
 }
 
