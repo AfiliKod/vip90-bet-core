@@ -25,6 +25,9 @@ Thumbs.db
 # Session data (hassas — commit etme)
 server/scripts/session.json
 
+# Manuel doğrulama scriptlerinin ürettiği ekran görüntüleri
+server/scripts/match-hero-*.png
+
 # Test/investigation artifacts (root-level dev scripts)
 test-*.mjs
 test-*.js
