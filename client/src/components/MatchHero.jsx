@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { useSettingsStore } from '../store/settingsStore';
 import { translateTeam, translateLeague } from '../utils/i18n';
+import { buildTeamGradient } from '../utils/matchHeroColors';
 
 const TSDB_URL = 'https://www.thesportsdb.com/api/v1/json/3/searchteams.php?t=';
 
@@ -29,19 +30,26 @@ function sportGradient(sport) {
   return SPORT_GRADIENTS[sport] ?? 'from-indigo-950 via-violet-950 to-indigo-900';
 }
 
-async function fetchLogo(teamName) {
-  const cacheKey = `tdb_logo_${teamName}`;
+async function fetchTeamInfo(teamName) {
+  const cacheKey = `tdb_team_v2_${teamName}`;
   const cached = localStorage.getItem(cacheKey);
-  if (cached !== null) return cached; // '' = not found, URL = found
+  if (cached !== null) {
+    try {
+      return JSON.parse(cached);
+    } catch {
+      // bozuk/eski cache girdisi — aşağıda yeniden fetch edilecek
+    }
+  }
 
   try {
     const r = await fetch(`${TSDB_URL}${encodeURIComponent(teamName)}`, { signal: AbortSignal.timeout(5000) });
     const data = await r.json();
-    const logo = data?.teams?.[0]?.strTeamBadge ?? '';
-    localStorage.setItem(cacheKey, logo);
-    return logo;
+    const team = data?.teams?.[0];
+    const info = { logo: team?.strTeamBadge ?? '', color: team?.strColour1 ?? '' };
+    localStorage.setItem(cacheKey, JSON.stringify(info));
+    return info;
   } catch {
-    return '';
+    return { logo: '', color: '' };
   }
 }
 
@@ -64,6 +72,8 @@ function TeamBadge({ name, logo }) {
 export default function MatchHero({ event }) {
   const [homeLogo, setHomeLogo] = useState('');
   const [awayLogo, setAwayLogo] = useState('');
+  const [homeColor, setHomeColor] = useState('');
+  const [awayColor, setAwayColor] = useState('');
   const lang = useSettingsStore(s => s.preferences.language);
   const locale = lang === 'en' ? 'en-GB' : 'tr-TR';
   const homeName = translateTeam(event.homeTeam.name, lang);
@@ -71,48 +81,62 @@ export default function MatchHero({ event }) {
   const leagueName = translateLeague(event.league, lang);
 
   useEffect(() => {
-    fetchLogo(event.homeTeam.name).then(setHomeLogo);
-    fetchLogo(event.awayTeam.name).then(setAwayLogo);
+    fetchTeamInfo(event.homeTeam.name).then(info => {
+      setHomeLogo(info.logo);
+      setHomeColor(info.color);
+    });
+    fetchTeamInfo(event.awayTeam.name).then(info => {
+      setAwayLogo(info.logo);
+      setAwayColor(info.color);
+    });
   }, [event.homeTeam.name, event.awayTeam.name]);
 
   const isLive = event.status === 'live';
+  const teamGradient = buildTeamGradient(homeColor, awayColor);
 
   return (
-    <div className={`bg-gradient-to-br ${sportGradient(event.sport)} border border-white/10 rounded-xl p-6 mb-4`}>
-      <div className="text-center text-text-3 text-sm mb-5">
-        {event.leagueFlag} {leagueName}
-      </div>
+    <div
+      className={`relative overflow-hidden ${teamGradient ? '' : `bg-gradient-to-br ${sportGradient(event.sport)}`} border border-white/10 rounded-xl p-6 mb-4`}
+      style={teamGradient ? { background: teamGradient } : undefined}
+    >
+      {teamGradient && <div className="absolute inset-0 bg-black/50" />}
 
-      <div className="flex items-center justify-center gap-6">
-        <TeamBadge name={homeName} logo={homeLogo} />
-
-        <div className="text-center min-w-[100px]">
-          {isLive ? (
-            <>
-              <div className="text-4xl font-black text-text-1 tabular-nums">
-                {event.liveScore?.home ?? 0}
-                <span className="text-text-3 mx-2">–</span>
-                {event.liveScore?.away ?? 0}
-              </div>
-              <div className="flex items-center justify-center gap-1.5 mt-1.5">
-                <span className="w-2 h-2 rounded-full bg-red-500 animate-pulse" />
-                <span className="text-red-400 text-sm font-semibold">{event.liveScore?.minute ?? 0}'</span>
-              </div>
-            </>
-          ) : (
-            <>
-              <div className="text-text-3 text-lg font-bold">vs</div>
-              <div className="text-text-3 text-xs mt-1.5">
-                {new Date(event.startTime).toLocaleString(locale, {
-                  day: '2-digit', month: 'short',
-                  hour: '2-digit', minute: '2-digit',
-                })}
-              </div>
-            </>
-          )}
+      <div className="relative z-10">
+        <div className="text-center text-text-3 text-sm mb-5">
+          {event.leagueFlag} {leagueName}
         </div>
 
-        <TeamBadge name={awayName} logo={awayLogo} />
+        <div className="flex items-center justify-center gap-6">
+          <TeamBadge name={homeName} logo={homeLogo} />
+
+          <div className="text-center min-w-[100px]">
+            {isLive ? (
+              <>
+                <div className="text-4xl font-black text-text-1 tabular-nums">
+                  {event.liveScore?.home ?? 0}
+                  <span className="text-text-3 mx-2">–</span>
+                  {event.liveScore?.away ?? 0}
+                </div>
+                <div className="flex items-center justify-center gap-1.5 mt-1.5">
+                  <span className="w-2 h-2 rounded-full bg-red-500 animate-pulse" />
+                  <span className="text-red-400 text-sm font-semibold">{event.liveScore?.minute ?? 0}'</span>
+                </div>
+              </>
+            ) : (
+              <>
+                <div className="text-text-3 text-lg font-bold">vs</div>
+                <div className="text-text-3 text-xs mt-1.5">
+                  {new Date(event.startTime).toLocaleString(locale, {
+                    day: '2-digit', month: 'short',
+                    hour: '2-digit', minute: '2-digit',
+                  })}
+                </div>
+              </>
+            )}
+          </div>
+
+          <TeamBadge name={awayName} logo={awayLogo} />
+        </div>
       </div>
     </div>
   );
