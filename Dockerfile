@@ -30,6 +30,7 @@ WORKDIR /app
 RUN groupadd --system appgroup && useradd --system --gid appgroup --no-create-home appuser
 
 COPY --from=build /app/server/node_modules ./server/node_modules
+COPY --from=build /app/server/package*.json ./server/
 COPY --from=build /app/server/src ./server/src
 COPY --from=build /app/client/dist ./client/dist
 COPY --from=build /app/package.json ./
