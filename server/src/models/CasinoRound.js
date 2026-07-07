@@ -29,11 +29,16 @@ CasinoRoundSchema.post('save', async function() {
   } catch (e) {
     console.error('[wagering] CasinoRound post-save error:', e.message);
   }
-  try {
-    const { payReferralCommission } = await import('../services/referralCommission.js');
-    await payReferralCommission(this.userId, -this.net);
-  } catch (e) {
-    console.error('[referral] CasinoRound post-save error:', e.message);
+  // Palace bir spin'i iki ayrı round'a (bahis/kazanç) böldüğü için per-round komisyon
+  // brüt ciro üzerinden öderdi — Palace komisyonu closePalaceSession'da (Task 4b) net GGR
+  // üzerinden ödeniyor. inhouse tek birleşik round yazdığı için per-round burada doğru.
+  if (this.provider === 'inhouse') {
+    try {
+      const { payReferralCommission } = await import('../services/referralCommission.js');
+      await payReferralCommission(this.userId, -this.net);
+    } catch (e) {
+      console.error('[referral] CasinoRound post-save error:', e.message);
+    }
   }
 });
 
