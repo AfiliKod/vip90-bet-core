@@ -77,7 +77,7 @@ export function createApp() {
         imgSrc: ["'self'", 'data:', 'https:'],
         fontSrc: ["'self'", 'data:', 'https://fonts.gstatic.com'],
         connectSrc: ["'self'", 'wss:'],
-        frameSrc: ["'self'"],
+        frameSrc: ["'self'", 'https://*'],
         frameAncestors: ["'self'"],
         objectSrc: ["'none'"],
         baseUri: ["'self'"],
