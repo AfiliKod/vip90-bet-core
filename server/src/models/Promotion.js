@@ -1,7 +1,7 @@
 import mongoose from 'mongoose';
 
 const schema = new mongoose.Schema({
-  type:        { type: String, enum: ['welcome','freeBet','reload'], required: true },
+  type:        { type: String, enum: ['welcome','freeBet','reload','trial'], required: true },
   title:       { type: String, required: true },
   description: String,
   amount:      { type: Number, required: true },

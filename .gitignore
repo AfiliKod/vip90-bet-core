@@ -27,6 +27,7 @@ server/scripts/session.json
 
 # Manuel doğrulama scriptlerinin ürettiği ekran görüntüleri
 server/scripts/match-hero-*.png
+server/scripts/verify-*.png
 
 # Test/investigation artifacts (root-level dev scripts)
 test-*.mjs

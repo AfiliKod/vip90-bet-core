@@ -14,7 +14,7 @@ export default function Layout({ children }) {
   return (
     <div className="flex pb-14 lg:pb-0" style={{ height: 'calc(100vh - 56px)' }}>
       {showSidebar && <Sidebar />}
-      <div className="flex-1 overflow-y-auto min-w-0 relative">
+      <div className="flex-1 overflow-y-auto min-w-0 relative" data-scroll-container>
         {children}
         <Footer onOpenHelp={() => setHelpOpen(true)} />
 
