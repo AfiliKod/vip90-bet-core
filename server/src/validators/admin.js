@@ -24,6 +24,6 @@ export const createUserSchema = z.object({
 
 export const updateBalanceSchema = z.object({
   amount: z.number().positive(),
-  type:   z.enum(['credit', 'debit']),
+  type:   z.enum(['credit', 'debit', 'bonus']),
   note:   z.string().max(200).optional(),
 });
