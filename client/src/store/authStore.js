@@ -30,12 +30,13 @@ export const useAuthStore = create((set) => ({
     connectUserSocket(data.user._id || data.user.id);
     return data.user;
   },
-  register: async (username, email, password, consents = {}) => {
+  register: async (username, email, password, consents = {}, referredBy) => {
     const { data } = await api.post('/auth/register', {
       username, email, password,
       acceptedTerms: consents.acceptedTerms,
       acceptedKvkk: consents.acceptedKvkk,
       consentVersion: consents.consentVersion,
+      ...(referredBy ? { referredBy } : {}),
     });
     localStorage.setItem('accessToken', data.accessToken);
     set({ user: data.user, token: data.accessToken });
