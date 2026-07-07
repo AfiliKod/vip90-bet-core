@@ -5,10 +5,9 @@ export const registerSchema = z.object({
   email:      z.string().email().max(100),
   password:   z.string().min(8).max(128).regex(/[A-Z]/, 'En az 1 büyük harf').regex(/[0-9]/, 'En az 1 rakam'),
   referredBy: z.string().min(3).max(30).optional(),
-  // KVKK + Terms + 18+ consent
+  // KVKK + Terms consent
   acceptedTerms:  z.literal(true, { errorMap: () => ({ message: 'Kullanım koşullarını kabul etmelisiniz' }) }),
   acceptedKvkk:   z.literal(true, { errorMap: () => ({ message: 'KVKK aydınlatma metnini kabul etmelisiniz' }) }),
-  ageConfirmed:   z.literal(true, { errorMap: () => ({ message: '18 yaşından büyük olduğunuzu onaylamalısınız' }) }),
   consentVersion: z.string().min(1).max(20).optional(),
   // Turnstile (Phase B8)
   turnstileToken: z.string().optional(),

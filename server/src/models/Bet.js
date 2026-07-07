@@ -4,6 +4,7 @@ const selectionSchema = new mongoose.Schema({
   eventId: { type: mongoose.Schema.Types.ObjectId, ref: 'Event', required: true },
   marketType: String, oddId: String, oddLabel: String, oddValue: Number,
   eventLabel: String,
+  outcome: { type: String, enum: ['pending','won','lost'], default: 'pending' },
 }, { _id: false });
 
 const schema = new mongoose.Schema({

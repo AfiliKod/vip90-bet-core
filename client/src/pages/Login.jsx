@@ -10,13 +10,12 @@ export default function Login() {
   const [tab, setTab] = useState('login');
   const [acceptedTerms, setAcceptedTerms] = useState(false);
   const [acceptedKvkk, setAcceptedKvkk] = useState(false);
-  const [ageConfirmed, setAgeConfirmed] = useState(false);
   const { login, register: registerFn } = useAuthStore();
   const addToast = useToastStore(s => s.add);
   const navigate = useNavigate();
   const { register, handleSubmit, formState: { isSubmitting } } = useForm();
 
-  const canSubmitRegister = acceptedTerms && acceptedKvkk && ageConfirmed;
+  const canSubmitRegister = acceptedTerms && acceptedKvkk;
 
   const onSubmit = async (data) => {
     try {
@@ -31,7 +30,6 @@ export default function Login() {
         await registerFn(data.username, data.email, data.password, {
           acceptedTerms,
           acceptedKvkk,
-          ageConfirmed,
           consentVersion: LEGAL_VERSION,
         });
         navigate('/');
@@ -149,11 +147,6 @@ export default function Login() {
                     kapsamında kişisel verilerimin işlenmesini kabul ediyorum
                   </>
                 }
-              />
-              <ConsentCheckbox
-                checked={ageConfirmed}
-                onChange={setAgeConfirmed}
-                label="18 yaşından büyüğüm"
               />
             </div>
           )}
