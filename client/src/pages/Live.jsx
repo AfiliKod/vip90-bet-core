@@ -4,6 +4,7 @@ import { SPORT_META } from '../utils/sportMeta';
 import MiniEventCard from '../components/MiniEventCard';
 import LeagueGroup from '../components/LeagueGroup';
 import BetSlip from '../components/BetSlip';
+import LiveHeroSlider from '../components/LiveHeroSlider';
 import { BRAND_GRADIENT_H } from '../styles/brand';
 
 function SearchInput({ value, onChange, placeholder = 'Takım veya lig ara...' }) {
@@ -107,6 +108,7 @@ export default function Live() {
 
   return (
     <div className="max-w-full px-4 py-4">
+      <LiveHeroSlider />
       {/* Başlık + arama */}
       <div className="flex items-center gap-3 mb-4 flex-wrap">
         <div className="flex items-center gap-2">
