@@ -2,6 +2,7 @@ import User from '../models/User.js';
 import Event from '../models/Event.js';
 import Bet from '../models/Bet.js';
 import Transaction from '../models/Transaction.js';
+import BonusWagering from '../models/BonusWagering.js';
 import GameTask from '../models/GameTask.js';
 import CasinoRound from '../models/CasinoRound.js';
 import CasinoSession from '../models/CasinoSession.js';
@@ -91,6 +92,40 @@ export async function updateBalance(req, res, next) {
     const { amount, type, note } = req.validated;
     const user = await User.findById(req.params.id);
     if (!user) throw createError(404, 'NOT_FOUND', 'Kullanıcı bulunamadı');
+
+    if (type === 'bonus') {
+      const balanceBefore = user.bonusBalance || 0;
+      user.bonusBalance = parseFloat((balanceBefore + amount).toFixed(2));
+      await user.save();
+
+      const wageringMultiplier = 35;
+      const wageringRequired = parseFloat((amount * wageringMultiplier).toFixed(2));
+      const deadline = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000);
+
+      await BonusWagering.create({
+        userId: user._id,
+        source: 'admin_adjustment',
+        description: note || 'Admin tarafından verilen bonus',
+        bonusAmount: amount,
+        wageringRequired,
+        wageringProgress: 0,
+        multiplier: wageringMultiplier,
+        deadline,
+        status: 'active',
+      });
+
+      const transaction = await Transaction.create({
+        userId:        user._id,
+        type:          'bonus',
+        amount,
+        balanceBefore,
+        balanceAfter:  user.bonusBalance,
+        note:          note || '',
+        createdBy:     req.user.id,
+      });
+
+      return res.json({ user: user.toSafeObject(), transaction });
+    }
 
     const balanceBefore = user.balance;
     if (type === 'credit') {
