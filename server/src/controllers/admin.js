@@ -1,3 +1,4 @@
+import mongoose from 'mongoose';
 import User from '../models/User.js';
 import Event from '../models/Event.js';
 import Bet from '../models/Bet.js';
@@ -348,16 +349,54 @@ export async function getUserCasinoRounds(req, res, next) {
     const { page = 1, limit = 30 } = req.query;
     const skip = (Number(page) - 1) * Number(limit);
 
-    const [rounds, total] = await Promise.all([
+    const [rounds, total, byGame, wagerings, allBets] = await Promise.all([
       CasinoRound.find({ userId: req.params.id })
         .sort({ createdAt: -1 })
         .skip(skip)
         .limit(Number(limit))
         .select('gameId gameTitle provider bet payout net balanceBefore balanceAfter createdAt'),
       CasinoRound.countDocuments({ userId: req.params.id }),
+      CasinoRound.aggregate([
+        { $match: { userId: new mongoose.Types.ObjectId(req.params.id) } },
+        { $group: {
+          _id:       '$gameId',
+          gameTitle: { $first: '$gameTitle' },
+          provider:  { $first: '$provider' },
+          rounds:    { $sum: 1 },
+          totalBet:  { $sum: '$bet' },
+          totalPayout: { $sum: '$payout' },
+          ggr:       { $sum: { $multiply: ['$net', -1] } },
+        }},
+        { $sort: { totalBet: -1 } },
+      ]),
+      BonusWagering.find({ userId: req.params.id }).select('createdAt completedAt convertedAt status updatedAt'),
+      CasinoRound.find({ userId: req.params.id }).sort({ createdAt: -1 }).limit(5000).select('bet createdAt'),
     ]);
 
-    res.json({ rounds, total, page: Number(page), pages: Math.ceil(total / Number(limit)) });
+    // Bonus aktiflik pencereleri: [start, end] — end yoksa (hâlâ aktif) Infinity
+    const windows = wagerings.map(w => ({
+      start: w.createdAt,
+      end: w.completedAt || w.convertedAt || (w.status !== 'active' ? w.updatedAt : null),
+    }));
+
+    let bonusAttributedBet = 0;
+    let realBet = 0;
+    for (const round of allBets) {
+      const inWindow = windows.some(w =>
+        round.createdAt >= w.start && (w.end === null || round.createdAt <= w.end)
+      );
+      if (inWindow) bonusAttributedBet += round.bet;
+      else realBet += round.bet;
+    }
+
+    res.json({
+      rounds, total, page: Number(page), pages: Math.ceil(total / Number(limit)),
+      summary: {
+        byGame,
+        bonusAttributedBet: parseFloat(bonusAttributedBet.toFixed(2)),
+        realBet: parseFloat(realBet.toFixed(2)),
+      },
+    });
   } catch(e) { next(e); }
 }
 
