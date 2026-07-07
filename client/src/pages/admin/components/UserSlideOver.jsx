@@ -195,7 +195,7 @@ export default function UserSlideOver({ user, onClose, onUpdated }) {
                 <div>
                   <label className="text-xs text-text-3 mb-1 block">İşlem</label>
                   <div className="flex gap-2">
-                    {[['credit','Ekle'],['debit','Çıkar']].map(([val, label]) => (
+                    {[['credit','Ekle'],['debit','Çıkar'],['bonus','Bonus Ver']].map(([val, label]) => (
                       <label key={val} className="flex-1 flex items-center gap-2 bg-bg-hover border border-white/10 rounded-lg p-2.5 cursor-pointer has-[:checked]:border-primary/50">
                         <input type="radio" value={val} {...register('type', { required: true })} className="accent-primary" />
                         <span className="text-sm text-text-1">{label}</span>
