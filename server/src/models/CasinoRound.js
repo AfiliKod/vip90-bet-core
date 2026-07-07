@@ -29,6 +29,12 @@ CasinoRoundSchema.post('save', async function() {
   } catch (e) {
     console.error('[wagering] CasinoRound post-save error:', e.message);
   }
+  try {
+    const { payReferralCommission } = await import('../services/referralCommission.js');
+    await payReferralCommission(this.userId, -this.net);
+  } catch (e) {
+    console.error('[referral] CasinoRound post-save error:', e.message);
+  }
 });
 
 export default mongoose.model('CasinoRound', CasinoRoundSchema);
