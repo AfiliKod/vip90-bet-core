@@ -56,7 +56,7 @@ export async function register(req, res, next) {
   try {
     const {
       username, email, password, referredBy,
-      acceptedTerms, acceptedKvkk, ageConfirmed, consentVersion,
+      acceptedTerms, acceptedKvkk, consentVersion,
     } = req.validated;
 
     if (await User.findOne({ $or: [{ username }, { email }] }))
@@ -75,10 +75,9 @@ export async function register(req, res, next) {
     const now = new Date();
     const user = await User.create({
       username, email, password, referredBy: referredById,
-      // KVKK + Terms + 18+ consent (Phase A4)
+      // KVKK + Terms consent (Phase A4)
       acceptedTermsAt:  acceptedTerms ? now : null,
       acceptedKvkkAt:   acceptedKvkk ? now : null,
-      ageConfirmedAt:   ageConfirmed ? now : null,
       consentVersion:   consentVersion || '1.0.0',
       // Email verification (Phase D1)
       emailVerified: false,

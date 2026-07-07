@@ -35,7 +35,6 @@ export const useAuthStore = create((set) => ({
       username, email, password,
       acceptedTerms: consents.acceptedTerms,
       acceptedKvkk: consents.acceptedKvkk,
-      ageConfirmed: consents.ageConfirmed,
       consentVersion: consents.consentVersion,
     });
     localStorage.setItem('accessToken', data.accessToken);
