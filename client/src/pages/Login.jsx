@@ -33,7 +33,7 @@ export default function Login() {
           acceptedTerms,
           acceptedKvkk,
           consentVersion: LEGAL_VERSION,
-        }, refUsername || undefined);
+        }, (data.referredBy?.trim() || refUsername || undefined));
         navigate('/');
       }
     } catch (e) {
@@ -114,6 +114,10 @@ export default function Login() {
           )}
           {tab === 'register' && (
             <input {...register('email', { required: true })} type="email" placeholder="E-posta"
+              className="w-full bg-bg-base border border-white/10 rounded-lg px-4 py-3 text-text-1 placeholder-text-3 focus:outline-none focus:border-primary transition" />
+          )}
+          {tab === 'register' && (
+            <input {...register('referredBy')} defaultValue={refUsername || ''} placeholder="Referans kullanıcısı (opsiyonel)"
               className="w-full bg-bg-base border border-white/10 rounded-lg px-4 py-3 text-text-1 placeholder-text-3 focus:outline-none focus:border-primary transition" />
           )}
           <div className="relative">
