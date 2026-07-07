@@ -15,6 +15,7 @@ export default function UserSlideOver({ user, onClose, onUpdated }) {
   const [referrals, setReferrals] = useState(null);
   const [transactions, setTransactions] = useState(null);
   const [casinoRounds, setCasinoRounds] = useState(null);
+  const [casinoSummary, setCasinoSummary] = useState(null);
   const [deleteConfirm, setDeleteConfirm] = useState(false);
   const addToast = useToastStore(s => s.add);
 
@@ -27,6 +28,7 @@ export default function UserSlideOver({ user, onClose, onUpdated }) {
     setReferrals(null);
     setTransactions(null);
     setCasinoRounds(null);
+    setCasinoSummary(null);
   }, [user?._id]);
 
   useEffect(() => {
@@ -36,7 +38,10 @@ export default function UserSlideOver({ user, onClose, onUpdated }) {
     if (tab === 'Geçmiş' && transactions === null)
       api.get(`/admin/users/${user._id}/transactions`).then(r => setTransactions(r.data.transactions)).catch(() => setTransactions([]));
     if (tab === 'Casino' && casinoRounds === null)
-      api.get(`/admin/users/${user._id}/casino-rounds`).then(r => setCasinoRounds(r.data.rounds)).catch(() => setCasinoRounds([]));
+      api.get(`/admin/users/${user._id}/casino-rounds`).then(r => {
+        setCasinoRounds(r.data.rounds);
+        setCasinoSummary(r.data.summary);
+      }).catch(() => { setCasinoRounds([]); setCasinoSummary(null); });
   }, [tab, user]);
 
   const patch = async (data) => {
@@ -195,7 +200,7 @@ export default function UserSlideOver({ user, onClose, onUpdated }) {
                 <div>
                   <label className="text-xs text-text-3 mb-1 block">İşlem</label>
                   <div className="flex gap-2">
-                    {[['credit','Ekle'],['debit','Çıkar']].map(([val, label]) => (
+                    {[['credit','Ekle'],['debit','Çıkar'],['bonus','Bonus Ver']].map(([val, label]) => (
                       <label key={val} className="flex-1 flex items-center gap-2 bg-bg-hover border border-white/10 rounded-lg p-2.5 cursor-pointer has-[:checked]:border-primary/50">
                         <input type="radio" value={val} {...register('type', { required: true })} className="accent-primary" />
                         <span className="text-sm text-text-1">{label}</span>
@@ -281,6 +286,34 @@ export default function UserSlideOver({ user, onClose, onUpdated }) {
           {/* CASİNO */}
           {tab === 'Casino' && (
             <div>
+              {casinoSummary && (
+                <div className="mb-4 space-y-3">
+                  <div className="grid grid-cols-2 gap-3">
+                    <div className="bg-bg-hover rounded-xl p-3">
+                      <div className="text-xs text-text-3 mb-1">Bonus Çevrimine Katkı</div>
+                      <div className="font-bold text-yellow-400">₺{casinoSummary.bonusAttributedBet.toFixed(2)}</div>
+                    </div>
+                    <div className="bg-bg-hover rounded-xl p-3">
+                      <div className="text-xs text-text-3 mb-1">Salt Gerçek Bakiye</div>
+                      <div className="font-bold text-primary">₺{casinoSummary.realBet.toFixed(2)}</div>
+                    </div>
+                  </div>
+                  {casinoSummary.byGame.length > 0 && (
+                    <div>
+                      <div className="text-xs text-text-3 mb-2 uppercase tracking-wide">Oyun Kırılımı</div>
+                      <div className="space-y-1.5">
+                        {casinoSummary.byGame.map(g => (
+                          <div key={g._id} className="flex items-center justify-between bg-bg-hover rounded-lg p-2 text-xs">
+                            <span className="text-text-1 font-medium truncate max-w-[45%]">{g.gameTitle || g._id}</span>
+                            <span className="text-text-3">{g.rounds} tur</span>
+                            <span className="text-primary font-bold">₺{g.totalBet.toFixed(0)}</span>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                </div>
+              )}
               {casinoRounds === null ? (
                 <div className="text-center text-text-3 text-sm py-4">Yükleniyor…</div>
               ) : casinoRounds.length === 0 ? (

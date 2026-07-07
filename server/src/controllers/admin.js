@@ -1,7 +1,9 @@
+import mongoose from 'mongoose';
 import User from '../models/User.js';
 import Event from '../models/Event.js';
 import Bet from '../models/Bet.js';
 import Transaction from '../models/Transaction.js';
+import BonusWagering from '../models/BonusWagering.js';
 import GameTask from '../models/GameTask.js';
 import CasinoRound from '../models/CasinoRound.js';
 import CasinoSession from '../models/CasinoSession.js';
@@ -91,6 +93,40 @@ export async function updateBalance(req, res, next) {
     const { amount, type, note } = req.validated;
     const user = await User.findById(req.params.id);
     if (!user) throw createError(404, 'NOT_FOUND', 'Kullanıcı bulunamadı');
+
+    if (type === 'bonus') {
+      const balanceBefore = user.bonusBalance || 0;
+      user.bonusBalance = parseFloat((balanceBefore + amount).toFixed(2));
+      await user.save();
+
+      const wageringMultiplier = 35;
+      const wageringRequired = parseFloat((amount * wageringMultiplier).toFixed(2));
+      const deadline = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000);
+
+      await BonusWagering.create({
+        userId: user._id,
+        source: 'admin_adjustment',
+        description: note || 'Admin tarafından verilen bonus',
+        bonusAmount: amount,
+        wageringRequired,
+        wageringProgress: 0,
+        multiplier: wageringMultiplier,
+        deadline,
+        status: 'active',
+      });
+
+      const transaction = await Transaction.create({
+        userId:        user._id,
+        type:          'bonus',
+        amount,
+        balanceBefore,
+        balanceAfter:  user.bonusBalance,
+        note:          note || '',
+        createdBy:     req.user.id,
+      });
+
+      return res.json({ user: user.toSafeObject(), transaction });
+    }
 
     const balanceBefore = user.balance;
     if (type === 'credit') {
@@ -313,16 +349,54 @@ export async function getUserCasinoRounds(req, res, next) {
     const { page = 1, limit = 30 } = req.query;
     const skip = (Number(page) - 1) * Number(limit);
 
-    const [rounds, total] = await Promise.all([
+    const [rounds, total, byGame, wagerings, allBets] = await Promise.all([
       CasinoRound.find({ userId: req.params.id })
         .sort({ createdAt: -1 })
         .skip(skip)
         .limit(Number(limit))
         .select('gameId gameTitle provider bet payout net balanceBefore balanceAfter createdAt'),
       CasinoRound.countDocuments({ userId: req.params.id }),
+      CasinoRound.aggregate([
+        { $match: { userId: new mongoose.Types.ObjectId(req.params.id) } },
+        { $group: {
+          _id:       '$gameId',
+          gameTitle: { $first: '$gameTitle' },
+          provider:  { $first: '$provider' },
+          rounds:    { $sum: 1 },
+          totalBet:  { $sum: '$bet' },
+          totalPayout: { $sum: '$payout' },
+          ggr:       { $sum: { $multiply: ['$net', -1] } },
+        }},
+        { $sort: { totalBet: -1 } },
+      ]),
+      BonusWagering.find({ userId: req.params.id }).select('createdAt completedAt convertedAt status updatedAt'),
+      CasinoRound.find({ userId: req.params.id }).sort({ createdAt: -1 }).limit(5000).select('bet createdAt'),
     ]);
 
-    res.json({ rounds, total, page: Number(page), pages: Math.ceil(total / Number(limit)) });
+    // Bonus aktiflik pencereleri: [start, end] — end yoksa (hâlâ aktif) Infinity
+    const windows = wagerings.map(w => ({
+      start: w.createdAt,
+      end: w.completedAt || w.convertedAt || (w.status !== 'active' ? w.updatedAt : null),
+    }));
+
+    let bonusAttributedBet = 0;
+    let realBet = 0;
+    for (const round of allBets) {
+      const inWindow = windows.some(w =>
+        round.createdAt >= w.start && (w.end === null || round.createdAt <= w.end)
+      );
+      if (inWindow) bonusAttributedBet += round.bet;
+      else realBet += round.bet;
+    }
+
+    res.json({
+      rounds, total, page: Number(page), pages: Math.ceil(total / Number(limit)),
+      summary: {
+        byGame,
+        bonusAttributedBet: parseFloat(bonusAttributedBet.toFixed(2)),
+        realBet: parseFloat(realBet.toFixed(2)),
+      },
+    });
   } catch(e) { next(e); }
 }
 

@@ -15,6 +15,8 @@ const { spawnSync } = require('child_process');
 const UNIT_SUITES = [
   'test-bonus-wagering.cjs',
   'test-promotion-claim.cjs',
+  'test-admin-bonus-send.mjs',
+  'test-user-casino-summary.mjs',
 ];
 
 // ─── Casino Integration Tests (real DB, mocked or real Palace) ────────────
