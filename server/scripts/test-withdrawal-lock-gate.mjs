@@ -89,27 +89,36 @@ await test('transactions.withdraw: confirmForfeit:true → bonus feda edilir, ba
   const user = await User.create({ username: 'test_wlg_u3', email: 'wlg3@test.com', password: 'x', balance: 150 });
   await BonusWagering.create({
     userId: user._id, source: 'promotion', description: 'Test',
-    bonusAmount: 100, wageringRequired: 3500, wageringProgress: 0,
+    bonusAmount: 100, wageringRequired: 3500, wageringProgress: 1750,
     multiplier: 35, status: 'active',
   });
-  // wageringProgress:0 → forfeitRatio=1.0 → forfeitAmount=100
-  // forfeit sonrası balance = 150-100=50; çekim 50 istenirse tam withdrawable olur
+  // locked = 100 (tüm bonusAmount, ilerlemeden bağımsız — "hep-ya-hiç" kilit modeli)
+  // withdrawable (forfeit öncesi) = 150-100 = 50
+  // wageringProgress:1750 (%50) → forfeitRatio=0.5 → forfeitAmount=50
+  // forfeit sonrası balance = 150-50=100
+  // amount=80 > withdrawable(50) → forfeit tetiklenir; forfeit sonrası balance(100) >= 80 → çekim başarılı
+  // newBalance = 100-80 = 20
+  // NOT: wageringProgress:0 (tam forfeit, ratio=1.0) kullanılırsa forfeit sonrası balance HER ZAMAN
+  // forfeit-öncesi withdrawable'a eşit olur (150-100=50) — yani %100 forfeit hiçbir ek çekilebilir
+  // para KAZANDIRMAZ (kilitli parayı feda etmek yalnızca bonus-öncesi bakiyeye döndürür). Bu yüzden
+  // forfeit'in gerçekten fayda sağladığı bir senaryo için KISMİ ilerleme (ratio<1.0) şart.
 
-  const { req, res, next, getResult } = fakeReqRes(user._id.toString(), { amount: 50, iban: VALID_IBAN, fullName: 'Test User', confirmForfeit: true });
+  const { req, res, next, getResult } = fakeReqRes(user._id.toString(), { amount: 80, iban: VALID_IBAN, fullName: 'Test User', confirmForfeit: true });
   await txCtrl.withdraw(req, res, next);
 
   const result = getResult();
-  assert(result.newBalance === 0, `newBalance 0 olmalıydı (150-100 forfeit-50 çekim), ${result?.newBalance} bulundu`);
+  assert(result.newBalance === 20, `newBalance 20 olmalıydı (150-50 forfeit-80 çekim), ${result?.newBalance} bulundu`);
 
   const wagering = await BonusWagering.findOne({ userId: user._id });
   assert(wagering.status === 'forfeited', 'wagering forfeited olmalıydı');
 
   const forfeitTx = await Transaction.findOne({ userId: user._id, type: 'bonus_forfeit' });
   assert(forfeitTx !== null, 'bonus_forfeit Transaction oluşturulmalıydı');
+  assert(Math.abs(forfeitTx.amount - (-50)) < 0.01, `forfeitTx.amount -50 olmalıydı, ${forfeitTx.amount} bulundu`);
 
   const withdrawTx = await Transaction.findOne({ userId: user._id, type: 'withdraw' });
   assert(withdrawTx !== null, 'withdraw Transaction oluşturulmalıydı');
-  assert(withdrawTx.amount === -50, 'withdraw Transaction amount -50 olmalıydı');
+  assert(withdrawTx.amount === -80, 'withdraw Transaction amount -80 olmalıydı');
 });
 
 await test('bank.createWithdraw: withdrawable aşan tutar + aktif bonus + confirmForfeit yok → 409 ACTIVE_BONUS_LOCK, talep oluşmaz', async () => {
@@ -137,11 +146,14 @@ await test('bank.createWithdraw: confirmForfeit:true → bonus feda edilir, tale
   const user = await User.create({ username: 'test_wlg_u5', email: 'wlg5@test.com', password: 'x', balance: 150 });
   await BonusWagering.create({
     userId: user._id, source: 'promotion', description: 'Test',
-    bonusAmount: 100, wageringRequired: 3500, wageringProgress: 0,
+    bonusAmount: 100, wageringRequired: 3500, wageringProgress: 1750,
     multiplier: 35, status: 'active',
   });
+  // withdrawable (forfeit öncesi) = 50; wageringProgress %50 → forfeitAmount=50 → forfeit sonrası balance=100
+  // amount=80 > withdrawable(50) → forfeit tetiklenir; bank.createWithdraw balance'ı debit ETMEZ
+  // (sadece talep oluşturur), bu yüzden final balance forfeit sonrası değerde kalır: 100
 
-  const { req, res, next, getStatus } = fakeReqRes(user._id.toString(), { amount: 50, iban: VALID_IBAN, fullName: 'Test User', confirmForfeit: true });
+  const { req, res, next, getStatus } = fakeReqRes(user._id.toString(), { amount: 80, iban: VALID_IBAN, fullName: 'Test User', confirmForfeit: true });
   await bankCtrl.createWithdraw(req, res, next);
 
   assert(getStatus() === 201, 'HTTP 201 dönmeliydi');
@@ -150,7 +162,7 @@ await test('bank.createWithdraw: confirmForfeit:true → bonus feda edilir, tale
   assert(wagering.status === 'forfeited', 'wagering forfeited olmalıydı');
 
   const updated = await User.findById(user._id);
-  assert(updated.balance === 50, `balance 50 olmalıydı (150-100 forfeit), ${updated.balance} bulundu`);
+  assert(updated.balance === 100, `balance 100 olmalıydı (150-50 forfeit, talep balance'ı debit etmez), ${updated.balance} bulundu`);
 
   const count = await BankDepositRequest.countDocuments({ userId: user._id, type: 'withdraw' });
   assert(count === 1, 'Talep oluşturulmalıydı');

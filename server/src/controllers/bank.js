@@ -37,7 +37,8 @@ export async function createWithdraw(req, res, next) {
 
     const { getSpendableBreakdown, forfeitActiveWagerings } = await import('../services/wagering.js');
     const breakdown = await getSpendableBreakdown(req.user.id);
-    if (breakdown.locked > 0 && amount >= breakdown.withdrawable) {
+    if (amount > breakdown.withdrawable) {
+      if (breakdown.locked <= 0) throw createError(400, 'INSUFFICIENT_BALANCE', 'Yetersiz bakiye');
       if (!confirmForfeit) {
         throw createError(409, 'ACTIVE_BONUS_LOCK', `Bu çekim ₺${breakdown.locked.toFixed(2)} tutarındaki aktif bonusunuzu iptal eder. Onaylıyor musunuz?`);
       }
