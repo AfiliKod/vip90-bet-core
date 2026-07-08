@@ -32,6 +32,17 @@ export default function Promotions() {
     <div className="max-w-3xl mx-auto px-4 py-6">
       <h1 className="text-2xl font-bold text-text-1 mb-6">🎁 Kampanyalar</h1>
       <div className="grid gap-4">
+        <div className="bg-bg-card border border-accent/30 rounded-xl p-5 flex items-center justify-between gap-4" style={{ boxShadow: '0 0 16px rgba(0,212,255,0.08)' }}>
+          <div className="flex-1 min-w-0">
+            <h3 className="font-bold text-text-1 mb-1">🎁 Arkadaşını Getir, %10 Kâr Payı Kazan</h3>
+            <p className="text-text-3 text-sm">Davet ettiğin arkadaşların platforma kazandırdığı kârın %10'u anında hesabına aktarılır — süresiz, sınırsız.</p>
+          </div>
+          <Link to="/profile"
+            className="shrink-0 px-5 py-2.5 rounded-lg text-sm font-semibold text-black transition"
+            style={{ background: 'linear-gradient(90deg, #00d4ff, #7c3aed)', boxShadow: '0 0 12px #00d4ff55' }}>
+            Linkimi Al
+          </Link>
+        </div>
         {promos.map(p => {
           const claimed = p.claimedBy?.some(id => id === user?._id);
           return (

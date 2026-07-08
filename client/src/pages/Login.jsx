@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
+import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import { useForm } from 'react-hook-form';
 import Swal from 'sweetalert2';
 import { useAuthStore } from '../store/authStore';
@@ -7,7 +7,9 @@ import { useToastStore } from '../store/toastStore';
 import { LEGAL_VERSION } from '../data/legalContent';
 
 export default function Login() {
-  const [tab, setTab] = useState('login');
+  const [searchParams] = useSearchParams();
+  const refUsername = searchParams.get('ref');
+  const [tab, setTab] = useState(searchParams.get('tab') === 'register' ? 'register' : 'login');
   const [acceptedTerms, setAcceptedTerms] = useState(false);
   const [acceptedKvkk, setAcceptedKvkk] = useState(false);
   const { login, register: registerFn } = useAuthStore();
@@ -31,7 +33,7 @@ export default function Login() {
           acceptedTerms,
           acceptedKvkk,
           consentVersion: LEGAL_VERSION,
-        });
+        }, (data.referredBy?.trim() || refUsername || undefined));
         navigate('/');
       }
     } catch (e) {
@@ -105,8 +107,17 @@ export default function Login() {
         <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
           <input {...register('username', { required: true })} placeholder="Kullanıcı adı"
             className="w-full bg-bg-base border border-white/10 rounded-lg px-4 py-3 text-text-1 placeholder-text-3 focus:outline-none focus:border-primary transition" />
+          {tab === 'register' && refUsername && (
+            <div className="bg-accent/10 border border-accent/30 rounded-lg px-3 py-2 text-xs text-text-2">
+              🎉 <strong className="text-accent">{refUsername}</strong> sizi davet etti
+            </div>
+          )}
           {tab === 'register' && (
             <input {...register('email', { required: true })} type="email" placeholder="E-posta"
+              className="w-full bg-bg-base border border-white/10 rounded-lg px-4 py-3 text-text-1 placeholder-text-3 focus:outline-none focus:border-primary transition" />
+          )}
+          {tab === 'register' && (
+            <input {...register('referredBy')} defaultValue={refUsername || ''} placeholder="Referans kullanıcısı (opsiyonel)"
               className="w-full bg-bg-base border border-white/10 rounded-lg px-4 py-3 text-text-1 placeholder-text-3 focus:outline-none focus:border-primary transition" />
           )}
           <div className="relative">

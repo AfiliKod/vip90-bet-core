@@ -21,6 +21,7 @@ const schema = new mongoose.Schema({
   isActive:    { type: Boolean, default: true },
   kycVerified: { type: Boolean, default: false },
   referredBy:        { type: mongoose.Schema.Types.ObjectId, ref: 'User', default: null },
+  totalReferralEarnings: { type: Number, default: 0, min: 0 },
   cryptoDepositIndex: { type: Number, default: null },  // HD wallet index (atandıktan sonra değişmez)
   palaceUserCode:    { type: String, default: null },   // Palace Casino user_code (for provider callbacks)
   deletedAt:   { type: Date, default: null },

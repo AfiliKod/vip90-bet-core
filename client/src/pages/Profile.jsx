@@ -429,6 +429,26 @@ const handleBankSubmit = async () => {
           </div>
         )}
 
+        {/* ── Arkadaşını Davet Et ── */}
+        <div className="mb-5 bg-bg-base/40 border border-accent/20 rounded-xl p-4">
+          <div className="text-[10px] uppercase tracking-widest font-bold mb-2" style={{ color: '#8899bb' }}>
+            🎁 Arkadaşını Davet Et
+          </div>
+          <p className="text-xs text-text-3 mb-3">
+            Davet ettiğin arkadaşın platforma kazandırdığı kârın %10'u anında senin hesabına aktarılır.
+          </p>
+          <div className="flex items-center justify-between mb-1">
+            <span className="text-xs text-text-3">Referans Linkin</span>
+            <CopyButton text={`${window.location.origin}/login?ref=${user?.username}&tab=register`} />
+          </div>
+          <div className="bg-bg-base border border-white/10 rounded-lg px-3 py-2 font-mono text-xs text-text-1 break-all mb-3">
+            {`${window.location.origin}/login?ref=${user?.username}&tab=register`}
+          </div>
+          <div className="text-sm text-text-1">
+            Şimdiye kadar kazandığın: <span className="font-bold text-accent">₺{(user?.totalReferralEarnings ?? 0).toFixed(2)}</span>
+          </div>
+        </div>
+
         {/* ── Para Yatır / Para Çek konteynırı ── */}
         <div className="bg-bg-base/60 border border-white/[0.06] rounded-2xl p-4 sm:p-5">
           {/* Üst: Para Yatır / Para Çek toggle */}
