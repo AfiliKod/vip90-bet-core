@@ -50,6 +50,15 @@ export const useAuthStore = create((set) => ({
     localStorage.removeItem('accessToken');
     set({ user: null, token: null });
   },
+  // Sunucuya /auth/logout ÇAĞIRMADAN yerel oturum durumunu temizler.
+  // 401 interceptor'ı kullanır: sunucu zaten session'ı reddetti, tek yapılacak
+  // istemci state'ini (guard'ların/menünün baktığı user) anında sıfırlamak.
+  clearAuth: () => {
+    const state = useAuthStore.getState();
+    disconnectUserSocket(state.user?._id || state.user?.id);
+    localStorage.removeItem('accessToken');
+    set({ user: null, token: null });
+  },
   setUser: (user) => set({ user }),
   updateBalance: (balance) => set(s => ({ user: s.user ? { ...s.user, balance } : null })),
 }));
