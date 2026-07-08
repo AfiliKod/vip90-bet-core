@@ -20,30 +20,34 @@ export async function deposit(req, res, next) {
 }
 
 export async function withdraw(req, res, next) {
-  const session = await mongoose.startSession();
-  session.startTransaction();
   try {
-    const { amount } = req.validated;
-    const user = await User.findById(req.user.id).session(session);
-    if (user.balance < amount) throw createError(400,'INSUFFICIENT_BALANCE','Yetersiz bakiye');
-    const balanceBefore = user.balance;
-    user.balance = +(user.balance - amount).toFixed(2);
-    await user.save({ session });
-    await Transaction.create([{ userId: user._id, type:'withdraw', amount: -amount, balanceBefore, balanceAfter: user.balance }], { session });
-    await session.commitTransaction();
-    session.endSession();
+    const { amount, confirmForfeit } = req.validated;
+    const { getSpendableBreakdown, forfeitActiveWagerings } = await import('../services/wagering.js');
+    const breakdown = await getSpendableBreakdown(req.user.id);
 
-    // Aktif bonus wagering varsa bilgilendir (forfeit bilgilendirmesi)
-    try {
-      const BonusWagering = (await import('../models/BonusWagering.js')).default;
-      const activeWagerings = await BonusWagering.find({ userId: user._id, status: 'active' });
-      if (activeWagerings.length > 0) {
-        // Not: bonus forfeit sadece kullanıcı onaylarsa olur
-        // Şu an otomatik forfeit YOK — kullanıcıya info veriyoruz
+    if (breakdown.locked > 0 && amount >= breakdown.withdrawable) {
+      if (!confirmForfeit) {
+        throw createError(409, 'ACTIVE_BONUS_LOCK', `Bu çekim ₺${breakdown.locked.toFixed(2)} tutarındaki aktif bonusunuzu iptal eder. Onaylıyor musunuz?`);
       }
-    } catch (e) {}
+      await forfeitActiveWagerings(req.user.id);
+    }
 
-    res.json({ newBalance: user.balance, message: `${amount}₺ çekildi` });
-  } catch(e) { await session.abortTransaction(); next(e); }
-  finally { session.endSession(); }
+    const session = await mongoose.startSession();
+    session.startTransaction();
+    try {
+      const user = await User.findById(req.user.id).session(session);
+      if (user.balance < amount) throw createError(400,'INSUFFICIENT_BALANCE','Yetersiz bakiye');
+      const balanceBefore = user.balance;
+      user.balance = +(user.balance - amount).toFixed(2);
+      await user.save({ session });
+      await Transaction.create([{ userId: user._id, type:'withdraw', amount: -amount, balanceBefore, balanceAfter: user.balance }], { session });
+      await session.commitTransaction();
+      res.json({ newBalance: user.balance, message: `${amount}₺ çekildi` });
+    } catch (e) {
+      await session.abortTransaction();
+      throw e;
+    } finally {
+      session.endSession();
+    }
+  } catch(e) { next(e); }
 }

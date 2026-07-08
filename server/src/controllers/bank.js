@@ -28,12 +28,23 @@ export async function createDeposit(req, res, next) {
 
 export async function createWithdraw(req, res, next) {
   try {
-    const { amount } = req.validated;
-    const user = await User.findById(req.user.id);
+    const { amount, confirmForfeit } = req.validated;
+    let user = await User.findById(req.user.id);
     if (user.withdrawalLockUntil && user.withdrawalLockUntil > new Date()) {
       const remaining = Math.ceil((user.withdrawalLockUntil - new Date()) / 1000 / 60);
       throw createError(400, 'WITHDRAWAL_LOCKED', `Şifre değişikliğinden sonra ${remaining} dakika beklemelisiniz`);
     }
+
+    const { getSpendableBreakdown, forfeitActiveWagerings } = await import('../services/wagering.js');
+    const breakdown = await getSpendableBreakdown(req.user.id);
+    if (breakdown.locked > 0 && amount >= breakdown.withdrawable) {
+      if (!confirmForfeit) {
+        throw createError(409, 'ACTIVE_BONUS_LOCK', `Bu çekim ₺${breakdown.locked.toFixed(2)} tutarındaki aktif bonusunuzu iptal eder. Onaylıyor musunuz?`);
+      }
+      await forfeitActiveWagerings(req.user.id);
+      user = await User.findById(req.user.id);
+    }
+
     if (user.balance < amount) throw createError(400, 'INSUFFICIENT_BALANCE', 'Yetersiz bakiye');
     const withdraw = await BankDepositRequest.create({
       userId: req.user.id,
