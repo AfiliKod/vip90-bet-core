@@ -17,6 +17,7 @@ const UNIT_SUITES = [
   'test-promotion-claim.cjs',
   'test-admin-bonus-send.mjs',
   'test-withdrawal-lock-gate.mjs',         // Kilitli Bakiye çekim kapısı (#17)
+  'test-auth-locked-balance.mjs',          // auth yanıtlarında locked/withdrawable (#17)
   'test-user-casino-summary.mjs',
   'test-referral-commission-service.mjs',  // payReferralCommission() logic (no Palace API)
   'test-settlement-referral.mjs',          // settleEvent referral payout (no Palace API)
