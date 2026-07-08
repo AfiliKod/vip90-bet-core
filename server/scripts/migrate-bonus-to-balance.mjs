@@ -23,7 +23,7 @@ config({ path: resolve(__dirname, '../.env') });
 
 import mongoose from 'mongoose';
 import User from '../src/models/User.js';
-import BonusWagering from '../src/models/BonusWagering.js';
+import { getLockedAmount } from '../src/services/wagering.js';
 
 const _processedUserIds = new Set();
 
@@ -35,8 +35,7 @@ export async function migrateBonusToBalance({ dryRun = true } = {}) {
   const skipped = [];
 
   for (const user of candidates) {
-    const active = await BonusWagering.find({ userId: user._id, status: 'active' }).select('bonusAmount');
-    const locked = parseFloat(active.reduce((sum, w) => sum + w.bonusAmount, 0).toFixed(2));
+    const locked = await getLockedAmount(user._id);
 
     if (locked <= 0) {
       skipped.push({ userId: user._id.toString(), reason: 'no_active_wagering' });
