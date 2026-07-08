@@ -95,8 +95,8 @@ export async function updateBalance(req, res, next) {
     if (!user) throw createError(404, 'NOT_FOUND', 'Kullanıcı bulunamadı');
 
     if (type === 'bonus') {
-      const balanceBefore = user.bonusBalance || 0;
-      user.bonusBalance = parseFloat((balanceBefore + amount).toFixed(2));
+      const balanceBefore = user.balance;
+      user.balance = parseFloat((user.balance + amount).toFixed(2));
       await user.save();
 
       const wageringMultiplier = 35;
@@ -120,10 +120,15 @@ export async function updateBalance(req, res, next) {
         type:          'bonus',
         amount,
         balanceBefore,
-        balanceAfter:  user.bonusBalance,
+        balanceAfter:  user.balance,
         note:          note || '',
         createdBy:     req.user.id,
       });
+
+      // bonusBalance artık kilitli/çevrim bekleyen tutarın göstergesi (mirror).
+      const { getLockedAmount } = await import('../services/wagering.js');
+      user.bonusBalance = await getLockedAmount(user._id);
+      await user.save();
 
       return res.json({ user: user.toSafeObject(), transaction });
     }
