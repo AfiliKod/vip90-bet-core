@@ -107,8 +107,9 @@ export default function Live() {
   }
 
   return (
-    <div className="max-w-full px-4 py-4">
+    <div>
       <LiveHeroSlider />
+      <div className="max-w-full px-4 py-4">
       {/* Başlık + arama */}
       <div className="flex items-center gap-3 mb-4 flex-wrap">
         <div className="flex items-center gap-2">
@@ -194,6 +195,7 @@ export default function Live() {
         </main>
 
         <BetSlip />
+      </div>
       </div>
     </div>
   );
