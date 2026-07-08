@@ -17,6 +17,10 @@ const UNIT_SUITES = [
   'test-promotion-claim.cjs',
   'test-admin-bonus-send.mjs',
   'test-user-casino-summary.mjs',
+  'test-referral-commission-service.mjs',  // payReferralCommission() logic (no Palace API)
+  'test-settlement-referral.mjs',          // settleEvent referral payout (no Palace API)
+  'test-casino-referral.mjs',              // inhouse hook referral payout (no Palace API)
+  'test-palace-session-referral.mjs',      // closePalaceSession referral (Palace service mocked)
 ];
 
 // ─── Casino Integration Tests (real DB, mocked or real Palace) ────────────
