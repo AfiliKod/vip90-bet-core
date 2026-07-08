@@ -264,8 +264,13 @@ const handleBankSubmit = async (confirmForfeit = false) => {
                           || 'İşlem başarısız';
        if (errorCode === 'ACTIVE_BONUS_LOCK' && !confirmForfeit) {
          if (window.confirm(`${errorMessage}\n\nDevam etmek istiyor musunuz?`)) {
-           setSubmitting(false);
-           return handleBankSubmit(true);
+           // setSubmitting(false) burada ÇAĞRILMAZ: dışarıdaki finally, bu
+           // await'in sonucu beklenmeden senkron olarak setSubmitting(false)
+           // çalıştırırdı (return + finally JS semantiği), retry isteği hâlâ
+           // devam ederken submit butonunu erken açıp çift-gönderime yol açar.
+           // `await` ile bekleyip sonucu return etmek, dış finally'nin yalnızca
+           // retry TAMAMEN bitince çalışmasını garanti eder.
+           return await handleBankSubmit(true);
          }
        } else {
          addToast(errorMessage, 'error');
