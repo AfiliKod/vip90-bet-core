@@ -69,7 +69,7 @@ async function createPromotion(opts = {}) {
 
 // 1. claim adds bonusBalance + creates BonusWagering
 async function testClaimCreatesBonusAndWagering() {
-  console.log('\n[TEST 1] claim: adds bonusBalance + creates BonusWagering');
+  console.log('\n[TEST 1] claim: Model B — balance artar (anında oynanabilir) + bonusBalance mirror + BonusWagering oluşur');
   const User = require('../src/models/User.js').default;
   const BonusWagering = require('../src/models/BonusWagering.js').default;
   const Transaction = require('../src/models/Transaction.js').default;
@@ -78,16 +78,18 @@ async function testClaimCreatesBonusAndWagering() {
   const user = await createTestUser();
   const promo = await createPromotion({ amount: 200, wageringMultiplier: 30 });
 
-  const req = { params: { id: promo._id.toString() }, user: { id: user._id.toString() } };
+  const req = { params: { id: promo._id.toString() }, body: { acceptedBonusTerms: true }, user: { id: user._id.toString() } };
   let result;
   const res = { json: (data) => { result = data; } };
   await ctrl.claim(req, res, () => {});
 
-  assert(result.bonusBalance === 200, `bonusBalance = ${result.bonusBalance}`);
+  assert(result.balance === 200, `balance = ${result.balance} (Model B: bonus anında balance'a eklenir)`);
+  assert(result.bonusBalance === 200, `bonusBalance (locked mirror) = ${result.bonusBalance}`);
   assert(result.wageringRequired === 6000, `wageringRequired = ${result.wageringRequired} (200 * 30)`);
 
   const updatedUser = await User.findById(user._id);
-  assert(updatedUser.bonusBalance === 200, 'user.bonusBalance = 200');
+  assert(updatedUser.balance === 200, 'user.balance = 200 (anında oynanabilir)');
+  assert(updatedUser.bonusBalance === 200, 'user.bonusBalance (locked mirror) = 200');
 
   const wagering = await BonusWagering.findOne({ userId: user._id });
   assert(wagering !== null, 'BonusWagering created');
@@ -99,6 +101,7 @@ async function testClaimCreatesBonusAndWagering() {
   const tx = await Transaction.findOne({ userId: user._id, type: 'bonus' });
   assert(tx !== null, 'Transaction (bonus) created');
   assert(tx.amount === 200, 'Transaction amount = 200');
+  assert(tx.balanceAfter === 200, 'Transaction balanceAfter = balance (Model B)');
 }
 
 // 2. claim rejects if already claimed
@@ -112,7 +115,7 @@ async function testClaimRejectsDuplicate() {
   promo.claimedBy.push(user._id);
   await promo.save();
 
-  const req = { params: { id: promo._id.toString() }, user: { id: user._id.toString() } };
+  const req = { params: { id: promo._id.toString() }, body: { acceptedBonusTerms: true }, user: { id: user._id.toString() } };
   let error;
   const res = {};
   await ctrl.claim(req, res, (err) => { error = err; });
@@ -129,7 +132,7 @@ async function testClaimRejectsInactive() {
   const user = await createTestUser();
   const promo = await createPromotion({ isActive: false });
 
-  const req = { params: { id: promo._id.toString() }, user: { id: user._id.toString() } };
+  const req = { params: { id: promo._id.toString() }, body: { acceptedBonusTerms: true }, user: { id: user._id.toString() } };
   let error;
   const res = {};
   await ctrl.claim(req, res, (err) => { error = err; });
@@ -147,7 +150,7 @@ async function testClaimWithDeadline() {
   const user = await createTestUser();
   const promo = await createPromotion({ amount: 50, deadlineDays: 7 });
 
-  const req = { params: { id: promo._id.toString() }, user: { id: user._id.toString() } };
+  const req = { params: { id: promo._id.toString() }, body: { acceptedBonusTerms: true }, user: { id: user._id.toString() } };
   let result;
   const res = { json: (data) => { result = data; } };
   await ctrl.claim(req, res, () => {});
@@ -170,7 +173,7 @@ async function testClaimWithCustomWeights() {
   const customWeights = { sports: 2.0, casino_slot: 0.1, casino_live: 0.5 };
   const promo = await createPromotion({ gameWeights: customWeights });
 
-  const req = { params: { id: promo._id.toString() }, user: { id: user._id.toString() } };
+  const req = { params: { id: promo._id.toString() }, body: { acceptedBonusTerms: true }, user: { id: user._id.toString() } };
   let result;
   const res = { json: (data) => { result = data; } };
   await ctrl.claim(req, res, () => {});
@@ -220,13 +223,12 @@ async function testMyWagerings() {
 
 // 7. convert endpoint converts completed wagering
 async function testConvertEndpoint() {
-  console.log('\n[TEST 7] convert endpoint: completed → cash');
+  console.log('\n[TEST 7] convert endpoint: completed → converted (Model B: balance grant anında eklenmişti, convert tekrar eklemez)');
   const User = require('../src/models/User.js').default;
   const BonusWagering = require('../src/models/BonusWagering.js').default;
-  const Transaction = require('../src/models/Transaction.js').default;
   const ctrl = require('../src/controllers/promotions.js');
 
-  const user = await createTestUser({ balance: 500 });
+  const user = await createTestUser({ balance: 500 }); // grant anında zaten eklenmiş varsayımı
   const wagering = await BonusWagering.create({
     userId: user._id,
     source: 'test',
@@ -246,14 +248,10 @@ async function testConvertEndpoint() {
   await ctrl.convert(req, res, () => {});
 
   assert(result.convertedAmount === 100, `convertedAmount = ${result.convertedAmount}`);
-  assert(result.newBalance === 600, `newBalance = ${result.newBalance}`);
+  assert(result.newBalance === 500, `newBalance = ${result.newBalance} (değişmedi, Model B)`);
 
   const updated = await BonusWagering.findById(wagering._id);
   assert(updated.status === 'converted', 'wagering.status = converted');
-
-  const tx = await Transaction.findOne({ userId: user._id, type: 'bonus_conversion' });
-  assert(tx !== null, 'bonus_conversion Transaction created');
-  assert(tx.amount === 100, 'Transaction amount = 100');
 }
 
 // 8. convert rejects non-completed wagering
@@ -287,7 +285,7 @@ async function testConvertRejectsIncomplete() {
 
 // 9. Multiple claim attempts on different promos stack
 async function testMultiplePromosStack() {
-  console.log('\n[TEST 9] multiple promos: bonusBalance accumulates, separate wagerings');
+  console.log('\n[TEST 9] multiple promos: balance + bonusBalance mirror accumulates, separate wagerings');
   const User = require('../src/models/User.js').default;
   const BonusWagering = require('../src/models/BonusWagering.js').default;
   const ctrl = require('../src/controllers/promotions.js');
@@ -297,13 +295,14 @@ async function testMultiplePromosStack() {
   const promo2 = await createPromotion({ amount: 50 });
 
   for (const promo of [promo1, promo2]) {
-    const req = { params: { id: promo._id.toString() }, user: { id: user._id.toString() } };
+    const req = { params: { id: promo._id.toString() }, body: { acceptedBonusTerms: true }, user: { id: user._id.toString() } };
     const res = { json: () => {} };
     await ctrl.claim(req, res, () => {});
   }
 
   const updated = await User.findById(user._id);
-  assert(updated.bonusBalance === 150, `bonusBalance = ${updated.bonusBalance}`);
+  assert(updated.balance === 150, `balance = ${updated.balance} (Model B: her iki bonus da anında balance'a eklendi)`);
+  assert(updated.bonusBalance === 150, `bonusBalance (locked mirror) = ${updated.bonusBalance}`);
 
   const wagerings = await BonusWagering.find({ userId: user._id });
   assert(wagerings.length === 2, `Created ${wagerings.length} wagerings`);
@@ -322,23 +321,23 @@ async function testConcurrentClaims() {
 
   const [r1, r2] = await Promise.all([
     new Promise(resolve => {
-      const req = { params: { id: promo._id.toString() }, user: { id: user._id.toString() } };
+      const req = { params: { id: promo._id.toString() }, body: { acceptedBonusTerms: true }, user: { id: user._id.toString() } };
       const res = { json: resolve };
       ctrl.claim(req, res, () => resolve(null));
     }),
     new Promise(resolve => {
-      const req = { params: { id: promo._id.toString() }, user: { id: user._id.toString() } };
+      const req = { params: { id: promo._id.toString() }, body: { acceptedBonusTerms: true }, user: { id: user._id.toString() } };
       const res = { json: resolve };
       ctrl.claim(req, res, () => resolve(null));
     }),
   ]);
 
-  // One should succeed (json called), one should fail (next called with error)
   const successes = [r1, r2].filter(r => r !== null);
   assert(successes.length === 1, `Only 1 success (got ${successes.length})`);
 
   const updated = await User.findById(user._id);
-  assert(updated.bonusBalance === 100, `bonusBalance = ${updated.bonusBalance} (single claim)`);
+  assert(updated.balance === 100, `balance = ${updated.balance} (single claim, Model B)`);
+  assert(updated.bonusBalance === 100, `bonusBalance (locked mirror) = ${updated.bonusBalance} (single claim)`);
 
   const wagerings = await BonusWagering.find({ userId: user._id });
   assert(wagerings.length === 1, `Created ${wagerings.length} wagerings`);
