@@ -224,13 +224,13 @@ export default function Profile() {
     setSelectedAmount(null);
   };
 
-const handleBankSubmit = async () => {
+const handleBankSubmit = async (confirmForfeit = false) => {
      const amount = selectedAmount || parseFloat(customAmount);
      if (!amount || amount <= 0) return;
      setSubmitting(true);
      try {
        const endpoint = mode === 'deposit' ? '/bank/deposit' : '/bank/withdraw';
-       
+
        // Prepare data based on mode and method
        let requestData = { amount };
        if (method === 'bank') {
@@ -239,7 +239,8 @@ const handleBankSubmit = async () => {
            requestData = {
              amount,
              iban,
-             fullName
+             fullName,
+             confirmForfeit
            };
          } else {
            // For bank deposits, include all fields for completeness (though only amount is validated)
@@ -251,17 +252,24 @@ const handleBankSubmit = async () => {
            };
          }
        }
-       
+
        const { data } = await api.post(endpoint, requestData);
        setSuccessRequest({ amount, ...data });
        addToast(data.message, 'success');
      } catch (e) {
-       // Properly extract error message from response
-       const errorMessage = e.response?.data?.error?.message 
-                          || e.response?.data?.error 
-                          || e.response?.data 
+       const errorCode = e.response?.data?.error?.code;
+       const errorMessage = e.response?.data?.error?.message
+                          || e.response?.data?.error
+                          || e.response?.data
                           || 'İşlem başarısız';
-       addToast(errorMessage, 'error');
+       if (errorCode === 'ACTIVE_BONUS_LOCK' && !confirmForfeit) {
+         if (window.confirm(`${errorMessage}\n\nDevam etmek istiyor musunuz?`)) {
+           setSubmitting(false);
+           return handleBankSubmit(true);
+         }
+       } else {
+         addToast(errorMessage, 'error');
+       }
      } finally { setSubmitting(false); }
    };
 
@@ -296,9 +304,14 @@ const handleBankSubmit = async () => {
           <div className="ml-auto text-right">
             <div className="text-2xl sm:text-3xl font-black" style={{ color: '#00d4ff' }}>₺{(user?.balance ?? 0).toFixed(2)}</div>
             <div className="text-text-3 text-xs mt-1">Ana Bakiye</div>
-            {user?.bonusBalance > 0 && (
-              <div className="text-sm font-bold mt-1" style={{ background: 'linear-gradient(90deg, #00d4ff, #7c3aed)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent', backgroundClip: 'text' }}>
-                + ₺{user.bonusBalance.toFixed(2)} Bonus
+            {user?.locked > 0 && (
+              <div className="text-sm font-bold mt-1" style={{ color: '#fbbf24' }}>
+                🔒 ₺{user.locked.toFixed(2)} kilitli (aktif bonus)
+              </div>
+            )}
+            {user?.withdrawable != null && (
+              <div className="text-[11px] mt-1" style={{ color: '#7c8aae' }}>
+                Çekilebilir: ₺{user.withdrawable.toFixed(2)}
               </div>
             )}
             {user?.activePalaceBalance != null && (
@@ -581,7 +594,7 @@ const handleBankSubmit = async () => {
                   className="flex-1 py-2.5 border border-white/20 text-text-3 rounded-xl text-sm font-medium hover:bg-bg-hover transition">
                   Geri
                 </button>
-                <button onClick={handleBankSubmit} disabled={submitting}
+                <button onClick={() => handleBankSubmit()} disabled={submitting}
                   className="flex-1 py-2.5 bg-accent text-white font-semibold rounded-xl text-sm hover:opacity-90 transition disabled:opacity-50">
                   {submitting ? 'Gönderiliyor...' : '✅ Havale Bildirimi Yap'}
                 </button>
@@ -678,7 +691,7 @@ const handleBankSubmit = async () => {
                       className="flex-1 py-2.5 border border-white/20 text-text-3 rounded-xl text-sm font-medium hover:bg-bg-hover transition">
                       Geri
                     </button>
-                    <button onClick={handleBankSubmit} disabled={submitting || amount > (user?.balance || 0)}
+                    <button onClick={() => handleBankSubmit()} disabled={submitting || amount > (user?.balance || 0)}
                       className="flex-1 py-2.5 bg-accent text-white font-semibold rounded-xl text-sm hover:opacity-90 transition disabled:opacity-50">
                       {submitting ? 'Gönderiliyor...' : '✅ Çekim Talebi Oluştur'}
                     </button>
