@@ -95,6 +95,11 @@ connectDB()
     startoddsSourceLiveSync(io);
     startoddsSourceUpcomingSync(io);
     startReconciliation();
+    // Casino statik cache'ini boot'ta ısıt (best-effort, non-blocking) — ilk
+    // kullanıcı Palace API soğuk maliyetini beklemesin.
+    import('./services/palaceCasinoService.js')
+      .then(m => m.warmCache())
+      .catch(() => {});
   })
   .catch(err => {
     console.error('DB bağlantı hatası:', err.message);
