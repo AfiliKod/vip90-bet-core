@@ -66,7 +66,7 @@ export default function Sidebar() {
       <div className="px-3 pt-4 pb-1">
         {/* Tümü */}
         <button
-          onClick={() => { setSportFilter('all'); if (isLivePage) navigate('/bahis'); }}
+          onClick={() => { setSportFilter('all'); }}
           className={`relative w-full flex items-center gap-2 px-2.5 py-2 rounded-lg text-xs transition-all overflow-hidden ${
             selectedSport === 'all' && !isLivePage
               ? 'text-black'
