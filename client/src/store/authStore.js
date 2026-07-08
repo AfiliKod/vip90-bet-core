@@ -61,4 +61,5 @@ export const useAuthStore = create((set) => ({
   },
   setUser: (user) => set({ user }),
   updateBalance: (balance) => set(s => ({ user: s.user ? { ...s.user, balance } : null })),
+  updateBonusBalance: (bonusBalance) => set(s => ({ user: s.user ? { ...s.user, bonusBalance } : null })),
 }));

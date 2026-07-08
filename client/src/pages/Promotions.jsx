@@ -10,6 +10,7 @@ export default function Promotions() {
   const [acceptedTC, setAcceptedTC] = useState(false);
   const addToast = useToastStore(s => s.add);
   const user = useAuthStore(s => s.user);
+  const updateBonusBalance = useAuthStore(s => s.updateBonusBalance);
 
   useEffect(() => { api.get('/promotions').then(r => setPromos(r.data.promotions)).catch(() => {}); }, []);
 
@@ -20,6 +21,9 @@ export default function Promotions() {
         acceptedBonusTerms: true,
       });
       addToast(data.message, 'success');
+      // Claim yanıtındaki güncel bonusBalance'ı store'a yaz — yoksa UI (Profile/başlık
+      // bonus göstergesi) reload'a kadar stale kalıyordu.
+      if (typeof data.bonusBalance === 'number') updateBonusBalance(data.bonusBalance);
       setPromos(p => p.map(x => x._id === activePromo._id ? { ...x, claimedBy: [...(x.claimedBy || []), user?._id] } : x));
       setActivePromo(null);
       setAcceptedTC(false);
