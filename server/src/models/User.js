@@ -8,6 +8,11 @@ const schema = new mongoose.Schema({
   role:     { type: String, enum: ['user','admin'], default: 'user' },
   balance:  { type: Number, default: 0, min: 0 },
   bonusBalance: { type: Number, default: 0, min: 0 },
+  // ─── Model B (Kilitli Bakiye) tek seferlik migration marker ───────
+  // migrate-bonus-to-balance.mjs --commit çalıştıktan sonra set edilir.
+  // İn-memory Set process yeniden başlatıldığında sıfırlandığı için,
+  // çift-kredi'ye karşı asıl (kalıcı) koruma budur (bkz. #17 final review Finding 2).
+  bonusModelBMigratedAt: { type: Date, default: null },
   preferences: {
     avatarColor:      { type: String,   default: '#7c3aed' },
     favoriteSports:   { type: [String], default: [] },

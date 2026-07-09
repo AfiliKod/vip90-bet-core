@@ -5,10 +5,15 @@
 // GÜVENLİK: varsayılan --dry-run. Gerçek yazım için --commit gerekir.
 // Bu script TEK SEFERLİK, deploy hemen sonrası (Task 2/3'teki claim/admin
 // bonus akışları Model B'ye geçtikten hemen sonra, herhangi bir yeni bonus
-// verilmeden önce) çalıştırılmalıdır. _processedUserIds Set'i yalnızca AYNI
-// process çalıştırması içinde çift-işlemeyi engeller (test idempotency'si
-// için); process yeniden başlatılırsa script tekrar TÜM adayları bulur —
-// bu yüzden operasyonel olarak yalnızca BİR KEZ, --commit ile çalıştırılmalıdır.
+// verilmeden önce) çalıştırılmalıdır.
+//
+// İDEMPOTENCY: asıl (kalıcı) koruma User.bonusModelBMigratedAt alanıdır —
+// commit modunda migrate edilen her kullanıcıya set edilir ve aday sorgusu
+// bu alanı null olanlarla sınırlar. Böylece script farklı bir OS process
+// olarak (örn. yanlışlıkla) tekrar --commit ile çalıştırılsa bile, zaten
+// migrate edilmiş kullanıcılar bir daha ASLA seçilmez (çift-kredi imkansız).
+// _processedUserIds Set'i yalnızca AYNI process çalıştırması içinde ek bir
+// savunma katmanıdır (defense-in-depth), asıl garanti DB marker'ındandır.
 //
 // Çalıştır:
 //   node migrate-bonus-to-balance.mjs --dry-run   (varsayılan, sadece raporlar)
@@ -28,7 +33,7 @@ import { getLockedAmount } from '../src/services/wagering.js';
 const _processedUserIds = new Set();
 
 export async function migrateBonusToBalance({ dryRun = true } = {}) {
-  const candidates = await User.find({ bonusBalance: { $gt: 0 } });
+  const candidates = await User.find({ bonusBalance: { $gt: 0 }, bonusModelBMigratedAt: null });
 
   let migratedCount = 0;
   let totalMoved = 0;
@@ -56,6 +61,7 @@ export async function migrateBonusToBalance({ dryRun = true } = {}) {
     const amountToMove = user.bonusBalance;
     user.balance = parseFloat((user.balance + amountToMove).toFixed(2));
     user.bonusBalance = locked;
+    user.bonusModelBMigratedAt = new Date();
     await user.save();
     _processedUserIds.add(user._id.toString());
 

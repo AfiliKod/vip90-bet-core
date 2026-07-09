@@ -90,6 +90,33 @@ await test('idempotent: iki kez commit çalıştırmak balance\'ı tekrar artır
   assert(updated.balance === 120, `balance hâlâ 120 olmalıydı (tekrar eklenmedi), ${updated.balance} bulundu`);
 });
 
+await test('cross-process idempotency: commit sonrası bonusModelBMigratedAt set edilir ve kullanıcı aday sorgusundan bir daha ASLA eşleşmez (yeni process/boş _processedUserIds simülasyonu)', async () => {
+  await resetDb();
+  const user = await User.create({ username: 'test_mbb_u5', email: 'mbb5@test.com', password: 'x', balance: 20, bonusBalance: 100 });
+  await BonusWagering.create({
+    userId: user._id, source: 'promotion', description: 'Eski bonus',
+    bonusAmount: 100, wageringRequired: 3500, wageringProgress: 0,
+    multiplier: 35, status: 'active',
+  });
+
+  await migrateBonusToBalance({ dryRun: false });
+
+  const updated = await User.findById(user._id);
+  assert(updated.bonusModelBMigratedAt !== null, 'bonusModelBMigratedAt set edilmeliydi');
+  assert(updated.balance === 120, `balance 120 olmalıydı (20+100), ${updated.balance} bulundu`);
+
+  // Script'in kullandığı aday sorgusuyla aynı filtre — _processedUserIds'e
+  // (in-memory, process'e özel) hiç bakmadan, tamamen DB marker'ına dayanır.
+  // Bu, ikinci bir OS process'in (boş Set ile) bu kullanıcıyı bir daha asla
+  // seçmeyeceğinin kanıtıdır — çift-kredi artık mümkün değil.
+  const stillCandidate = await User.findOne({ _id: user._id, bonusBalance: { $gt: 0 }, bonusModelBMigratedAt: null });
+  assert(stillCandidate === null, 'migrate edilmiş kullanıcı aday sorgusuyla bir daha ASLA eşleşmemeli');
+
+  // Aynı doğrulamayı toplu adayları çeken sorgu üzerinden de teyit et.
+  const candidatesAfter = await User.find({ bonusBalance: { $gt: 0 }, bonusModelBMigratedAt: null, username: /^test_mbb_u5$/ });
+  assert(candidatesAfter.length === 0, `aday listesi boş olmalıydı, ${candidatesAfter.length} bulundu`);
+});
+
 await resetDb();
 await mongoose.disconnect();
 

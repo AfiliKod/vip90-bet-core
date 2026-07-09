@@ -112,11 +112,50 @@ export async function getConvertibleWagerings(userId) {
 }
 
 /**
+ * Bir wagering için forfeit edilecek tutarı hesaplar (state değiştirmez).
+ * forfeitActiveWagerings ve previewForfeitAmount tarafından paylaşılır (DRY).
+ */
+function computeForfeitAmount(w) {
+  const forfeitRatio = w.wageringRequired > 0
+    ? (w.wageringRequired - w.wageringProgress) / w.wageringRequired
+    : 0;
+  return parseFloat((w.bonusAmount * forfeitRatio).toFixed(2));
+}
+
+/**
+ * forfeitActiveWagerings'in ne kadar tutar feda edeceğini, hiçbir şeyi
+ * değiştirmeden (salt-okunur) hesaplar. Withdraw akışının forfeit'e girmeden
+ * önce "bu işe yarayacak mı" diye önceden doğrulaması içindir — bkz. #17
+ * final review Finding 1: forfeit geri dönüşsüz olduğu için, işe yaramayacaksa
+ * hiç tetiklenmemeli.
+ *
+ * @returns {number} toplam feda edilecek tutar (₺)
+ */
+export async function previewForfeitAmount(userId) {
+  const active = await BonusWagering.find({
+    userId,
+    status: 'active',
+  });
+
+  let totalForfeitedAmount = 0;
+  for (const w of active) {
+    totalForfeitedAmount += computeForfeitAmount(w);
+  }
+  return parseFloat(totalForfeitedAmount.toFixed(2));
+}
+
+/**
  * Aktif wagering varsa bonus'u forfeit eder (çekim talebi için).
  * Model B (Kilitli Bakiye): bonus tutarı zaten user.balance içinde olduğu
  * için forfeit artık balance'ı GERÇEKTEN düşürür (önceki modelde bonus ayrı
  * bir havuzdaydı, forfeit yalnızca "vaadi" iptal ediyordu). Kalan wagering
  * oranına göre kısmi forfeit (tamamlanan kısım feda edilmez).
+ *
+ * UYARI: Bu fonksiyon geri dönüşsüzdür ve mongoose session almaz (kendi
+ * ayrı commit'leriyle yazar). Çağıran taraf (withdraw akışları) bunu
+ * çağırmadan ÖNCE previewForfeitAmount ile "işe yarayacak mı" diye
+ * doğrulamalıdır — aksi halde başarısız bir çekim, hiçbir faydası olmadan
+ * kullanıcının bonusunu yok edebilir.
  *
  * @returns {Array} forfeit edilen wagering'ler + toplam düşülen tutar
  */
@@ -132,10 +171,7 @@ export async function forfeitActiveWagerings(userId) {
   let totalForfeitedAmount = 0;
 
   for (const w of active) {
-    const forfeitRatio = w.wageringRequired > 0
-      ? (w.wageringRequired - w.wageringProgress) / w.wageringRequired
-      : 0;
-    const forfeitAmount = parseFloat((w.bonusAmount * forfeitRatio).toFixed(2));
+    const forfeitAmount = computeForfeitAmount(w);
     totalForfeitedAmount += forfeitAmount;
 
     w.status = 'forfeited';

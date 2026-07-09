@@ -168,6 +168,61 @@ await test('bank.createWithdraw: confirmForfeit:true → bonus feda edilir, tale
   assert(count === 1, 'Talep oluşturulmalıydı');
 });
 
+await test('transactions.withdraw: fresh/unwagered bonus (ratio=1.0) → forfeit yine de yetmiyor → 400 INSUFFICIENT_BALANCE, hiçbir şey bozulmaz', async () => {
+  await resetDb();
+  const user = await User.create({ username: 'test_wlg_u6', email: 'wlg6@test.com', password: 'x', balance: 150 });
+  await BonusWagering.create({
+    userId: user._id, source: 'promotion', description: 'Fresh bonus',
+    bonusAmount: 100, wageringRequired: 3500, wageringProgress: 0,
+    multiplier: 35, status: 'active',
+  });
+  // wageringProgress:0 → forfeitRatio=1.0 → forfeitPreview=100
+  // withdrawable (forfeit öncesi) = 150-100 = 50; amount=80 > 50 → forfeit denenir
+  // predictedWithdrawable = max(0, 150-100) = 50 < 80 → forfeit işe yaramaz, ÖNCEDEN reddedilmeli
+  // (forfeit tetiklenmeden), bonus SAĞLAM kalmalı, balance DEĞİŞMEMELİ
+
+  const { req, res, next } = fakeReqRes(user._id.toString(), { amount: 80, iban: VALID_IBAN, fullName: 'Test User', confirmForfeit: true });
+  let error;
+  await txCtrl.withdraw(req, res, (e) => { error = e; });
+
+  assert(error !== undefined, 'Hata dönmeliydi');
+  assert(error.status === 400, `HTTP status 400 olmalıydı, ${error.status} bulundu`);
+  assert(error.code === 'INSUFFICIENT_BALANCE', `Error code INSUFFICIENT_BALANCE olmalıydı, ${error.code} bulundu`);
+
+  const wagering = await BonusWagering.findOne({ userId: user._id });
+  assert(wagering.status === 'active', `wagering hâlâ active olmalıydı (forfeit edilmemeli), ${wagering.status} bulundu`);
+
+  const updated = await User.findById(user._id);
+  assert(updated.balance === 150, `balance değişmemeliydi (150), ${updated.balance} bulundu`);
+});
+
+await test('bank.createWithdraw: fresh/unwagered bonus (ratio=1.0) → forfeit yine de yetmiyor → 400 INSUFFICIENT_BALANCE, hiçbir şey bozulmaz', async () => {
+  await resetDb();
+  const user = await User.create({ username: 'test_wlg_u7', email: 'wlg7@test.com', password: 'x', balance: 150 });
+  await BonusWagering.create({
+    userId: user._id, source: 'promotion', description: 'Fresh bonus',
+    bonusAmount: 100, wageringRequired: 3500, wageringProgress: 0,
+    multiplier: 35, status: 'active',
+  });
+
+  const { req, res, next } = fakeReqRes(user._id.toString(), { amount: 80, iban: VALID_IBAN, fullName: 'Test User', confirmForfeit: true });
+  let error;
+  await bankCtrl.createWithdraw(req, res, (e) => { error = e; });
+
+  assert(error !== undefined, 'Hata dönmeliydi');
+  assert(error.status === 400, `HTTP status 400 olmalıydı, ${error.status} bulundu`);
+  assert(error.code === 'INSUFFICIENT_BALANCE', `Error code INSUFFICIENT_BALANCE olmalıydı, ${error.code} bulundu`);
+
+  const wagering = await BonusWagering.findOne({ userId: user._id });
+  assert(wagering.status === 'active', `wagering hâlâ active olmalıydı (forfeit edilmemeli), ${wagering.status} bulundu`);
+
+  const updated = await User.findById(user._id);
+  assert(updated.balance === 150, `balance değişmemeliydi (150), ${updated.balance} bulundu`);
+
+  const count = await BankDepositRequest.countDocuments({ userId: user._id });
+  assert(count === 0, 'Talep oluşturulmamalıydı');
+});
+
 await resetDb();
 await mongoose.disconnect();
 
