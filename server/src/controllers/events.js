@@ -56,7 +56,7 @@ export async function list(req, res, next) {
     const futureLimit = new Date(Date.now() + FUTURE_WINDOW_MS);
 
     const cacheable = !isFull && +page === 1;
-    const cacheKey = cacheable ? `${sport || 'all'}|${status || ''}` : null;
+    const cacheKey = cacheable ? `${sport || 'all'}|${status || ''}|${limit}` : null;
     if (cacheable) {
       const cached = getCachedList(cacheKey);
       if (cached) return res.json(cached);

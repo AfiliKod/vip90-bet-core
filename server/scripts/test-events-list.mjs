@@ -163,6 +163,25 @@ await test('cache: 5sn TTL sonrası yeniden DB\'ye gider', async () => {
 });
 
 await resetDb();
+
+await test('cache: farklı limit değerleri ayrı cache girdileri kullanır (limit=6 ile limit=2000 çakışmaz)', async () => {
+  for (let i = 0; i < 10; i++) {
+    await Event.create(makeEvent({ startTime: new Date(Date.now() + 24 * 60 * 60 * 1000) }));
+  }
+
+  const { req: reqSmall, res: resSmall, next: nextSmall, getResult: getResultSmall } = fakeReqRes({ status: 'upcoming', limit: '6' });
+  await eventsCtrl.list(reqSmall, resSmall, nextSmall);
+  const small = getResultSmall();
+
+  const { req: reqBig, res: resBig, next: nextBig, getResult: getResultBig } = fakeReqRes({ status: 'upcoming', limit: '2000' });
+  await eventsCtrl.list(reqBig, resBig, nextBig);
+  const big = getResultBig();
+
+  assert(small.events.length === 6, `limit=6 isteği 6 event döndürmeliydi, ${small.events.length} bulundu`);
+  assert(big.events.length === 10, `limit=2000 isteği 10 event'in tümünü döndürmeliydi (cache çakışması varsa 6 dönerdi), ${big.events.length} bulundu`);
+});
+
+await resetDb();
 await mongoose.disconnect();
 
 console.log(`\n${passed} geçti, ${failed} kaldı`);
