@@ -40,7 +40,7 @@ function fakeReqRes(userId, adminId, body) {
 
 await resetDb();
 
-await test('type:bonus → bonusBalance artar, balance DEĞİŞMEZ, BonusWagering oluşur', async () => {
+await test('type:bonus → balance artar (Model B: anında oynanabilir), bonusBalance mirror kilitli tutarı gösterir, BonusWagering oluşur', async () => {
   const admin = await User.create({ username: 'test_abs_admin', email: 'abs_admin@test.com', password: 'x', role: 'admin' });
   const user = await User.create({ username: 'test_abs_user1', email: 'abs_u1@test.com', password: 'x', balance: 50, bonusBalance: 0 });
 
@@ -49,8 +49,8 @@ await test('type:bonus → bonusBalance artar, balance DEĞİŞMEZ, BonusWagerin
   await adminCtrl.updateBalance(req, res, next);
 
   const updatedUser = await User.findById(user._id);
-  assert(updatedUser.balance === 50, `balance değişmemeliydi (50 bekleniyordu, ${updatedUser.balance} bulundu)`);
-  assert(updatedUser.bonusBalance === 100, `bonusBalance 100 olmalıydı, ${updatedUser.bonusBalance} bulundu`);
+  assert(updatedUser.balance === 150, `balance 150 olmalıydı (50+100, Model B: anında oynanabilir), ${updatedUser.balance} bulundu`);
+  assert(updatedUser.bonusBalance === 100, `bonusBalance (locked mirror) 100 olmalıydı, ${updatedUser.bonusBalance} bulundu`);
 
   const wagering = await BonusWagering.findOne({ userId: user._id });
   assert(wagering !== null, 'BonusWagering oluşturulmalıydı');
@@ -64,6 +64,7 @@ await test('type:bonus → bonusBalance artar, balance DEĞİŞMEZ, BonusWagerin
   const tx = await Transaction.findOne({ userId: user._id, type: 'bonus' });
   assert(tx !== null, 'Transaction (type:bonus) oluşturulmalıydı');
   assert(tx.amount === 100, 'Transaction amount yanlış');
+  assert(tx.balanceAfter === 150, 'Transaction balanceAfter = balance (Model B)');
 
   const result = getResult();
   assert(result.user !== undefined, 'response user içermeliydi');

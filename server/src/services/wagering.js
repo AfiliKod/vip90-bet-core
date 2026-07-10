@@ -58,10 +58,14 @@ export async function recordWagering(userId, gameType, amount, extra = {}) {
 }
 
 /**
- * Bonus'u cash'e çevirir (manuel onay sonrası).
+ * Bonus wagering'i 'converted' statüsüne geçirir (manuel onay sonrası).
+ * Model B (Kilitli Bakiye): bonus tutarı grant anında zaten user.balance'a
+ * eklenmişti (bkz. promotions.js claim, admin.js updateBalance). Bu fonksiyon
+ * balance'a TEKRAR eklemez — yalnızca kilidi kaldırır (status artık 'active'
+ * olmadığı için getLockedAmount toplamından çıkar).
  * Sadece 'completed' statüsündeki bonuslar çevrilebilir.
  *
- * @returns {Object} { convertedAmount, newBalance } | null
+ * @returns {Object} { convertedAmount, newBalance, wagering } | null
  */
 export async function convertBonus(wageringId, userId) {
   const wagering = await BonusWagering.findOne({
@@ -75,24 +79,10 @@ export async function convertBonus(wageringId, userId) {
   const user = await User.findById(userId);
   if (!user) return null;
 
-  const balanceBefore = user.balance;
-  user.balance = parseFloat((user.balance + wagering.bonusAmount).toFixed(2));
-  await user.save();
-
   wagering.status = 'converted';
   wagering.convertedAt = new Date();
   wagering.convertedAmount = wagering.bonusAmount;
   await wagering.save();
-
-  await Transaction.create({
-    userId,
-    type: 'bonus_conversion',
-    amount: wagering.bonusAmount,
-    balanceBefore,
-    balanceAfter: user.balance,
-    referenceId: wagering._id,
-    note: `Bonus çevrimi: ${wagering.description || wagering.source}`,
-  });
 
   return {
     convertedAmount: wagering.bonusAmount,
@@ -122,10 +112,52 @@ export async function getConvertibleWagerings(userId) {
 }
 
 /**
- * Aktif wagering varsa bonus'u forfeit eder (çekim talebi için).
- * Tüm aktif wagering'lerin bonusBalance'ını user.balance'dan düşer.
+ * Bir wagering için forfeit edilecek tutarı hesaplar (state değiştirmez).
+ * forfeitActiveWagerings ve previewForfeitAmount tarafından paylaşılır (DRY).
+ */
+function computeForfeitAmount(w) {
+  const forfeitRatio = w.wageringRequired > 0
+    ? (w.wageringRequired - w.wageringProgress) / w.wageringRequired
+    : 0;
+  return parseFloat((w.bonusAmount * forfeitRatio).toFixed(2));
+}
+
+/**
+ * forfeitActiveWagerings'in ne kadar tutar feda edeceğini, hiçbir şeyi
+ * değiştirmeden (salt-okunur) hesaplar. Withdraw akışının forfeit'e girmeden
+ * önce "bu işe yarayacak mı" diye önceden doğrulaması içindir — bkz. #17
+ * final review Finding 1: forfeit geri dönüşsüz olduğu için, işe yaramayacaksa
+ * hiç tetiklenmemeli.
  *
- * @returns {Array} forfeit edilen wagering'ler
+ * @returns {number} toplam feda edilecek tutar (₺)
+ */
+export async function previewForfeitAmount(userId) {
+  const active = await BonusWagering.find({
+    userId,
+    status: 'active',
+  });
+
+  let totalForfeitedAmount = 0;
+  for (const w of active) {
+    totalForfeitedAmount += computeForfeitAmount(w);
+  }
+  return parseFloat(totalForfeitedAmount.toFixed(2));
+}
+
+/**
+ * Aktif wagering varsa bonus'u forfeit eder (çekim talebi için).
+ * Model B (Kilitli Bakiye): bonus tutarı zaten user.balance içinde olduğu
+ * için forfeit artık balance'ı GERÇEKTEN düşürür (önceki modelde bonus ayrı
+ * bir havuzdaydı, forfeit yalnızca "vaadi" iptal ediyordu). Kalan wagering
+ * oranına göre kısmi forfeit (tamamlanan kısım feda edilmez).
+ *
+ * UYARI: Bu fonksiyon geri dönüşsüzdür ve mongoose session almaz (kendi
+ * ayrı commit'leriyle yazar). Çağıran taraf (withdraw akışları) bunu
+ * çağırmadan ÖNCE previewForfeitAmount ile "işe yarayacak mı" diye
+ * doğrulamalıdır — aksi halde başarısız bir çekim, hiçbir faydası olmadan
+ * kullanıcının bonusunu yok edebilir.
+ *
+ * @returns {Array} forfeit edilen wagering'ler + toplam düşülen tutar
  */
 export async function forfeitActiveWagerings(userId) {
   const active = await BonusWagering.find({
@@ -133,21 +165,60 @@ export async function forfeitActiveWagerings(userId) {
     status: 'active',
   });
 
+  if (active.length === 0) return { items: [], totalForfeitedAmount: 0 };
+
   const forfeited = [];
   let totalForfeitedAmount = 0;
 
   for (const w of active) {
-    const remaining = w.wageringRequired - w.wageringProgress;
-    const forfeitRatio = remaining / w.wageringRequired;
-    const forfeitAmount = parseFloat((w.bonusAmount * forfeitRatio).toFixed(2));
+    const forfeitAmount = computeForfeitAmount(w);
     totalForfeitedAmount += forfeitAmount;
 
     w.status = 'forfeited';
     await w.save();
     forfeited.push({ wagering: w, forfeitAmount });
   }
+  totalForfeitedAmount = parseFloat(totalForfeitedAmount.toFixed(2));
+
+  if (totalForfeitedAmount > 0) {
+    const user = await User.findById(userId);
+    const balanceBefore = user.balance;
+    user.balance = Math.max(0, parseFloat((user.balance - totalForfeitedAmount).toFixed(2)));
+    await user.save();
+
+    await Transaction.create({
+      userId,
+      type: 'bonus_forfeit',
+      amount: -(balanceBefore - user.balance),
+      balanceBefore,
+      balanceAfter: user.balance,
+      note: 'Aktif bonus wagering çekim talebiyle feshedildi',
+    });
+  }
 
   return { items: forfeited, totalForfeitedAmount };
+}
+
+/**
+ * Kullanıcının aktif (henüz wagering'i tamamlanmamış) bonuslarının toplamı.
+ * Bu tutar user.balance içinde yer alır ama çekilemez (bkz. getSpendableBreakdown).
+ */
+export async function getLockedAmount(userId) {
+  const active = await BonusWagering.find({ userId, status: 'active' }).select('bonusAmount');
+  const total = active.reduce((sum, w) => sum + w.bonusAmount, 0);
+  return parseFloat(total.toFixed(2));
+}
+
+/**
+ * Kullanıcının balance/locked/withdrawable dökümü.
+ * withdrawable = balance - locked (asla negatif değil).
+ */
+export async function getSpendableBreakdown(userId) {
+  const user = await User.findById(userId);
+  if (!user) return { balance: 0, locked: 0, withdrawable: 0 };
+  const locked = await getLockedAmount(userId);
+  const withdrawable = Math.max(0, parseFloat((user.balance - locked).toFixed(2)));
+  return { balance: user.balance, locked, withdrawable };
 }
 
 export { DEFAULT_WEIGHTS };

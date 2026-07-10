@@ -183,13 +183,12 @@ async function testExpiredWagering() {
 }
 
 async function testConvertBonus() {
-  console.log('\n[TEST 8] Bonus conversion: completed → cash');
+  console.log('\n[TEST 8] Bonus conversion: completed → converted (Model B: balance grant anında eklenmişti, tekrar eklenmez)');
   const User = require('../src/models/User.js').default;
   const BonusWagering = require('../src/models/BonusWagering.js').default;
-  const Transaction = require('../src/models/Transaction.js').default;
   const { convertBonus } = require('../src/services/wagering.js');
 
-  const user = await createTestUser({ balance: 500 });
+  const user = await createTestUser({ balance: 600 }); // grant anında zaten eklenmiş varsayımı
   const w = await createActiveWagering(user._id, { bonusAmount: 100 });
   w.status = 'completed';
   await w.save();
@@ -200,15 +199,11 @@ async function testConvertBonus() {
   assert(result.convertedAmount === 100, 'convertedAmount = 100');
 
   const updatedUser = await User.findById(user._id);
-  assert(updatedUser.balance === 600, 'user.balance = 500 + 100 = 600');
+  assert(updatedUser.balance === 600, 'user.balance değişmedi (Model B: para zaten grant anında eklenmişti)');
 
   const updatedWagering = await BonusWagering.findById(w._id);
   assert(updatedWagering.status === 'converted', 'Wagering marked converted');
   assert(updatedWagering.convertedAt !== null, 'convertedAt timestamp set');
-
-  const tx = await Transaction.findOne({ userId: user._id, type: 'bonus_conversion' });
-  assert(tx !== null, 'Transaction (bonus_conversion) created');
-  assert(tx.amount === 100, 'Transaction amount = 100');
 }
 
 async function testConvertAlreadyConverted() {
@@ -238,11 +233,13 @@ async function testConvertNotCompleted() {
 }
 
 async function testForfeitActiveWagerings() {
-  console.log('\n[TEST 11] Forfeit active wagerings on withdraw');
+  console.log('\n[TEST 11] Forfeit active wagerings: balance gerçekten düşürülür (Model B)');
+  const User = require('../src/models/User.js').default;
   const BonusWagering = require('../src/models/BonusWagering.js').default;
+  const Transaction = require('../src/models/Transaction.js').default;
   const { forfeitActiveWagerings } = require('../src/services/wagering.js');
 
-  const user = await createTestUser();
+  const user = await createTestUser({ balance: 1000 });
   const w1 = await createActiveWagering(user._id, { bonusAmount: 100, wageringRequired: 3500, wageringProgress: 350 });
   const w2 = await createActiveWagering(user._id, { bonusAmount: 200, wageringRequired: 7000, wageringProgress: 7000 });
 
@@ -257,6 +254,28 @@ async function testForfeitActiveWagerings() {
   const updated2 = await BonusWagering.findById(w2._id);
   assert(updated1.status === 'forfeited', 'W1 forfeited');
   assert(updated2.status === 'forfeited', 'W2 forfeited');
+
+  const updatedUser = await User.findById(user._id);
+  assert(Math.abs(updatedUser.balance - 910) < 0.01, `balance 1000-90=910 olmalıydı (Model B: forfeit balance'tan düşer), ${updatedUser.balance} bulundu`);
+
+  const tx = await Transaction.findOne({ userId: user._id, type: 'bonus_forfeit' });
+  assert(tx !== null, 'bonus_forfeit Transaction oluşturulmalıydı');
+  assert(Math.abs(tx.amount - (-90)) < 0.01, `Transaction amount -90 olmalıydı, ${tx.amount} bulundu`);
+}
+
+async function testForfeitNoActiveWagerings() {
+  console.log('\n[TEST 15] Forfeit: aktif bonus yoksa no-op, balance değişmez');
+  const User = require('../src/models/User.js').default;
+  const { forfeitActiveWagerings } = require('../src/services/wagering.js');
+
+  const user = await createTestUser({ balance: 500 });
+  const result = await forfeitActiveWagerings(user._id);
+
+  assert(result.items.length === 0, 'forfeit edilecek bonus yok');
+  assert(result.totalForfeitedAmount === 0, 'totalForfeitedAmount 0 olmalıydı');
+
+  const updatedUser = await User.findById(user._id);
+  assert(updatedUser.balance === 500, 'balance değişmemeliydi');
 }
 
 async function testMultipleSportsBets() {
@@ -274,6 +293,33 @@ async function testMultipleSportsBets() {
   const updated = await BonusWagering.findById(w._id);
   assert(updated.wageringProgress === 3500, 'Progress = 3500 (capped at required)');
   assert(updated.status === 'completed', 'Status = completed');
+}
+
+async function testGetLockedAmount() {
+  console.log('\n[TEST 13] getLockedAmount: yalnızca active statüsündeki bonusları toplar');
+  const { getLockedAmount } = require('../src/services/wagering.js');
+
+  const user = await createTestUser();
+  await createActiveWagering(user._id, { bonusAmount: 100, wageringRequired: 3500 });
+  const w2 = await createActiveWagering(user._id, { bonusAmount: 50, wageringRequired: 100, wageringProgress: 100 });
+  w2.status = 'completed';
+  await w2.save();
+
+  const locked = await getLockedAmount(user._id);
+  assert(locked === 100, `locked 100 olmalıydı (yalnızca active w1), ${locked} bulundu`);
+}
+
+async function testGetSpendableBreakdown() {
+  console.log('\n[TEST 14] getSpendableBreakdown: balance/locked/withdrawable');
+  const { getSpendableBreakdown } = require('../src/services/wagering.js');
+
+  const user = await createTestUser({ balance: 150 });
+  await createActiveWagering(user._id, { bonusAmount: 100, wageringRequired: 3500 });
+
+  const breakdown = await getSpendableBreakdown(user._id);
+  assert(breakdown.balance === 150, `balance 150 olmalıydı, ${breakdown.balance} bulundu`);
+  assert(breakdown.locked === 100, `locked 100 olmalıydı, ${breakdown.locked} bulundu`);
+  assert(breakdown.withdrawable === 50, `withdrawable 50 olmalıydı, ${breakdown.withdrawable} bulundu`);
 }
 
 // ─── Run ────────────────────────────────────────────────────────────────
@@ -295,7 +341,10 @@ async function run() {
   await testConvertAlreadyConverted();
   await testConvertNotCompleted();
   await testForfeitActiveWagerings();
+  await testForfeitNoActiveWagerings();
   await testMultipleSportsBets();
+  await testGetLockedAmount();
+  await testGetSpendableBreakdown();
 
   console.log('\n' + '═'.repeat(60));
   console.log(`Sonuç: ${testsPassed} passed, ${testsFailed} failed`);

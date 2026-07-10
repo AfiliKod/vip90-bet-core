@@ -37,9 +37,12 @@ export async function claim(req, res, next) {
     }
     const promo = claimed;
 
+    // Model B (Kilitli Bakiye): bonus anında gerçek balance'a eklenir, hemen
+    // oynanabilir olur. wageringRequired tamamlanana dek lockedAmount kadarı
+    // çekilemez (bkz. wagering.js getLockedAmount/getSpendableBreakdown).
     const user = await User.findById(req.user.id);
-    const balanceBefore = user.bonusBalance;
-    user.bonusBalance = parseFloat(((user.bonusBalance || 0) + promo.amount).toFixed(2));
+    const balanceBefore = user.balance;
+    user.balance = parseFloat((user.balance + promo.amount).toFixed(2));
     await user.save();
 
     await Transaction.create({
@@ -47,7 +50,7 @@ export async function claim(req, res, next) {
       type: 'bonus',
       amount: promo.amount,
       balanceBefore,
-      balanceAfter: user.bonusBalance,
+      balanceAfter: user.balance,
       referenceId: promo._id,
       note: `Promosyon: ${promo.title}`,
     });
@@ -74,8 +77,15 @@ export async function claim(req, res, next) {
       acceptedTermsAt: new Date(), // Phase A5 — bonus T&C consent
     });
 
+    // bonusBalance artık ayrı bir para havuzu değil, kilitli/çevrim bekleyen
+    // tutarın göstergesi (mirror). Gerçek kaynak: getLockedAmount().
+    const { getLockedAmount } = await import('../services/wagering.js');
+    user.bonusBalance = await getLockedAmount(user._id);
+    await user.save();
+
     res.json({
-      message: 'Bonus bakiyenize eklendi',
+      message: 'Bonus bakiyenize eklendi, hemen oynanabilir',
+      balance: user.balance,
       bonusBalance: user.bonusBalance,
       wageringRequired,
       wageringMultiplier,

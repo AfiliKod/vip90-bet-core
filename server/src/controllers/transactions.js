@@ -20,30 +20,45 @@ export async function deposit(req, res, next) {
 }
 
 export async function withdraw(req, res, next) {
-  const session = await mongoose.startSession();
-  session.startTransaction();
   try {
-    const { amount } = req.validated;
-    const user = await User.findById(req.user.id).session(session);
-    if (user.balance < amount) throw createError(400,'INSUFFICIENT_BALANCE','Yetersiz bakiye');
-    const balanceBefore = user.balance;
-    user.balance = +(user.balance - amount).toFixed(2);
-    await user.save({ session });
-    await Transaction.create([{ userId: user._id, type:'withdraw', amount: -amount, balanceBefore, balanceAfter: user.balance }], { session });
-    await session.commitTransaction();
-    session.endSession();
+    const { amount, confirmForfeit } = req.validated;
+    const { getSpendableBreakdown, forfeitActiveWagerings, previewForfeitAmount } = await import('../services/wagering.js');
+    const breakdown = await getSpendableBreakdown(req.user.id);
 
-    // Aktif bonus wagering varsa bilgilendir (forfeit bilgilendirmesi)
-    try {
-      const BonusWagering = (await import('../models/BonusWagering.js')).default;
-      const activeWagerings = await BonusWagering.find({ userId: user._id, status: 'active' });
-      if (activeWagerings.length > 0) {
-        // Not: bonus forfeit sadece kullanıcı onaylarsa olur
-        // Şu an otomatik forfeit YOK — kullanıcıya info veriyoruz
+    if (amount > breakdown.withdrawable) {
+      if (breakdown.locked <= 0) throw createError(400, 'INSUFFICIENT_BALANCE', 'Yetersiz bakiye');
+      if (!confirmForfeit) {
+        throw createError(409, 'ACTIVE_BONUS_LOCK', `Bu çekim ₺${breakdown.locked.toFixed(2)} tutarındaki aktif bonusunuzu iptal eder. Onaylıyor musunuz?`);
       }
-    } catch (e) {}
+      // Forfeit geri dönüşsüz — önce, işe yarayıp yaramayacağını (state
+      // değiştirmeden) doğrula. Fresh/az ilerlemiş bonuslarda forfeitRatio
+      // yükseldikçe forfeit sonrası withdrawable, forfeit-öncesi withdrawable'ı
+      // aşamayabilir (bkz. #17 final review Finding 1) — bu durumda bonusu
+      // boşuna yakmadan önce çekimi reddet.
+      const forfeitPreview = await previewForfeitAmount(req.user.id);
+      const predictedWithdrawable = Math.max(0, parseFloat((breakdown.balance - forfeitPreview).toFixed(2)));
+      if (predictedWithdrawable < amount) {
+        throw createError(400, 'INSUFFICIENT_BALANCE', 'Bonus feshi bile bu tutarı çekmeye yetmiyor. Yetersiz bakiye.');
+      }
+      await forfeitActiveWagerings(req.user.id);
+    }
 
-    res.json({ newBalance: user.balance, message: `${amount}₺ çekildi` });
-  } catch(e) { await session.abortTransaction(); next(e); }
-  finally { session.endSession(); }
+    const session = await mongoose.startSession();
+    session.startTransaction();
+    try {
+      const user = await User.findById(req.user.id).session(session);
+      if (user.balance < amount) throw createError(400,'INSUFFICIENT_BALANCE','Yetersiz bakiye');
+      const balanceBefore = user.balance;
+      user.balance = +(user.balance - amount).toFixed(2);
+      await user.save({ session });
+      await Transaction.create([{ userId: user._id, type:'withdraw', amount: -amount, balanceBefore, balanceAfter: user.balance }], { session });
+      await session.commitTransaction();
+      res.json({ newBalance: user.balance, message: `${amount}₺ çekildi` });
+    } catch (e) {
+      await session.abortTransaction();
+      throw e;
+    } finally {
+      session.endSession();
+    }
+  } catch(e) { next(e); }
 }

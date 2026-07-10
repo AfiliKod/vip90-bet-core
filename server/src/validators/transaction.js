@@ -35,4 +35,5 @@ export const withdrawSchema = z.object({
     .transform(s => s.replace(/\s+/g, '').toUpperCase())
     .refine(isValidIBAN, { message: 'Geçersiz IBAN (TR + 24 hane, mod-97 checksum)' }),
   fullName: z.string().min(3).max(100),
+  confirmForfeit: z.boolean().optional().default(false),
 });

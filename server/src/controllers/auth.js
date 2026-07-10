@@ -21,6 +21,15 @@ async function enrichWithPalaceBalance(user, obj) {
   } catch {}
 }
 
+async function enrichWithLockedBalance(user, obj) {
+  try {
+    const { getSpendableBreakdown } = await import('../services/wagering.js');
+    const breakdown = await getSpendableBreakdown(user._id);
+    obj.locked = breakdown.locked;
+    obj.withdrawable = breakdown.withdrawable;
+  } catch {}
+}
+
 function signAccess(user) {
   return jwt.sign(
     { id: user._id, role: user.role, tokenVersion: user.tokenVersion || 0 },
@@ -105,6 +114,7 @@ export async function register(req, res, next) {
     const obj = user.toSafeObject();
     obj.emailVerified = false;
     await enrichWithPalaceBalance(user, obj);
+    await enrichWithLockedBalance(user, obj);
     res.status(201).json({
       accessToken,
       user: obj,
@@ -153,6 +163,7 @@ export async function login(req, res, next) {
     setRefreshCookie(res, signRefresh(user));
     const obj = user.toSafeObject();
     await enrichWithPalaceBalance(user, obj);
+    await enrichWithLockedBalance(user, obj);
     res.json({ accessToken, user: obj });
   } catch (e) { next(e); }
 }
@@ -175,6 +186,7 @@ export async function refresh(req, res, next) {
     setRefreshCookie(res, signRefresh(user));
     const obj = user.toSafeObject();
     await enrichWithPalaceBalance(user, obj);
+    await enrichWithLockedBalance(user, obj);
     res.json({ accessToken, user: obj });
   } catch { next(createError(401, 'INVALID_REFRESH_TOKEN', 'Geçersiz refresh token')); }
 }

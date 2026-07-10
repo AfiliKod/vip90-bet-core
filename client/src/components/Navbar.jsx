@@ -89,6 +89,11 @@ export default function Navbar() {
                         Toplam Bakiye
                       </div>
                       <div className="text-2xl font-black mt-0.5" style={{ color: '#00d4ff' }}>₺{totalBalance}</div>
+                      {user?.locked > 0 && (
+                        <div className="text-[11px] font-bold mt-0.5" style={{ color: '#fbbf24' }}>
+                          🔒 ₺{user.locked.toFixed(2)} kilitli
+                        </div>
+                      )}
                     </div>
                     <div
                       className="w-10 h-10 rounded-full flex items-center justify-center text-lg"
