@@ -12,7 +12,7 @@ async function checkSlider(page, path, label, screenshotPath) {
     const sliderRoot = document.querySelector('.rounded-2xl.overflow-hidden.select-none.shadow-xl');
     if (!sliderRoot) return { noSlider: true };
     const bgDiv = [...sliderRoot.querySelectorAll('div')].find(
-      d => d.style.background && d.style.background.includes('gradient')
+      d => d.style.background && d.style.background.includes('gradient') && !d.style.background.includes('rgba')
     );
     return {
       hasOldPhoto: !!oldPhoto,
