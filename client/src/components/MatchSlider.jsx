@@ -2,21 +2,7 @@ import { useState, useEffect, useRef, useCallback } from 'react';
 import { useEventsStore } from '../store/eventsStore';
 import { useBetSlipStore } from '../store/betSlipStore';
 import { groupOddsIntoLines } from '../utils/oddsUtils';
-
-const SPORT_IMAGE_PATHS = {
-  football:   '/images/sports/football.jpg',
-  basketball: '/images/sports/basketball.jpg',
-  tennis:     '/images/sports/tennis.jpg',
-  volleyball: '/images/sports/volleyball.jpg',
-  icehockey:  '/images/sports/icehockey.jpg',
-  golf:       '/images/sports/golf.jpg',
-  handball:   '/images/sports/handball.jpg',
-  boxing:     '/images/sports/boxing.jpg',
-};
-
-function getImageUrl(sport) {
-  return SPORT_IMAGE_PATHS[sport] ?? '/images/sports/generic.jpg';
-}
+import { fetchTeamInfo, resolveTeamColor, buildTeamGradient } from '../utils/matchHeroColors';
 
 function formatDate(dateStr) {
   const d = new Date(dateStr);
@@ -33,11 +19,14 @@ export default function MatchSlider({ statusFilter }) {
   const { events } = useEventsStore();
   const { selections, addSelection } = useBetSlipStore();
   const [active, setActive] = useState(0);
+  const [teamColors, setTeamColors] = useState(new Map());
   const intervalRef = useRef(null);
 
   const slides = events
     .filter(e => e.status === statusFilter && (statusFilter !== 'upcoming' || e.markets?.some(m => m.type === 'maç_sonucu')))
     .slice(0, 6);
+
+  const slideIds = slides.map(e => e._id).join(',');
 
   const startTimer = useCallback(() => {
     clearInterval(intervalRef.current);
@@ -47,6 +36,26 @@ export default function MatchSlider({ statusFilter }) {
 
   useEffect(() => { setActive(0); startTimer(); return () => clearInterval(intervalRef.current); }, [slides.length]);
 
+  // Görünen tüm slaytların takım renklerini önceden çeker (aktif slayt
+  // beklenmeden) — otomatik geçişte "önce fallback rengi, sonra gerçek renk"
+  // flash'ını önlemek için. fetchTeamInfo kendi hatalarını yutuyor, bu yüzden
+  // try/catch gerekmiyor.
+  useEffect(() => {
+    let cancelled = false;
+    const teamNames = new Set();
+    for (const e of slides) {
+      if (e.homeTeam?.name) teamNames.add(e.homeTeam.name);
+      if (e.awayTeam?.name) teamNames.add(e.awayTeam.name);
+    }
+    Promise.all(
+      [...teamNames].map(name => fetchTeamInfo(name).then(info => [name, info.color]))
+    ).then(entries => {
+      if (!cancelled) setTeamColors(new Map(entries));
+    });
+    return () => { cancelled = true; };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [slideIds]);
+
   const goTo = i => { setActive(i); startTimer(); };
 
   if (!slides.length) return null;
@@ -54,21 +63,21 @@ export default function MatchSlider({ statusFilter }) {
   const event   = slides[active] ?? slides[0];
   const market  = event?.markets?.find(m => m.type === 'maç_sonucu') ?? event?.markets?.[0];
   const isLive  = event?.status === 'live';
-  const imgUrl  = getImageUrl(event?.sport);
+  const homeColor = resolveTeamColor(event.homeTeam?.name, teamColors.get(event.homeTeam?.name));
+  const awayColor = resolveTeamColor(event.awayTeam?.name, teamColors.get(event.awayTeam?.name));
+  const gradient   = buildTeamGradient(homeColor, awayColor);
 
   // maç_sonucu için dedup'lanmış 1/X/2 oranları
   const odds = market ? (groupOddsIntoLines(market)[0] ?? []) : [];
 
   return (
     <div className="mx-4 mt-4 rounded-2xl overflow-hidden select-none shadow-xl">
-      {/* Fotoğraf + overlay katmanı */}
+      {/* Takım renkleri + overlay katmanı */}
       <div className="relative h-64">
-        {/* Arka plan fotoğrafı */}
-        <img
-          src={imgUrl}
-          alt=""
-          className="absolute inset-0 w-full h-full object-cover transition-all duration-700"
-          style={{ filter: 'brightness(0.85) saturate(1.15)' }}
+        {/* Arka plan: takımların renklerinden üretilen gradient */}
+        <div
+          className="absolute inset-0 w-full h-full transition-all duration-700"
+          style={{ background: gradient }}
         />
 
         {/* Gradient: sol/alt karartma, sağ taraf açık */}

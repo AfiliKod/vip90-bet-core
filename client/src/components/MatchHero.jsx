@@ -1,9 +1,7 @@
 import { useEffect, useState } from 'react';
 import { useSettingsStore } from '../store/settingsStore';
 import { translateTeam, translateLeague } from '../utils/i18n';
-import { buildTeamGradient } from '../utils/matchHeroColors';
-
-const TSDB_URL = 'https://www.thesportsdb.com/api/v1/json/3/searchteams.php?t=';
+import { buildTeamGradient, fetchTeamInfo } from '../utils/matchHeroColors';
 
 const SPORT_GRADIENTS = {
   football:         'from-emerald-900 via-emerald-800 to-teal-900',
@@ -28,29 +26,6 @@ const SPORT_GRADIENTS = {
 
 function sportGradient(sport) {
   return SPORT_GRADIENTS[sport] ?? 'from-indigo-950 via-violet-950 to-indigo-900';
-}
-
-async function fetchTeamInfo(teamName) {
-  const cacheKey = `tdb_team_v2_${teamName}`;
-  const cached = localStorage.getItem(cacheKey);
-  if (cached !== null) {
-    try {
-      return JSON.parse(cached);
-    } catch {
-      // bozuk/eski cache girdisi — aşağıda yeniden fetch edilecek
-    }
-  }
-
-  try {
-    const r = await fetch(`${TSDB_URL}${encodeURIComponent(teamName)}`, { signal: AbortSignal.timeout(5000) });
-    const data = await r.json();
-    const team = data?.teams?.[0];
-    const info = { logo: team?.strTeamBadge ?? '', color: team?.strColour1 ?? '' };
-    localStorage.setItem(cacheKey, JSON.stringify(info));
-    return info;
-  } catch {
-    return { logo: '', color: '' };
-  }
 }
 
 function TeamBadge({ name, logo }) {

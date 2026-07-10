@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict';
-import { isValidHex, buildTeamGradient } from './matchHeroColors.js';
+import { isValidHex, buildTeamGradient, deterministicColorFromName, resolveTeamColor } from './matchHeroColors.js';
 
 // isValidHex
 assert.equal(isValidHex('#EF0107'), true, 'geçerli büyük harf hex kabul edilmeli');
@@ -20,5 +20,34 @@ assert.equal(buildTeamGradient('#EF0107', ''), null, 'away rengi eksikse null d�
 assert.equal(buildTeamGradient('', '#fdb927'), null, 'home rengi eksikse null dönmeli');
 assert.equal(buildTeamGradient('', ''), null, 'ikisi de eksikse null dönmeli');
 assert.equal(buildTeamGradient('kirmizi', '#fdb927'), null, 'geçersiz hex formatı null dönmeli');
+
+// deterministicColorFromName
+assert.equal(isValidHex(deterministicColorFromName('Arsenal')), true, 'her zaman geçerli hex döndürmeli');
+assert.equal(
+  deterministicColorFromName('Arsenal'),
+  deterministicColorFromName('Arsenal'),
+  'aynı isim her zaman aynı rengi üretmeli (deterministik)'
+);
+assert.notEqual(
+  deterministicColorFromName('Arsenal'),
+  deterministicColorFromName('Chelsea'),
+  'farklı isimler farklı renk üretmeli'
+);
+assert.equal(isValidHex(deterministicColorFromName('')), true, 'boş string bile geçerli hex döndürmeli');
+assert.equal(isValidHex(deterministicColorFromName(undefined)), true, 'undefined bile geçerli hex döndürmeli (hata fırlatmamalı)');
+
+// resolveTeamColor
+assert.equal(resolveTeamColor('Arsenal', '#EF0107'), '#EF0107', 'geçerli apiColor varsa onu kullanmalı');
+assert.equal(
+  resolveTeamColor('Arsenal', ''),
+  deterministicColorFromName('Arsenal'),
+  'apiColor geçersizse (boş) deterministik fallback kullanmalı'
+);
+assert.equal(
+  resolveTeamColor('Arsenal', 'kirmizi'),
+  deterministicColorFromName('Arsenal'),
+  'apiColor geçersiz hex formatındaysa deterministik fallback kullanmalı'
+);
+assert.equal(isValidHex(resolveTeamColor('Bilinmeyen Takım', '')), true, 'sonuç her zaman geçerli hex olmalı');
 
 console.log('matchHeroColors.test.js: tüm assertion\'lar geçti');
