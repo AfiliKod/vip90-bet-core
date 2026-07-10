@@ -31,6 +31,7 @@ function fakeReqRes(query) {
 
 async function resetDb() {
   await Event.deleteMany({ league: /^Test Lig/ });
+  eventsCtrl._clearListCacheForTests();
 }
 
 function makeEvent(overrides = {}) {
@@ -101,6 +102,64 @@ await test('canlı event gelecek penceresi sınırından etkilenmez', async () =
   const { events } = getResult();
 
   assert(events.some(e => String(e._id) === String(live._id)), 'canlı event her zaman dönmeliydi');
+});
+
+await resetDb();
+
+await test('cache: aynı sport+status kombinasyonu 5sn içinde ikinci çağrıda DB\'ye gitmez', async () => {
+  await Event.create(makeEvent({ startTime: new Date(Date.now() + 24 * 60 * 60 * 1000) }));
+
+  const { req: req1, res: res1, next: next1, getResult: getResult1 } = fakeReqRes({});
+  await eventsCtrl.list(req1, res1, next1);
+  const first = getResult1();
+
+  // Cache aktifken DB'ye ikinci bir event eklenir; cache çalışıyorsa ikinci
+  // istek hâlâ İLK sonucu (yeni event'i İÇERMEYEN) döndürmeli.
+  await Event.create(makeEvent({ startTime: new Date(Date.now() + 24 * 60 * 60 * 1000) }));
+
+  const { req: req2, res: res2, next: next2, getResult: getResult2 } = fakeReqRes({});
+  await eventsCtrl.list(req2, res2, next2);
+  const second = getResult2();
+
+  assert(second.events.length === first.events.length, `cache aktifken ikinci istek İLK sonucu (${first.events.length} event) döndürmeliydi, ${second.events.length} event bulundu`);
+});
+
+await resetDb();
+
+await test('cache: farklı sport/status kombinasyonları ayrı cache girdileri kullanır', async () => {
+  await Event.create(makeEvent({ sport: 'football', startTime: new Date(Date.now() + 24 * 60 * 60 * 1000) }));
+  await Event.create(makeEvent({ sport: 'basketball', startTime: new Date(Date.now() + 24 * 60 * 60 * 1000) }));
+
+  const { req: reqF, res: resF, next: nextF, getResult: getResultF } = fakeReqRes({ sport: 'football' });
+  await eventsCtrl.list(reqF, resF, nextF);
+  const football = getResultF();
+
+  const { req: reqB, res: resB, next: nextB, getResult: getResultB } = fakeReqRes({ sport: 'basketball' });
+  await eventsCtrl.list(reqB, resB, nextB);
+  const basketball = getResultB();
+
+  assert(football.events.every(e => e.sport === 'football'), 'football isteği sadece football event döndürmeliydi');
+  assert(basketball.events.every(e => e.sport === 'basketball'), 'basketball isteği sadece basketball event döndürmeliydi');
+});
+
+await resetDb();
+
+await test('cache: 5sn TTL sonrası yeniden DB\'ye gider', async () => {
+  await Event.create(makeEvent({ startTime: new Date(Date.now() + 24 * 60 * 60 * 1000) }));
+
+  const { req: req1, res: res1, next: next1, getResult: getResult1 } = fakeReqRes({});
+  await eventsCtrl.list(req1, res1, next1);
+  const first = getResult1();
+
+  await Event.create(makeEvent({ startTime: new Date(Date.now() + 24 * 60 * 60 * 1000) }));
+
+  await new Promise(r => setTimeout(r, 5200)); // TTL'nin (5sn) geçmesini bekle
+
+  const { req: req2, res: res2, next: next2, getResult: getResult2 } = fakeReqRes({});
+  await eventsCtrl.list(req2, res2, next2);
+  const second = getResult2();
+
+  assert(second.events.length === first.events.length + 1, `TTL sonrası yeni event görünür olmalıydı: ${first.events.length + 1} bekleniyordu, ${second.events.length} bulundu`);
 });
 
 await resetDb();

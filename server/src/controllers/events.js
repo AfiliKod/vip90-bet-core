@@ -11,6 +11,29 @@ const LIST_MARKET_TYPES = new Set(['maç_sonucu', 'alt_üst', 'handikap']);
 const FUTURE_WINDOW_DAYS = 14;
 const FUTURE_WINDOW_MS = FUTURE_WINDOW_DAYS * 24 * 60 * 60 * 1000;
 
+// Kısa TTL cache — sık tekrarlanan aynı sport+status kombinasyonlarının DB'ye
+// tekrar tekrar gitmesini önler (bkz. palaceCasinoService.js'teki aynı desen).
+// Oranlar/skorlar zaten socket.io ile anlık güncellendiği için bu kısa
+// pencere gerçek zamanlılığı gözle görülür şekilde bozmaz.
+const LIST_CACHE_TTL_MS = 5 * 1000;
+const listCache = new Map();
+
+function getCachedList(key) {
+  const entry = listCache.get(key);
+  if (entry && entry.expiresAt > Date.now()) return entry.data;
+  if (entry) listCache.delete(key);
+  return null;
+}
+
+function setCachedList(key, data) {
+  listCache.set(key, { data, expiresAt: Date.now() + LIST_CACHE_TTL_MS });
+}
+
+// Sadece testler için — cache'i temizler.
+export function _clearListCacheForTests() {
+  listCache.clear();
+}
+
 function trimMarketsForList(markets) {
   if (!Array.isArray(markets) || markets.length === 0) return [];
   const kept = [];
@@ -31,6 +54,13 @@ export async function list(req, res, next) {
     const { sport, status, page = 1, limit = 2000, full } = req.query;
     const isFull = full === '1' || full === 'true';
     const futureLimit = new Date(Date.now() + FUTURE_WINDOW_MS);
+
+    const cacheable = !isFull && +page === 1;
+    const cacheKey = cacheable ? `${sport || 'all'}|${status || ''}` : null;
+    if (cacheable) {
+      const cached = getCachedList(cacheKey);
+      if (cached) return res.json(cached);
+    }
 
     const filter = {};
     if (sport && sport !== 'all') filter.sport = String(sport);
@@ -71,7 +101,9 @@ export async function list(req, res, next) {
       marketsCount: ev.markets?.length ?? 0,
       markets: trimMarketsForList(ev.markets),
     }));
-    res.json({ events: trimmed });
+    const responseBody = { events: trimmed };
+    if (cacheable) setCachedList(cacheKey, responseBody);
+    res.json(responseBody);
   } catch (e) {
     next(e);
   }
