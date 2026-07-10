@@ -47,7 +47,7 @@ r.post('/chat', requireAuth, async (req, res, next) => {
         'Content-Type': 'application/json',
         'Authorization': `Bearer ${API_KEY}`,
         // OpenRouter isteğe bağlı — site adı + URL için
-        'HTTP-Referer': 'https://vipbet.com',
+        'HTTP-Referer': 'https://vip90.bet',
         'X-Title': 'VIP90.bet',
       },
       body: JSON.stringify({
