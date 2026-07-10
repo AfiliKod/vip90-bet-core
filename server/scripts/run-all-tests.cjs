@@ -25,6 +25,7 @@ const UNIT_SUITES = [
   'test-settlement-referral.mjs',          // settleEvent referral payout (no Palace API)
   'test-casino-referral.mjs',              // inhouse hook referral payout (no Palace API)
   'test-palace-session-referral.mjs',      // closePalaceSession referral (Palace service mocked)
+  'test-events-list.mjs',                  // GET /events gelecek penceresi + cache (#12)
 ];
 
 // ─── Casino Integration Tests (real DB, mocked or real Palace) ────────────
