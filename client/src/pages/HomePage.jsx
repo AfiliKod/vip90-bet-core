@@ -9,7 +9,7 @@ const PP_GAMES = CASINO_GAMES.filter(g => g.provider === 'Pragmatic Play').slice
 
 const HERO_SLIDES = [
   {
-    id: 'welcome', icon: '💎', title: 'VIP90.bet\'e Hoşgeldin', path: '/bahis', cta: 'Hemen Başla',
+    id: 'welcome', icon: '💎', title: 'VIP90.bet\'ye Hoşgeldin', path: '/bahis', cta: 'Hemen Başla',
     desc: 'En iyi spor bahisleri, canlı aksiyon ve casino deneyimi için hazır mısın?',
     image: '/images/welcome-banner.png',
     gradient: 'from-cyan-900/80 to-purple-900/60',
@@ -235,7 +235,7 @@ export default function HomePage() {
         <div className="max-w-6xl mx-auto px-4 py-16">
           <div className="text-center mb-8">
             <h2 className="text-2xl sm:text-3xl font-black text-text-1 mb-2">Özel Oyunlar</h2>
-            <p className="text-sm text-text-2">VIP90.bet'e özel in-house oyunlarla farklı bir deneyim</p>
+            <p className="text-sm text-text-2">VIP90.bet'ye özel in-house oyunlarla farklı bir deneyim</p>
           </div>
           <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-6 gap-3">
             {GAMES.map(g => (
