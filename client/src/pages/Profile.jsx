@@ -159,6 +159,8 @@ export default function Profile() {
   const [showPrivacyModal, setShowPrivacyModal] = useState(false);
   const [privacyPassword, setPrivacyPassword] = useState('');
   const [privacyError, setPrivacyError] = useState('');
+  const [withdrawIban, setWithdrawIban]         = useState('');
+  const [withdrawFullName, setWithdrawFullName] = useState('');
 
   const { register, handleSubmit, reset, formState: { isSubmitting } } = useForm();
 
@@ -196,6 +198,8 @@ export default function Profile() {
     setSelectedAmount(null);
     setCustomAmount('');
     setSuccessRequest(null);
+    setWithdrawIban('');
+    setWithdrawFullName('');
     syncParams(m, method);
   };
 
@@ -235,21 +239,17 @@ const handleBankSubmit = async (confirmForfeit = false) => {
        let requestData = { amount };
        if (method === 'bank') {
          if (mode === 'withdraw') {
-           // For bank withdrawals, we need iban and fullName for validation
+           // Banka çekiminde alıcı IBAN + ad soyad zorunlu (bkz. withdrawSchema)
            requestData = {
              amount,
-             iban,
-             fullName,
+             iban: withdrawIban,
+             fullName: withdrawFullName,
              confirmForfeit
            };
          } else {
-           // For bank deposits, include all fields for completeness (though only amount is validated)
-           requestData = {
-             amount,
-             iban,
-             fullName,
-             bank
-           };
+           // Banka yatırımında alıcı bilgisi gerekmiyor (depositSchema sadece amount istiyor —
+           // yatıran kişi zaten ekranda gösterilen platform IBAN'ına kendi hesabından gönderiyor)
+           requestData = { amount };
          }
        }
 
@@ -687,6 +687,23 @@ const handleBankSubmit = async (confirmForfeit = false) => {
                     </div>
                   </div>
 
+                  <div className="space-y-2">
+                    <div>
+                      <label className="text-xs text-text-3 mb-1 block">Alıcı IBAN (TR ile başlamalı)</label>
+                      <input type="text" value={withdrawIban}
+                        onChange={e => setWithdrawIban(e.target.value.toUpperCase())}
+                        placeholder="TR__ ____ ____ ____ ____ ____ __"
+                        className="w-full bg-bg-deep/40 border border-white/10 rounded-xl px-4 py-2.5 text-text-1 text-sm focus:outline-none focus:border-accent/50" />
+                    </div>
+                    <div>
+                      <label className="text-xs text-text-3 mb-1 block">Hesap Sahibinin Adı Soyadı</label>
+                      <input type="text" value={withdrawFullName}
+                        onChange={e => setWithdrawFullName(e.target.value)}
+                        placeholder="Ad Soyad"
+                        className="w-full bg-bg-deep/40 border border-white/10 rounded-xl px-4 py-2.5 text-text-1 text-sm focus:outline-none focus:border-accent/50" />
+                    </div>
+                  </div>
+
                   <div className="bg-blue-500/10 border border-blue-500/30 rounded-xl p-3 text-xs text-text-2 leading-relaxed">
                     Çekim talebiniz admin onayına gönderilecektir. Onaylandığında tutar banka hesabınıza aktarılır. İşlem 1-2 iş günü sürebilir.
                   </div>
@@ -696,7 +713,8 @@ const handleBankSubmit = async (confirmForfeit = false) => {
                       className="flex-1 py-2.5 border border-white/20 text-text-3 rounded-xl text-sm font-medium hover:bg-bg-hover transition">
                       Geri
                     </button>
-                    <button onClick={() => handleBankSubmit()} disabled={submitting || amount > (user?.balance || 0)}
+                    <button onClick={() => handleBankSubmit()}
+                      disabled={submitting || amount > (user?.balance || 0) || withdrawIban.trim().length < 26 || withdrawFullName.trim().length < 3}
                       className="flex-1 py-2.5 bg-accent text-white font-semibold rounded-xl text-sm hover:opacity-90 transition disabled:opacity-50">
                       {submitting ? 'Gönderiliyor...' : '✅ Çekim Talebi Oluştur'}
                     </button>
