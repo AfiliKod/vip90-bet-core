@@ -30,7 +30,7 @@ const HERO_SLIDES = [
     accent: '#ef4444',
   },
   {
-    id: 'casino', icon: '🎰', title: 'Casino', path: '/casino-v2', cta: 'Oyunları Keşfet',
+    id: 'casino', icon: '🎰', title: 'Casino', path: '/casino', cta: 'Oyunları Keşfet',
     desc: 'Yüzlerce slot, masa oyunu ve canlı krupiye. In-house oyunlarımızla benzersiz casino deneyimi.',
     image: '/images/hero-casino.png',
     gradient: 'from-purple-900/80 to-violet-900/60',
@@ -371,7 +371,7 @@ export default function HomePage() {
               <p className="text-sm text-text-2 mt-1">Yüzlerce oyun, dev jackpotlar, sınırsız eğlence</p>
             </div>
             <Link
-              to="/casino-v2"
+              to="/casino"
               className="hidden sm:inline-flex items-center gap-1 text-xs font-bold px-4 py-2 rounded-lg transition-all hover:gap-2"
               style={{ background: '#a78bfa', color: '#000' }}
             >
@@ -415,7 +415,7 @@ export default function HomePage() {
           </div>
 
           <Link
-            to="/casino-v2"
+            to="/casino"
             className="sm:hidden mt-4 flex items-center justify-center gap-1 text-xs font-bold px-4 py-2.5 rounded-xl transition-all"
             style={{ background: '#a78bfa', color: '#000' }}
           >
@@ -477,7 +477,7 @@ export default function HomePage() {
                 ⚽ Bahis Yap
               </button>
               <button
-                onClick={() => navigate('/casino-v2')}
+                onClick={() => navigate('/casino')}
                 className="px-6 py-2.5 rounded-xl text-sm font-bold text-black transition-all hover:scale-105 active:scale-95 shadow-lg"
                 style={{ background: BRAND_GRADIENT_H }}
               >

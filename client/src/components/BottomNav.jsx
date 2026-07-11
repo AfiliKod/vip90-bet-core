@@ -3,7 +3,7 @@ import { NavLink, useLocation } from 'react-router-dom';
 const TABS = [
   { to: '/bahis',     icon: '⚽', label: 'Bahis',  end: true  },
   { to: '/canli',     icon: '🔴', label: 'Canlı',  end: false },
-  { to: '/casino-v2', icon: '🎰', label: 'Casino', end: false },
+  { to: '/casino',    icon: '🎰', label: 'Casino', end: false },
 ];
 
 export default function BottomNav() {
