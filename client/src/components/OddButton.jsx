@@ -1,24 +1,14 @@
-import { useRef, useEffect, useState } from 'react';
 import { useBetSlipStore } from '../store/betSlipStore';
 import { formatOdd } from '../utils/oddsUtils';
 import { useSettingsStore } from '../store/settingsStore';
 import { BRAND_GRADIENT, BRAND_GLOW } from '../styles/brand';
+import { useOddFlash } from '../hooks/useOddFlash';
 
 export default function OddButton({ eventId, eventLabel, marketType, odd }) {
   const oddsFormat = useSettingsStore(s => s.preferences.oddsFormat);
   const { selections, addSelection } = useBetSlipStore();
   const selected = selections.some(s => s.eventId === eventId && s.marketType === marketType && s.oddId === odd.id);
-  const prevValue = useRef(odd.value);
-  const [flash, setFlash] = useState(null);
-
-  useEffect(() => {
-    if (odd.value !== prevValue.current) {
-      setFlash(odd.value > prevValue.current ? 'up' : 'down');
-      prevValue.current = odd.value;
-      const t = setTimeout(() => setFlash(null), 1200);
-      return () => clearTimeout(t);
-    }
-  }, [odd.value]);
+  const flash = useOddFlash(odd.value);
 
   const flashClass = flash === 'up'
     ? 'ring-1 ring-green-400 bg-green-400/10'

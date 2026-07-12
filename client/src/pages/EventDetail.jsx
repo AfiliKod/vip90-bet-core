@@ -1,4 +1,4 @@
-import { useEffect, useState, useRef } from 'react';
+import { useEffect, useState } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import api from '../services/api';
 import BetSlip from '../components/BetSlip';
@@ -7,6 +7,7 @@ import { socket } from '../services/socket';
 import { groupOddsIntoLines, getTableConfig, formatOdd } from '../utils/oddsUtils';
 import { useBetSlipStore } from '../store/betSlipStore';
 import { useSettingsStore } from '../store/settingsStore';
+import { useOddFlash } from '../hooks/useOddFlash';
 
 // Tıklanabilir oran hücresi — oran değişince kısa renk animasyonu
 function OddCell({ eventId, eventLabel, marketType, odd }) {
@@ -15,17 +16,7 @@ function OddCell({ eventId, eventLabel, marketType, odd }) {
   const selected = selections.some(
     s => s.eventId === eventId && s.marketType === marketType && s.oddId === odd.id
   );
-  const prevValue = useRef(odd.value);
-  const [flash, setFlash] = useState(null);
-
-  useEffect(() => {
-    if (odd.value !== prevValue.current) {
-      setFlash(odd.value > prevValue.current ? 'up' : 'down');
-      prevValue.current = odd.value;
-      const t = setTimeout(() => setFlash(null), 1200);
-      return () => clearTimeout(t);
-    }
-  }, [odd.value]);
+  const flash = useOddFlash(odd.value);
 
   return (
     <button
