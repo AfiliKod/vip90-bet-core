@@ -38,10 +38,14 @@ export const useAuthStore = create((set) => ({
       consentVersion: consents.consentVersion,
       ...(referredBy ? { referredBy } : {}),
     });
-    localStorage.setItem('accessToken', data.accessToken);
-    set({ user: data.user, token: data.accessToken });
-    connectUserSocket(data.user._id || data.user.id);
-    return data.user;
+    // Task 1: register() artık doğrulanmamış kullanıcı için accessToken döndürmüyor —
+    // sadece varsa (ileride backend davranışı değişirse diye login() ile simetrik kalınır) oturum açılır.
+    if (data.accessToken) {
+      localStorage.setItem('accessToken', data.accessToken);
+      set({ user: data.user, token: data.accessToken });
+      connectUserSocket(data.user._id || data.user.id);
+    }
+    return data;
   },
   logout: async () => {
     const state = useAuthStore.getState();
