@@ -56,6 +56,7 @@ const Status = lazy(() => import('./pages/Status'));
 const Welcome = lazy(() => import('./pages/Welcome'));
 const ForgotPassword = lazy(() => import('./pages/ForgotPassword'));
 const ResetPassword = lazy(() => import('./pages/ResetPassword'));
+const VerifyEmail = lazy(() => import('./pages/VerifyEmail'));
 
 function PageLoader() {
   return (
@@ -148,6 +149,7 @@ export default function App() {
         <Route path="/status" element={<Suspense fallback={<PageLoader />}><Status /></Suspense>} />
         <Route path="/forgot-password" element={<Suspense fallback={<PageLoader />}><ForgotPassword /></Suspense>} />
         <Route path="/reset-password" element={<Suspense fallback={<PageLoader />}><ResetPassword /></Suspense>} />
+        <Route path="/verify-email" element={<Suspense fallback={<PageLoader />}><VerifyEmail /></Suspense>} />
         {/* Phase D3 — 18+ yaş gate (auth required, no age check yet) */}
         <Route path="/welcome" element={<ProtectedRoute><Suspense fallback={<PageLoader />}><Welcome /></Suspense></ProtectedRoute>} />
         <Route path="*" element={<Navigate to="/" replace />} />
