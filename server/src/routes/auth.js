@@ -3,6 +3,7 @@ import { validate } from '../middleware/validate.js';
 import {
   registerSchema, loginSchema,
   emailVerifySchema, passwordResetRequestSchema, passwordResetConfirmSchema,
+  resendVerificationSchema,
 } from '../validators/auth.js';
 import * as ctrl from '../controllers/auth.js';
 
@@ -19,6 +20,7 @@ r.post('/logout', ctrl.logout);
 // Email doğrulama (Phase D1)
 r.get('/verify-email', ctrl.verifyEmail);
 r.post('/verify-email', validate(emailVerifySchema), ctrl.verifyEmail);
+r.post('/resend-verification', authLimiter, validate(resendVerificationSchema), ctrl.resendVerification);
 
 // Şifre sıfırlama (Phase D2)
 r.post('/forgot-password', authLimiter, validate(passwordResetRequestSchema), ctrl.forgotPassword);
