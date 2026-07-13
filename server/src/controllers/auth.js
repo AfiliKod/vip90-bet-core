@@ -60,7 +60,7 @@ const EMAIL_VERIFY_TTL_HOURS = 24;
 const PASSWORD_RESET_TTL_HOURS = 1;
 const LOGIN_LOCKOUT_THRESHOLD = 5;
 const LOGIN_LOCKOUT_MINUTES = 15;
-const EMAIL_VERIFICATION_CUTOFF = new Date('2026-07-14T00:00:00Z');
+const EMAIL_VERIFICATION_CUTOFF = new Date(process.env.EMAIL_VERIFICATION_CUTOFF || '2026-07-14T00:00:00Z');
 
 export async function register(req, res, next) {
   try {
