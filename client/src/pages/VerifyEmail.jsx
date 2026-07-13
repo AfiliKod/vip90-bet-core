@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { Link, useSearchParams } from 'react-router-dom';
 import api from '../services/api';
+import Swal from 'sweetalert2';
 
 export default function VerifyEmail() {
   const [searchParams] = useSearchParams();
@@ -23,17 +24,25 @@ export default function VerifyEmail() {
     try {
       await api.post('/auth/resend-verification', { email: resendEmail });
       setResendSent(true);
+    } catch (err) {
+      const msg = err.response?.data?.error?.message || 'Bir hata oluştu';
+      Swal.fire({
+        icon: 'error', title: 'Hata', text: msg,
+        confirmButtonColor: '#00d4ff', background: '#0c1220', color: '#f0f4ff',
+      });
     } finally {
       setResendSubmitting(false);
     }
   }
+
+  const isError = !token || status === 'error';
 
   return (
     <div className="min-h-screen flex items-center justify-center px-4 py-8 relative" style={{ background: '#05080f' }}>
       <div className="absolute inset-0 bg-cover bg-center opacity-20 pointer-events-none" style={{ backgroundImage: 'url(/images/login-bg-v2.png)' }} />
       <div className="w-full max-w-sm bg-bg-card border border-white/10 rounded-2xl p-8 shadow-2xl">
         <div className="text-center mb-8">
-          <div className="text-5xl mb-3">{status === 'success' ? '✅' : status === 'error' ? '⚠️' : '⏳'}</div>
+          <div className="text-5xl mb-3">{status === 'success' ? '✅' : isError ? '⚠️' : '⏳'}</div>
           <h1 className="text-xl font-bold text-text-1">Email Doğrulama</h1>
         </div>
 
@@ -52,7 +61,7 @@ export default function VerifyEmail() {
           </div>
         )}
 
-        {(!token || status === 'error') && (
+        {isError && (
           <div className="space-y-4">
             <div className="p-4 rounded-lg text-sm" style={{ background: 'rgba(239,68,68,0.08)', border: '1px solid rgba(239,68,68,0.3)', color: '#c8d8f0' }}>
               Doğrulama linki geçersiz veya süresi dolmuş.
