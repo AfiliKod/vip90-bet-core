@@ -40,7 +40,7 @@ function fakeRes() {
 await resetDb();
 
 await test('login: yanıt user.locked ve user.withdrawable içerir', async () => {
-  const user = await User.create({ username: 'test_alb_u1', email: 'alb1@test.com', password: 'password123', balance: 150 });
+  const user = await User.create({ username: 'test_alb_u1', email: 'alb1@test.com', password: 'password123', balance: 150, emailVerified: true });
   await BonusWagering.create({
     userId: user._id, source: 'promotion', description: 'Test',
     bonusAmount: 100, wageringRequired: 3500, wageringProgress: 0,
@@ -62,7 +62,7 @@ await test('login: yanıt user.locked ve user.withdrawable içerir', async () =>
 
 await test('login: aktif bonus yoksa locked=0, withdrawable=balance', async () => {
   await resetDb();
-  const user = await User.create({ username: 'test_alb_u2', email: 'alb2@test.com', password: 'password123', balance: 75 });
+  const user = await User.create({ username: 'test_alb_u2', email: 'alb2@test.com', password: 'password123', balance: 75, emailVerified: true });
 
   const req = {
     validated: { username: 'test_alb_u2', password: 'password123' },
