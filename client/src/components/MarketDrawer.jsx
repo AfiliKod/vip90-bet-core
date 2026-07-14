@@ -1,8 +1,9 @@
-import { useRef, useEffect, useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import api from '../services/api';
 import { useBetSlipStore } from '../store/betSlipStore';
 import { groupOddsIntoLines } from '../utils/oddsUtils';
+import { useOddFlash } from '../hooks/useOddFlash';
 
 // Liste isteği (GET /events) sadece 3 market gönderiyor (bkz. server/src/controllers/events.js) —
 // drawer açıldığında tüm marketleri görmek için event detayı ayrıca çekilip kısa süre cache'leniyor.
@@ -14,17 +15,7 @@ function DrawerOdd({ eventId, eventLabel, market, odd }) {
   const selected = selections.some(
     s => s.eventId === eventId && s.marketType === market.type && s.oddId === odd.id
   );
-  const prevValue = useRef(odd.value);
-  const [flash, setFlash] = useState(null);
-
-  useEffect(() => {
-    if (odd.value !== prevValue.current) {
-      setFlash(odd.value > prevValue.current ? 'up' : 'down');
-      prevValue.current = odd.value;
-      const t = setTimeout(() => setFlash(null), 1200);
-      return () => clearTimeout(t);
-    }
-  }, [odd.value]);
+  const flash = useOddFlash(odd.value);
 
   return (
     <button
