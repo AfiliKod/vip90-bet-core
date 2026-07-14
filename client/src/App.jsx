@@ -52,10 +52,12 @@ const Kvkk = lazy(() => import('./pages/legal/Kvkk'));
 const Cookies = lazy(() => import('./pages/legal/Cookies'));
 const BonusTerms = lazy(() => import('./pages/legal/BonusTerms'));
 const ResponsibleGaming = lazy(() => import('./pages/legal/ResponsibleGaming'));
+const UserAgreement = lazy(() => import('./pages/legal/UserAgreement'));
 const Status = lazy(() => import('./pages/Status'));
 const Welcome = lazy(() => import('./pages/Welcome'));
 const ForgotPassword = lazy(() => import('./pages/ForgotPassword'));
 const ResetPassword = lazy(() => import('./pages/ResetPassword'));
+const VerifyEmail = lazy(() => import('./pages/VerifyEmail'));
 
 function PageLoader() {
   return (
@@ -145,9 +147,11 @@ export default function App() {
         <Route path="/legal/cookies" element={<Suspense fallback={<PageLoader />}><Cookies /></Suspense>} />
         <Route path="/legal/bonus-terms" element={<Suspense fallback={<PageLoader />}><BonusTerms /></Suspense>} />
         <Route path="/legal/responsible-gaming" element={<Suspense fallback={<PageLoader />}><ResponsibleGaming /></Suspense>} />
+        <Route path="/legal/user-agreement" element={<Suspense fallback={<PageLoader />}><UserAgreement /></Suspense>} />
         <Route path="/status" element={<Suspense fallback={<PageLoader />}><Status /></Suspense>} />
         <Route path="/forgot-password" element={<Suspense fallback={<PageLoader />}><ForgotPassword /></Suspense>} />
         <Route path="/reset-password" element={<Suspense fallback={<PageLoader />}><ResetPassword /></Suspense>} />
+        <Route path="/verify-email" element={<Suspense fallback={<PageLoader />}><VerifyEmail /></Suspense>} />
         {/* Phase D3 — 18+ yaş gate (auth required, no age check yet) */}
         <Route path="/welcome" element={<ProtectedRoute><Suspense fallback={<PageLoader />}><Welcome /></Suspense></ProtectedRoute>} />
         <Route path="*" element={<Navigate to="/" replace />} />

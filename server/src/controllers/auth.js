@@ -60,6 +60,7 @@ const EMAIL_VERIFY_TTL_HOURS = 24;
 const PASSWORD_RESET_TTL_HOURS = 1;
 const LOGIN_LOCKOUT_THRESHOLD = 5;
 const LOGIN_LOCKOUT_MINUTES = 15;
+const EMAIL_VERIFICATION_CUTOFF = new Date(process.env.EMAIL_VERIFICATION_CUTOFF || '2026-07-14T00:00:00Z');
 
 export async function register(req, res, next) {
   try {
@@ -109,16 +110,11 @@ export async function register(req, res, next) {
       console.error('verify email send failed:', e.message);
     }
 
-    const accessToken = signAccess(user);
-    setRefreshCookie(res, signRefresh(user));
     const obj = user.toSafeObject();
     obj.emailVerified = false;
-    await enrichWithPalaceBalance(user, obj);
-    await enrichWithLockedBalance(user, obj);
     res.status(201).json({
-      accessToken,
       user: obj,
-      message: 'Kayıt başarılı. Email adresinize doğrulama maili gönderildi.',
+      message: 'Kayıt başarılı. Email adresinize doğrulama maili gönderildi. Giriş yapabilmek için lütfen email adresinizi doğrulayın.',
     });
   } catch (e) { next(e); }
 }
@@ -150,6 +146,9 @@ export async function login(req, res, next) {
     if (!(await user.comparePassword(password))) {
       await LoginAttempt.create({ userId: user._id, username, ip, userAgent, success: false, failReason: 'wrong_password' });
       return next(createError(401, 'INVALID_CREDENTIALS', 'Kullanıcı adı veya şifre hatalı'));
+    }
+    if (!user.emailVerified && user.createdAt >= EMAIL_VERIFICATION_CUTOFF) {
+      return next(createError(403, 'EMAIL_NOT_VERIFIED', 'Email adresinizi doğrulamanız gerekiyor. Gelen kutunuzu kontrol edin.', { email: user.email }));
     }
 
     // Successful login
@@ -210,6 +209,34 @@ export async function verifyEmail(req, res, next) {
     user.emailVerificationExpires = null;
     await user.save();
     res.json({ message: 'Email adresiniz doğrulandı', emailVerified: true });
+  } catch (e) { next(e); }
+}
+
+export async function resendVerification(req, res, next) {
+  try {
+    const { email } = req.validated;
+    const user = await User.findOne({ email });
+    if (user && !user.emailVerified) {
+      const token = crypto.randomBytes(32).toString('hex');
+      user.emailVerificationToken = token;
+      user.emailVerificationExpires = new Date(Date.now() + EMAIL_VERIFY_TTL_HOURS * 3600 * 1000);
+      await user.save();
+      try {
+        await sendEmail({
+          to: email,
+          subject: 'Email adresinizi doğrulayın — Bet Platform',
+          template: 'verify-email',
+          data: {
+            username: user.username,
+            verifyUrl: `${getBaseUrl(req)}/verify-email?token=${token}`,
+          },
+        });
+      } catch (e) {
+        console.error('resend verify email send failed:', e.message);
+      }
+    }
+    // Güvenlik: kullanıcı yoksa/zaten doğrulanmışsa da aynı generic mesaj (email enumeration prevention)
+    res.json({ message: 'Doğrulanmamış bir hesap bulunursa, doğrulama maili gönderildi.' });
   } catch (e) { next(e); }
 }
 

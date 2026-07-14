@@ -414,6 +414,67 @@ export const BONUS_TERMS = {
   ],
 };
 
+// ─── Kullanıcı Sözleşmesi (Üyelik Sözleşmesi) ──────────────────────
+export const USER_AGREEMENT = {
+  title: 'Kullanıcı Sözleşmesi',
+  intro: 'Bu sözleşme, Bet Platform ile üye arasındaki üyelik ilişkisinin şartlarını düzenler. Platforma kayıt olarak bu sözleşmeyi okuduğunuzu ve kabul ettiğinizi beyan edersiniz.',
+  sections: [
+    {
+      title: '1. Taraflar ve Tanımlar',
+      content: [
+        `"Platform", ${COMPANY.legalName} tarafından işletilen Bet Platform çevrimiçi bahis ve casino hizmetini ifade eder.`,
+        '"Üye", platforma kayıt olarak bu sözleşmeyi kabul eden gerçek kişiyi ifade eder.',
+        'Bu sözleşme, üyelik süresince geçerli olan Kullanım Koşulları, Gizlilik Politikası ve KVKK Aydınlatma Metni ile birlikte bir bütün oluşturur; çelişki halinde bu sözleşme öncelikli uygulanır.',
+      ],
+    },
+    {
+      title: '2. Sözleşmenin Konusu ve Kapsamı',
+      content: [
+        'Sözleşmenin konusu, üyenin platform üzerinden sunulan spor bahis ve casino hizmetlerinden yararlanma şartlarının belirlenmesidir.',
+        'Üyelik, kayıt formunun eksiksiz doldurulup bu sözleşmenin onaylanmasıyla kurulur ve platform tarafından hesabın aktifleştirilmesiyle yürürlüğe girer.',
+      ],
+    },
+    {
+      title: '3. Üyelik ve Hesap Sahipliği',
+      content: [
+        'Her üye yalnızca kendi adına, tek bir hesap açabilir. Mükerrer hesap tespit edilirse ilgili hesaplar dondurulabilir.',
+        'Hesap bilgileri (kullanıcı adı, email, şifre) münhasıran üyeye aittir; üçüncü kişilerle paylaşılamaz. Hesap üzerinden gerçekleştirilen tüm işlemlerden üye sorumludur.',
+        'Üye, kayıt sırasında verdiği bilgilerin doğru, güncel ve eksiksiz olduğunu taahhüt eder. Yanlış/yanıltıcı bilgi verildiğinin tespiti halinde platform hesabı askıya alma hakkına sahiptir.',
+      ],
+    },
+    {
+      title: '4. Üyenin Yükümlülükleri',
+      content: [
+        'Üye, platformu yalnızca yasal amaçlarla ve bulunduğu yargı alanının yasalarına uygun şekilde kullanacağını kabul eder.',
+        'Üye, 18 yaşından küçük olmadığını ve bahis/casino hizmetlerinden yararlanma ehliyetine sahip olduğunu beyan eder.',
+        'Üye, hesap güvenliğini (şifre, iki faktörlü doğrulama vb.) sağlamakla ve şüpheli aktiviteyi derhal platforma bildirmekle yükümlüdür.',
+      ],
+    },
+    {
+      title: '5. Platformun Hak ve Yükümlülükleri',
+      content: [
+        'Platform, hizmetlerini Curacao Gaming Control Board lisansı kapsamında sunar ve teknik altyapının sürekliliği için makul özeni gösterir.',
+        'Platform, sözleşme şartlarının ihlali, sahtecilik şüphesi veya yasal zorunluluk halinde üyelik hesabını geçici olarak dondurma veya kalıcı olarak kapatma hakkını saklı tutar.',
+        'Platform, bu sözleşmeyi ve eklerini önceden bildirimde bulunarak güncelleyebilir; güncel sürüm her zaman platformun ilgili sayfasında yayınlanır.',
+      ],
+    },
+    {
+      title: '6. Sözleşmenin Feshi ve Hesap Kapatma',
+      content: [
+        'Üye, dilediği zaman hesabını kapatma talebinde bulunabilir; bekleyen bakiye ve yükümlülükler tasfiye edildikten sonra hesap kapatılır.',
+        'Platform, bu sözleşmenin ihlali halinde üyelik ilişkisini tek taraflı olarak feshedebilir. Fesih, üyenin o ana kadar doğmuş hak ve yükümlülüklerini ortadan kaldırmaz.',
+      ],
+    },
+    {
+      title: '7. Uyuşmazlıkların Çözümü ve Uygulanacak Hukuk',
+      content: [
+        'Bu sözleşmeden doğan uyuşmazlıklarda, platformun lisans aldığı Curacao mevzuatı ve platform lisans koşulları esas alınır.',
+        'Türkiye Cumhuriyeti sınırları içinde online bahis ve casino hizmetleri yasal düzenlemeye tabi değildir; üye kendi yargı alanının yasalarına uyacağını taahhüt eder.',
+      ],
+    },
+  ],
+};
+
 // ─── KVKK Self-Service Export Data Categories ────────────────────
 export const DATA_EXPORT_CATEGORIES = [
   'Hesap bilgileri (kullanıcı adı, e-posta, kayıt tarihi)',

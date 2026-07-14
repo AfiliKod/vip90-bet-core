@@ -23,6 +23,10 @@ export const emailVerifySchema = z.object({
   token: z.string().min(10).max(200),
 });
 
+export const resendVerificationSchema = z.object({
+  email: z.string().email(),
+});
+
 export const passwordResetRequestSchema = z.object({
   email:           z.string().email(),
   turnstileToken:  z.string().optional(),

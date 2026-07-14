@@ -5,6 +5,7 @@ import Swal from 'sweetalert2';
 import { useAuthStore } from '../store/authStore';
 import { useToastStore } from '../store/toastStore';
 import { LEGAL_VERSION } from '../data/legalContent';
+import api from '../services/api';
 
 export default function Login() {
   const [searchParams] = useSearchParams();
@@ -12,6 +13,9 @@ export default function Login() {
   const [tab, setTab] = useState(searchParams.get('tab') === 'register' ? 'register' : 'login');
   const [acceptedTerms, setAcceptedTerms] = useState(false);
   const [acceptedKvkk, setAcceptedKvkk] = useState(false);
+  const [showPassword, setShowPassword] = useState(false);
+  const [unverifiedEmail, setUnverifiedEmail] = useState(null);
+  const [resendStatus, setResendStatus] = useState('idle'); // idle | sending | sent
   const { login, register: registerFn } = useAuthStore();
   const addToast = useToastStore(s => s.add);
   const navigate = useNavigate();
@@ -29,12 +33,17 @@ export default function Login() {
           addToast('Devam etmek için tüm onayları tamamlamalısınız.', 'error');
           return;
         }
-        await registerFn(data.username, data.email, data.password, {
+        const result = await registerFn(data.username, data.email, data.password, {
           acceptedTerms,
           acceptedKvkk,
           consentVersion: LEGAL_VERSION,
         }, (data.referredBy?.trim() || refUsername || undefined));
-        navigate('/');
+        if (result.accessToken) {
+          navigate('/');
+        } else {
+          // Task 1: register() artık doğrulanmadan oturum açmıyor — login ile aynı kart gösterilir.
+          setUnverifiedEmail(data.email);
+        }
       }
     } catch (e) {
       const errData = e.response?.data?.error;
@@ -44,6 +53,8 @@ export default function Login() {
         addToast('Kullanıcı adı veya şifre hatalı.', 'error');
       } else if (status === 429) {
         addToast('Çok fazla deneme. Lütfen biraz bekleyin.', 'error');
+      } else if (status === 403 && errData?.code === 'EMAIL_NOT_VERIFIED') {
+        setUnverifiedEmail(errData.details?.email || data.username);
       } else if (status === 400 && errData?.code === 'VALIDATION_ERROR' && errData?.details) {
         const fieldErrors = errData.details.fieldErrors || {};
         const issues = Object.entries(fieldErrors);
@@ -83,6 +94,17 @@ export default function Login() {
     }
   };
 
+  async function handleResendVerification() {
+    setResendStatus('sending');
+    try {
+      await api.post('/auth/resend-verification', { email: unverifiedEmail });
+      setResendStatus('sent');
+    } catch {
+      setResendStatus('idle');
+      addToast('Gönderilemedi, lütfen tekrar deneyin.', 'error');
+    }
+  }
+
   return (
     <div className="min-h-screen flex items-center justify-center px-4 py-8 relative"
       style={{
@@ -96,89 +118,143 @@ export default function Login() {
           <h1 className="text-2xl font-bold text-text-1">VIP90.bet</h1>
           <p className="text-text-2 text-sm mt-1">Spor Bahis Platformu</p>
         </div>
-        <div className="flex mb-6 bg-bg-base rounded-lg p-1">
-          {['login', 'register'].map(t => (
-            <button key={t} onClick={() => setTab(t)}
-              className={`flex-1 py-2 rounded-md text-sm font-medium transition-colors ${tab === t ? 'bg-accent text-white' : 'text-text-2 hover:text-text-1'}`}>
-              {t === 'login' ? 'Giriş Yap' : 'Kayıt Ol'}
+
+        {unverifiedEmail ? (
+          <div className="space-y-4">
+            <div className="p-4 rounded-lg text-sm" style={{ background: 'rgba(239,68,68,0.08)', border: '1px solid rgba(239,68,68,0.3)', color: '#c8d8f0' }}>
+              <strong style={{ color: '#f0f4ff' }}>{unverifiedEmail}</strong> adresini henüz doğrulamadınız. Giriş yapabilmek için email adresinizi doğrulamanız gerekiyor.
+            </div>
+            <button
+              type="button"
+              onClick={handleResendVerification}
+              disabled={resendStatus !== 'idle'}
+              className="w-full bg-gradient-to-r from-primary to-accent text-bg-deep font-semibold py-3 rounded-lg hover:opacity-90 disabled:opacity-50 disabled:cursor-not-allowed transition"
+            >
+              {resendStatus === 'sending' ? 'Gönderiliyor...' : resendStatus === 'sent' ? 'Gönderildi ✓' : 'Doğrulama Emailini Tekrar Gönder'}
             </button>
-          ))}
-        </div>
-        <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
-          <input {...register('username', { required: true })} placeholder="Kullanıcı adı"
-            className="w-full bg-bg-base border border-white/10 rounded-lg px-4 py-3 text-text-1 placeholder-text-3 focus:outline-none focus:border-primary transition" />
-          {tab === 'register' && refUsername && (
-            <div className="bg-accent/10 border border-accent/30 rounded-lg px-3 py-2 text-xs text-text-2">
-              🎉 <strong className="text-accent">{refUsername}</strong> sizi davet etti
-            </div>
-          )}
-          {tab === 'register' && (
-            <input {...register('email', { required: true })} type="email" placeholder="E-posta"
-              className="w-full bg-bg-base border border-white/10 rounded-lg px-4 py-3 text-text-1 placeholder-text-3 focus:outline-none focus:border-primary transition" />
-          )}
-          {tab === 'register' && (
-            <input {...register('referredBy')} defaultValue={refUsername || ''} placeholder="Referans kullanıcısı (opsiyonel)"
-              className="w-full bg-bg-base border border-white/10 rounded-lg px-4 py-3 text-text-1 placeholder-text-3 focus:outline-none focus:border-primary transition" />
-          )}
-          <div className="relative">
-            <input {...register('password', { required: true })} type="password" placeholder="Şifre"
-              className="w-full bg-bg-base border border-white/10 rounded-lg px-4 py-3 text-text-1 placeholder-text-3 focus:outline-none focus:border-primary transition" />
-            {tab === 'login' && (
-              <Link to="/forgot-password"
-                className="absolute right-3 top-1/2 -translate-y-1/2 text-[11px] font-semibold underline transition"
+            <div className="text-center">
+              <button
+                type="button"
+                onClick={() => { setUnverifiedEmail(null); setResendStatus('idle'); }}
+                className="text-xs underline"
                 style={{ color: '#7c8aae' }}
-                onMouseEnter={e => e.currentTarget.style.color = '#00d4ff'}
-                onMouseLeave={e => e.currentTarget.style.color = '#7c8aae'}
               >
-                Şifremi Unuttum
-              </Link>
-            )}
-          </div>
-
-          {/* Kayıt onayları */}
-          {tab === 'register' && (
-            <div className="space-y-2 pt-2">
-              <ConsentCheckbox
-                checked={acceptedTerms}
-                onChange={setAcceptedTerms}
-                label={
-                  <>
-                    <Link to="/legal/terms" target="_blank" className="underline" style={{ color: '#00d4ff' }}>Kullanım Koşulları</Link>{' '}
-                    ve{' '}
-                    <Link to="/legal/privacy" target="_blank" className="underline" style={{ color: '#00d4ff' }}>Gizlilik Politikası</Link>'nı okudum, kabul ediyorum
-                  </>
-                }
-              />
-              <ConsentCheckbox
-                checked={acceptedKvkk}
-                onChange={setAcceptedKvkk}
-                label={
-                  <>
-                    <Link to="/legal/kvkk" target="_blank" className="underline" style={{ color: '#00d4ff' }}>KVKK Aydınlatma Metni</Link>{' '}
-                    kapsamında kişisel verilerimin işlenmesini kabul ediyorum
-                  </>
-                }
-              />
+                ← Girişe Dön
+              </button>
             </div>
-          )}
+          </div>
+        ) : (
+          <>
+            <div className="flex mb-6 bg-bg-base rounded-lg p-1">
+              {['login', 'register'].map(t => (
+                <button key={t} onClick={() => setTab(t)}
+                  className={`flex-1 py-2 rounded-md text-sm font-medium transition-colors ${tab === t ? 'bg-accent text-white' : 'text-text-2 hover:text-text-1'}`}>
+                  {t === 'login' ? 'Giriş Yap' : 'Kayıt Ol'}
+                </button>
+              ))}
+            </div>
+            <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
+              <input {...register('username', { required: true })} placeholder="Kullanıcı adı"
+                className="w-full bg-bg-base border border-white/10 rounded-lg px-4 py-3 text-text-1 placeholder-text-3 focus:outline-none focus:border-primary transition" />
+              {tab === 'register' && refUsername && (
+                <div className="bg-accent/10 border border-accent/30 rounded-lg px-3 py-2 text-xs text-text-2">
+                  🎉 <strong className="text-accent">{refUsername}</strong> sizi davet etti
+                </div>
+              )}
+              {tab === 'register' && (
+                <input {...register('email', { required: true })} type="email" placeholder="E-posta"
+                  className="w-full bg-bg-base border border-white/10 rounded-lg px-4 py-3 text-text-1 placeholder-text-3 focus:outline-none focus:border-primary transition" />
+              )}
+              {tab === 'register' && (
+                <input {...register('referredBy')} defaultValue={refUsername || ''} placeholder="Referans kullanıcısı (opsiyonel)"
+                  className="w-full bg-bg-base border border-white/10 rounded-lg px-4 py-3 text-text-1 placeholder-text-3 focus:outline-none focus:border-primary transition" />
+              )}
+              <div>
+                <div className="relative">
+                  <input {...register('password', { required: true })} type={showPassword ? 'text' : 'password'} placeholder="Şifre"
+                    className="w-full bg-bg-base border border-white/10 rounded-lg pl-4 pr-10 py-3 text-text-1 placeholder-text-3 focus:outline-none focus:border-primary transition" />
+                  <button
+                    type="button"
+                    onClick={() => setShowPassword(v => !v)}
+                    aria-label={showPassword ? 'Şifreyi gizle' : 'Şifreyi göster'}
+                    className="absolute right-3 top-1/2 -translate-y-1/2 transition"
+                    style={{ color: '#7c8aae' }}
+                    onMouseEnter={e => e.currentTarget.style.color = '#00d4ff'}
+                    onMouseLeave={e => e.currentTarget.style.color = '#7c8aae'}
+                  >
+                    {showPassword ? (
+                      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                        <path d="M17.94 17.94A10.94 10.94 0 0 1 12 20c-7 0-11-8-11-8a18.5 18.5 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24" />
+                        <path d="M1 1l22 22" />
+                      </svg>
+                    ) : (
+                      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                        <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z" />
+                        <circle cx="12" cy="12" r="3" />
+                      </svg>
+                    )}
+                  </button>
+                </div>
+                {tab === 'login' && (
+                  <div className="flex justify-end mt-1.5">
+                    <Link to="/forgot-password"
+                      className="text-[11px] font-semibold underline transition"
+                      style={{ color: '#7c8aae' }}
+                      onMouseEnter={e => e.currentTarget.style.color = '#00d4ff'}
+                      onMouseLeave={e => e.currentTarget.style.color = '#7c8aae'}
+                    >
+                      Şifremi Unuttum
+                    </Link>
+                  </div>
+                )}
+              </div>
 
-          <button
-            type="submit"
-            disabled={isSubmitting || (tab === 'register' && !canSubmitRegister)}
-            className="w-full bg-gradient-to-r from-primary to-accent text-bg-deep font-semibold py-3 rounded-lg hover:opacity-90 disabled:opacity-50 disabled:cursor-not-allowed transition"
-          >
-            {isSubmitting ? 'Bekleyin...' : (tab === 'login' ? 'Giriş Yap' : 'Kayıt Ol')}
-          </button>
-        </form>
+              {/* Kayıt onayları */}
+              {tab === 'register' && (
+                <div className="space-y-2 pt-2">
+                  <ConsentCheckbox
+                    checked={acceptedTerms}
+                    onChange={setAcceptedTerms}
+                    label={
+                      <>
+                        <Link to="/legal/terms" target="_blank" className="underline" style={{ color: '#00d4ff' }}>Kullanım Koşulları</Link>{' '}
+                        ve{' '}
+                        <Link to="/legal/privacy" target="_blank" className="underline" style={{ color: '#00d4ff' }}>Gizlilik Politikası</Link>'nı okudum, kabul ediyorum
+                      </>
+                    }
+                  />
+                  <ConsentCheckbox
+                    checked={acceptedKvkk}
+                    onChange={setAcceptedKvkk}
+                    label={
+                      <>
+                        <Link to="/legal/kvkk" target="_blank" className="underline" style={{ color: '#00d4ff' }}>KVKK Aydınlatma Metni</Link>{' '}
+                        kapsamında kişisel verilerimin işlenmesini kabul ediyorum
+                      </>
+                    }
+                  />
+                </div>
+              )}
 
-        {/* Footer linkler */}
-        <div className="mt-6 pt-4 border-t border-white/[0.06] text-[10px] text-center" style={{ color: '#4a5a78' }}>
-          Kayıt olarak{' '}
-          <Link to="/legal/bonus-terms" target="_blank" className="underline" style={{ color: '#00d4ff' }}>
-            Bonus Koşulları
-          </Link>
-          'nı da kabul etmiş sayılırsınız.
-        </div>
+              <button
+                type="submit"
+                disabled={isSubmitting || (tab === 'register' && !canSubmitRegister)}
+                className="w-full bg-gradient-to-r from-primary to-accent text-bg-deep font-semibold py-3 rounded-lg hover:opacity-90 disabled:opacity-50 disabled:cursor-not-allowed transition"
+              >
+                {isSubmitting ? 'Bekleyin...' : (tab === 'login' ? 'Giriş Yap' : 'Kayıt Ol')}
+              </button>
+            </form>
+
+            {/* Footer linkler */}
+            <div className="mt-6 pt-4 border-t border-white/[0.06] text-[10px] text-center" style={{ color: '#4a5a78' }}>
+              Kayıt olarak{' '}
+              <Link to="/legal/user-agreement" target="_blank" className="underline" style={{ color: '#00d4ff' }}>
+                kullanıcı sözleşmemizi
+              </Link>{' '}
+              kabul etmiş sayılırsınız.
+            </div>
+          </>
+        )}
       </div>
     </div>
   );

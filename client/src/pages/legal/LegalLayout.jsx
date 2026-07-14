@@ -3,6 +3,7 @@ import { COMPANY, LEGAL_VERSION } from '../../data/legalContent';
 
 const SECTIONS = [
   { to: '/legal/terms', label: 'Kullanım Koşulları', key: 'terms' },
+  { to: '/legal/user-agreement', label: 'Kullanıcı Sözleşmesi', key: 'user-agreement' },
   { to: '/legal/privacy', label: 'Gizlilik Politikası', key: 'privacy' },
   { to: '/legal/kvkk', label: 'KVKK Aydınlatma Metni', key: 'kvkk' },
   { to: '/legal/cookies', label: 'Çerez Politikası', key: 'cookies' },
