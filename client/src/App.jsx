@@ -54,7 +54,6 @@ const BonusTerms = lazy(() => import('./pages/legal/BonusTerms'));
 const ResponsibleGaming = lazy(() => import('./pages/legal/ResponsibleGaming'));
 const UserAgreement = lazy(() => import('./pages/legal/UserAgreement'));
 const Status = lazy(() => import('./pages/Status'));
-const Welcome = lazy(() => import('./pages/Welcome'));
 const ForgotPassword = lazy(() => import('./pages/ForgotPassword'));
 const ResetPassword = lazy(() => import('./pages/ResetPassword'));
 const VerifyEmail = lazy(() => import('./pages/VerifyEmail'));
@@ -152,8 +151,6 @@ export default function App() {
         <Route path="/forgot-password" element={<Suspense fallback={<PageLoader />}><ForgotPassword /></Suspense>} />
         <Route path="/reset-password" element={<Suspense fallback={<PageLoader />}><ResetPassword /></Suspense>} />
         <Route path="/verify-email" element={<Suspense fallback={<PageLoader />}><VerifyEmail /></Suspense>} />
-        {/* Phase D3 — 18+ yaş gate (auth required, no age check yet) */}
-        <Route path="/welcome" element={<ProtectedRoute><Suspense fallback={<PageLoader />}><Welcome /></Suspense></ProtectedRoute>} />
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
     </BrowserRouter>

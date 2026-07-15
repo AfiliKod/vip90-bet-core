@@ -26,9 +26,6 @@ r.get('/me/data-export', validate(dataExportRequestSchema), ctrl.exportMyData);
 r.delete('/me', validate(accountDeletionRequestSchema), ctrl.requestAccountDeletion);
 r.post('/me/cancel-deletion', ctrl.cancelAccountDeletion);
 
-// Age verification (Phase D3)
-r.post('/me/verify-age', ctrl.verifyAge);
-
 // Responsible gambling limits (Phase D4)
 r.get('/me/limits', ctrl.getLimits);
 r.put('/me/limits', ctrl.updateLimits);
