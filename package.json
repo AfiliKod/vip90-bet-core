@@ -6,9 +6,16 @@
     "install:all": "npm i && npm i --prefix server && npm i --prefix client",
     "build": "npm install --prefix client && npm run build --prefix client",
     "start": "npm run build && node server/src/server.js",
-    "collect-session": "node server/scripts/collect-session.js"
+    "collect-session": "node server/scripts/collect-session.js",
+    "test:e2e": "playwright test --config=tests/e2e/playwright.config.js",
+    "test:e2e:headed": "playwright test --config=tests/e2e/playwright.config.js --headed",
+    "test:e2e:debug": "playwright test --config=tests/e2e/playwright.config.js --debug",
+    "test:e2e:ui": "playwright test --config=tests/e2e/playwright.config.js --ui",
+    "test:e2e:report": "playwright show-report tests/playwright-report",
+    "test:e2e:install": "playwright install chromium"
   },
   "devDependencies": {
+    "@playwright/test": "^1.61.1",
     "concurrently": "^8.2.2",
     "playwright": "^1.61.1"
   },
