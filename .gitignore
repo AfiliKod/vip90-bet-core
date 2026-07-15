@@ -48,3 +48,8 @@ pp-visual-test.png
 # Claude Code / tooling
 .superpowers/
 .claude/
+
+# Playwright e2e test çıktıları (kod değil, üretilen raporlar)
+tests/playwright-report/
+tests/test-results/
+server/test-results/
