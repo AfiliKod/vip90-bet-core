@@ -205,26 +205,6 @@ export async function cancelAccountDeletion(req, res, next) {
   } catch(e) { next(e); }
 }
 
-// ─── 18+ yaş doğrulama (Phase D3) ──────────────────────────────────
-const MIN_AGE = 18;
-export async function verifyAge(req, res, next) {
-  try {
-    const { dateOfBirth } = req.body;
-    if (!dateOfBirth) return next(createError(400, 'MISSING_DOB', 'Doğum tarihi gerekli'));
-    const dob = new Date(dateOfBirth);
-    const ageMs = Date.now() - dob.getTime();
-    const ageYears = ageMs / (365.25 * 24 * 60 * 60 * 1000);
-    if (ageYears < MIN_AGE) {
-      return next(createError(403, 'UNDERAGE', '18 yaşından büyük olmalısınız. Kumar bağımlılığı yardım hatları: gamblingtherapy.org'));
-    }
-    const user = await User.findById(req.user.id);
-    user.dateOfBirth = dob;
-    user.ageVerifiedAt = new Date();
-    await user.save();
-    res.json({ message: 'Yaş doğrulandı', ageVerified: true });
-  } catch(e) { next(e); }
-}
-
 // ─── Responsible gambling limits (Phase D4) ───────────────────────
 export async function getLimits(req, res, next) {
   try {
