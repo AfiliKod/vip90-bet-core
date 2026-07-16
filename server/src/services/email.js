@@ -59,14 +59,16 @@ const TEMPLATES = {
 
 export async function sendEmail({ to, subject, template, data, html }) {
   const transporter = getTransporter();
-  if (!transporter) {
-    // SMTP yok — development mode'da console.log
-    console.log(`📧 [EMAIL MOCK] → ${to} | ${subject}`);
-    return { mock: true };
-  }
   let body = { subject, html };
   if (template && TEMPLATES[template]) {
     body = TEMPLATES[template](data || {});
+  }
+  if (!transporter) {
+    // SMTP yok — development mode'da console.log + linki bas
+    console.log(`📧 [EMAIL MOCK] → ${to} | ${body.subject}`);
+    if (data?.verifyUrl) console.log(`   🔗 ${data.verifyUrl}`);
+    if (data?.resetUrl) console.log(`   🔗 ${data.resetUrl}`);
+    return { mock: true, verifyUrl: data?.verifyUrl, resetUrl: data?.resetUrl };
   }
   return transporter.sendMail({
     from: `"Bet Platform" <${process.env.SMTP_FROM || 'noreply@vip90.bet'}>`,

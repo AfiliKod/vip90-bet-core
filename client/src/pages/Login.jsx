@@ -16,6 +16,7 @@ export default function Login() {
   const [showPassword, setShowPassword] = useState(false);
   const [unverifiedEmail, setUnverifiedEmail] = useState(null);
   const [resendStatus, setResendStatus] = useState('idle'); // idle | sending | sent
+  const [devVerifyUrl, setDevVerifyUrl] = useState(null); // sadece dev: local'de SMTP yokken mail linkini göster
   const { login, register: registerFn } = useAuthStore();
   const addToast = useToastStore(s => s.add);
   const navigate = useNavigate();
@@ -43,6 +44,7 @@ export default function Login() {
         } else {
           // Task 1: register() artık doğrulanmadan oturum açmıyor — login ile aynı kart gösterilir.
           setUnverifiedEmail(data.email);
+          if (import.meta.env.DEV && result.devVerifyUrl) setDevVerifyUrl(result.devVerifyUrl);
         }
       }
     } catch (e) {
@@ -97,8 +99,9 @@ export default function Login() {
   async function handleResendVerification() {
     setResendStatus('sending');
     try {
-      await api.post('/auth/resend-verification', { email: unverifiedEmail });
+      const { data } = await api.post('/auth/resend-verification', { email: unverifiedEmail });
       setResendStatus('sent');
+      if (import.meta.env.DEV && data.devVerifyUrl) setDevVerifyUrl(data.devVerifyUrl);
     } catch {
       setResendStatus('idle');
       addToast('Gönderilemedi, lütfen tekrar deneyin.', 'error');
@@ -132,6 +135,12 @@ export default function Login() {
             >
               {resendStatus === 'sending' ? 'Gönderiliyor...' : resendStatus === 'sent' ? 'Gönderildi ✓' : 'Doğrulama Emailini Tekrar Gönder'}
             </button>
+            {devVerifyUrl && (
+              <div className="p-3 rounded-lg text-xs break-all" style={{ background: 'rgba(0,212,255,0.08)', border: '1px solid rgba(0,212,255,0.3)', color: '#8ab4d8' }}>
+                <strong style={{ color: '#00d4ff' }}>DEV:</strong> SMTP yapılandırılmadığı için mail gönderilmedi.{' '}
+                <a href={devVerifyUrl} className="underline" style={{ color: '#00d4ff' }}>Doğrulama linkine git</a>
+              </div>
+            )}
             <div className="text-center">
               <button
                 type="button"

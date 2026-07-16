@@ -96,8 +96,9 @@ export async function register(req, res, next) {
     });
 
     // Email doğrulama maili gönder (best-effort)
+    let emailResult;
     try {
-      await sendEmail({
+      emailResult = await sendEmail({
         to: email,
         subject: 'Email adresinizi doğrulayın — Bet Platform',
         template: 'verify-email',
@@ -112,10 +113,16 @@ export async function register(req, res, next) {
 
     const obj = user.toSafeObject();
     obj.emailVerified = false;
-    res.status(201).json({
+    const response = {
       user: obj,
       message: 'Kayıt başarılı. Email adresinize doğrulama maili gönderildi. Giriş yapabilmek için lütfen email adresinizi doğrulayın.',
-    });
+    };
+    // SMTP yapılandırılmamışsa (local/dev): linki response'a da ekle, aksi halde
+    // gerçek mail gelmediği için doğrulama akışı test edilemez.
+    if (process.env.NODE_ENV !== 'production' && emailResult?.mock) {
+      response.devVerifyUrl = emailResult.verifyUrl;
+    }
+    res.status(201).json(response);
   } catch (e) { next(e); }
 }
 
@@ -216,13 +223,14 @@ export async function resendVerification(req, res, next) {
   try {
     const { email } = req.validated;
     const user = await User.findOne({ email });
+    let emailResult;
     if (user && !user.emailVerified) {
       const token = crypto.randomBytes(32).toString('hex');
       user.emailVerificationToken = token;
       user.emailVerificationExpires = new Date(Date.now() + EMAIL_VERIFY_TTL_HOURS * 3600 * 1000);
       await user.save();
       try {
-        await sendEmail({
+        emailResult = await sendEmail({
           to: email,
           subject: 'Email adresinizi doğrulayın — Bet Platform',
           template: 'verify-email',
@@ -236,7 +244,11 @@ export async function resendVerification(req, res, next) {
       }
     }
     // Güvenlik: kullanıcı yoksa/zaten doğrulanmışsa da aynı generic mesaj (email enumeration prevention)
-    res.json({ message: 'Doğrulanmamış bir hesap bulunursa, doğrulama maili gönderildi.' });
+    const response = { message: 'Doğrulanmamış bir hesap bulunursa, doğrulama maili gönderildi.' };
+    if (process.env.NODE_ENV !== 'production' && emailResult?.mock) {
+      response.devVerifyUrl = emailResult.verifyUrl;
+    }
+    res.json(response);
   } catch (e) { next(e); }
 }
 
@@ -246,13 +258,14 @@ export async function forgotPassword(req, res, next) {
     const { email } = req.validated;
     const user = await User.findOne({ email });
     // Güvenlik: user yoksa da success dön (email enumeration prevention)
+    let emailResult;
     if (user) {
       const token = crypto.randomBytes(32).toString('hex');
       user.passwordResetToken = token;
       user.passwordResetExpires = new Date(Date.now() + PASSWORD_RESET_TTL_HOURS * 3600 * 1000);
       await user.save();
       try {
-        await sendEmail({
+        emailResult = await sendEmail({
           to: email,
           subject: 'Şifre sıfırlama — Bet Platform',
           template: 'password-reset',
@@ -265,7 +278,11 @@ export async function forgotPassword(req, res, next) {
         console.error('reset email send failed:', e.message);
       }
     }
-    res.json({ message: 'Şifre sıfırlama talimatları e-posta adresinize gönderildi' });
+    const response = { message: 'Şifre sıfırlama talimatları e-posta adresinize gönderildi' };
+    if (process.env.NODE_ENV !== 'production' && emailResult?.mock) {
+      response.devResetUrl = emailResult.resetUrl;
+    }
+    res.json(response);
   } catch (e) { next(e); }
 }
 
@@ -287,6 +304,13 @@ export async function resetPassword(req, res, next) {
 }
 
 function getBaseUrl(req) {
+  // Production'da client aynı origin'den (Express static) servis edilir, req.host doğrudur.
+  // Dev'de client ayrı bir Vite sunucusunda çalışır — API'nin kendi host'u yanlış link üretir.
+  if (process.env.NODE_ENV !== 'production') {
+    // CLIENT_URL CORS için virgülle ayrılmış çoklu origin olabilir — linkte ilkini kullan.
+    const first = (process.env.CLIENT_URL || 'http://localhost:5173').split(',')[0].trim();
+    return first;
+  }
   const proto = req.headers['x-forwarded-proto'] || 'https';
   const host = req.headers['x-forwarded-host'] || req.headers.host;
   return `${proto}://${host}`;
