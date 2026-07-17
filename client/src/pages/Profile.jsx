@@ -278,10 +278,6 @@ const handleBankSubmit = async (confirmForfeit = false) => {
      } finally { setSubmitting(false); }
    };
 
-  const refCode = user?._id
-    ? `${user._id.slice(-6).toUpperCase()}-${Date.now().toString(36).toUpperCase()}`
-    : '';
-
   const amount = selectedAmount || (customAmount ? parseFloat(customAmount) : 0);
 
   const onFiatSubmit = async (data) => {
@@ -567,30 +563,12 @@ const handleBankSubmit = async (confirmForfeit = false) => {
                       {bankInfo.iban}
                     </div>
                   </div>
-                  <div>
-                    <div className="flex items-center justify-between mb-1">
-                      <span className="text-xs text-text-3">Hesap No</span>
-                      <CopyButton text={bankInfo.accountNo} />
-                    </div>
-                    <div className="bg-bg-base border border-white/10 rounded-lg px-3 py-2 font-mono text-sm text-text-1">
-                      {bankInfo.accountNo}
-                    </div>
-                  </div>
-                  <div>
-                    <div className="flex items-center justify-between mb-1">
-                      <span className="text-xs text-text-3">Referans Kodu</span>
-                      <CopyButton text={refCode} />
-                    </div>
-                    <div className="bg-amber-500/10 border border-amber-500/30 rounded-lg px-3 py-2 font-mono text-sm text-amber-400 font-bold tracking-wider text-center">
-                      {refCode}
-                    </div>
-                  </div>
                 </div>
               )}
 
               <div className="bg-accent/5 border border-accent/20 rounded-xl p-3 text-xs text-text-2 leading-relaxed space-y-1">
                 <p>1️⃣ Yukarıdaki hesaba <strong className="text-text-1">₺{amount.toFixed(2)}</strong> gönderin</p>
-                <p>2️⃣ Açıklama kısmına <strong className="text-amber-400">{refCode}</strong> referans kodunu yazın</p>
+                <p>2️⃣ Ödemeyi <strong className="text-amber-400">yalnızca kendi adınıza kayıtlı banka hesabınızdan</strong> gönderin — hesap eşleştirmesi ancak bu şekilde yapılabilir</p>
                 <p>3️⃣ Admin onayından sonra bakiye otomatik yüklenecektir</p>
               </div>
 
