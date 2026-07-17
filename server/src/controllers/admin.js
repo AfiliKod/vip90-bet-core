@@ -241,7 +241,8 @@ export async function settle(req, res, next) {
     event.result = { winner: results.maç_sonucu || '', score: score || '' };
     event.archivedAt = new Date();
     for (const market of event.markets) {
-      if (results[market.type]) market.result = results[market.type];
+      const r = results[market.type];
+      if (r) market.result = Array.isArray(r) ? r.join(',') : r; // market.result şema alanı String — çoklu kazananlı marketlerde birleştirilmiş gösterim
     }
     await event.save();
     const eventTitle = `${event.homeTeam.name} vs ${event.awayTeam.name}`;

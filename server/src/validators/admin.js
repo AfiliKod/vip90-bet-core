@@ -10,7 +10,9 @@ export const createEventSchema = z.object({
   }))
 });
 export const settleEventSchema = z.object({
-  results: z.record(z.string()),
+  // Çoğu market tek kazananlı (string oddId). Çifte şans gibi çoklu-kazananlı
+  // marketlerde birden fazla oddId aynı anda kazanabilir (array).
+  results: z.record(z.union([z.string(), z.array(z.string())])),
   score: z.string().optional(),
 });
 
