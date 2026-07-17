@@ -8,9 +8,8 @@ export function getInfo(req, res) {
   res.json({
     bankName:        process.env.BANK_NAME        || 'Ziraat Bankası',
     bankBranch:      process.env.BANK_BRANCH      || 'İstanbul Merkez Şubesi',
-    accountHolder:   process.env.BANK_HOLDER      || 'VIP90.BET TEKNOLOJİ A.Ş.',
-    iban:            process.env.BANK_IBAN        || 'TR12 3456 7890 1234 5678 9000 12',
-    accountNo:       process.env.BANK_ACCOUNT_NO  || '12345678-901234',
+    accountHolder:   process.env.BANK_HOLDER      || 'Engin YILDIRIM',
+    iban:            process.env.BANK_IBAN        || 'TR00 0000 0000 0000 0000 0000 00',
   });
 }
 

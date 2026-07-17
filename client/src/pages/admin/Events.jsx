@@ -4,6 +4,10 @@ import api from '../../services/api';
 import { useToastStore } from '../../store/toastStore';
 
 const STATUS_COLOR = { live: 'text-live', finished: 'text-text-3', upcoming: 'text-success', cancelled: 'text-danger' };
+// Çifte şans gibi marketlerde bir maç sonucunda AYNI ANDA birden fazla seçenek kazanabilir
+// (örn. ev sahibi kazanınca hem "1X" hem "12"). Bu marketler tek seçim yerine çoklu işaretleme
+// (checkbox) ile sonuçlandırılır — bkz. settlement.js'in array-tipli results desteği.
+const MULTI_WINNER_MARKETS = ['çifte_şans'];
 
 function ActiveEvents() {
   const [events, setEvents] = useState([]);
@@ -18,7 +22,11 @@ function ActiveEvents() {
     try {
       const results = {};
       const score = data._score;
-      Object.entries(data).forEach(([k, v]) => { if (k !== '_score' && v) results[k] = v; });
+      Object.entries(data).forEach(([k, v]) => {
+        if (k === '_score') return;
+        if (Array.isArray(v)) { if (v.length) results[k] = v; }
+        else if (v) results[k] = v;
+      });
       await api.post(`/admin/events/${eventId}/settle`, { results, score });
       addToast('Etkinlik sonuçlandırıldı!', 'success');
       setSettling(null);
@@ -38,7 +46,7 @@ function ActiveEvents() {
               </div>
               <span className={`text-xs font-semibold ${STATUS_COLOR[e.status] || ''}`}>{e.status}</span>
             </div>
-            {e.status !== 'finished' && e.status !== 'cancelled' && (
+            {e.status !== 'cancelled' && (
               <button onClick={() => setSettling(settling === e._id ? null : e._id)}
                 className="px-3 py-1.5 bg-warning/20 text-warning border border-warning/30 rounded-lg text-xs hover:bg-warning/30 transition shrink-0 ml-2">
                 Sonuçlandır
@@ -51,10 +59,21 @@ function ActiveEvents() {
               {e.markets.map(m => (
                 <div key={m.type} className="flex items-center gap-2">
                   <label className="text-xs text-text-2 w-36 shrink-0">{m.label}</label>
-                  <select {...register(m.type)} className="flex-1 bg-bg-card border border-white/10 rounded px-2 py-1.5 text-xs text-text-1">
-                    <option value="">Seçin...</option>
-                    {m.odds.map(o => <option key={o.id} value={o.id}>{o.label}</option>)}
-                  </select>
+                  {MULTI_WINNER_MARKETS.includes(m.type) ? (
+                    <div className="flex-1 flex flex-wrap gap-3">
+                      {m.odds.map(o => (
+                        <label key={o.id} className="flex items-center gap-1 text-xs text-text-1">
+                          <input type="checkbox" value={o.id} {...register(m.type)} />
+                          {o.label}
+                        </label>
+                      ))}
+                    </div>
+                  ) : (
+                    <select {...register(m.type)} className="flex-1 bg-bg-card border border-white/10 rounded px-2 py-1.5 text-xs text-text-1">
+                      <option value="">Seçin...</option>
+                      {m.odds.map(o => <option key={o.id} value={o.id}>{o.label}</option>)}
+                    </select>
+                  )}
                 </div>
               ))}
               <input {...register('_score')} placeholder="Skor (örn. 2-1)" className="w-full bg-bg-card border border-white/10 rounded px-3 py-1.5 text-xs text-text-1 mt-2" />

@@ -27,6 +27,10 @@ const UNIT_SUITES = [
   'test-casino-referral.mjs',              // inhouse hook referral payout (no Palace API)
   'test-palace-session-referral.mjs',      // closePalaceSession referral (Palace service mocked)
   'test-events-list.mjs',                  // GET /events gelecek penceresi + cache (#12)
+  'test-bet-grading.mjs',                  // betGrading grader fonksiyonları (daha önce runner'a bağlı değildi)
+  'test-bet-settlement.mjs',                // settleEvent/autoSettleFinishedEvent entegrasyon (daha önce runner'a bağlı değildi)
+  'test-admin-settle-recovery.mjs',        // admin manuel settle: 'finished' ama hâlâ pending bahisli event'ler kurtarılabiliyor mu
+  'test-status-transition-settlement.mjs', // statusTransition fallback'i artık otomatik sonuçlandırma deniyor mu
 ];
 
 // ─── Casino Integration Tests (real DB, mocked or real Palace) ────────────
