@@ -38,7 +38,7 @@ function ActiveEvents() {
               </div>
               <span className={`text-xs font-semibold ${STATUS_COLOR[e.status] || ''}`}>{e.status}</span>
             </div>
-            {e.status !== 'finished' && e.status !== 'cancelled' && (
+            {e.status !== 'cancelled' && (
               <button onClick={() => setSettling(settling === e._id ? null : e._id)}
                 className="px-3 py-1.5 bg-warning/20 text-warning border border-warning/30 rounded-lg text-xs hover:bg-warning/30 transition shrink-0 ml-2">
                 Sonuçlandır

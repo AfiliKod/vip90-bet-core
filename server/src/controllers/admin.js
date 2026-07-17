@@ -225,7 +225,18 @@ export async function settle(req, res, next) {
     const { results, score } = req.validated;
     const event = await Event.findById(req.params.id);
     if (!event) throw createError(404,'NOT_FOUND','Etkinlik bulunamadı');
-    if (event.status === 'finished') throw createError(409,'ALREADY_SETTLED','Etkinlik zaten sonuçlandırılmış');
+    if (event.status === 'finished') {
+      // Event 'finished' olabilir ama otomatik grading başarısız olduysa (örn.
+      // desteklenmeyen market tipi) hâlâ ödenmemiş bahisler kalmış olabilir —
+      // bu durumda admin'in elle sonuçlandırabilmesi gerekiyor. settleEvent zaten
+      // bahis/seçim bazında idempotent (sadece outcome:'pending' olanlara dokunur),
+      // bu yüzden gerçekten hiçbir şey kalmadıysa (aşağıdaki kontrol) reddet.
+      const hasPendingBets = await Bet.exists({
+        status: 'pending',
+        selections: { $elemMatch: { eventId: event._id, outcome: 'pending' } },
+      });
+      if (!hasPendingBets) throw createError(409,'ALREADY_SETTLED','Etkinlik zaten sonuçlandırılmış');
+    }
     event.status = 'finished';
     event.result = { winner: results.maç_sonucu || '', score: score || '' };
     event.archivedAt = new Date();
