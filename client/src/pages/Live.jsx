@@ -1,11 +1,12 @@
 import { useEffect, useState, useMemo } from 'react';
 import { useEventsStore, groupByLeague } from '../store/eventsStore';
 import { SPORT_META } from '../utils/sportMeta';
+import { useSportChips } from '../hooks/useSportChips';
 import MiniEventCard from '../components/MiniEventCard';
 import LeagueGroup from '../components/LeagueGroup';
 import BetSlip from '../components/BetSlip';
 import LiveHeroSlider from '../components/LiveHeroSlider';
-import { BRAND_GRADIENT_H } from '../styles/brand';
+import { BRAND_GRADIENT_H, BRAND_GRADIENT, BRAND_GLOW } from '../styles/brand';
 
 function SearchInput({ value, onChange, placeholder = 'Takım veya lig ara...' }) {
   return (
@@ -50,7 +51,7 @@ function SearchInput({ value, onChange, placeholder = 'Takım veya lig ara...' }
 export default function Live() {
   const {
     events, isLoading, fetchEvents, initSocket, cleanup,
-    selectedSport, selectedLeague,
+    selectedSport, selectedLeague, setSportFilter,
   } = useEventsStore();
   const [openDrawerId, setOpenDrawerId] = useState(null);
   const [search, setSearch] = useState('');
@@ -63,6 +64,7 @@ export default function Live() {
   }, []);
 
   const liveEvents = useMemo(() => events.filter(e => e.status === 'live'), [events]);
+  const sportChips = useSportChips(liveEvents);
 
   const groupedEvents = useMemo(() => {
     let evs = liveEvents;
@@ -129,6 +131,37 @@ export default function Live() {
           onChange={e => setSearch(e.target.value)}
           placeholder="Takım veya lig ara..."
         />
+      </div>
+
+      {/* Mobil spor kategorileri — Sidebar masaüstünde md breakpoint altında gizli olduğu için */}
+      <div className="md:hidden -mx-1 mb-4 flex gap-2 overflow-x-auto no-scrollbar px-1 pb-1">
+        <button
+          onClick={() => setSportFilter('all')}
+          className={`shrink-0 flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-bold transition-all ${
+            selectedSport === 'all' ? 'text-black' : 'text-text-2 bg-white/5 border border-white/10'
+          }`}
+          style={selectedSport === 'all' ? { background: BRAND_GRADIENT, boxShadow: BRAND_GLOW } : {}}
+        >
+          <span>🏆</span>
+          <span>Tümü</span>
+        </button>
+        {sportChips.map(({ id, label, icon, count }) => {
+          const isActive = selectedSport === id;
+          return (
+            <button
+              key={id}
+              onClick={() => setSportFilter(id)}
+              className={`shrink-0 flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-bold transition-all ${
+                isActive ? 'text-black' : 'text-text-2 bg-white/5 border border-white/10'
+              }`}
+              style={isActive ? { background: BRAND_GRADIENT, boxShadow: BRAND_GLOW } : {}}
+            >
+              <span>{icon}</span>
+              <span>{label}</span>
+              <span className={isActive ? 'text-black/60' : 'text-text-3'}>{count}</span>
+            </button>
+          );
+        })}
       </div>
 
       <div className="flex gap-4">
