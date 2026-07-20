@@ -1,7 +1,17 @@
 import rateLimit from 'express-rate-limit';
 
+// Test mode check
+const isTestMode = process.env.NODE_ENV === 'test' || process.env.E2E_TEST === 'true';
+
+const createLimiter = (options) => {
+  if (isTestMode) {
+    return (req, res, next) => next();
+  }
+  return rateLimit(options);
+};
+
 // Global API limit (Render free tier dostu, production'da artır)
-export const globalLimiter = rateLimit({
+export const globalLimiter = createLimiter({
   windowMs: 15 * 60 * 1000,
   max: 200,
   standardHeaders: true,
@@ -11,7 +21,7 @@ export const globalLimiter = rateLimit({
 });
 
 // Auth — credential stuffing koruması
-export const authLimiter = rateLimit({
+export const authLimiter = createLimiter({
   windowMs: 15 * 60 * 1000,
   max: 5,
   standardHeaders: true,
@@ -20,7 +30,7 @@ export const authLimiter = rateLimit({
 });
 
 // Financial — deposit/withdraw
-export const financialLimiter = rateLimit({
+export const financialLimiter = createLimiter({
   windowMs: 60 * 60 * 1000,
   max: 10,
   standardHeaders: true,
@@ -29,7 +39,7 @@ export const financialLimiter = rateLimit({
 });
 
 // Palace callback — provider-side ama savunma amaçlı
-export const palaceCallbackLimiter = rateLimit({
+export const palaceCallbackLimiter = createLimiter({
   windowMs: 60 * 1000,
   max: 1000,
   standardHeaders: true,
@@ -37,7 +47,7 @@ export const palaceCallbackLimiter = rateLimit({
 });
 
 // AI chat — cost kontrolü
-export const chatLimiter = rateLimit({
+export const chatLimiter = createLimiter({
   windowMs: 60 * 60 * 1000,
   max: 20,
   standardHeaders: true,
@@ -46,7 +56,7 @@ export const chatLimiter = rateLimit({
 });
 
 // Admin — abuse koruması
-export const adminLimiter = rateLimit({
+export const adminLimiter = createLimiter({
   windowMs: 15 * 60 * 1000,
   max: 50,
   standardHeaders: true,
@@ -54,7 +64,7 @@ export const adminLimiter = rateLimit({
 });
 
 // Bonus claim
-export const bonusLimiter = rateLimit({
+export const bonusLimiter = createLimiter({
   windowMs: 60 * 60 * 1000,
   max: 5,
   standardHeaders: true,
@@ -62,7 +72,7 @@ export const bonusLimiter = rateLimit({
 });
 
 // Spin — brute-force / crash exploitation koruması
-export const spinLimiter = rateLimit({
+export const spinLimiter = createLimiter({
   windowMs: 60 * 1000,
   max: 60,
   standardHeaders: true,

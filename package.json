@@ -17,6 +17,8 @@
   "devDependencies": {
     "@playwright/test": "^1.61.1",
     "concurrently": "^8.2.2",
+    "dotenv": "^17.4.2",
+    "mongodb": "^7.5.0",
     "playwright": "^1.61.1"
   },
   "dependencies": {

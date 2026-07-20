@@ -28,7 +28,8 @@ export default function Login() {
     try {
       if (tab === 'login') {
         const user = await login(data.username, data.password);
-        navigate(user.role === 'admin' ? '/admin' : '/');
+        const redirect = searchParams.get('redirect');
+        navigate(user.role === 'admin' ? '/admin' : (redirect || '/'));
       } else {
         if (!canSubmitRegister) {
           addToast('Devam etmek için tüm onayları tamamlamalısınız.', 'error');

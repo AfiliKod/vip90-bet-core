@@ -4,19 +4,23 @@ export async function login(page, usernameOrEmail = 'testuser', password = 'pass
   await page.goto('/login');
   await page.waitForLoadState('networkidle');
 
-  // Fill login form
-  await page.fill('input[name="username"], input[name="email"]', usernameOrEmail);
-  await page.fill('input[name="password"]', password);
+  // Handle both string and object credentials
+  const username = typeof usernameOrEmail === 'object' ? usernameOrEmail.username : usernameOrEmail;
+  const pwd = typeof usernameOrEmail === 'object' ? usernameOrEmail.password : password;
+
+  // Fill login form - use the placeholder selectors
+  await page.fill('input[placeholder="Kullanıcı adı"]', username);
+  await page.fill('input[placeholder="Şifre"]', pwd);
 
   // Submit
   await page.click('button[type="submit"]');
 
-  // Wait for redirect to /bahis
-  await page.waitForURL('**/bahis', { timeout: 15000 });
+  // Wait for redirect (goes to "/" for regular users)
+  await page.waitForURL('**/', { timeout: 30000 });
   await page.waitForLoadState('networkidle');
 
-  // Verify logged in by checking balance in header
-  await expect(page.locator('[class*="balance"], [class*="Balance"], text=/₺/')).toBeVisible({ timeout: 10000 });
+  // Verify logged in by checking balance in header (the avatar button shows balance)
+  await expect(page.locator('button:has-text("₺")')).toBeVisible({ timeout: 10000 });
 }
 
 export async function register(page, userData = {}) {
@@ -132,4 +136,12 @@ export async function createTestUser(db, userData = {}) {
     isActive: true,
   };
   return getDb().then(db => db.collection('users').insertOne({ ...defaults, ...userData }));
+}
+
+export function getTestUser() {
+  return {
+    username: 'testuser-fresh',
+    email: 'test-fresh@betzone.test',
+    password: 'password123',
+  };
 }

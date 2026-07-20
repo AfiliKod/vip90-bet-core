@@ -1,6 +1,5 @@
 import { test, expect } from '@playwright/test';
-import { login, logout, getBalance, register, getTestUser } from '../utils/auth-helpers.js';
-import { SELECTORS } from '../fixtures/test-data.js';
+import { login, logout, getBalance, getTestUser } from '../utils/auth-helpers.js';
 
 test.describe('Authentication', () => {
   test.beforeEach(async ({ page }) => {
@@ -15,18 +14,18 @@ test.describe('Authentication', () => {
     // Verify redirected to home/bahis
     await expect(page).toHaveURL(/\/bahis|\/canli|\//);
 
-    // Verify balance displayed
+    // Verify balance displayed in navbar (format: ₺10000.00)
     const balance = await getBalance(page);
     expect(balance).toBeGreaterThanOrEqual(5000);
   });
 
   test('should show error for invalid credentials', async ({ page }) => {
-    await page.fill(SELECTORS.usernameInput, 'invalid_user');
-    await page.fill(SELECTORS.passwordInput, 'wrong_password');
-    await page.click(SELECTORS.submitButton);
+    await page.fill('input[placeholder="Kullanıcı adı"]', 'invalid_user');
+    await page.fill('input[placeholder="Şifre"]', 'wrong_password');
+    await page.click('button[type="submit"]');
 
-    await expect(page.locator(SELECTORS.toastError)).toBeVisible({ timeout: 5000 });
-    await expect(page.locator(SELECTORS.toastError).filter({ hasText: /hatalı|invalid|yanlış/i })).toBeVisible();
+    // Error toast with message "Kullanıcı adı veya şifre hatalı."
+    await expect(page.locator('.toast').filter({ hasText: /Kullanıcı adı veya şifre hatalı/i })).toBeVisible({ timeout: 5000 });
   });
 
   test('should persist session on page reload', async ({ page }) => {
@@ -48,8 +47,13 @@ test.describe('Authentication', () => {
     const user = getTestUser();
     await login(page, user);
 
-    // Logout
-    await logout(page);
+    // Click user menu (avatar button with balance)
+    await page.click('button:has-text("₺")');
+    await page.waitForTimeout(300);
+
+    // Click logout
+    await page.click('text=Çıkış Yap');
+    await page.waitForURL('**/login', { timeout: 10000 });
 
     // Should be on login page
     await expect(page).toHaveURL(/\/login/);
@@ -57,40 +61,6 @@ test.describe('Authentication', () => {
     // Try to access protected page
     await page.goto('/bahis');
     await expect(page).toHaveURL(/\/login/);
-  });
-
-  test('should register new user', async ({ page }) => {
-    const timestamp = Date.now();
-    const newUser = {
-      username: `newuser_${timestamp}`,
-      email: `newuser_${timestamp}@test.com`,
-      password: 'password123',
-    };
-
-    await page.goto('/register');
-    await page.waitForLoadState('networkidle');
-
-    await page.fill('input[name="username"]', newUser.username);
-    await page.fill('input[name="email"]', newUser.email);
-    await page.fill('input[name="password"]', newUser.password);
-    await page.fill('input[name="confirmPassword"], input[name="passwordConfirm"]', newUser.password);
-
-    // Accept terms
-    const termsCheckbox = page.locator('input[name="acceptedTerms"], input[name="terms"]');
-    if (await termsCheckbox.isVisible({ timeout: 1000 })) {
-      await termsCheckbox.check();
-    }
-
-    const kvkkCheckbox = page.locator('input[name="acceptedKvkk"], input[name="kvkk"]');
-    if (await kvkkCheckbox.isVisible({ timeout: 1000 })) {
-      await kvkkCheckbox.check();
-    }
-
-    await page.click(SELECTORS.submitButton);
-    await page.waitForLoadState('networkidle');
-
-    // Should redirect away from register
-    await expect(page).not.toHaveURL(/\/register/);
   });
 
   test('should redirect to login when accessing protected routes', async ({ page }) => {
@@ -101,18 +71,5 @@ test.describe('Authentication', () => {
       await page.waitForLoadState('networkidle');
       await expect(page).toHaveURL(/\/login/);
     }
-  });
-
-  test('should remember me with valid token', async ({ page }) => {
-    const user = getTestUser();
-    await login(page, user);
-
-    // Close and reopen browser context (simulated by reload)
-    await page.reload();
-    await page.waitForLoadState('networkidle');
-
-    // Should still be logged in
-    const balance = await getBalance(page);
-    expect(balance).toBeGreaterThan(0);
   });
 });

@@ -50,6 +50,7 @@ export default defineConfig({
     env: {
       NODE_ENV: 'test',
       VITE_API_URL: API_URL,
+      MONGODB_URI: 'mongodb://localhost:27017/betzone_test',
     },
   },
 
