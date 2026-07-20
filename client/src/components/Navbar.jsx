@@ -39,7 +39,15 @@ export default function Navbar() {
           )}
         </div>
 
-        {/* User dropdown */}
+        {!user ? (
+          <Link
+            to="/login"
+            className="shrink-0 px-4 py-2 rounded-full text-sm font-bold text-black transition hover:scale-105 active:scale-95"
+            style={{ background: 'linear-gradient(90deg, #00d4ff 0%, #7c3aed 100%)' }}
+          >
+            Giriş Yap
+          </Link>
+        ) : (
         <div className="relative shrink-0" ref={ref}>
           <button
             onClick={() => setOpen(o => !o)}
@@ -165,6 +173,7 @@ export default function Navbar() {
             </div>
           )}
         </div>
+        )}
       </div>
     </nav>
   );

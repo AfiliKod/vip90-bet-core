@@ -69,7 +69,7 @@ function PageLoader() {
 }
 
 export default function App() {
-  const { init, user } = useAuthStore();
+  const { init } = useAuthStore();
   const addToast = useToastStore(s => s.add);
   const incrementUnread = useBetNotificationStore(s => s.increment);
 
@@ -101,15 +101,15 @@ export default function App() {
   return (
     <BrowserRouter>
       <ToastSystem />
-      {user && <Navbar />}
-      {user && <BottomNav />}
+      <Navbar />
+      <BottomNav />
       <Routes>
         <Route path="/login" element={<Suspense fallback={<PageLoader />}><Login /></Suspense>} />
-        <Route path="/" element={<ProtectedRoute><Layout><Suspense fallback={<PageLoader />}><HomePage /></Suspense></Layout></ProtectedRoute>} />
-        <Route path="/bahis" element={<ProtectedRoute><Layout><Suspense fallback={<PageLoader />}><Bahis /></Suspense></Layout></ProtectedRoute>} />
-        <Route path="/canli" element={<ProtectedRoute><Layout><Suspense fallback={<PageLoader />}><Live /></Suspense></Layout></ProtectedRoute>} />
-        <Route path="/events/:id" element={<ProtectedRoute><Layout><Suspense fallback={<PageLoader />}><EventDetail /></Suspense></Layout></ProtectedRoute>} />
-        <Route path="/casino" element={<ProtectedRoute><Layout><Suspense fallback={<PageLoader />}><CasinoRedesign /></Suspense></Layout></ProtectedRoute>} />
+        <Route path="/" element={<Layout><Suspense fallback={<PageLoader />}><HomePage /></Suspense></Layout>} />
+        <Route path="/bahis" element={<Layout><Suspense fallback={<PageLoader />}><Bahis /></Suspense></Layout>} />
+        <Route path="/canli" element={<Layout><Suspense fallback={<PageLoader />}><Live /></Suspense></Layout>} />
+        <Route path="/events/:id" element={<Layout><Suspense fallback={<PageLoader />}><EventDetail /></Suspense></Layout>} />
+        <Route path="/casino" element={<Layout><Suspense fallback={<PageLoader />}><CasinoRedesign /></Suspense></Layout>} />
         <Route path="/casino/:gameSymbol" element={<ProtectedRoute><Suspense fallback={<PageLoader />}><CasinoGame /></Suspense></ProtectedRoute>} />
         <Route path="/palace/:gameId" element={<ProtectedRoute><Suspense fallback={<PageLoader />}><PalaceGame /></Suspense></ProtectedRoute>} />
         <Route path="/games/crash" element={<ProtectedRoute><Suspense fallback={<PageLoader />}><Crash /></Suspense></ProtectedRoute>} />
