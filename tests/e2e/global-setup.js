@@ -37,7 +37,7 @@ async function seedTestData(db) {
       $setOnInsert: {
         email: testEmail,
         username: testUsername,
-        password: '$2a$10$testhashedpassword', // bcrypt hash of 'password123'
+        password: '$2a$10$3nUWNXXKS87dqY4fpGf/QOlVRJt60JfPA6CxlXfVtDOo10K3OUVBO', // bcrypt hash of 'password123'
         balance: 10000,
         bonusBalance: 0,
         emailVerified: true,
