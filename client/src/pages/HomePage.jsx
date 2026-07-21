@@ -39,6 +39,34 @@ const HERO_SLIDES = [
   },
 ];
 
+// Kampanya banner'ları — sadece üstteki döner slider'a eklenir, Quick Nav Cards
+// grid'ine (HERO_SLIDES.slice(1)) karışmaz.
+const PROMO_SLIDES = [
+  {
+    id: 'deneme-bonusu', icon: '🎁', title: 'Deneme Bonusu', path: '/promotions', cta: 'Bonusu Al',
+    desc: '500₺\'ye kadar deneme bonusuyla platformu risksiz keşfet, kazancını hemen değerlendir!',
+    image: '/images/promo-deneme-bonusu.png',
+    gradient: 'from-amber-900/80 to-yellow-900/60',
+    accent: '#fbbf24',
+  },
+  {
+    id: 'hosgeldin-bonusu', icon: '💰', title: 'Hoşgeldin Bonusu', path: '/promotions', cta: 'Hemen Yatır',
+    desc: 'İlk para yatırmana %100 bonus, 1000₺\'ye kadar! Üyeliğini tamamla, bonusunu kap.',
+    image: '/images/promo-hosgeldin-bonusu.png',
+    gradient: 'from-emerald-900/80 to-green-900/60',
+    accent: '#34d399',
+  },
+  {
+    id: 'arkadasini-getir', icon: '🤝', title: 'Arkadaşını Getir', path: '/promotions', cta: 'Davet Et',
+    desc: 'Arkadaşını getir, kazandığı her bahisten %10 kâr payı kazan. Ne kadar çok davet, o kadar çok kazanç!',
+    image: '/images/promo-arkadasini-getir.png',
+    gradient: 'from-pink-900/80 to-fuchsia-900/60',
+    accent: '#f472b6',
+  },
+];
+
+const ALL_SLIDES = [...HERO_SLIDES, ...PROMO_SLIDES];
+
 const GAMES = [
   { name: 'Noel Baba', path: '/games/crash', accent: '#f97316', icon: '🎅', image: '/images/games/crash.png' },
   { name: 'Mines',     path: '/games/mines', accent: '#34d399', icon: '💎', image: '/images/games/mines.png' },
@@ -74,7 +102,7 @@ export default function HomePage() {
   const startTimer = () => {
     clearInterval(timerRef.current);
     timerRef.current = setInterval(() => {
-      setCurrent(c => (c + 1) % HERO_SLIDES.length);
+      setCurrent(c => (c + 1) % ALL_SLIDES.length);
     }, 5000);
   };
 
@@ -101,13 +129,13 @@ export default function HomePage() {
     startTimer();
   }
 
-  const slide = HERO_SLIDES[current];
+  const slide = ALL_SLIDES[current];
 
   return (
     <div className="min-h-full">
       {/* ── Hero Slider ──────────────────────────────────────── */}
       <section className="relative w-full h-[360px] sm:h-[480px] overflow-hidden">
-        {HERO_SLIDES.map((s, i) => (
+        {ALL_SLIDES.map((s, i) => (
           <img
             key={s.id}
             src={s.image}
@@ -161,7 +189,7 @@ export default function HomePage() {
         </div>
 
         <div className="absolute bottom-4 sm:bottom-6 left-1/2 -translate-x-1/2 flex gap-2">
-          {HERO_SLIDES.map((_, i) => (
+          {ALL_SLIDES.map((_, i) => (
             <button
               key={i}
               onClick={() => goTo(i)}
@@ -176,14 +204,14 @@ export default function HomePage() {
         </div>
 
         <button
-          onClick={() => goTo((current - 1 + HERO_SLIDES.length) % HERO_SLIDES.length)}
+          onClick={() => goTo((current - 1 + ALL_SLIDES.length) % ALL_SLIDES.length)}
           className="absolute left-4 top-1/2 -translate-y-1/2 w-10 h-10 rounded-full bg-black/40 text-white flex items-center justify-center opacity-0 hover:opacity-100 transition hover:bg-black/60 text-xl backdrop-blur-sm"
           style={{ border: '1px solid rgba(255,255,255,0.1)' }}
         >
           ‹
         </button>
         <button
-          onClick={() => goTo((current + 1) % HERO_SLIDES.length)}
+          onClick={() => goTo((current + 1) % ALL_SLIDES.length)}
           className="absolute right-4 top-1/2 -translate-y-1/2 w-10 h-10 rounded-full bg-black/40 text-white flex items-center justify-center opacity-0 hover:opacity-100 transition hover:bg-black/60 text-xl backdrop-blur-sm"
           style={{ border: '1px solid rgba(255,255,255,0.1)' }}
         >
