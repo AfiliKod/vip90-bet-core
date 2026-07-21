@@ -65,7 +65,7 @@ const PROMO_SLIDES = [
   },
 ];
 
-const ALL_SLIDES = [...HERO_SLIDES, ...PROMO_SLIDES];
+const ALL_SLIDES = [...PROMO_SLIDES, ...HERO_SLIDES];
 
 const GAMES = [
   { name: 'Noel Baba', path: '/games/crash', accent: '#f97316', icon: '🎅', image: '/images/games/crash.png' },
