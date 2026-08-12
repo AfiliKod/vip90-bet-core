@@ -1,12 +1,11 @@
 import { useEffect, useState, useMemo } from 'react';
-import { useEventsStore, groupByLeague } from '../store/eventsStore';
+import { useEventsStore } from '../store/eventsStore';
 import { SPORT_META } from '../utils/sportMeta';
-import { useSportChips } from '../hooks/useSportChips';
 import MiniEventCard from '../components/MiniEventCard';
-import LeagueGroup from '../components/LeagueGroup';
+import LazyLeagueGroup from '../components/LazyLeagueGroup';
 import BetSlip from '../components/BetSlip';
 import HeroSlider from '../components/HeroSlider';
-import { BRAND_GRADIENT_H, BRAND_GRADIENT, BRAND_GLOW } from '../styles/brand';
+import { BRAND_GRADIENT_H } from '../styles/brand';
 
 function SearchInput({ value, onChange, placeholder = 'Takım veya lig ara...' }) {
   return (
@@ -50,57 +49,33 @@ function SearchInput({ value, onChange, placeholder = 'Takım veya lig ara...' }
 
 export default function Bahis() {
   const {
-    sport, statusFilter, setStatusFilter,
-    events, isLoading, fetchEvents, initSocket, cleanup,
-    selectedSport, selectedLeague, setSportFilter,
+    initSocket, cleanup,
+    summary, summaryLoading, summaryError, fetchSummary,
+    searchResults, searchLoading, searchEvents, clearSearch,
   } = useEventsStore();
-  const [openDrawerId, setOpenDrawerId] = useState(null);
+  const [, setOpenDrawerId] = useState(null);
   const [search, setSearch] = useState('');
   const [collapsedSports, setCollapsedSports] = useState({});
+  const STATUS = 'upcoming';
 
   useEffect(() => { initSocket(); return cleanup; }, []);
-  useEffect(() => { fetchEvents(sport, statusFilter); }, [sport, statusFilter]);
+  useEffect(() => { fetchSummary(STATUS); }, []);
+  // Debounced backend arama
+  useEffect(() => {
+    const q = search.trim();
+    const t = setTimeout(() => { q ? searchEvents(q, STATUS) : clearSearch(); }, 300);
+    return () => clearTimeout(t);
+  }, [search]);
 
-  const baseEvents = useMemo(() => events.filter(e => e.status !== 'live'), [events]);
-  const sportChips = useSportChips(baseEvents);
-
-  const groupedEvents = useMemo(() => {
-    let evs = baseEvents;
-    if (selectedSport !== 'all') evs = evs.filter(e => e.sport === selectedSport);
-    if (selectedLeague) evs = evs.filter(e => {
-      const key = e.country ? `${e.country} > ${e.league}` : e.league;
-      return key === selectedLeague;
-    });
-    if (search.trim()) {
-      const q = search.toLowerCase();
-      evs = evs.filter(e =>
-        e.homeTeam.name.toLowerCase().includes(q) ||
-        e.awayTeam.name.toLowerCase().includes(q) ||
-        e.league.toLowerCase().includes(q)
-      );
+  // Futbol → Türkiye ligleri açılışta otomatik açık.
+  const autoOpenLeagues = useMemo(() => {
+    const set = new Set();
+    const fb = summary?.sports?.find(s => s.sport === 'football');
+    for (const lg of (fb?.leagues || [])) {
+      if (lg.country === 'Türkiye') set.add(`${lg.country}|${lg.league}`);
     }
-    return groupByLeague(evs);
-  }, [baseEvents, selectedSport, selectedLeague, search]);
-
-  const hierarchicalGroups = useMemo(() => {
-    if (selectedSport !== 'all' || selectedLeague) return null;
-    let evs = baseEvents;
-    if (search.trim()) {
-      const q = search.toLowerCase();
-      evs = evs.filter(e =>
-        e.homeTeam.name.toLowerCase().includes(q) ||
-        e.awayTeam.name.toLowerCase().includes(q) ||
-        e.league.toLowerCase().includes(q)
-      );
-    }
-    const sportMap = new Map();
-    for (const ev of evs) {
-      if (!ev.sport) continue;
-      if (!sportMap.has(ev.sport)) sportMap.set(ev.sport, []);
-      sportMap.get(ev.sport).push(ev);
-    }
-    return sportMap.size > 0 ? sportMap : null;
-  }, [baseEvents, selectedSport, selectedLeague, search]);
+    return set;
+  }, [summary]);
 
   function handleToggleDrawer(eventId) {
     setOpenDrawerId(prev => prev === eventId ? null : eventId);
@@ -112,20 +87,24 @@ export default function Bahis() {
       <div className="max-w-full px-4 py-4 flex gap-4">
         <main className="flex-1 min-w-0">
           <div className="flex gap-2 mb-4 items-center flex-wrap">
-            {[['', 'Tümü'], ['upcoming', 'Yaklaşanlar']].map(([v, l]) => (
-              <button key={v} onClick={() => setStatusFilter(v)}
-                className={`px-4 py-2 rounded-lg text-sm font-bold transition-all ${
-                  statusFilter === v || (v === '' && statusFilter === 'live')
-                    ? 'text-black'
-                    : 'text-text-2 hover:text-text-1 border border-white/10 hover:border-[#00d4ff44]'
-                }`}
-                style={statusFilter === v || (v === '' && statusFilter === 'live') ? {
-                  background: 'linear-gradient(135deg, #00d4ff 0%, #7c3aed 100%)',
-                  boxShadow: '0 0 16px #00d4ff55, 0 0 24px #7c3aed33',
-                } : {}}>
-                {l}
-              </button>
-            ))}
+            {[['upcoming', 'Yaklaşanlar']].map(([v, l]) => {
+              const active = v === STATUS;
+              return (
+                <button key={v}
+                  className={`px-4 py-2 rounded-lg text-sm font-bold transition-all ${
+                    active
+                      ? 'text-black'
+                      : 'text-text-2 hover:text-text-1 border border-white/10 hover:border-[#00d4ff44]'
+                  }`}
+                  style={active ? {
+                    background: 'linear-gradient(135deg, #00d4ff 0%, #7c3aed 100%)',
+                    boxShadow: '0 0 16px #00d4ff55, 0 0 24px #7c3aed33',
+                  } : {}}
+                >
+                  {l}
+                </button>
+              );
+            })}
             <SearchInput
               value={search}
               onChange={e => setSearch(e.target.value)}
@@ -136,65 +115,76 @@ export default function Bahis() {
           {/* Mobil spor kategorileri — Sidebar masaüstünde md breakpoint altında gizli olduğu için */}
           <div className="md:hidden -mx-1 mb-4 flex gap-2 overflow-x-auto no-scrollbar px-1 pb-1">
             <button
-              onClick={() => setSportFilter('all')}
-              className={`shrink-0 flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-bold transition-all ${
-                selectedSport === 'all' ? 'text-black' : 'text-text-2 bg-white/5 border border-white/10'
-              }`}
-              style={selectedSport === 'all' ? { background: BRAND_GRADIENT, boxShadow: BRAND_GLOW } : {}}
+              onClick={() => setCollapsedSports({})}
+              className="shrink-0 flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-bold transition-all text-text-2 bg-white/5 border border-white/10"
             >
               <span>🏆</span>
               <span>Tümü</span>
             </button>
-            {sportChips.map(({ id, label, icon, count }) => {
-              const isActive = selectedSport === id;
+            {(summary?.sports || []).map(s => {
+              const meta = SPORT_META[s.sport] ?? { icon: '🏆', label: s.sport };
               return (
                 <button
-                  key={id}
-                  onClick={() => setSportFilter(id)}
-                  className={`shrink-0 flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-bold transition-all ${
-                    isActive ? 'text-black' : 'text-text-2 bg-white/5 border border-white/10'
-                  }`}
-                  style={isActive ? { background: BRAND_GRADIENT, boxShadow: BRAND_GLOW } : {}}
+                  key={s.sport}
+                  onClick={() => setCollapsedSports(prev => ({ ...prev, [s.sport]: false }))}
+                  className="shrink-0 flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-bold transition-all text-text-2 bg-white/5 border border-white/10"
                 >
-                  <span>{icon}</span>
-                  <span>{label}</span>
-                  <span className={isActive ? 'text-black/60' : 'text-text-3'}>{count}</span>
+                  <span>{meta.icon}</span>
+                  <span>{meta.label}</span>
+                  <span className="text-text-3">{s.count}</span>
                 </button>
               );
             })}
           </div>
 
-          {isLoading ? (
+          {search.trim() ? (
+            searchLoading ? (
+              <div className="text-center text-text-3 py-16">Aranıyor...</div>
+            ) : !searchResults || searchResults.length === 0 ? (
+              <div className="text-center text-text-3 py-16">Sonuç bulunamadı</div>
+            ) : (
+              <div className="flex flex-col gap-2">
+                {searchResults.map(ev => (
+                  <MiniEventCard key={ev._id} event={ev} live={false} accent="#00d4ff" bgColor="#111d30" onExtraClick={() => handleToggleDrawer(ev._id)} />
+                ))}
+              </div>
+            )
+          ) : summaryLoading && !summary ? (
             <div className="text-center text-text-3 py-16">Yükleniyor...</div>
-          ) : (hierarchicalGroups !== null ? hierarchicalGroups.size === 0 : groupedEvents.size === 0) ? (
+          ) : summaryError ? (
+            <div className="text-center text-text-3 py-16">
+              Yüklenemedi. <button className="underline" onClick={() => fetchSummary(STATUS)}>Tekrar dene</button>
+            </div>
+          ) : !summary || summary.sports.length === 0 ? (
             <div className="text-center text-text-3 py-16">Etkinlik bulunamadı</div>
-          ) : hierarchicalGroups !== null ? (
+          ) : (
             <div>
-              {[...hierarchicalGroups.entries()].map(([s, sportEvents]) => {
-                const meta = SPORT_META[s] ?? { icon: '🏆', label: s };
-                const totalCount = sportEvents.length;
-                const isCollapsed = !!collapsedSports[s];
+              {summary.sports.map(s => {
+                const meta = SPORT_META[s.sport] ?? { icon: '🏆', label: s.sport };
+                const isCollapsed = s.sport === 'football' ? !!collapsedSports[s.sport] : (collapsedSports[s.sport] ?? true);
                 return (
-                  <div key={s} className="mb-2">
+                  <div key={s.sport} className="mb-2">
                     <button
-                      onClick={() => setCollapsedSports(prev => ({ ...prev, [s]: !prev[s] }))}
+                      onClick={() => setCollapsedSports(prev => ({ ...prev, [s.sport]: !(prev[s.sport] ?? (s.sport !== 'football')) }))}
                       className="w-full flex items-center gap-2 px-3 py-2 rounded-lg bg-bg-card border border-white/10 text-sm font-semibold text-text-1 hover:bg-bg-hover transition mb-1"
                     >
                       <span>{meta.icon}</span>
                       <span className="flex-1 text-left">{meta.label}</span>
-                      <span className="text-xs text-text-3 font-normal">{totalCount} etkinlik</span>
+                      <span className="text-xs text-text-3 font-normal">{s.count} etkinlik</span>
                       <span className="text-xs text-text-3">{isCollapsed ? '▸' : '▾'}</span>
                     </button>
                     {!isCollapsed && (
-                      <div className="flex flex-col gap-2 ml-2">
-                        {sportEvents.map(ev => (
-                          <MiniEventCard
-                            key={ev._id}
-                            event={ev}
-                            live={ev.status === 'live'}
-                            accent="#00d4ff"
-                            bgColor="#111d30"
-                            onExtraClick={() => handleToggleDrawer(ev._id)}
+                      <div className="ml-2">
+                        {s.leagues.map(lg => (
+                          <LazyLeagueGroup
+                            key={`${lg.country}|${lg.league}`}
+                            sport={s.sport}
+                            country={lg.country}
+                            league={lg.league}
+                            count={lg.count}
+                            status={STATUS}
+                            defaultOpen={autoOpenLeagues.has(`${lg.country}|${lg.league}`)}
+                            onExtraClick={handleToggleDrawer}
                           />
                         ))}
                       </div>
@@ -202,21 +192,6 @@ export default function Bahis() {
                   </div>
                 );
               })}
-            </div>
-          ) : (
-            <div>
-              {[...groupedEvents.entries()].map(([league, evs]) => (
-                <LeagueGroup
-                  key={league}
-                  league={league}
-                  leagueFlag={evs[0]?.leagueFlag ?? '🏆'}
-                  events={evs}
-                  openDrawerId={openDrawerId}
-                  onToggleDrawer={handleToggleDrawer}
-                  accent="#00d4ff"
-                  bgColor="#111d30"
-                />
-              ))}
             </div>
           )}
         </main>
