@@ -98,13 +98,17 @@ export async function list(req, res, next) {
     } else {
       // Canlı etkinlikler her zaman + yaklaşanlar (son 3 saat ile FUTURE_WINDOW_DAYS gün arası)
       const cutoff = new Date(Date.now() - 3 * 60 * 60 * 1000);
-      filter.$or = [
+      const liveUpcoming = [
         { status: 'live' },
-        {
-          status: 'upcoming',
-          startTime: { $gt: cutoff, ...(isFull ? {} : { $lte: futureLimit }) },
-        },
+        { status: 'upcoming', startTime: { $gt: cutoff, ...(isFull ? {} : { $lte: futureLimit }) } },
       ];
+      // search zaten filter.$or set etmiş olabilir — onu ezme, $and ile birleştir.
+      if (filter.$or) {
+        filter.$and = [{ $or: filter.$or }, { $or: liveUpcoming }];
+        delete filter.$or;
+      } else {
+        filter.$or = liveUpcoming;
+      }
       filter.archivedAt = null;
     }
 
