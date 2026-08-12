@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { useBetSlipStore } from '../store/betSlipStore';
-import { formatOdd } from '../utils/oddsUtils';
+import { formatOdd, pickMainLine } from '../utils/oddsUtils';
 import { useSettingsStore } from '../store/settingsStore';
 import { sportIcon } from '../utils/sportMeta';
 import { translateTeam } from '../utils/i18n';
@@ -20,10 +20,13 @@ export function useIsMobile() {
   return m;
 }
 
-function OddCell({ eventId, eventLabel, market, targetLabel, fallbackIndex, showLabel }) {
+function OddCell({ eventId, eventLabel, market, targetLabel, fallbackIndex, oddOverride, showLabel }) {
   const oddsFormat = useSettingsStore(s => s.preferences.oddsFormat);
   const { selections, addSelection } = useBetSlipStore();
-  const odd = market?.odds?.find(o => o.label === targetLabel)
+  // oddOverride verilmişse (ör. çok-hatlı marketin ana hattı) onu kullan; yoksa
+  // etiketle bul, o da yoksa fallback index'e düş.
+  const odd = oddOverride
+    ?? market?.odds?.find(o => o.label === targetLabel)
     ?? (fallbackIndex != null ? market?.odds?.[fallbackIndex] : undefined);
   if (!odd) return <div />;
   const selected = selections.some(
@@ -62,6 +65,9 @@ export default function EventRow({ event, isDrawerOpen, onToggleDrawer }) {
   const mainMarket     = event.markets?.find(m => m.type === 'maç_sonucu') ?? event.markets?.[0];
   const ouMarket       = event.markets?.find(m => m.type === 'alt_üst');
   const handikapMarket = event.markets?.find(m => m.type === 'handikap');
+  // Çok-hatlı marketlerde ilk hat değil, kaynağın öne çıkardığı DENGELİ ana hat gösterilir.
+  const ouMain = pickMainLine(ouMarket);         // [Üst, Alt] ana hat
+  const hMain  = pickMainLine(handikapMarket);   // [ev, deplasman] ana hat
   const extraCount = Math.max(0, (event.markets?.length ?? 0) - 1);
   const date = new Date(event.startTime);
   const dateStr = date.toLocaleDateString(locale, { day: '2-digit', month: 'short' });
@@ -116,9 +122,9 @@ export default function EventRow({ event, isDrawerOpen, onToggleDrawer }) {
 
       {/* Mobilde gizli: Ayraç + Alt/Üst + Handikap */}
       {!isMobile && <div className="h-10 w-px bg-white/10 mx-auto" />}
-      {!isMobile && <OddCell eventId={event._id} eventLabel={label} market={ouMarket} targetLabel="Under" fallbackIndex={1} showLabel />}
-      {!isMobile && <OddCell eventId={event._id} eventLabel={label} market={ouMarket} targetLabel="Over"  fallbackIndex={0} showLabel />}
-      {!isMobile && <OddCell eventId={event._id} eventLabel={label} market={handikapMarket} fallbackIndex={0} showLabel />}
+      {!isMobile && <OddCell eventId={event._id} eventLabel={label} market={ouMarket} oddOverride={ouMain?.[1]} showLabel />}
+      {!isMobile && <OddCell eventId={event._id} eventLabel={label} market={ouMarket} oddOverride={ouMain?.[0]} showLabel />}
+      {!isMobile && <OddCell eventId={event._id} eventLabel={label} market={handikapMarket} oddOverride={hMain?.[0]} showLabel />}
 
       {/* +N */}
       <button

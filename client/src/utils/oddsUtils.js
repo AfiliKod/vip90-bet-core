@@ -66,6 +66,28 @@ export function groupOddsIntoLines(market) {
   return [odds];
 }
 
+/**
+ * Çok-hatlı bir market (alt_üst, handikap, alt_üst_ev vb.) için "ana hat"tı seçer:
+ * iki oranın birbirine en yakın (en dengeli, ~50/50) olduğu hat. Kaynak sitenin maç
+ * kartında öne çıkardığı hat budur. Kompakt görünümlerde ilk hattı (ör. Üst/Alt 1.5,
+ * Handikap -0.25) göstermek yanlış — o en uçtaki hat, kaynağınkiyle uyuşmaz.
+ * [over/home, under/away] çiftini döner veya null.
+ */
+export function pickMainLine(market) {
+  if (!market) return null;
+  const lines = groupOddsIntoLines(market).filter(l => l.length === 2);
+  if (!lines.length) return null;
+  let best = null, bestDiff = Infinity;
+  for (const l of lines) {
+    const a = l[0]?.value, b = l[1]?.value;
+    if (!(a > 1) || !(b > 1)) continue;           // geçerli oranlar
+    const diff = Math.abs(a - b);
+    if (diff < bestDiff) { bestDiff = diff; best = l; }
+  }
+  // Hiçbir hat geçerli değilse ortadaki hattı ver (ilk/uç hat yerine).
+  return best ?? lines[Math.floor(lines.length / 2)];
+}
+
 // Label dizisinden ortak önek çıkar, sondaki noktalama/boşluk temizle
 function commonLabelBase(labels) {
   if (!labels.length) return '';

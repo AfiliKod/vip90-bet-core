@@ -2,7 +2,7 @@ import { useNavigate } from 'react-router-dom';
 import { useBetSlipStore } from '../store/betSlipStore';
 import { useSettingsStore } from '../store/settingsStore';
 import { sportIcon } from '../utils/sportMeta';
-import { formatOdd } from '../utils/oddsUtils';
+import { formatOdd, pickMainLine } from '../utils/oddsUtils';
 import { BRAND_GRADIENT, BRAND_GLOW } from '../styles/brand';
 import { useOddFlash } from '../hooks/useOddFlash';
 
@@ -59,9 +59,11 @@ export default function MiniEventCard({ event, live, onExtraClick, accent: accen
   const odd1 = mainMarket?.odds?.find(o => o.label === '1') || mainMarket?.odds?.[0];
   const oddX = mainMarket?.odds?.find(o => o.label === 'X') || mainMarket?.odds?.[1];
   const odd2 = mainMarket?.odds?.find(o => o.label === '2') || mainMarket?.odds?.[2];
-  const ouUnder = ouMarket?.odds?.find(o => o.label === 'Under') || ouMarket?.odds?.[1];
-  const ouOver = ouMarket?.odds?.find(o => o.label === 'Over') || ouMarket?.odds?.[0];
-  const handikapOdd = handikapMarket?.odds?.[0];
+  // Çok-hatlı marketlerde ilk hat değil, kaynağın öne çıkardığı DENGELİ ana hat.
+  const ouMain = pickMainLine(ouMarket);       // [Üst, Alt]
+  const ouOver = ouMain?.[0];
+  const ouUnder = ouMain?.[1];
+  const handikapOdd = pickMainLine(handikapMarket)?.[0];
 
   const hasValidOdds = (odd1?.value ?? 0) > 0 || (oddX?.value ?? 0) > 0 || (odd2?.value ?? 0) > 0;
   if (!hasValidOdds) return null;
