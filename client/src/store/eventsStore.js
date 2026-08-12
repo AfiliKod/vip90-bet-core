@@ -14,6 +14,10 @@ export function groupByLeague(events) {
   return map;
 }
 
+export function leagueKey(sport, country, league) {
+  return `${sport}|${country || ''}|${league}`;
+}
+
 export const useEventsStore = create((set, get) => ({
   events: [],
   isLoading: false,
@@ -53,4 +57,53 @@ export const useEventsStore = create((set, get) => ({
     socket.off('score:update');
     socket.disconnect();
   },
+
+  // ─── Lazy summary + lig fetch ───────────────────────────────
+  summary: null,
+  summaryLoading: false,
+  summaryError: false,
+  leagueEvents: new Map(),   // leagueKey -> Event[]
+  loadingLeagues: new Set(), // leagueKey (o an fetch edilenler)
+  searchResults: null,       // null = arama yok; [] = sonuç yok
+  searchLoading: false,
+
+  fetchSummary: async (status = 'upcoming') => {
+    set({ summaryLoading: true, summaryError: false });
+    try {
+      const { data } = await api.get(`/events/summary?status=${encodeURIComponent(status)}`);
+      set({ summary: data, summaryLoading: false });
+    } catch { set({ summaryLoading: false, summaryError: true }); }
+  },
+
+  fetchLeague: async (sport, country, league, status = 'upcoming') => {
+    const key = leagueKey(sport, country, league);
+    const { leagueEvents, loadingLeagues } = get();
+    if (leagueEvents.has(key) || loadingLeagues.has(key)) return; // idempotent
+    const nextLoading = new Set(loadingLeagues); nextLoading.add(key);
+    set({ loadingLeagues: nextLoading });
+    try {
+      const params = new URLSearchParams({ status, sport, league });
+      if (country) params.set('country', country);
+      const { data } = await api.get(`/events?${params}`);
+      const nextEvents = new Map(get().leagueEvents); nextEvents.set(key, data.events);
+      const doneLoading = new Set(get().loadingLeagues); doneLoading.delete(key);
+      set({ leagueEvents: nextEvents, loadingLeagues: doneLoading });
+    } catch {
+      const doneLoading = new Set(get().loadingLeagues); doneLoading.delete(key);
+      set({ loadingLeagues: doneLoading });
+    }
+  },
+
+  searchEvents: async (query, status = 'upcoming') => {
+    const q = query.trim();
+    if (!q) { set({ searchResults: null, searchLoading: false }); return; }
+    set({ searchLoading: true });
+    try {
+      const params = new URLSearchParams({ status, search: q });
+      const { data } = await api.get(`/events?${params}`);
+      set({ searchResults: data.events, searchLoading: false });
+    } catch { set({ searchResults: [], searchLoading: false }); }
+  },
+
+  clearSearch: () => set({ searchResults: null, searchLoading: false }),
 }));
