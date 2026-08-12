@@ -1,5 +1,6 @@
 import Event from '../models/Event.js';
 import { buildSummaryTree } from '../utils/summaryTree.js';
+import escapeStringRegexp from 'escape-string-regexp';
 
 // Liste görünümünde (MiniEventCard/HeroSlider) sadece bu market tipleri gösteriliyor —
 // bir event'te ortalama ~40 market / ~190 odds var ama listede en fazla 3'ü render ediliyor.
@@ -60,12 +61,14 @@ function trimMarketsForList(markets) {
 
 export async function list(req, res, next) {
   try {
-    const { sport, status, page = 1, limit = 2000, full } = req.query;
+    const { sport, status, page = 1, limit = 2000, full, country, league, search } = req.query;
     const isFull = full === '1' || full === 'true';
     const futureLimit = new Date(Date.now() + FUTURE_WINDOW_MS);
 
     const cacheable = !isFull && +page === 1;
-    const cacheKey = cacheable ? `${sport || 'all'}|${status || ''}|${limit}` : null;
+    const cacheKey = cacheable
+      ? `${sport || 'all'}|${status || ''}|${limit}|${country || ''}|${league || ''}|${search || ''}`
+      : null;
     if (cacheable) {
       const cached = getCachedList(cacheKey);
       if (cached) return res.json(cached);
@@ -73,6 +76,16 @@ export async function list(req, res, next) {
 
     const filter = {};
     if (sport && sport !== 'all') filter.sport = String(sport);
+    if (country != null && country !== '') filter.country = String(country);
+    if (league) filter.league = String(league);
+    if (search && String(search).trim()) {
+      const rx = new RegExp(escapeStringRegexp(String(search).trim()), 'i');
+      filter.$or = [
+        { 'homeTeam.name': rx },
+        { 'awayTeam.name': rx },
+        { league: rx },
+      ];
+    }
 
     if (status) {
       filter.status = String(status);
