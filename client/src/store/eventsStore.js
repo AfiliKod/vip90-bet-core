@@ -29,6 +29,11 @@ export const useEventsStore = create((set, get) => ({
   selectedLeague: null,
   setSportFilter: (sport) => set({ selectedSport: sport, selectedLeague: null, statusFilter: '' }),
   setLeagueFilter: (sport, league) => set({ selectedSport: sport, selectedLeague: league, statusFilter: '' }),
+
+  // Bahis sayfasında bir ligi programatik olarak açıp scroll etmek için sinyal.
+  // payload = { sport, country, league } veya null.
+  focusLeague: null,
+  setFocusLeague: (payload) => set({ focusLeague: payload }),
   fetchEvents: async (sport, status) => {
     // Elimizde zaten event varsa (sayfaya ikinci girişte store hâlâ dolu) "Yükleniyor"
     // ekranı göstermeden arka planda sessizce güncelle — stale-while-revalidate.

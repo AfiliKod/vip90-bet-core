@@ -2,9 +2,12 @@ import { useState, useEffect } from 'react';
 import { useEventsStore, leagueKey } from '../store/eventsStore';
 import MiniEventCard from './MiniEventCard';
 
-export default function LazyLeagueGroup({ sport, country, league, count, status = 'upcoming', defaultOpen = false, onExtraClick }) {
+export default function LazyLeagueGroup({ sport, country, league, count, status = 'upcoming', defaultOpen = false, forceOpenSignal, onExtraClick }) {
   const [open, setOpen] = useState(defaultOpen);
   const key = leagueKey(sport, country, league);
+
+  // Dışarıdan (Sidebar lig tıklaması → Bahis focusLeague) gelen sinyalle aç.
+  useEffect(() => { if (forceOpenSignal) setOpen(true); }, [forceOpenSignal]);
   const events = useEventsStore(s => s.leagueEvents.get(key));
   const loading = useEventsStore(s => s.loadingLeagues.has(key));
   const failed = useEventsStore(s => s.failedLeagues.has(key));
@@ -19,7 +22,7 @@ export default function LazyLeagueGroup({ sport, country, league, count, status 
 
   const title = country ? `${country} > ${league}` : league;
   return (
-    <div className="mb-1">
+    <div id={`league-${key}`} className="mb-1">
       <button
         onClick={() => setOpen(o => !o)}
         className="w-full flex items-center gap-2 px-3 py-2 rounded-lg bg-bg-card border border-white/10 text-sm font-medium text-text-1 hover:bg-bg-hover transition"

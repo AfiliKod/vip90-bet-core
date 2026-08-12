@@ -14,8 +14,10 @@ const SPORT_ORDER = [
 export default function Sidebar() {
   const {
     events,
+    summary,
     selectedSport, selectedLeague,
     setSportFilter, setLeagueFilter,
+    setFocusLeague,
   } = useEventsStore();
 
   const navigate = useNavigate();
@@ -24,40 +26,97 @@ export default function Sidebar() {
 
   const favoriteSports = useSettingsStore(s => s.preferences.favoriteSports);
 
-  const sportLeagueMap = {};
-  for (const ev of events) {
-    if (!ev.sport) continue;
-    const key = ev.country ? `${ev.country} > ${ev.league}` : ev.league;
-    if (!sportLeagueMap[ev.sport]) sportLeagueMap[ev.sport] = {};
-    if (!sportLeagueMap[ev.sport][key]) sportLeagueMap[ev.sport][key] = [];
-    sportLeagueMap[ev.sport][key].push(ev);
+  // Bahis (ve genel) sayfalar: ağacı summary'den besle. Live sayfası: eski events davranışı.
+  const useSummaryTree = !isLivePage && !!summary;
+
+  // ── Summary ağacı ───────────────────────────────────────────
+  // sportLeagueMap[sport] = { label, count, leagues: [{ key, country, league, count }] }
+  const summarySportMap = {};
+  if (useSummaryTree) {
+    for (const s of summary.sports) {
+      summarySportMap[s.sport] = {
+        count: s.count,
+        leagues: (s.leagues || []).map(lg => ({
+          key: lg.country ? `${lg.country} > ${lg.league}` : lg.league,
+          country: lg.country,
+          league: lg.league,
+          count: lg.count,
+        })),
+      };
+    }
   }
 
-  const allSportsInEvents = Object.keys(sportLeagueMap);
-  const orderedSports = SPORT_ORDER.filter(s => sportLeagueMap[s]);
-  const unorderedSports = allSportsInEvents.filter(s => !SPORT_ORDER.includes(s)).sort();
-  const sports = [...orderedSports, ...unorderedSports]
-    .sort((a, b) => {
-      const aFav = favoriteSports.includes(a) ? -1 : 0;
-      const bFav = favoriteSports.includes(b) ? -1 : 0;
-      return aFav - bFav;
-    });
+  // ── Events ağacı (Live) ─────────────────────────────────────
+  const sportLeagueMap = {};
+  if (!useSummaryTree) {
+    for (const ev of events) {
+      if (!ev.sport) continue;
+      const key = ev.country ? `${ev.country} > ${ev.league}` : ev.league;
+      if (!sportLeagueMap[ev.sport]) sportLeagueMap[ev.sport] = {};
+      if (!sportLeagueMap[ev.sport][key]) sportLeagueMap[ev.sport][key] = [];
+      sportLeagueMap[ev.sport][key].push(ev);
+    }
+  }
+
+  // Sport sırası. Summary modunda summary'nin verdiği sıra (futbol+Türkiye önce) korunur;
+  // events modunda mevcut SPORT_ORDER + favori sıralaması.
+  let sports;
+  if (useSummaryTree) {
+    sports = summary.sports.map(s => s.sport);
+  } else {
+    const allSportsInEvents = Object.keys(sportLeagueMap);
+    const orderedSports = SPORT_ORDER.filter(s => sportLeagueMap[s]);
+    const unorderedSports = allSportsInEvents.filter(s => !SPORT_ORDER.includes(s)).sort();
+    sports = [...orderedSports, ...unorderedSports]
+      .sort((a, b) => {
+        const aFav = favoriteSports.includes(a) ? -1 : 0;
+        const bFav = favoriteSports.includes(b) ? -1 : 0;
+        return aFav - bFav;
+      });
+  }
 
   const [expanded, setExpanded] = useState(
     Object.fromEntries(sports.map(s => [s, s === selectedSport]))
   );
 
-  const topLeagues = Object.entries(sportLeagueMap).flatMap(([sport, leagues]) =>
-    Object.entries(leagues).map(([league, evs]) => ({ sport, league, evs, count: evs.length }))
-  ).sort((a, b) => b.count - a.count).slice(0, 5);
+  // "Tümü" rozeti sayacı.
+  const totalBadge = useSummaryTree
+    ? summary.sports.reduce((n, s) => n + s.count, 0)
+    : events.length;
 
-  const importantEvents = events
-    .filter(e => e.status === 'live' || e.status === 'upcoming')
-    .sort((a, b) => a.status === 'live' ? -1 : 1)
-    .slice(0, 4);
+  // Popüler Ligler (top 5).
+  const topLeagues = useSummaryTree
+    ? summary.sports.flatMap(s => (s.leagues || []).map(lg => ({
+        sport: s.sport,
+        country: lg.country,
+        league: lg.league,
+        key: lg.country ? `${lg.country} > ${lg.league}` : lg.league,
+        count: lg.count,
+      }))).sort((a, b) => b.count - a.count).slice(0, 5)
+    : Object.entries(sportLeagueMap).flatMap(([sport, leagues]) =>
+        Object.entries(leagues).map(([league, evs]) => ({ sport, league, key: league, evs, count: evs.length }))
+      ).sort((a, b) => b.count - a.count).slice(0, 5);
+
+  // Önemli Maçlar: summary modunda maç verisi yok → gizle.
+  const importantEvents = useSummaryTree
+    ? []
+    : events
+        .filter(e => e.status === 'live' || e.status === 'upcoming')
+        .sort((a, b) => a.status === 'live' ? -1 : 1)
+        .slice(0, 4);
 
   function toggleSport(sport) {
     setExpanded(prev => ({ ...prev, [sport]: !prev[sport] }));
+  }
+
+  // Lig tıklaması: summary modunda Bahis'te aç/scroll, events modunda filtre.
+  function onLeagueClick({ sport, country, league }) {
+    if (useSummaryTree) {
+      setFocusLeague({ sport, country, league });
+      if (pathname !== '/bahis') navigate('/bahis');
+    } else {
+      setLeagueFilter(sport, league);
+    }
   }
 
   return (
@@ -80,7 +139,7 @@ export default function Sidebar() {
           <span className="w-5 text-center text-sm">🏆</span>
           <span className="flex-1 text-left font-bold">Tümü</span>
           <span className="bg-bg-hover text-text-3 rounded-full px-1.5 py-px text-[10px] min-w-[18px] text-center">
-            {events.length}
+            {totalBadge}
           </span>
         </button>
       </div>
@@ -88,16 +147,24 @@ export default function Sidebar() {
       {/* Spor kategorileri + ligler */}
       <div className="px-3">
         {sports.map(sport => {
-          const meta = SPORT_META[sport];
-          const leagues = sportLeagueMap[sport];
-          const totalCount = Object.values(leagues).reduce((n, evs) => n + evs.length, 0);
+          const meta = SPORT_META[sport] ?? { icon: '🏆', label: sport };
+          // Ortak lig listesi: { key, country, league, count }
+          const leagueList = useSummaryTree
+            ? summarySportMap[sport].leagues
+            : Object.entries(sportLeagueMap[sport])
+                .map(([league, evs]) => ({ key: league, country: null, league, count: evs.length }))
+                .sort((a, b) => b.count - a.count)
+                .slice(0, 8);
+          const totalCount = useSummaryTree
+            ? summarySportMap[sport].count
+            : Object.values(sportLeagueMap[sport]).reduce((n, evs) => n + evs.length, 0);
           const isActive = selectedSport === sport && !selectedLeague;
           const isOpen = !!expanded[sport];
 
           return (
             <div key={sport}>
               <button
-                onClick={() => { toggleSport(sport); setSportFilter(sport); }}
+                onClick={() => { toggleSport(sport); if (!useSummaryTree) setSportFilter(sport); }}
                 className={`relative w-full flex items-center gap-2 px-2.5 py-2 rounded-lg text-xs transition-all overflow-hidden mt-1 ${
                   isActive
                     ? 'text-black'
@@ -120,30 +187,27 @@ export default function Sidebar() {
               {/* Lig listesi */}
               {isOpen && (
                 <div className="ml-5 border-l border-white/10 pl-2 mb-1">
-                  {Object.entries(leagues)
-                    .sort(([, a], [, b]) => b.length - a.length)
-                    .slice(0, 8)
-                    .map(([league, evs]) => {
-                      const isLeagueActive = selectedLeague === league && selectedSport === sport;
-                      return (
-                        <button
-                          key={league}
-                          onClick={() => setLeagueFilter(sport, league)}
-                          className={`w-full flex items-center gap-1 py-[5px] px-1.5 rounded text-[10px] transition text-left ${
-                            isLeagueActive
-                              ? 'text-cyan-400 font-bold bg-[#00d4ff14] border border-[#00d4ff44]'
-                              : 'text-text-3 hover:text-text-2'
-                          }`}
-                        >
-                          <span className="flex-1 truncate">
-                            {league.includes(' > ')
-                              ? <><span className="text-text-3 opacity-60">{league.split(' > ').slice(0,-1).join(' › ')} › </span>{league.split(' > ').at(-1)}</>
-                              : league}
-                          </span>
-                          <span className="shrink-0 text-[9px]">{evs.length}</span>
-                        </button>
-                      );
-                    })}
+                  {leagueList.map(lg => {
+                    const isLeagueActive = !useSummaryTree && selectedLeague === lg.key && selectedSport === sport;
+                    return (
+                      <button
+                        key={lg.key}
+                        onClick={() => onLeagueClick({ sport, country: lg.country, league: lg.league })}
+                        className={`w-full flex items-center gap-1 py-[5px] px-1.5 rounded text-[10px] transition text-left ${
+                          isLeagueActive
+                            ? 'text-cyan-400 font-bold bg-[#00d4ff14] border border-[#00d4ff44]'
+                            : 'text-text-3 hover:text-text-2'
+                        }`}
+                      >
+                        <span className="flex-1 truncate">
+                          {lg.key.includes(' > ')
+                            ? <><span className="text-text-3 opacity-60">{lg.key.split(' > ').slice(0,-1).join(' › ')} › </span>{lg.key.split(' > ').at(-1)}</>
+                            : lg.key}
+                        </span>
+                        <span className="shrink-0 text-[9px]">{lg.count}</span>
+                      </button>
+                    );
+                  })}
                 </div>
               )}
             </div>
@@ -155,13 +219,13 @@ export default function Sidebar() {
         {topLeagues.length > 0 && (
           <div className="mb-4">
             <p className="text-[10px] font-bold uppercase tracking-wider text-text-2 mb-2 px-2">Popüler Ligler</p>
-            {topLeagues.map(({ sport, league, count }) => {
+            {topLeagues.map(({ sport, country, league, key, count }) => {
               const meta = SPORT_META[sport] ?? { icon: '🏆', label: sport };
-              const isActive = selectedLeague === league && selectedSport === sport;
+              const isActive = !useSummaryTree && selectedLeague === key && selectedSport === sport;
               return (
                 <button
-                  key={`${sport}:${league}`}
-                  onClick={() => setLeagueFilter(sport, league)}
+                  key={`${sport}:${key}`}
+                  onClick={() => onLeagueClick({ sport, country: country ?? null, league })}
                   className={`w-full flex items-center gap-2 px-2.5 py-2 rounded-lg text-xs transition text-left ${
                     isActive
                       ? 'text-cyan-400 font-bold bg-[#00d4ff14] border border-[#00d4ff44]'
@@ -170,9 +234,9 @@ export default function Sidebar() {
                 >
                   <span className="text-sm">{meta.icon}</span>
                   <span className="flex-1 truncate font-semibold">
-                    {league.includes(' > ')
-                      ? <span>{league.split(' > ').at(-1)}</span>
-                      : league}
+                    {key.includes(' > ')
+                      ? <span>{key.split(' > ').at(-1)}</span>
+                      : key}
                   </span>
                   <span className="shrink-0 text-[11px] text-text-3 font-bold">{count}</span>
                 </button>

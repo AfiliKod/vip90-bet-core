@@ -1,5 +1,5 @@
 import { useEffect, useState, useMemo } from 'react';
-import { useEventsStore } from '../store/eventsStore';
+import { useEventsStore, leagueKey } from '../store/eventsStore';
 import { SPORT_META } from '../utils/sportMeta';
 import MiniEventCard from '../components/MiniEventCard';
 import LazyLeagueGroup from '../components/LazyLeagueGroup';
@@ -52,9 +52,11 @@ export default function Bahis() {
     initSocket, cleanup,
     summary, summaryLoading, summaryError, fetchSummary,
     searchResults, searchLoading, searchEvents, clearSearch,
+    focusLeague, setFocusLeague,
   } = useEventsStore();
   const [search, setSearch] = useState('');
   const [collapsedSports, setCollapsedSports] = useState({});
+  const [forceOpenKey, setForceOpenKey] = useState(null);
   const STATUS = 'upcoming';
 
   useEffect(() => { initSocket(); return cleanup; }, []);
@@ -65,6 +67,22 @@ export default function Bahis() {
     const t = setTimeout(() => { q.length >= 2 ? searchEvents(q, STATUS) : clearSearch(); }, 300);
     return () => clearTimeout(t);
   }, [search]);
+
+  // Sidebar'dan lig tıklanınca: sporu aç, ligi aç (forceOpen sinyali) ve scroll et.
+  useEffect(() => {
+    if (!focusLeague) return;
+    const { sport, country, league } = focusLeague;
+    const key = leagueKey(sport, country, league);
+    setCollapsedSports(prev => ({ ...prev, [sport]: false }));
+    setForceOpenKey(`${key}:${Date.now()}`);
+    const t = setTimeout(() => {
+      requestAnimationFrame(() => {
+        document.getElementById(`league-${key}`)?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      });
+    }, 250);
+    setFocusLeague(null);
+    return () => clearTimeout(t);
+  }, [focusLeague]);
 
   // Futbol → Türkiye ligleri açılışta otomatik açık.
   const autoOpenLeagues = useMemo(() => {
@@ -162,6 +180,7 @@ export default function Bahis() {
                             count={lg.count}
                             status={STATUS}
                             defaultOpen={s.sport === 'football' && autoOpenLeagues.has(`${lg.country}|${lg.league}`)}
+                            forceOpenSignal={forceOpenKey && forceOpenKey.startsWith(leagueKey(s.sport, lg.country, lg.league) + ':') ? forceOpenKey : undefined}
                           />
                         ))}
                       </div>
