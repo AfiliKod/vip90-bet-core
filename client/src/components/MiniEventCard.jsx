@@ -54,7 +54,6 @@ export default function MiniEventCard({ event, live, onExtraClick, accent: accen
 
   const mainMarket = event.markets?.find(m => m.type === 'maç_sonucu') ?? event.markets?.[0];
   const ouMarket = event.markets?.find(m => m.type === 'alt_üst');
-  const handikapMarket = event.markets?.find(m => m.type === 'handikap');
 
   const odd1 = mainMarket?.odds?.find(o => o.label === '1') || mainMarket?.odds?.[0];
   const oddX = mainMarket?.odds?.find(o => o.label === 'X') || mainMarket?.odds?.[1];
@@ -63,7 +62,8 @@ export default function MiniEventCard({ event, live, onExtraClick, accent: accen
   const ouMain = pickMainLine(ouMarket);       // [Üst, Alt]
   const ouOver = ouMain?.[0];
   const ouUnder = ouMain?.[1];
-  const handikapOdd = pickMainLine(handikapMarket)?.[0];
+  // O/U hattı (toplam gol sınırı, ör. "3.25") — etiketin sonundaki sayı.
+  const ouLine = (ouOver?.label || ouUnder?.label || '').match(/([\d.]+)\s*$/)?.[1] || '';
 
   const hasValidOdds = (odd1?.value ?? 0) > 0 || (oddX?.value ?? 0) > 0 || (odd2?.value ?? 0) > 0;
   if (!hasValidOdds) return null;
@@ -124,10 +124,14 @@ export default function MiniEventCard({ event, live, onExtraClick, accent: accen
 
           <div className="w-px h-8 bg-white/10 mx-1 shrink-0" />
 
-          {ouUnder || handikapOdd || ouOver ? (
+          {ouUnder || ouOver ? (
             <>
               <MiniOddButton eventId={event._id} eventLabel={eventLabel} odd={ouUnder} label="Alt" smallLabel="Alt" marketType={ouMarket?.type} accent={accent} />
-              <MiniOddButton eventId={event._id} eventLabel={eventLabel} odd={handikapOdd} label="Toplam" smallLabel="Toplam" marketType={handikapMarket?.type} accent={accent} />
+              {/* Orta hücre: bahis değil, O/U hattı (toplam gol sınırı, ör. 3.25) */}
+              <div className="flex-1 min-h-[44px] flex flex-col items-center justify-center">
+                <span className="text-[9px] font-bold uppercase tracking-wide text-text-4 leading-none mb-0.5">Toplam</span>
+                <span className="text-[13px] font-black" style={{ color: accent }}>{ouLine || '-'}</span>
+              </div>
               <MiniOddButton eventId={event._id} eventLabel={eventLabel} odd={ouOver} label="Üst" smallLabel="Üst" marketType={ouMarket?.type} accent={accent} />
             </>
           ) : (
