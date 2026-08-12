@@ -7,6 +7,7 @@ const marketSchema = new mongoose.Schema({ type: String, label: String, odds: [o
 const schema = new mongoose.Schema({
   externalId: { type: String, unique: true, sparse: true },
   oddsSourceLid: { type: String, default: null },  // kaynağın betting league id'si — per-event tam market fetch'i için
+  marketCount: { type: Number, default: 0 },     // kaynaktaki benzersiz market_id sayısı (grup değil) — "147 market" rozeti için
   sport:    { type: String, required: true },
   country:  { type: String, default: '' },
   league:   { type: String, required: true },

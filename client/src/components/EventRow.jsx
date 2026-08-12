@@ -68,7 +68,8 @@ export default function EventRow({ event, isDrawerOpen, onToggleDrawer }) {
   // Çok-hatlı marketlerde ilk hat değil, kaynağın öne çıkardığı DENGELİ ana hat gösterilir.
   const ouMain = pickMainLine(ouMarket);         // [Üst, Alt] ana hat
   const hMain  = pickMainLine(handikapMarket);   // [ev, deplasman] ana hat
-  const extraCount = Math.max(0, (event.markets?.length ?? 0) - 1);
+  // Kaynağın gösterdiği tam market sayısı (benzersiz market_id) — grup değil.
+  const extraCount = Math.max(0, (event.marketCount || event.marketsCount || event.markets?.length || 0) - 1);
   const date = new Date(event.startTime);
   const dateStr = date.toLocaleDateString(locale, { day: '2-digit', month: 'short' });
   const timeStr = date.toLocaleTimeString(locale, { hour: '2-digit', minute: '2-digit' });
