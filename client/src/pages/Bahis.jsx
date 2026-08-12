@@ -76,11 +76,10 @@ export default function Bahis() {
     setCollapsedSports(prev => ({ ...prev, [sport]: false }));
     setForceOpenKey(`${key}:${Date.now()}`);
     const t = setTimeout(() => {
-      requestAnimationFrame(() => {
-        document.getElementById(`league-${key}`)?.scrollIntoView({ behavior: 'smooth', block: 'start' });
-      });
-    }, 250);
-    setFocusLeague(null);
+      document.getElementById(`league-${key}`)?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      setForceOpenKey(null);   // remount auto-open'u önle (lig kendi open state'ini korur)
+      setFocusLeague(null);    // scroll'dan SONRA temizle → timer erken iptal olmaz
+    }, 300);
     return () => clearTimeout(t);
   }, [focusLeague]);
 
