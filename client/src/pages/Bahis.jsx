@@ -53,7 +53,6 @@ export default function Bahis() {
     summary, summaryLoading, summaryError, fetchSummary,
     searchResults, searchLoading, searchEvents, clearSearch,
   } = useEventsStore();
-  const [, setOpenDrawerId] = useState(null);
   const [search, setSearch] = useState('');
   const [collapsedSports, setCollapsedSports] = useState({});
   const STATUS = 'upcoming';
@@ -77,34 +76,13 @@ export default function Bahis() {
     return set;
   }, [summary]);
 
-  function handleToggleDrawer(eventId) {
-    setOpenDrawerId(prev => prev === eventId ? null : eventId);
-  }
-
   return (
     <div>
       <HeroSlider />
       <div className="max-w-full px-4 py-4 flex gap-4">
         <main className="flex-1 min-w-0">
           <div className="flex gap-2 mb-4 items-center flex-wrap">
-            {[['upcoming', 'Yaklaşanlar']].map(([v, l]) => {
-              const active = v === STATUS;
-              return (
-                <button key={v}
-                  className={`px-4 py-2 rounded-lg text-sm font-bold transition-all ${
-                    active
-                      ? 'text-black'
-                      : 'text-text-2 hover:text-text-1 border border-white/10 hover:border-[#00d4ff44]'
-                  }`}
-                  style={active ? {
-                    background: 'linear-gradient(135deg, #00d4ff 0%, #7c3aed 100%)',
-                    boxShadow: '0 0 16px #00d4ff55, 0 0 24px #7c3aed33',
-                  } : {}}
-                >
-                  {l}
-                </button>
-              );
-            })}
+            <span className="px-4 py-2 rounded-lg text-sm font-bold text-black" style={{ background: 'linear-gradient(135deg, #00d4ff 0%, #7c3aed 100%)', boxShadow: '0 0 16px #00d4ff55, 0 0 24px #7c3aed33' }}>Yaklaşan Etkinlikler</span>
             <SearchInput
               value={search}
               onChange={e => setSearch(e.target.value)}
@@ -145,7 +123,7 @@ export default function Bahis() {
             ) : (
               <div className="flex flex-col gap-2">
                 {searchResults.map(ev => (
-                  <MiniEventCard key={ev._id} event={ev} live={false} accent="#00d4ff" bgColor="#111d30" onExtraClick={() => handleToggleDrawer(ev._id)} />
+                  <MiniEventCard key={ev._id} event={ev} live={false} accent="#00d4ff" bgColor="#111d30" />
                 ))}
               </div>
             )
@@ -184,7 +162,6 @@ export default function Bahis() {
                             count={lg.count}
                             status={STATUS}
                             defaultOpen={autoOpenLeagues.has(`${lg.country}|${lg.league}`)}
-                            onExtraClick={handleToggleDrawer}
                           />
                         ))}
                       </div>

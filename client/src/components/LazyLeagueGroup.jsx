@@ -39,7 +39,7 @@ export default function LazyLeagueGroup({ sport, country, league, count, status 
                 live={false}
                 accent="#00d4ff"
                 bgColor="#111d30"
-                onExtraClick={() => onExtraClick?.(ev._id)}
+                onExtraClick={onExtraClick ? () => onExtraClick(ev._id) : undefined}
               />
             ))
           )}
