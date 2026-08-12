@@ -1,9 +1,18 @@
 import Event from '../models/Event.js';
+import { buildSummaryTree } from '../utils/summaryTree.js';
 
 // Liste görünümünde (MiniEventCard/HeroSlider) sadece bu market tipleri gösteriliyor —
 // bir event'te ortalama ~40 market / ~190 odds var ama listede en fazla 3'ü render ediliyor.
 // Detay sayfası (GET /events/:id) ve admin panel (?full=1) hâlâ markets'i tam döndürüyor.
 const LIST_MARKET_TYPES = new Set(['maç_sonucu', 'alt_üst', 'handikap']);
+
+// Özet ve lig-fetch'in AYNI filtreyi kullanması için tek kaynak — sayılar tutarlı kalsın.
+function baseUpcomingMatch(status) {
+  const futureLimit = new Date(Date.now() + FUTURE_WINDOW_MS);
+  const m = { status: String(status || 'upcoming'), archivedAt: null };
+  if (m.status === 'upcoming') m.startTime = { $lte: futureLimit };
+  return m;
+}
 
 // "Yaklaşanlar" görünümünde bugünden bu kadar uzağa kadar olan etkinlikler gösterilir —
 // bahis yapılma ihtimali düşük, aylar sonrasına kadar uzanan etkinlikleri elemek için.
@@ -121,4 +130,24 @@ export async function getById(req, res, next) {
   } catch (e) {
     next(e);
   }
+}
+
+export async function summary(req, res, next) {
+  try {
+    const status = req.query.status || 'upcoming';
+    const cacheKey = `summary|${status}`;
+    const cached = getCachedList(cacheKey);
+    if (cached) return res.json(cached);
+
+    const rows = await Event.aggregate([
+      { $match: baseUpcomingMatch(status) },
+      { $group: { _id: { sport: '$sport', country: '$country', league: '$league' }, count: { $sum: 1 } } },
+    ]);
+    const flat = rows.map(r => ({
+      sport: r._id.sport, country: r._id.country || '', league: r._id.league, count: r.count,
+    }));
+    const tree = buildSummaryTree(flat);
+    setCachedList(cacheKey, tree);
+    res.json(tree);
+  } catch (e) { next(e); }
 }
