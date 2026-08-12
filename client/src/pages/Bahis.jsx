@@ -62,7 +62,7 @@ export default function Bahis() {
   // Debounced backend arama
   useEffect(() => {
     const q = search.trim();
-    const t = setTimeout(() => { q ? searchEvents(q, STATUS) : clearSearch(); }, 300);
+    const t = setTimeout(() => { q.length >= 2 ? searchEvents(q, STATUS) : clearSearch(); }, 300);
     return () => clearTimeout(t);
   }, [search]);
 
@@ -115,7 +115,7 @@ export default function Bahis() {
             })}
           </div>
 
-          {search.trim() ? (
+          {search.trim().length >= 2 ? (
             searchLoading ? (
               <div className="text-center text-text-3 py-16">Aranıyor...</div>
             ) : !searchResults || searchResults.length === 0 ? (
@@ -161,7 +161,7 @@ export default function Bahis() {
                             league={lg.league}
                             count={lg.count}
                             status={STATUS}
-                            defaultOpen={autoOpenLeagues.has(`${lg.country}|${lg.league}`)}
+                            defaultOpen={s.sport === 'football' && autoOpenLeagues.has(`${lg.country}|${lg.league}`)}
                           />
                         ))}
                       </div>

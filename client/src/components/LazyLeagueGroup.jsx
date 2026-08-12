@@ -7,12 +7,15 @@ export default function LazyLeagueGroup({ sport, country, league, count, status 
   const key = leagueKey(sport, country, league);
   const events = useEventsStore(s => s.leagueEvents.get(key));
   const loading = useEventsStore(s => s.loadingLeagues.has(key));
+  const failed = useEventsStore(s => s.failedLeagues.has(key));
   const fetchLeague = useEventsStore(s => s.fetchLeague);
+  const retryLeague = useEventsStore(s => s.retryLeague);
 
-  // Açıkken ve maçlar henüz yokken çek (defaultOpen için de çalışır)
+  // Açıkken ve maçlar henüz yokken çek (defaultOpen için de çalışır).
+  // failed iken tetikleme — kalıcı hatada sonsuz refetch olmasın (kullanıcı "Tekrar dene" ile döner).
   useEffect(() => {
-    if (open && !events && !loading) fetchLeague(sport, country, league, status);
-  }, [open, events, loading, sport, country, league, status, fetchLeague]);
+    if (open && !events && !loading && !failed) fetchLeague(sport, country, league, status);
+  }, [open, events, loading, failed, sport, country, league, status, fetchLeague]);
 
   const title = country ? `${country} > ${league}` : league;
   return (
@@ -29,6 +32,10 @@ export default function LazyLeagueGroup({ sport, country, league, count, status 
         <div className="flex flex-col gap-2 ml-2 mt-1">
           {loading && !events ? (
             <div className="text-xs text-text-3 py-2 px-2">Yükleniyor...</div>
+          ) : failed && !events ? (
+            <div className="text-xs text-text-3 py-2 px-2">
+              Yüklenemedi. <button className="underline hover:text-cyan-400" onClick={() => retryLeague(sport, country, league, status)}>Tekrar dene</button>
+            </div>
           ) : events && events.length === 0 ? (
             <div className="text-xs text-text-3 py-2 px-2">Bu ligde açık bahis yok.</div>
           ) : (

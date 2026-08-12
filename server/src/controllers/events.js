@@ -7,7 +7,8 @@ import escapeStringRegexp from 'escape-string-regexp';
 // Detay sayfası (GET /events/:id) ve admin panel (?full=1) hâlâ markets'i tam döndürüyor.
 const LIST_MARKET_TYPES = new Set(['maç_sonucu', 'alt_üst', 'handikap']);
 
-// Özet ve lig-fetch'in AYNI filtreyi kullanması için tek kaynak — sayılar tutarlı kalsın.
+// Özet aggregation'ı (summary) için upcoming filtresi. list kendi filtresini ayrıca
+// kuruyor ama archivedAt: null ve gelecek penceresi (FUTURE_WINDOW) burayla aynı tutulur.
 function baseUpcomingMatch(status) {
   const futureLimit = new Date(Date.now() + FUTURE_WINDOW_MS);
   const m = { status: String(status || 'upcoming'), archivedAt: null };
@@ -65,7 +66,7 @@ export async function list(req, res, next) {
     const isFull = full === '1' || full === 'true';
     const futureLimit = new Date(Date.now() + FUTURE_WINDOW_MS);
 
-    const cacheable = !isFull && +page === 1;
+    const cacheable = !isFull && +page === 1 && !search;
     const cacheKey = cacheable
       ? `${sport || 'all'}|${status || ''}|${limit}|${country || ''}|${league || ''}|${search || ''}`
       : null;
@@ -76,7 +77,7 @@ export async function list(req, res, next) {
 
     const filter = {};
     if (sport && sport !== 'all') filter.sport = String(sport);
-    if (country != null && country !== '') filter.country = String(country);
+    if (country != null) filter.country = String(country);
     if (league) filter.league = String(league);
     if (search && String(search).trim()) {
       const rx = new RegExp(escapeStringRegexp(String(search).trim()), 'i');
@@ -89,6 +90,9 @@ export async function list(req, res, next) {
 
     if (status) {
       filter.status = String(status);
+      // Arşivlenmiş etkinlikler hem live hem upcoming isteklerinden hariç — summary
+      // (baseUpcomingMatch) ve else dalıyla tutarlı olsun diye.
+      filter.archivedAt = null;
       // "Yaklaşanlar" (status=upcoming) açık isteğinde de gelecek penceresi
       // sınırı uygulanır — full=1 (admin) hariç. Önceden bu yolda HİÇ sınır
       // yoktu (DB'deki tüm upcoming kayıtları dönebiliyordu).

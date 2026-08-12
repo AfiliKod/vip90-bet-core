@@ -41,12 +41,18 @@ export const useEventsStore = create((set, get) => ({
       set({ events: data.events, isLoading: false });
     } catch { set({ isLoading: false }); }
   },
-  updateEventOdds: (eventId, markets) => set(s => ({
-    events: s.events.map(e => e._id === eventId ? { ...e, markets } : e)
-  })),
-  updateEventScore: (eventId, score) => set(s => ({
-    events: s.events.map(e => e._id === eventId ? { ...e, liveScore: score, status: e.status === 'finished' ? 'finished' : 'live' } : e)
-  })),
+  updateEventOdds: (eventId, markets) => set(s => {
+    const patch = arr => arr?.map(e => e._id === eventId ? { ...e, markets } : e);
+    const leagueEvents = new Map();
+    for (const [k, v] of s.leagueEvents) leagueEvents.set(k, patch(v));
+    return { events: patch(s.events), leagueEvents, searchResults: s.searchResults ? patch(s.searchResults) : s.searchResults };
+  }),
+  updateEventScore: (eventId, score) => set(s => {
+    const patch = arr => arr?.map(e => e._id === eventId ? { ...e, liveScore: score, status: e.status === 'finished' ? 'finished' : 'live' } : e);
+    const leagueEvents = new Map();
+    for (const [k, v] of s.leagueEvents) leagueEvents.set(k, patch(v));
+    return { events: patch(s.events), leagueEvents, searchResults: s.searchResults ? patch(s.searchResults) : s.searchResults };
+  }),
   initSocket: () => {
     socket.connect();
     socket.on('odds:update', ({ eventId, markets }) => get().updateEventOdds(eventId, markets));
@@ -64,6 +70,7 @@ export const useEventsStore = create((set, get) => ({
   summaryError: false,
   leagueEvents: new Map(),   // leagueKey -> Event[]
   loadingLeagues: new Set(), // leagueKey (o an fetch edilenler)
+  failedLeagues: new Set(),  // leagueKey (kalıcı hataya düşenler — sonsuz refetch guard'ı)
   searchResults: null,       // null = arama yok; [] = sonuç yok
   searchLoading: false,
 
@@ -77,26 +84,39 @@ export const useEventsStore = create((set, get) => ({
 
   fetchLeague: async (sport, country, league, status = 'upcoming') => {
     const key = leagueKey(sport, country, league);
-    const { leagueEvents, loadingLeagues } = get();
-    if (leagueEvents.has(key) || loadingLeagues.has(key)) return; // idempotent
+    const { leagueEvents, loadingLeagues, failedLeagues } = get();
+    if (leagueEvents.has(key) || loadingLeagues.has(key) || failedLeagues.has(key)) return; // idempotent
     const nextLoading = new Set(loadingLeagues); nextLoading.add(key);
     set({ loadingLeagues: nextLoading });
     try {
       const params = new URLSearchParams({ status, sport, league });
-      if (country) params.set('country', country);
+      params.set('country', country || '');
       const { data } = await api.get(`/events?${params}`);
       const nextEvents = new Map(get().leagueEvents); nextEvents.set(key, data.events);
       const doneLoading = new Set(get().loadingLeagues); doneLoading.delete(key);
-      set({ leagueEvents: nextEvents, loadingLeagues: doneLoading });
+      const patch = { leagueEvents: nextEvents, loadingLeagues: doneLoading };
+      if (get().failedLeagues.has(key)) {
+        const nf = new Set(get().failedLeagues); nf.delete(key);
+        patch.failedLeagues = nf;
+      }
+      set(patch);
     } catch {
       const doneLoading = new Set(get().loadingLeagues); doneLoading.delete(key);
-      set({ loadingLeagues: doneLoading });
+      const nf = new Set(get().failedLeagues); nf.add(key);
+      set({ failedLeagues: nf, loadingLeagues: doneLoading });
     }
+  },
+
+  retryLeague: (sport, country, league, status = 'upcoming') => {
+    const key = leagueKey(sport, country, league);
+    const nf = new Set(get().failedLeagues); nf.delete(key);
+    set({ failedLeagues: nf });
+    get().fetchLeague(sport, country, league, status);
   },
 
   searchEvents: async (query, status = 'upcoming') => {
     const q = query.trim();
-    if (!q) { set({ searchResults: null, searchLoading: false }); return; }
+    if (q.length < 2) { set({ searchResults: null, searchLoading: false }); return; }
     set({ searchLoading: true });
     try {
       const params = new URLSearchParams({ status, search: q });
