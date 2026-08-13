@@ -20,40 +20,121 @@ function getTransporter() {
   return _transporter;
 }
 
+// ─── Ortak mail görünümü (mail-güvenli: tablo tabanlı, inline CSS) ──────────
+const FONT = 'Arial,Helvetica,sans-serif';
+const SUPPORT_EMAIL = 'destek@vip90.bet';
+
+// Bulletproof CTA butonu — bgcolor fallback'li, Outlook dahil çalışır.
+function button(url, label, bg = '#00d4ff', fg = '#04121a') {
+  return `
+    <table role="presentation" cellpadding="0" cellspacing="0" border="0" style="margin:26px auto;">
+      <tr>
+        <td align="center" bgcolor="${bg}" style="border-radius:10px;">
+          <a href="${url}" target="_blank" style="display:inline-block;padding:14px 34px;font-family:${FONT};font-size:16px;font-weight:bold;line-height:1;color:${fg};text-decoration:none;border-radius:10px;">${label}</a>
+        </td>
+      </tr>
+    </table>`;
+}
+
+// Buton açılmazsa diye düz-metin yedek link (kesilmeden).
+function fallbackLink(url) {
+  return `<p style="margin:22px 0 0;font-family:${FONT};font-size:12px;line-height:1.7;color:#8b97ad;">Buton çalışmıyorsa bu bağlantıyı tarayıcınıza kopyalayın:<br><span style="color:#00d4ff;word-break:break-all;">${url}</span></p>`;
+}
+
+// Tüm mailleri saran çerçeve: neon şerit + VIP90 wordmark + kart + footer.
+function layout({ preheader = '', body }) {
+  const year = new Date().getFullYear();
+  return `<!DOCTYPE html>
+<html lang="tr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="color-scheme" content="dark">
+<meta name="supported-color-schemes" content="dark">
+</head>
+<body style="margin:0;padding:0;background:#0a0d16;">
+  <span style="display:none;max-height:0;overflow:hidden;opacity:0;color:#0a0d16;">${preheader}</span>
+  <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="background:#0a0d16;">
+    <tr><td align="center" style="padding:32px 12px;">
+      <table role="presentation" width="600" cellpadding="0" cellspacing="0" border="0" style="width:600px;max-width:100%;">
+        <tr><td style="height:4px;background:#00d4ff;background:linear-gradient(90deg,#00d4ff,#7c3aed);border-radius:12px 12px 0 0;font-size:0;line-height:0;">&nbsp;</td></tr>
+        <tr><td align="center" style="background:#12182a;padding:30px 24px 6px;">
+          <div style="font-family:${FONT};font-size:26px;font-weight:800;color:#ffffff;letter-spacing:.5px;">
+            <span style="font-size:28px;">💎</span> VIP90.bet
+          </div>
+        </td></tr>
+        <tr><td style="background:#12182a;padding:6px 32px 34px;font-family:${FONT};color:#e8edf7;">
+          ${body}
+        </td></tr>
+        <tr><td align="center" style="background:#0d1220;padding:20px 24px;border-radius:0 0 12px 12px;">
+          <p style="margin:0 0 6px;font-family:${FONT};font-size:12px;color:#6b7488;">Bu otomatik bir e-postadır, lütfen yanıtlamayın.</p>
+          <p style="margin:0;font-family:${FONT};font-size:12px;color:#6b7488;">© ${year} VIP90 BET · <a href="https://vip90.bet" style="color:#00d4ff;text-decoration:none;">vip90.bet</a></p>
+        </td></tr>
+      </table>
+    </td></tr>
+  </table>
+</body>
+</html>`;
+}
+
+const H1 = `margin:18px 0 10px;font-family:${FONT};font-size:22px;font-weight:700;color:#ffffff;`;
+const P  = `margin:0 0 6px;font-family:${FONT};font-size:15px;line-height:1.7;color:#c3cbdb;`;
+const NOTE = `margin:0;font-family:${FONT};font-size:13px;color:#8b97ad;`;
+
 const TEMPLATES = {
   'verify-email': (data) => ({
     subject: 'Email adresinizi doğrulayın',
-    html: `
-      <h2>Hoş geldiniz, ${data.username}!</h2>
-      <p>Hesabınızı aktifleştirmek için aşağıdaki bağlantıya tıklayın:</p>
-      <p><a href="${data.verifyUrl}" style="background:#00d4ff;color:#000;padding:12px 24px;border-radius:8px;text-decoration:none;font-weight:bold;">Emailimi Doğrula</a></p>
-      <p style="color:#888;font-size:12px;">Bu link 24 saat geçerlidir.</p>
-    `,
+    html: layout({
+      preheader: 'Hesabını aktifleştirmek için email adresini doğrula.',
+      body: `
+        <h1 style="${H1}">Hoş geldin, ${data.username}! 🎉</h1>
+        <p style="${P}">VIP90 BET'e kaydın alındı. Hesabını aktifleştirmek ve giriş yapabilmek için email adresini doğrulaman yeterli.</p>
+        ${button(data.verifyUrl, 'Emailimi Doğrula')}
+        <p style="${NOTE}">Bu bağlantı <strong style="color:#c3cbdb;">24 saat</strong> geçerlidir.</p>
+        ${fallbackLink(data.verifyUrl)}
+      `,
+    }),
   }),
   'password-reset': (data) => ({
     subject: 'Şifre sıfırlama',
-    html: `
-      <h2>Şifre sıfırlama talebi</h2>
-      <p>Merhaba ${data.username}, şifrenizi sıfırlamak için aşağıdaki bağlantıya tıklayın:</p>
-      <p><a href="${data.resetUrl}" style="background:#00d4ff;color:#000;padding:12px 24px;border-radius:8px;text-decoration:none;font-weight:bold;">Şifremi Sıfırla</a></p>
-      <p style="color:#888;font-size:12px;">Bu link 1 saat geçerlidir. Eğer bu talebi siz yapmadıysanız, bu emaili görmezden gelin.</p>
-    `,
+    html: layout({
+      preheader: 'Şifreni sıfırlamak için bağlantı.',
+      body: `
+        <h1 style="${H1}">Şifre sıfırlama talebi</h1>
+        <p style="${P}">Merhaba ${data.username}, hesabının şifresini sıfırlamak için aşağıdaki butona tıkla.</p>
+        ${button(data.resetUrl, 'Şifremi Sıfırla')}
+        <p style="${NOTE}">Bu bağlantı <strong style="color:#c3cbdb;">1 saat</strong> geçerlidir.</p>
+        <p style="${NOTE}margin-top:8px;">Bu talebi sen yapmadıysan bu e-postayı yok sayabilirsin; şifren değişmeden kalır.</p>
+        ${fallbackLink(data.resetUrl)}
+      `,
+    }),
   }),
   'password-changed': (data) => ({
     subject: 'Şifreniz değiştirildi',
-    html: `
-      <h2>Şifre değişikliği bildirimi</h2>
-      <p>Merhaba ${data.username}, hesabınızın şifresi başarıyla değiştirildi.</p>
-      <p style="color:#888;font-size:12px;">Bu değişikliği siz yapmadıysanız hemen destek@vip90.bet adresinden bizimle iletişime geçin.</p>
-    `,
+    html: layout({
+      preheader: 'Hesap şifren başarıyla değiştirildi.',
+      body: `
+        <h1 style="${H1}">Şifren değiştirildi</h1>
+        <p style="${P}">Merhaba ${data.username}, hesabının şifresi başarıyla güncellendi.</p>
+        <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="margin:20px 0 0;">
+          <tr><td style="background:#2a1420;border-left:3px solid #ff5a7a;border-radius:6px;padding:14px 16px;font-family:${FONT};font-size:13px;line-height:1.7;color:#f2c9d3;">
+            Bu değişikliği <strong>siz yapmadıysanız</strong>, hesabınız risk altında olabilir. Hemen <a href="mailto:${SUPPORT_EMAIL}" style="color:#00d4ff;text-decoration:none;">${SUPPORT_EMAIL}</a> ile iletişime geçin.
+          </td></tr>
+        </table>
+      `,
+    }),
   }),
   'welcome': (data) => ({
     subject: 'Hoş geldiniz!',
-    html: `
-      <h2>Hoş geldiniz, ${data.username}!</h2>
-      <p>Hesabınız başarıyla oluşturuldu. İlk depozito bonusu için:</p>
-      <p><a href="${data.depositUrl}" style="background:linear-gradient(90deg,#00d4ff,#7c3aed);color:#fff;padding:12px 24px;border-radius:8px;text-decoration:none;font-weight:bold;">İlk Bonusunuzu Alın</a></p>
-    `,
+    html: layout({
+      preheader: 'İlk depozito bonusun seni bekliyor.',
+      body: `
+        <h1 style="${H1}">Hoş geldin, ${data.username}! 🎉</h1>
+        <p style="${P}">Hesabın başarıyla oluşturuldu. İlk depozito bonusunu almak için hazırsan başlayalım.</p>
+        ${button(data.depositUrl, 'İlk Bonusunu Al', '#7c3aed', '#ffffff')}
+        <p style="${NOTE}">Bol şans! 🍀</p>
+      `,
+    }),
   }),
 };
 
@@ -71,7 +152,7 @@ export async function sendEmail({ to, subject, template, data, html }) {
     return { mock: true, verifyUrl: data?.verifyUrl, resetUrl: data?.resetUrl };
   }
   return transporter.sendMail({
-    from: `"Bet Platform" <${process.env.SMTP_FROM || 'noreply@vip90.bet'}>`,
+    from: `"VIP90 BET" <${process.env.SMTP_FROM || 'noreply@vip90.bet'}>`,
     to,
     subject: body.subject,
     html: body.html,
