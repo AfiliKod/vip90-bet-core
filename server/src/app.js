@@ -9,6 +9,7 @@ import http from 'http';
 import { fileURLToPath } from 'url';
 import { dirname, join } from 'path';
 import { existsSync } from 'fs';
+import { expandOrigins, canonicalHostRedirect } from './utils/origins.js';
 import { errorHandler, notFound } from './middleware/error.js';
 import { globalLimiter } from './middleware/rateLimit.js';
 import authRoutes from './routes/auth.js';
@@ -30,8 +31,10 @@ import admin2faRoutes from './routes/admin2fa.js';
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const isProd = process.env.NODE_ENV === 'production';
 
-const baseOrigins = (process.env.CLIENT_URL || 'http://localhost:5173')
-  .split(',').map(s => s.trim()).filter(Boolean);
+const baseOrigins = expandOrigins(
+  (process.env.CLIENT_URL || 'http://localhost:5173')
+    .split(',').map(s => s.trim()).filter(Boolean),
+);
 
 // Railway injects RAILWAY_PUBLIC_DOMAIN automatically — add it so <script crossorigin>
 // same-origin requests pass CORS when CLIENT_URL isn't explicitly configured.
@@ -57,9 +60,13 @@ export function createApp() {
   app.set('trust proxy', 1); // Railway / Render reverse proxy arkasında req.protocol doğru olsun
   app.set('etag', 'strong'); // Phase E12
 
-  // HTTPS redirect (Phase B5)
+  // Kanonik host + HTTPS redirect (Phase B5)
   if (isProd) {
     app.use((req, res, next) => {
+      const canonicalHost = canonicalHostRedirect(req.headers.host);
+      if (canonicalHost) {
+        return res.redirect(301, `https://${canonicalHost}${req.url}`);
+      }
       if (req.headers['x-forwarded-proto'] && req.headers['x-forwarded-proto'] !== 'https') {
         return res.redirect(301, `https://${req.headers.host}${req.url}`);
       }
