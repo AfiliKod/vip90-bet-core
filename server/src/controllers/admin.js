@@ -10,6 +10,9 @@ import CasinoSession from '../models/CasinoSession.js';
 import { settleEvent } from '../services/settlement.js';
 import { createError } from '../middleware/error.js';
 import { errorLogger } from '../services/errorLogger.js';
+import Setting from '../models/Setting.js';
+import { ALERT_KEYS, SECRET_KEYS, maskSecret, getSetting, getSettingSource, invalidateSettings } from '../services/settings.js';
+import { sendAlert } from '../services/alert.js';
 import escapeStringRegexp from 'escape-string-regexp';
 
 // Phase B13 — ReDoS protection
@@ -765,5 +768,80 @@ export async function clearErrorLog(req, res, next) {
   try {
     const ok = errorLogger.clear();
     res.json({ success: ok });
+  } catch(e) { next(e); }
+}
+// ── Alarm kanalı ayarları ─────────────────────────────────────────────────────
+
+/**
+ * Kanal ayarlarını kaynağıyla birlikte döner. Secret'lar maskeli gider —
+ * kaydedilen bir token panelde bir daha açık gösterilmez.
+ */
+export async function getAlertSettings(req, res, next) {
+  try {
+    const items = [];
+    for (const key of ALERT_KEYS) {
+      const value = await getSetting(key);
+      items.push({
+        key,
+        source: await getSettingSource(key),
+        secret: SECRET_KEYS.has(key),
+        value: SECRET_KEYS.has(key) ? maskSecret(value) : (value || null),
+      });
+    }
+    res.json({ settings: items });
+  } catch(e) { next(e); }
+}
+
+/**
+ * Ayarları günceller. Boş string gönderilen anahtar DB'den silinir ve varsa
+ * .env değerine geri düşer — panelden "temizle" bunu ifade eder.
+ */
+export async function updateAlertSettings(req, res, next) {
+  try {
+    const updates = req.body?.settings;
+    if (!updates || typeof updates !== 'object')
+      throw createError(400, 'INVALID_BODY', 'settings nesnesi gerekli');
+
+    const unknown = Object.keys(updates).filter(k => !ALERT_KEYS.includes(k));
+    if (unknown.length)
+      throw createError(400, 'UNKNOWN_SETTING', `Bilinmeyen ayar: ${unknown.join(', ')}`);
+
+    for (const [key, raw] of Object.entries(updates)) {
+      const value = typeof raw === 'string' ? raw.trim() : '';
+      if (!value) {
+        await Setting.deleteOne({ key });
+      } else {
+        await Setting.findOneAndUpdate(
+          { key },
+          { value, updatedBy: req.user.id },
+          { upsert: true, new: true },
+        );
+      }
+    }
+    invalidateSettings();
+    await getAlertSettings(req, res, next);
+  } catch(e) { next(e); }
+}
+
+/** Kayıtlı ayarlarla gerçek bir test alarmı gönderir. */
+export async function testAlertChannels(req, res, next) {
+  try {
+    invalidateSettings();
+    const configured = {};
+    for (const key of ALERT_KEYS) configured[key] = Boolean(await getSetting(key));
+
+    const channels = {
+      telegram: configured.TELEGRAM_BOT_TOKEN && configured.TELEGRAM_CHAT_ID,
+      webhook: configured.ALERT_WEBHOOK_URL,
+      email: configured.ALERT_EMAIL_TO,
+    };
+    if (!Object.values(channels).some(Boolean))
+      throw createError(400, 'NO_CHANNEL', 'Tanımlı alarm kanalı yok');
+
+    // WARN seviyesi throttle'a takılabilir; test her zaman gitsin diye CRITICAL.
+    await sendAlert('CRITICAL', 'alert_test', 'Alarm kanalı testi — bu mesajı görüyorsanız hat çalışıyor.', {
+      tetikleyen: req.user.id,
+    });
+    res.json({ sent: channels });
   } catch(e) { next(e); }
 }

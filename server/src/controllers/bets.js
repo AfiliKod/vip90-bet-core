@@ -4,6 +4,7 @@ import User from '../models/User.js';
 import Transaction from '../models/Transaction.js';
 import Event from '../models/Event.js';
 import { createError } from '../middleware/error.js';
+import { assertFeedFresh } from '../utils/bettingGate.js';
 
 export async function place(req, res, next) {
   const session = await mongoose.startSession();
@@ -19,6 +20,8 @@ export async function place(req, res, next) {
       const event = await Event.findById(sel.eventId).session(session);
       if (!event || event.status === 'finished' || event.status === 'cancelled')
         throw createError(400,'EVENT_UNAVAILABLE','Etkinlik bahse kapalı');
+      // Oranı besleyen feed bayatsa kupon kabul edilmez — donmuş oranla bahis riski.
+      assertFeedFresh(event);
       const market = event.markets.find(m => m.type === sel.marketType);
       const odd = market?.odds.find(o => o.id === sel.oddId && o.isActive);
       if (!odd) throw createError(400,'ODD_UNAVAILABLE','Oran mevcut değil');

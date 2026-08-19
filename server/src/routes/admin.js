@@ -48,5 +48,10 @@ r.get('/errors/recent',     ctrl.getRecentErrors);
 r.get('/errors/status',     ctrl.getErrorLogStatus);
 r.post('/errors/clear',     ctrl.clearErrorLog);
 
+// Alarm kanalı ayarları
+r.get('/settings/alerts',       ctrl.getAlertSettings);
+r.put('/settings/alerts',       ctrl.updateAlertSettings);
+r.post('/settings/alerts/test', ctrl.testAlertChannels);
+
 export default r;
 

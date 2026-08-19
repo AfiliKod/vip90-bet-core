@@ -1,6 +1,9 @@
 // Alert webhook — critical/error olaylarını dış webhook'a gönderir.
 // (Slack, Discord, Microsoft Teams, generic webhook)
 // Phase C3
+//
+// Konfigürasyon admin panelinden (DB) ya da .env'den gelir — bkz services/settings.js.
+import { getSetting } from './settings.js';
 
 const THROTTLE = {
   CRITICAL: { windowMs: 60 * 1000, max: 100 },      // her dakika max 100
@@ -26,17 +29,42 @@ function shouldSend(level, category) {
 export async function sendAlert(level, category, message, meta) {
   if (!shouldSend(level, category)) return;
 
-  const webhookUrl = process.env.ALERT_WEBHOOK_URL;
-  if (!webhookUrl) return; // silent
+  // Kanallar birbirinden bağımsız: biri konfigüre değilse ya da patlarsa
+  // diğerleri yine de gitsin. Hiçbiri konfigüre değilse sessiz kalınır — ama
+  // bunu bir kez uyar, yoksa boş bir env değeri (2026-08-14'te olduğu gibi)
+  // alarm sisteminin tamamını fark edilmeden devre dışı bırakır.
+  const channels = [
+    sendWebhook(level, category, message, meta),
+    sendTelegram(level, category, message, meta),
+    sendEmailAlert(level, category, message, meta),
+  ];
+  const results = await Promise.allSettled(channels);
+  if (results.every(r => r.status === 'fulfilled' && r.value === 'unconfigured')) {
+    warnUnconfiguredOnce();
+  }
+}
 
-  const payload = formatPayload(level, category, message, meta);
+let _warnedUnconfigured = false;
+function warnUnconfiguredOnce() {
+  if (_warnedUnconfigured) return;
+  _warnedUnconfigured = true;
+  console.warn(
+    '[alert] Hiçbir alarm kanalı konfigüre değil — kritik olaylar hiçbir yere ' +
+    'bildirilmiyor. Admin panel → Ayarlar’dan bir kanal tanımlayın ' +
+    '(ya da ALERT_WEBHOOK_URL / TELEGRAM_BOT_TOKEN+TELEGRAM_CHAT_ID / ALERT_EMAIL_TO env).'
+  );
+}
+
+async function sendWebhook(level, category, message, meta) {
+  const webhookUrl = await getSetting('ALERT_WEBHOOK_URL');
+  if (!webhookUrl) return 'unconfigured';
 
   try {
     if (webhookUrl.includes('slack.com') || webhookUrl.includes('discord.com')) {
       await fetch(webhookUrl, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(payload),
+        body: JSON.stringify(formatPayload(level, category, message, meta)),
       });
     } else {
       // Generic webhook — flat JSON
@@ -49,6 +77,64 @@ export async function sendAlert(level, category, message, meta) {
   } catch (e) {
     console.error('[alert] webhook failed:', e.message);
   }
+  return 'sent';
+}
+
+async function sendTelegram(level, category, message, meta) {
+  const token = await getSetting('TELEGRAM_BOT_TOKEN');
+  const chatId = await getSetting('TELEGRAM_CHAT_ID');
+  if (!token || !chatId) return 'unconfigured';
+
+  const emoji = level === 'CRITICAL' ? '🚨' : level === 'ERROR' ? '⚠️' : 'ℹ️';
+  const lines = [`${emoji} ${level} — ${category}`, '', message];
+  if (meta) {
+    lines.push('');
+    for (const [k, v] of Object.entries(meta).slice(0, 8)) {
+      lines.push(`${k}: ${typeof v === 'string' ? v.slice(0, 200) : JSON.stringify(v)?.slice(0, 200)}`);
+    }
+  }
+
+  try {
+    await fetch(`https://api.telegram.org/bot${token}/sendMessage`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ chat_id: chatId, text: lines.join('\n'), disable_web_page_preview: true }),
+      signal: AbortSignal.timeout(10000),
+    });
+  } catch (e) {
+    console.error('[alert] telegram failed:', e.message);
+  }
+  return 'sent';
+}
+
+async function sendEmailAlert(level, category, message, meta) {
+  const to = await getSetting('ALERT_EMAIL_TO');
+  if (!to) return 'unconfigured';
+
+  const metaRows = meta
+    ? Object.entries(meta).slice(0, 8)
+        .map(([k, v]) => `<tr><td style="padding:4px 12px 4px 0;color:#888">${k}</td><td style="padding:4px 0"><code>${
+          typeof v === 'string' ? v.slice(0, 200) : JSON.stringify(v)?.slice(0, 200)
+        }</code></td></tr>`)
+        .join('')
+    : '';
+
+  try {
+    // Dinamik import: alert.js'i hafif tutar ve email.js ileride errorLogger'a
+    // bağlanırsa döngüsel import riski oluşmaz.
+    const { sendEmail } = await import('./email.js');
+    await sendEmail({
+      to,
+      subject: `[${level}] ${category} — VIP90`,
+      html: `<h2 style="font-family:sans-serif">${level}: ${category}</h2>
+<p style="font-family:sans-serif;font-size:15px">${message}</p>
+${metaRows ? `<table style="font-family:monospace;font-size:13px">${metaRows}</table>` : ''}
+<p style="color:#888;font-size:12px">${new Date().toISOString()}</p>`,
+    });
+  } catch (e) {
+    console.error('[alert] email failed:', e.message);
+  }
+  return 'sent';
 }
 
 function formatPayload(level, category, message, meta) {

@@ -18,6 +18,7 @@ import { initCrashGame } from './services/inhouse/crashGame.js';
 import { initRouletteGame } from './services/inhouse/rouletteGame.js';
 import { startoddsSourceLiveSync } from './jobs/oddsSourceLiveSync.js';
 import { startoddsSourceUpcomingSync } from './jobs/oddsSourceUpcomingSync.js';
+import { startMonitor } from './services/syncHealth.js';
 import { startStatusTransition } from './jobs/statusTransition.js';
 import { startCleanupJob } from './jobs/cleanup.js';
 import { startReconciliation } from './scripts/reconcilePalace.js';
@@ -94,6 +95,8 @@ connectDB()
     startStatusTransition(io);
     startoddsSourceLiveSync(io);
     startoddsSourceUpcomingSync(io);
+    // Job'lar tamamen asılıp hiç rapor vermediğinde de bayatlığı yakala
+    startMonitor();
     startReconciliation();
     // Casino statik cache'ini boot'ta ısıt (best-effort, non-blocking) — ilk
     // kullanıcı Palace API soğuk maliyetini beklemesin.

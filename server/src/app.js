@@ -159,16 +159,18 @@ export function createApp() {
       else if (Date.now() - start > 2000) result.palace = 'degraded';
       else result.palace = 'up';
     } catch { result.palace = 'down'; }
+    // Kaynak sağlığı: eskiden sabit kodlanmış bir mirror'a (www.oddsSource7175.com)
+    // HEAD atılıyordu. O domain artık ölü ve zaten sync'in gerçek durumuyla hiçbir
+    // bağı yoktu — endpoint "up" derken senkronizasyon 25 saattir kopuk olabiliyordu.
+    // Artık gerçek sync sağlığı raporlanıyor.
     try {
-      const start = Date.now();
-      const r = await fetch('https://www.oddsSource7175.com', {
-        method: 'HEAD',
-        signal: AbortSignal.timeout(3000),
-      }).catch(() => null);
-      if (!r) result.oddsSource = 'down';
-      else if (Date.now() - start > 2000) result.oddsSource = 'degraded';
-      else result.oddsSource = 'up';
-    } catch { result.oddsSource = 'down'; }
+      const { snapshot } = await import('./services/syncHealth.js');
+      result.sync = snapshot();
+      // Geriye dönük uyumluluk: mevcut durum sayfası `oddsSource` alanını okuyor.
+      result.oddsSource = result.sync.live?.state === 'stale' ? 'down' : 'up';
+    } catch {
+      result.oddsSource = 'unknown';
+    }
     res.set('Cache-Control', 'no-store');
     res.json(result);
   });
