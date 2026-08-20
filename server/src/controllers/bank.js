@@ -8,8 +8,10 @@ export function getInfo(req, res) {
   res.json({
     bankName:        process.env.BANK_NAME        || 'Ziraat Bankası',
     bankBranch:      process.env.BANK_BRANCH      || 'İstanbul Merkez Şubesi',
-    accountHolder:   process.env.BANK_HOLDER      || 'Engin YILDIRIM',
-    iban:            process.env.BANK_IBAN        || 'TR00 0000 0000 0000 0000 0000 00',
+    // Geçici: gerçek hesap bilgisi kaldırıldı. Doğru IBAN gelince
+    // BANK_HOLDER / BANK_IBAN env'i (veya buradaki fallback) güncellenecek.
+    accountHolder:   process.env.BANK_HOLDER      || '****',
+    iban:            process.env.BANK_IBAN        || '****',
   });
 }
 

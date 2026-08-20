@@ -557,7 +557,8 @@ const handleBankSubmit = async (confirmForfeit = false) => {
                   <div>
                     <div className="flex items-center justify-between mb-1">
                       <span className="text-xs text-text-3">IBAN</span>
-                      <CopyButton text={bankInfo.iban} />
+                      {/* IBAN geçici olarak maskeli — '****' kopyalatmanın anlamı yok */}
+                      {!String(bankInfo.iban).includes('*') && <CopyButton text={bankInfo.iban} />}
                     </div>
                     <div className="bg-bg-base border border-white/10 rounded-lg px-3 py-2 font-mono text-sm text-text-1 tracking-wide break-all">
                       {bankInfo.iban}
