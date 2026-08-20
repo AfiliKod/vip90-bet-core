@@ -74,6 +74,28 @@ geliştirmelerini kapsar; canlı işletilen sitenin bakımı `dev` dalında sür
   render testiyle değil, build doğrulaması + saf delegasyon mantığıyla
   güvence altına alındı. Tam metin taşıması U2'nin kapsamı. (U1)
 
+### A1 — Tema token sistemi
+- `theme/registry.js`: renk/tipografi/köşe/gölge token'larının tek doğruluk
+  kaynağı (`primary`, `primaryDark`, `accent`, `radiusMd`, `fontDisplay`).
+  Varsayılanlar mevcut tasarımın gerçek değerleri — override yoksa görsel
+  hiçbir şey değişmez. `modules/registry.js` ile aynı DI deseni, fail-safe
+  (DB okunamazsa varsayılanlara düşer).
+- `theme/index.js`: mevcut Setting koleksiyonu üzerinden üretim bağlantısı
+  (`theme.<id>` anahtarı), `setThemeToken()` admin ekranının (A2/A3)
+  üzerine ineceği yüzey.
+- `GET /api/theme`: herkese açık, kimlik doğrulama gerektirmez; CSS custom
+  property haritası döner (30 sn cache).
+- İstemci: `ThemeStyleInjector` sayfa yüklenirken override'ları çekip
+  `document.documentElement`e enjekte eder; fetch başarısız olursa
+  `index.css`'teki varsayılanlarla sessizce devam eder.
+- Uçtan uca kanıt: `primary` ve `accent` CSS var'a bağlandı
+  (`tailwind.config.js`), her ikisi de düzinelerce bileşende
+  (`text-primary`, `bg-primary`, vb.) zaten kullanılıyor — tek bir DB
+  değeri değişince bu bileşenlerin tümü etkilenir (kabul kriteri).
+- Not: paletin geri kalanı (bg/text/danger/success vb. hâlâ sabit hex) ve
+  admin düzenleme arayüzü A2/A3/A6'nın kapsamı; A1 yalnızca kontratı ve
+  uçtan uca boru hattını kanıtlar. (A1)
+
 ## [0.1.0] — 2026-08-20
 
 İlk sürüm çizgisi. Ürün yol haritasının (52 kart, 9 alan) başlangıç

@@ -6,6 +6,7 @@ import { useBetNotificationStore } from './store/betNotificationStore';
 import { socket } from './services/socket';
 import ProtectedRoute from './components/ProtectedRoute';
 import { I18nProvider } from './i18n/I18nProvider.jsx';
+import ThemeStyleInjector from './theme/ThemeStyleInjector.jsx';
 import GuestRoute from './components/GuestRoute';
 import ToastSystem from './components/ToastSystem';
 import Navbar from './components/Navbar';
@@ -103,6 +104,7 @@ export default function App() {
 
   return (
     <I18nProvider>
+    <ThemeStyleInjector />
     <BrowserRouter>
       <ToastSystem />
       <Navbar />

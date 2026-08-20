@@ -1,6 +1,12 @@
 :root {
+  /* Tema token varsayılanları (A1) — server'dan override gelmezse aynen
+     bunlar kullanılır, görsel hiçbir şey değişmez. ThemeStyleInjector
+     bunları runtime'da server değerleriyle değiştirebilir. */
   --color-primary: #00d4ff;
   --color-primary-dark: #00aed4;
+  --color-accent: #7c3aed;
+  --radius-md: 0.75rem;
+  --font-display: system-ui, -apple-system, sans-serif;
   --game-h: calc(100dvh - 56px);
 }
 

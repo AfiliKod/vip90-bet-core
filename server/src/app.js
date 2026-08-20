@@ -27,6 +27,7 @@ import cryptoRoutes from './routes/crypto.js';
 import bankRoutes from './routes/bank.js';
 import analyticsRoutes from './routes/analytics.js';
 import admin2faRoutes from './routes/admin2fa.js';
+import themeRoutes from './routes/theme.js';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const isProd = process.env.NODE_ENV === 'production';
@@ -137,6 +138,7 @@ export function createApp() {
   app.use('/api/bank', bankRoutes);
   app.use('/api/admin/analytics', analyticsRoutes);
   app.use('/api/auth/2fa', admin2faRoutes);
+  app.use('/api/theme', themeRoutes);
 
   // Health check — Render uptime monitoring için
   app.get('/api/health', (req, res) => res.json({ ok: true, env: process.env.NODE_ENV }));

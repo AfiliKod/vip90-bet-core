@@ -6,7 +6,7 @@ export default {
       colors: {
         bg: { deep:'#060d1a', base:'#0d1526', card:'#111d30', hover:'#162038' },
         primary: { DEFAULT: 'var(--color-primary)', dark: 'var(--color-primary-dark)' },
-        accent: '#7c3aed',
+        accent: 'var(--color-accent)',
         success: '#10b981',
         danger: '#ef4444',
         warning: '#f59e0b',
