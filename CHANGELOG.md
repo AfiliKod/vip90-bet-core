@@ -45,6 +45,16 @@ geliştirmelerini kapsar; canlı işletilen sitenin bakımı `dev` dalında sür
   statistics) kontratın zorunlu parçası değil; enjekte edilen serviste
   varsa opsiyonel olarak taşınır. (T3)
 
+### M1 — Modül kayıt defteri
+- `modules/registry.js`: üç satılabilir modülün (betting, casino-content,
+  live-casino) tek doğruluk kaynağı. Çekirdek platform (13 in-house oyun)
+  bilinçli olarak bir modül DEĞİL — her zaman açık. `services/settings.js`
+  ile aynı DI deseni (`load`/`now`/`ttlMs` enjekte edilebilir, TTL cache).
+  Fail-closed: DB okunamazsa tüm modüller kapalı sayılır.
+- `modules/index.js`: üretim bağlantısı, mevcut `Setting` koleksiyonunu
+  (`module.<id>.enabled` anahtarıyla) kullanır — yeni şema açmadan.
+  `setModuleEnabled()` admin panelinin (M3) üzerine ineceği yüzey. (M1)
+
 ## [0.1.0] — 2026-08-20
 
 İlk sürüm çizgisi. Ürün yol haritasının (52 kart, 9 alan) başlangıç
