@@ -7,6 +7,9 @@ sürümleme [Semantic Versioning](https://semver.org/lang/tr/) kuralına dayanı
 Bu günlük yalnızca `feat/integration` dalındaki ürün
 geliştirmelerini kapsar; canlı işletilen sitenin bakımı `dev` dalında sürer.
 
+Madde formatı ve kategoriler için `docs/CHANGELOG_GUIDE.md`'ye bakın —
+özellikle **Kırılan Değişiklikler** kategorisi zorunludur, atlanmaz.
+
 ## [Yayınlanmadı]
 
 ### Eklendi
