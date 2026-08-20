@@ -27,6 +27,13 @@ const schema = new mongoose.Schema({
   },
   isActive:    { type: Boolean, default: true },
   kycVerified: { type: Boolean, default: false },
+  // ─── KYC (O5) ──────────────────────────────────────────────────────
+  kycStatus: { type: String, enum: ['not_started', 'pending', 'under_review', 'approved', 'rejected', 'expired'], default: 'not_started' },
+  kycSubmittedAt: { type: Date, default: null },
+  kycApprovedAt: { type: Date, default: null },
+  kycRejectedAt: { type: Date, default: null },
+  kycRejectionReason: { type: String, default: '' },
+  kycRequiredFor: [{ type: String }], // pages/features requiring KYC (withdrawal, high_stakes, etc.)
   referredBy:        { type: mongoose.Schema.Types.ObjectId, ref: 'User', default: null },
   totalReferralEarnings: { type: Number, default: 0, min: 0 },
   cryptoDepositIndex: { type: Number, default: null },  // HD wallet index (atandıktan sonra değişmez)
