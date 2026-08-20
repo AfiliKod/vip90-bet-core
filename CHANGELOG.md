@@ -192,6 +192,19 @@ TDD: 12 yeni test, tamamı önce kırmızı. Suite 252/252. (D9)
 Kalan: D1-D5 (yazılı doküman, video, chatbot, ticket sistemi) — bu
 oturumun kapsamı dışında, ayrı bir üretim/içerik işi.
 
+### D1 — Yazılı dokümantasyon
+- `docs/product/` (7 dosya): kurulum, yapılandırma, modül sistemi,
+  oyun matematiği, API referansı, SSS. Gerçek sistemin bugünkü
+  durumunu yansıtır — henüz yapılmamış işleri (Docker kurulumu,
+  panelden modül satın alma, panelden RTP ayarı, tam çeviri) varmış
+  gibi göstermez, her belgede "bugün ne var, ne yok" açıkça ayrılmış.
+- `.env.example`'daki kullanılmayan `ODDS_API_KEY` kalıntısı belgelerde
+  not düşüldü (temizlenmesi ayrı bir iş).
+
+Not: içerik yazımı, kod gibi kırmızı/yeşil TDD döngüsüne tabi değil —
+doğrulama yöntemi farklıydı: her iddia, ilgili kaynak dosya (route
+listesi, .env.example, crashGame.js vb.) okunarak teyit edildi. (D1)
+
 ## [0.1.0] — 2026-08-20
 
 İlk sürüm çizgisi. Ürün yol haritasının (52 kart, 9 alan) başlangıç
