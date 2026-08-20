@@ -1,5 +1,6 @@
 {
   "name": "betzone",
+  "version": "0.1.0",
   "private": true,
   "scripts": {
     "dev": "concurrently \"npm run dev --prefix server\" \"npm run dev --prefix client\"",
