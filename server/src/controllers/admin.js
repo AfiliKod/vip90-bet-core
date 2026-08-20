@@ -17,6 +17,7 @@ import escapeStringRegexp from 'escape-string-regexp';
 import { setThemeToken as setThemeTokenImpl, listThemeTokens } from '../theme/index.js';
 import { setBrandingField as setBrandingFieldImpl, listBranding } from '../branding/index.js';
 import { setHomeContent as setHomeContentImpl, getHomeContent } from '../pages/index.js';
+import { setFeaturedGameCodes as setFeaturedGameCodesImpl, getFeaturedGameCodes } from '../games/index.js';
 
 // Phase B13 — ReDoS protection
 function safeRegex(input, maxLength = 100) {
@@ -259,6 +260,30 @@ export function createUpdateHomeContent({ setHomeContent = setHomeContentImpl } 
 }
 
 export const updateHomeContent = createUpdateHomeContent();
+
+/** Oyun vitrini (A5). Öne çıkan oyun kodları, sırayla. */
+export async function getFeaturedGamesAdmin(req, res, next) {
+  try {
+    const codes = await getFeaturedGameCodes();
+    res.json({ codes });
+  } catch (e) {
+    next(e);
+  }
+}
+
+/** DI: bkz. createUpdateThemeToken üzerindeki not — aynı desen. */
+export function createUpdateFeaturedGames({ setFeaturedGameCodes = setFeaturedGameCodesImpl } = {}) {
+  return async function updateFeaturedGames(req, res, next) {
+    try {
+      await setFeaturedGameCodes(req.validated.codes, req.user.id);
+      res.json({ ok: true });
+    } catch (e) {
+      next(e);
+    }
+  };
+}
+
+export const updateFeaturedGames = createUpdateFeaturedGames();
 
 export async function getArchivedEvents(req, res, next) {
   try {

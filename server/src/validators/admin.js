@@ -3,6 +3,8 @@ import { THEME_TOKEN_DEFINITIONS } from '../theme/registry.js';
 import { BRANDING_FIELD_DEFINITIONS } from '../branding/registry.js';
 import { HOME_SECTION_IDS, HOME_BANNER_IDS } from '../pages/registry.js';
 
+const MAX_FEATURED_GAMES = 60;
+
 export const createEventSchema = z.object({
   sport: z.string().min(1), league: z.string().min(1), leagueFlag: z.string().optional(),
   homeTeam: z.object({ name: z.string(), country: z.string() }),
@@ -72,4 +74,8 @@ export const updateHomeContentSchema = z.object({
     desc:  z.string().min(1).max(200).optional(),
     cta:   z.string().min(1).max(40).optional(),
   })).max(HOME_BANNER_IDS.length),
+});
+
+export const updateFeaturedGamesSchema = z.object({
+  codes: z.array(z.string().min(1).max(60)).max(MAX_FEATURED_GAMES),
 });
