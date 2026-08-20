@@ -1,0 +1,14 @@
+# VIP90.bet ters vekil.
+#
+# DOMAIN gerçek bir alan adıysa (ör. example.com) Caddy sertifikayı
+# Let's Encrypt'ten otomatik alır ve yeniler. DOMAIN=localhost ise
+# otomatik olarak internal CA (self-signed) kullanır — kurulum ilk
+# gün çalışsın diye sertifika şartı aramaz.
+#
+# Not: Burada sabit "tls internal" satırı YOK; olsaydı gerçek domainde
+# Let's Encrypt devre dışı kalırdı.
+
+{$DOMAIN} {
+	reverse_proxy app:3001
+	encode gzip
+}

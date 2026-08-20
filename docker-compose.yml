@@ -1,0 +1,56 @@
+# VIP90.bet — tek komutla kurulum: `docker compose up -d`
+#
+# Başlamadan önce:
+#   cp .env.docker.example .env   (DOMAIN ve zorunlu gizli değerleri doldur)
+#
+# Trafik akışı: internet → caddy (80/443, otomatik HTTPS) → app:3001 → mongo
+# Mongo ve app dış dünyaya port açmaz; yalnızca caddy yayınlanır.
+
+services:
+  mongo:
+    image: mongo:7
+    restart: unless-stopped
+    volumes:
+      - mongodata:/data/db
+    healthcheck:
+      test: ["CMD", "mongosh", "--quiet", "--eval", "db.adminCommand('ping').ok"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 20s
+
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    restart: unless-stopped
+    env_file:
+      - .env
+    environment:
+      NODE_ENV: production
+      # Atlas URI'sini (.env'den geleni) compose içi mongo ile eziyoruz —
+      # tek VPS senaryosunda veritabanı aynı compose ağındadır.
+      MONGODB_URI: mongodb://mongo:27017/betzone
+    depends_on:
+      mongo:
+        condition: service_healthy
+
+  caddy:
+    image: caddy:2-alpine
+    restart: unless-stopped
+    ports:
+      - "80:80"
+      - "443:443"
+    environment:
+      DOMAIN: ${DOMAIN:-localhost}
+    volumes:
+      - ./deploy/Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data
+      - caddy_config:/config
+    depends_on:
+      - app
+
+volumes:
+  mongodata:
+  caddy_data:
+  caddy_config:
