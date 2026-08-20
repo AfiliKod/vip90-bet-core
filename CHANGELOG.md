@@ -12,6 +12,25 @@ Madde formatı ve kategoriler için `docs/CHANGELOG_GUIDE.md`'ye bakın —
 
 ## [Yayınlanmadı]
 
+### D5 — Oyuncu yardım masası / ticket sistemi
+- `models/Ticket.js`: konu + mesaj dizisi (gönderen, rol, metin),
+  status (open/in_progress/resolved/closed).
+- `services/ticket.js`: iş kuralları — operatör yanıtlarsa open tiket
+  otomatik in_progress'e geçer; oyuncu resolved bir tikete yazarsa
+  otomatik yeniden open olur; closed bir tikete yazmak status'ü
+  değiştirmez (kapanmış tiket sessizce yeniden açılmaz).
+- `routes/ticket.js` + `controllers/ticket.js`: oyuncu uçları
+  (kendi tiketiyle sınırlı) ve admin uçları (tüm tiketler + durum
+  değiştirme).
+- Test izolasyonu notu: bu kartın testleri kendine özgü, benzersiz bir
+  test veritabanı kullanır ve after()'da güvenle dropDatabase()+
+  disconnect() çağırır — Akış B'de tespit edilen paylaşımlı-DB
+  izolasyon sorununun önlenmiş hali. Ayrıca disconnect() olmadan
+  mongoose bağlantısının process'i sonsuza kadar canlı tuttuğu bir
+  hata bu kartta bulunup düzeltildi.
+
+TDD: 13 yeni test, tamamı önce kırmızı. Suite 265/265. (D5)
+
 ### Eklendi
 - Odds sağlayıcı kayıt defteri ve kontratı (`services/oddsProviders/registry.js`):
   sync katmanının tek bir bahis sitesine doğrudan bağımlılığını sökmenin ilk adımı.
