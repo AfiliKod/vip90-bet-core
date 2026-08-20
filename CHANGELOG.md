@@ -55,6 +55,25 @@ geliştirmelerini kapsar; canlı işletilen sitenin bakımı `dev` dalında sür
   (`module.<id>.enabled` anahtarıyla) kullanır — yeni şema açmadan.
   `setModuleEnabled()` admin panelinin (M3) üzerine ineceği yüzey. (M1)
 
+### U1 — i18n çekirdeği
+- `client/src/i18n/core.js`: framework'ten bağımsız saf çeviri mantığı
+  (arama, `{param}` interpolasyonu, fallback, anahtar doğrulama). Anahtar
+  kuralı: nokta ayraçlı, en az iki segment, küçük harfle başlayan camelCase
+  (`auth.username`). DOM/React olmadan test edilir.
+- `I18nProvider.jsx` + `useTranslation()`: React'e ince bir sargı,
+  localStorage'da dil kalıcılığı; mantık tekrarlanmaz, çekirdeğe delege eder.
+- `LanguageSwitcher.jsx`: sözleşmenin kanıtı — yalnızca `useTranslation()`
+  ile render olan, iki dilde çalışan tek bileşen (kabul kriteri).
+- Gerçek entegrasyon: `App.jsx` kökte `I18nProvider` ile sarıldı;
+  `Login.jsx`'te kullanıcı adı placeholder'ı `t('auth.username')`'e
+  bağlandı, `LanguageSwitcher` mount edildi. Bu sırada dosyada önceden var
+  olan bir `t` isimli tab-state değişkeniyle isim çakışması bulundu ve
+  `tabId` olarak yeniden adlandırılarak çözüldü.
+- Not: çekirdek 14 testle kapsanıyor; React sargısı (Provider/hook/
+  LanguageSwitcher) projede React test renderer bulunmadığı için otomatik
+  render testiyle değil, build doğrulaması + saf delegasyon mantığıyla
+  güvence altına alındı. Tam metin taşıması U2'nin kapsamı. (U1)
+
 ## [0.1.0] — 2026-08-20
 
 İlk sürüm çizgisi. Ürün yol haritasının (52 kart, 9 alan) başlangıç

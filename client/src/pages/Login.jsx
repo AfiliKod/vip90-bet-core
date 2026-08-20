@@ -6,8 +6,11 @@ import { useAuthStore } from '../store/authStore';
 import { useToastStore } from '../store/toastStore';
 import { LEGAL_VERSION } from '../data/legalContent';
 import api from '../services/api';
+import { useTranslation } from '../i18n/I18nProvider.jsx';
+import LanguageSwitcher from '../i18n/LanguageSwitcher.jsx';
 
 export default function Login() {
+  const { t } = useTranslation();
   const [searchParams] = useSearchParams();
   const refUsername = searchParams.get('ref');
   const [tab, setTab] = useState(searchParams.get('tab') === 'register' ? 'register' : 'login');
@@ -117,6 +120,9 @@ export default function Login() {
       <div className="absolute inset-0 bg-cover bg-center opacity-20 pointer-events-none"
         style={{ backgroundImage: 'url(/images/login-bg-v2.png)' }} />
       <div className="w-full max-w-sm bg-bg-card border border-white/10 rounded-2xl p-8 shadow-2xl">
+        <div className="flex justify-end mb-2">
+          <LanguageSwitcher />
+        </div>
         <div className="text-center mb-8">
           <div className="text-5xl mb-3">💎</div>
           <h1 className="text-2xl font-bold text-text-1">VIP90.bet</h1>
@@ -156,15 +162,15 @@ export default function Login() {
         ) : (
           <>
             <div className="flex mb-6 bg-bg-base rounded-lg p-1">
-              {['login', 'register'].map(t => (
-                <button key={t} onClick={() => setTab(t)}
-                  className={`flex-1 py-2 rounded-md text-sm font-medium transition-colors ${tab === t ? 'bg-accent text-white' : 'text-text-2 hover:text-text-1'}`}>
-                  {t === 'login' ? 'Giriş Yap' : 'Kayıt Ol'}
+              {['login', 'register'].map(tabId => (
+                <button key={tabId} onClick={() => setTab(tabId)}
+                  className={`flex-1 py-2 rounded-md text-sm font-medium transition-colors ${tab === tabId ? 'bg-accent text-white' : 'text-text-2 hover:text-text-1'}`}>
+                  {tabId === 'login' ? 'Giriş Yap' : 'Kayıt Ol'}
                 </button>
               ))}
             </div>
             <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
-              <input {...register('username', { required: true })} placeholder="Kullanıcı adı"
+              <input {...register('username', { required: true })} placeholder={t('auth.username')}
                 className="w-full bg-bg-base border border-white/10 rounded-lg px-4 py-3 text-text-1 placeholder-text-3 focus:outline-none focus:border-primary transition" />
               {tab === 'register' && refUsername && (
                 <div className="bg-accent/10 border border-accent/30 rounded-lg px-3 py-2 text-xs text-text-2">
