@@ -22,6 +22,7 @@ export const ACTION_CATALOG = [
   { id: 'RESTART_SERVICE', risk: RISK_LEVELS.DESTRUCTIVE, description: 'Uygulama servisini yeniden başlatır — kısa kesinti.' },
   { id: 'RUN_MIGRATION', risk: RISK_LEVELS.DESTRUCTIVE, description: 'Veritabanı şema göçünü uygular.' },
   { id: 'RESET_USER_PASSWORD', risk: RISK_LEVELS.DESTRUCTIVE, description: 'Bir kullanıcının şifresini sıfırlar.' },
+  { id: 'APPLY_UPDATE', risk: RISK_LEVELS.DESTRUCTIVE, description: 'İmzalı bir sürüm güncellemesini uygular (D9).' },
 ];
 
 function findEntry(actionId) {

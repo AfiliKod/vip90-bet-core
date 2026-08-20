@@ -165,6 +165,30 @@ TDD: 27 yeni test, tamamı önce kırmızı. Suite 220/220. (D7)
 
 TDD: 20 yeni test, tamamı önce kırmızı. Suite 240/240. (D8)
 
+### D9 — İmzalı güncelleme paketi
+- Yeni bir mekanizma icat edilmedi: `APPLY_UPDATE`, `actionCatalog.js`'e
+  yıkıcı bir Action-ID olarak eklendi — D6/D7/D8'in aynı boru hattından
+  (kayıt→onay→imza→doğrulama) geçiyor. "Güncelleme operatör onayıyla
+  uygulanıyor, paket imzası doğrulanıyor" kabul kriteri bu yüzden zaten
+  var olan mekanizmanın bir kompozisyonu.
+- `agent/updatePackage.js`: güncellemeye özgü ek denetimler — manifest
+  şekli (`file`+`checksum` zorunlu) ve sürüm monotonluğu (eski/eşit
+  sürüm, operatör onaylasa ve imza geçerli olsa BİLE reddedilir — ek
+  güvenlik katmanı).
+- `registerUpdateHandler`: gerçek dosya uygulaması (`applyMigration`)
+  enjekte edilir — K4'ün migration runner'ı (henüz `todo`) hazır
+  olduğunda buraya bağlanacak. Bu ayrım bilinçli: D9 "ne zaman ve kimin
+  onayıyla" sorusunu çözer, "dosyalar nasıl uygulanır" K4'ün işi.
+
+Uçtan uca entegrasyon testi: onay atlanırsa red, onaylanınca uygulanır,
+eski sürüm onaylansa bile reddedilir.
+
+TDD: 12 yeni test, tamamı önce kırmızı. Suite 252/252. (D9)
+
+**D akışı (dokümantasyon, destek, bakım ajanı — 9 kart) TAMAMLANDI.**
+Kalan: D1-D5 (yazılı doküman, video, chatbot, ticket sistemi) — bu
+oturumun kapsamı dışında, ayrı bir üretim/içerik işi.
+
 ## [0.1.0] — 2026-08-20
 
 İlk sürüm çizgisi. Ürün yol haritasının (52 kart, 9 alan) başlangıç
