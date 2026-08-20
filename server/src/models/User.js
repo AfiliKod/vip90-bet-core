@@ -90,6 +90,16 @@ const schema = new mongoose.Schema({
   walletType: { type: String, enum: ['metamask', 'walletconnect', 'coinbase', 'injected', 'unknown'], default: null },
   walletConnectedAt: { type: Date, default: null },
   walletChainId: { type: Number, default: null }, // EVM chain ID (1=Ethereum, 56=BSC, 137=Polygon, etc.)
+  // ─── Social Login (P5) ───────────────────────────────────────────
+  googleId: { type: String, sparse: true, unique: true },
+  googleEmail: { type: String },
+  googleName: { type: String },
+  googlePicture: { type: String },
+  telegramId: { type: String, sparse: true, unique: true },
+  telegramUsername: { type: String },
+  telegramFirstName: { type: String },
+  telegramLastName: { type: String },
+  telegramPhoto: { type: String },
 }, { timestamps: true });
 
 // Unique index for walletAddress (only non-null values)
