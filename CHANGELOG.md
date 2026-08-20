@@ -14,6 +14,10 @@ geliştirmelerini kapsar; canlı işletilen sitenin bakımı `dev` dalında sür
   sync katmanının tek bir bahis sitesine doğrudan bağımlılığını sökmenin ilk adımı.
   `ODDS_PROVIDER` env'inden aktif sağlayıcı seçimi, çift kayıt ve bilinmeyen
   sağlayıcı reddi. (T1)
+- oddsSource odds adaptörü (`services/oddsProviders/oddsSourceProvider.js`): mevcut
+  oddsSource bağlantısını kontratın arkasına alır, ham veriyi normalize etkinliğe
+  çevirir. Ağ erişimi enjekte edilebilir — testler ağa çıkmaz. Bozuk satırları
+  atlar, batch'i öldürmez. (T1)
 - Sağlayıcı-bağımsız normalize etkinlik sözleşmesi
   (`services/oddsProviders/normalizedEvent.js`): tüm sağlayıcıların hedefleyeceği
   ortak etkinlik/oran biçimi. (T1)
