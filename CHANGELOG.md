@@ -31,6 +31,20 @@ geliştirmelerini kapsar; canlı işletilen sitenin bakımı `dev` dalında sür
   (`services/oddsProviders/normalizedEvent.js`): tüm sağlayıcıların hedefleyeceği
   ortak etkinlik/oran biçimi. (T1)
 
+### T3 — Casino aggregator kontratı
+- Palace bağlantısı genel aggregator kontratının arkasına alındı
+  (`services/casinoAggregators/`): kayıt defteri + kontrat (oyun kataloğu,
+  oyun URL'i, kullanıcı/bakiye, callback doğrulama, health check) +
+  `palaceAdapter.js` (mevcut palaceCasinoService'i saran passthrough,
+  DI ile ağa çıkmadan test edilebilir) + bootstrap (`CASINO_AGGREGATOR`
+  env seçimi, varsayılan palace).
+- `routes/palace.js` artık `palaceCasinoService`'i doğrudan değil,
+  `getActiveCasinoAggregator()` üzerinden çözüyor — ikinci bir aggregator
+  eklemek yeni bir adaptör kaydetmekten ibaret, route dosyası değişmez.
+- Palace'a özgü idari/raporlama uçları (bonus call, RTP, transactions,
+  statistics) kontratın zorunlu parçası değil; enjekte edilen serviste
+  varsa opsiyonel olarak taşınır. (T3)
+
 ## [0.1.0] — 2026-08-20
 
 İlk sürüm çizgisi. Ürün yol haritasının (52 kart, 9 alan) başlangıç
