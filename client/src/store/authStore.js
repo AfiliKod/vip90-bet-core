@@ -21,7 +21,12 @@ export const useAuthStore = create((set) => ({
       localStorage.setItem('accessToken', data.accessToken);
       set({ user: data.user, token: data.accessToken, isLoading: false });
       connectUserSocket(data.user._id || data.user.id);
-    } catch { set({ user: null, token: null, isLoading: false }); }
+    } catch {
+      // Depolama ile state ayrışmasın: refresh reddedildiyse elde kalan accessToken
+      // artık bir oturumu temsil etmiyor.
+      localStorage.removeItem('accessToken');
+      set({ user: null, token: null, isLoading: false });
+    }
   },
   login: async (username, password) => {
     const { data } = await api.post('/auth/login', { username, password });

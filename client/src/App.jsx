@@ -5,6 +5,7 @@ import { useToastStore } from './store/toastStore';
 import { useBetNotificationStore } from './store/betNotificationStore';
 import { socket } from './services/socket';
 import ProtectedRoute from './components/ProtectedRoute';
+import GuestRoute from './components/GuestRoute';
 import ToastSystem from './components/ToastSystem';
 import Navbar from './components/Navbar';
 import BottomNav from './components/BottomNav';
@@ -105,7 +106,7 @@ export default function App() {
       <Navbar />
       <BottomNav />
       <Routes>
-        <Route path="/login" element={<Suspense fallback={<PageLoader />}><Login /></Suspense>} />
+        <Route path="/login" element={<GuestRoute><Suspense fallback={<PageLoader />}><Login /></Suspense></GuestRoute>} />
         <Route path="/" element={<Layout><Suspense fallback={<PageLoader />}><HomePage /></Suspense></Layout>} />
         <Route path="/bahis" element={<Layout><Suspense fallback={<PageLoader />}><Bahis /></Suspense></Layout>} />
         <Route path="/canli" element={<Layout><Suspense fallback={<PageLoader />}><Live /></Suspense></Layout>} />
@@ -148,9 +149,9 @@ export default function App() {
         <Route path="/legal/responsible-gaming" element={<Suspense fallback={<PageLoader />}><ResponsibleGaming /></Suspense>} />
         <Route path="/legal/user-agreement" element={<Suspense fallback={<PageLoader />}><UserAgreement /></Suspense>} />
         <Route path="/status" element={<Suspense fallback={<PageLoader />}><Status /></Suspense>} />
-        <Route path="/forgot-password" element={<Suspense fallback={<PageLoader />}><ForgotPassword /></Suspense>} />
-        <Route path="/reset-password" element={<Suspense fallback={<PageLoader />}><ResetPassword /></Suspense>} />
-        <Route path="/verify-email" element={<Suspense fallback={<PageLoader />}><VerifyEmail /></Suspense>} />
+        <Route path="/forgot-password" element={<GuestRoute><Suspense fallback={<PageLoader />}><ForgotPassword /></Suspense></GuestRoute>} />
+        <Route path="/reset-password" element={<GuestRoute endSession><Suspense fallback={<PageLoader />}><ResetPassword /></Suspense></GuestRoute>} />
+        <Route path="/verify-email" element={<GuestRoute endSession><Suspense fallback={<PageLoader />}><VerifyEmail /></Suspense></GuestRoute>} />
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
     </BrowserRouter>

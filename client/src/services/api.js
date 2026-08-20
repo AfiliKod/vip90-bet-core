@@ -7,9 +7,15 @@ const api = axios.create({
   withCredentials: true,
 });
 
+// Misafir uçları kimlik doğrulamaz ve sunucuda guestOnly ile korunur: localStorage'da
+// kalmış eski bir accessToken buraya sızarsa, oturumu olmayan kullanıcı kendi giriş/
+// şifre sıfırlama isteğini 403 ALREADY_AUTHENTICATED'e düşürür.
+const GUEST_ENDPOINTS = ['/auth/login', '/auth/register', '/auth/forgot-password', '/auth/reset-password'];
+
 api.interceptors.request.use(cfg => {
   const token = localStorage.getItem('accessToken');
-  if (token) cfg.headers.Authorization = `Bearer ${token}`;
+  const isGuestEndpoint = GUEST_ENDPOINTS.some(path => cfg.url?.startsWith(path));
+  if (token && !isGuestEndpoint) cfg.headers.Authorization = `Bearer ${token}`;
   return cfg;
 });
 

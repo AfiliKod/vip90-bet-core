@@ -51,12 +51,16 @@ class ApiClient {
 
   // Auth
   async login(username, password) {
+    // Misafir uçları sunucuda guestOnly ile korunuyor: önceki testten kalan token
+    // gönderilirse istek 403 ALREADY_AUTHENTICATED alır.
+    this.setToken(null);
     const data = await this.post('/auth/login', { username, password });
     if (data.accessToken) this.setToken(data.accessToken);
     return data;
   }
 
   async register(userData) {
+    this.setToken(null);
     return this.post('/auth/register', userData);
   }
 
