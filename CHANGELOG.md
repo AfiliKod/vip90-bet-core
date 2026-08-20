@@ -96,6 +96,32 @@ geliştirmelerini kapsar; canlı işletilen sitenin bakımı `dev` dalında sür
   admin düzenleme arayüzü A2/A3/A6'nın kapsamı; A1 yalnızca kontratı ve
   uçtan uca boru hattını kanıtlar. (A1)
 
+### D6 — Otonom bakım ajanı çekirdeği
+- `agent/masking.js`: allowlist tabanlı teşhis verisi maskeleme. Denylist
+  değil allowlist — bilinmeyen alan sızmaz. Allowlist'teki alanın değeri
+  primitive değilse (obje/dizi) hiç geçirilmez; beklenmeyen şekli
+  serileştirmek (JSON.stringify ile nested içerik) sızıntının ta kendisi
+  olduğu için bilerek reddedildi.
+- `agent/signature.js`: Ed25519 imzalama/doğrulama. Yalnızca `actionId`+
+  `params` imza kapsamında; özel anahtar hiçbir zaman müşteri makinesine
+  geçmez, yalnızca doğrulama (açık) anahtarı dağıtılır.
+- `agent/registry.js`: minimal Action-ID kayıt defteri — kayıtsız eylem,
+  imza geçerli olsa bile asla çalıştırılmaz. Etki-yarıçapı sınıflaması ve
+  insan onay kapısı D7'nin kapsamı.
+- `agent/localAgent.js`: pull döngüsü orkestrasyonu. Sıra: kapalıysa
+  pull hiç çağrılmaz → komut yoksa geç → imza geçersizse çalıştırma →
+  eylem kayıtsızsa çalıştırma → yalnızca tüm kapılardan geçen çalışır.
+- `services/support/agentToggle.js` + `index.js`: panelden aç/kapat
+  (varsayılan KAPALI), mevcut Setting koleksiyonu üzerinden — modules/
+  ve theme/ ile aynı DI deseni. Minimal bellek-içi komut kuyruğu (D8
+  kalıcı depolama + WAF ile sertleştirecek), komut bir kez teslim
+  edilince kuyruktan düşer (çift çalıştırma yok).
+
+Dürüstlük notu: `commandQueue` testleri implementasyondan SONRA yazıldı
+(TDD sırası burada tersine döndü) — diğer tüm modüller sıkı red-first.
+
+TDD: 38 yeni test (37'si önce kırmızıydı). Suite 193/193. (D6)
+
 ## [0.1.0] — 2026-08-20
 
 İlk sürüm çizgisi. Ürün yol haritasının (52 kart, 9 alan) başlangıç
