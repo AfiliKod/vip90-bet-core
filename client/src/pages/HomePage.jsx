@@ -5,6 +5,8 @@ import MiniEventCard from '../components/MiniEventCard';
 import BetSlip from '../components/BetSlip';
 import { BRAND_GRADIENT, BRAND_GRADIENT_H, BRAND_GLOW } from '../styles/brand';
 import { CASINO_GAMES } from '../data/casinoGames';
+import { resolveSectionOrder, resolveBanners } from './home/pageContent';
+import { PROMO_SLIDES } from './home/promoSlides';
 
 const PP_GAMES = CASINO_GAMES.filter(g => g.provider === 'Pragmatic Play').slice(0, 8);
 
@@ -39,34 +41,6 @@ const HERO_SLIDES = [
   },
 ];
 
-// Kampanya banner'ları — sadece üstteki döner slider'a eklenir, Quick Nav Cards
-// grid'ine (HERO_SLIDES.slice(1)) karışmaz.
-const PROMO_SLIDES = [
-  {
-    id: 'deneme-bonusu', icon: '🎁', title: 'Deneme Bonusu', path: '/promotions', cta: 'Bonusu Al',
-    desc: '500₺\'ye kadar deneme bonusuyla platformu risksiz keşfet, kazancını hemen değerlendir!',
-    image: '/images/promo-deneme-bonusu.png',
-    gradient: 'from-amber-900/80 to-yellow-900/60',
-    accent: '#fbbf24',
-  },
-  {
-    id: 'hosgeldin-bonusu', icon: '💰', title: 'Hoşgeldin Bonusu', path: '/promotions', cta: 'Hemen Yatır',
-    desc: 'İlk para yatırmana %100 bonus, 1000₺\'ye kadar! Üyeliğini tamamla, bonusunu kap.',
-    image: '/images/promo-hosgeldin-bonusu.png',
-    gradient: 'from-emerald-900/80 to-green-900/60',
-    accent: '#34d399',
-  },
-  {
-    id: 'arkadasini-getir', icon: '🤝', title: 'Arkadaşını Getir', path: '/promotions', cta: 'Davet Et',
-    desc: 'Arkadaşını getir, kazandığı her bahisten %10 kâr payı kazan. Ne kadar çok davet, o kadar çok kazanç!',
-    image: '/images/promo-arkadasini-getir.png',
-    gradient: 'from-pink-900/80 to-fuchsia-900/60',
-    accent: '#f472b6',
-  },
-];
-
-const ALL_SLIDES = [...PROMO_SLIDES, ...HERO_SLIDES];
-
 const GAMES = [
   { name: 'Noel Baba', path: '/games/crash', accent: '#f97316', icon: '🎅', image: '/images/games/crash.png' },
   { name: 'Mines',     path: '/games/mines', accent: '#34d399', icon: '💎', image: '/images/games/mines.png' },
@@ -98,6 +72,18 @@ export default function HomePage() {
   const [liveEvents, setLiveEvents] = useState([]);
   const [upcomingEvents, setUpcomingEvents] = useState([]);
   const [eventsLoading, setEventsLoading] = useState(true);
+  // A4 — admin panelinden yönetilen bölüm sırası + kampanya banner metinleri.
+  // Fetch tamamlanana kadar (ve başarısız olursa) resolve*() varsayılanlara
+  // düşer, sayfa hep tam ve doğru sırayla görünür.
+  const [pageContent, setPageContent] = useState(null);
+
+  useEffect(() => {
+    api.get('/pages/home').then(({ data }) => setPageContent(data?.content || null)).catch(() => {});
+  }, []);
+
+  const promoSlides = resolveBanners(PROMO_SLIDES, pageContent?.banners);
+  const sectionOrder = resolveSectionOrder(pageContent?.sectionOrder);
+  const ALL_SLIDES = [...promoSlides, ...HERO_SLIDES];
 
   const startTimer = () => {
     clearInterval(timerRef.current);
@@ -109,7 +95,7 @@ export default function HomePage() {
   useEffect(() => {
     startTimer();
     return () => clearInterval(timerRef.current);
-  }, []);
+  }, [ALL_SLIDES.length]);
 
   useEffect(() => {
     Promise.all([
@@ -132,9 +118,10 @@ export default function HomePage() {
   const slide = ALL_SLIDES[current];
 
   return (
-    <div className="min-h-full">
+    <div className="min-h-full flex flex-col">
       {/* ── Hero Slider ──────────────────────────────────────── */}
-      <section className="relative w-full h-[360px] sm:h-[480px] overflow-hidden">
+      {sectionOrder.includes('hero') && (
+      <section className="relative w-full h-[360px] sm:h-[480px] overflow-hidden" style={{ order: sectionOrder.indexOf('hero') }}>
         {ALL_SLIDES.map((s, i) => (
           <img
             key={s.id}
@@ -218,9 +205,11 @@ export default function HomePage() {
           ›
         </button>
       </section>
+      )}
 
       {/* ── Quick Nav Cards ──────────────────────────────────── */}
-      <section className="max-w-6xl mx-auto px-4 mt-6 sm:mt-8 pb-16">
+      {sectionOrder.includes('quickNav') && (
+      <section className="max-w-6xl mx-auto px-4 mt-6 sm:mt-8 pb-16" style={{ order: sectionOrder.indexOf('quickNav') }}>
         <div className="grid md:grid-cols-3 gap-4 sm:gap-6">
           {HERO_SLIDES.slice(1).map(s => (
             <Link
@@ -258,9 +247,11 @@ export default function HomePage() {
           ))}
         </div>
       </section>
+      )}
 
       {/* ── Özel Oyunlar ─────────────────────────────────────── */}
-      <section className="border-t border-white/[0.04]">
+      {sectionOrder.includes('inhouseGames') && (
+      <section className="border-t border-white/[0.04]" style={{ order: sectionOrder.indexOf('inhouseGames') }}>
         <div className="max-w-6xl mx-auto px-4 py-16">
           <div className="text-center mb-8">
             <h2 className="text-2xl sm:text-3xl font-black text-text-1 mb-2">Özel Oyunlar</h2>
@@ -303,9 +294,11 @@ export default function HomePage() {
           </div>
         </div>
       </section>
+      )}
 
       {/* ── ⚽ Spor Bahisleri — Öne Çıkan Maçlar ────────────── */}
-      <section className="border-t border-white/[0.04]">
+      {sectionOrder.includes('sportsBets') && (
+      <section className="border-t border-white/[0.04]" style={{ order: sectionOrder.indexOf('sportsBets') }}>
         <div className="max-w-6xl mx-auto px-4 py-10">
           <div className="flex items-end justify-between mb-6">
             <div>
@@ -345,9 +338,11 @@ export default function HomePage() {
           </Link>
         </div>
       </section>
+      )}
 
       {/* ── 🔴 Canlı Bahis — Öne Çıkan Maçlar ────────────────── */}
-      <section className="border-t border-white/[0.04]">
+      {sectionOrder.includes('liveBets') && (
+      <section className="border-t border-white/[0.04]" style={{ order: sectionOrder.indexOf('liveBets') }}>
         <div className="max-w-6xl mx-auto px-4 py-10">
           <div className="flex items-end justify-between mb-6">
             <div>
@@ -388,9 +383,11 @@ export default function HomePage() {
           </Link>
         </div>
       </section>
+      )}
 
       {/* ── 🎰 Casino — Pragmatic Play Oyunları ────────────── */}
-      <section className="border-t border-white/[0.04]">
+      {sectionOrder.includes('casinoGames') && (
+      <section className="border-t border-white/[0.04]" style={{ order: sectionOrder.indexOf('casinoGames') }}>
         <div className="max-w-6xl mx-auto px-4 py-10">
           <div className="flex items-end justify-between mb-6">
             <div>
@@ -452,9 +449,11 @@ export default function HomePage() {
           </Link>
         </div>
       </section>
+      )}
 
       {/* ── Features ────────────────────────────────────────── */}
-      <section className="border-t border-white/[0.04]">
+      {sectionOrder.includes('features') && (
+      <section className="border-t border-white/[0.04]" style={{ order: sectionOrder.indexOf('features') }}>
         <div className="max-w-6xl mx-auto px-4 py-16">
           <div className="text-center mb-10">
             <h2 className="text-2xl sm:text-3xl font-black text-text-1 mb-2">Neden VIP90.bet?</h2>
@@ -478,9 +477,11 @@ export default function HomePage() {
           </div>
         </div>
       </section>
+      )}
 
       {/* ── Bottom CTA ──────────────────────────────────────── */}
-      <section className="max-w-6xl mx-auto px-4 pb-20">
+      {sectionOrder.includes('bottomCta') && (
+      <section className="max-w-6xl mx-auto px-4 pb-20" style={{ order: sectionOrder.indexOf('bottomCta') }}>
         <div
           className="relative rounded-2xl overflow-hidden p-8 sm:p-12 text-center"
           style={{
@@ -516,6 +517,7 @@ export default function HomePage() {
           </div>
         </div>
       </section>
+      )}
 
       <BetSlip />
     </div>

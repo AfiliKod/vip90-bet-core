@@ -16,6 +16,7 @@ import { sendAlert } from '../services/alert.js';
 import escapeStringRegexp from 'escape-string-regexp';
 import { setThemeToken as setThemeTokenImpl, listThemeTokens } from '../theme/index.js';
 import { setBrandingField as setBrandingFieldImpl, listBranding } from '../branding/index.js';
+import { setHomeContent as setHomeContentImpl, getHomeContent } from '../pages/index.js';
 
 // Phase B13 — ReDoS protection
 function safeRegex(input, maxLength = 100) {
@@ -234,6 +235,30 @@ export function createUpdateBrandingField({ setBrandingField = setBrandingFieldI
 }
 
 export const updateBrandingField = createUpdateBrandingField();
+
+/** Sayfa/blok düzenleyici (A4). Ana sayfa bölüm sırası + banner override'ları. */
+export async function getHomeContentAdmin(req, res, next) {
+  try {
+    const content = await getHomeContent();
+    res.json({ content });
+  } catch (e) {
+    next(e);
+  }
+}
+
+/** DI: bkz. createUpdateThemeToken üzerindeki not — aynı desen. */
+export function createUpdateHomeContent({ setHomeContent = setHomeContentImpl } = {}) {
+  return async function updateHomeContent(req, res, next) {
+    try {
+      await setHomeContent(req.validated, req.user.id);
+      res.json({ ok: true });
+    } catch (e) {
+      next(e);
+    }
+  };
+}
+
+export const updateHomeContent = createUpdateHomeContent();
 
 export async function getArchivedEvents(req, res, next) {
   try {

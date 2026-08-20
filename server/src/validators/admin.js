@@ -1,6 +1,7 @@
 import { z } from 'zod';
 import { THEME_TOKEN_DEFINITIONS } from '../theme/registry.js';
 import { BRANDING_FIELD_DEFINITIONS } from '../branding/registry.js';
+import { HOME_SECTION_IDS, HOME_BANNER_IDS } from '../pages/registry.js';
 
 export const createEventSchema = z.object({
   sport: z.string().min(1), league: z.string().min(1), leagueFlag: z.string().optional(),
@@ -62,3 +63,13 @@ export const updateBrandingSchema = z.object({
   if (!/^data:[\w.+-]+\/[\w.+-]+;base64,/.test(value)) return false;
   return approxDataUrlBytes(value) <= def.maxBytes;
 }, { message: 'Geçersiz değer: tür veya boyut sınırı aşıldı' });
+
+export const updateHomeContentSchema = z.object({
+  sectionOrder: z.array(z.enum(HOME_SECTION_IDS)).max(HOME_SECTION_IDS.length),
+  banners: z.array(z.object({
+    id:    z.enum(HOME_BANNER_IDS),
+    title: z.string().min(1).max(80).optional(),
+    desc:  z.string().min(1).max(200).optional(),
+    cta:   z.string().min(1).max(40).optional(),
+  })).max(HOME_BANNER_IDS.length),
+});

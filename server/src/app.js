@@ -29,6 +29,7 @@ import analyticsRoutes from './routes/analytics.js';
 import admin2faRoutes from './routes/admin2fa.js';
 import themeRoutes from './routes/theme.js';
 import brandingRoutes from './routes/branding.js';
+import pagesRoutes from './routes/pages.js';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const isProd = process.env.NODE_ENV === 'production';
@@ -147,6 +148,7 @@ export function createApp() {
   app.use('/api/auth/2fa', admin2faRoutes);
   app.use('/api/theme', themeRoutes);
   app.use('/api/branding', brandingRoutes);
+  app.use('/api/pages', pagesRoutes);
 
   // Health check — Render uptime monitoring için
   app.get('/api/health', (req, res) => res.json({ ok: true, env: process.env.NODE_ENV }));
