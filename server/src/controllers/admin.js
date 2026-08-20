@@ -15,6 +15,7 @@ import { ALERT_KEYS, SECRET_KEYS, maskSecret, getSetting, getSettingSource, inva
 import { sendAlert } from '../services/alert.js';
 import escapeStringRegexp from 'escape-string-regexp';
 import { setThemeToken as setThemeTokenImpl, listThemeTokens } from '../theme/index.js';
+import { THEME_PRESETS } from '../theme/presets.js';
 import { setBrandingField as setBrandingFieldImpl, listBranding } from '../branding/index.js';
 import { setHomeContent as setHomeContentImpl, getHomeContent } from '../pages/index.js';
 import { setFeaturedGameCodes as setFeaturedGameCodesImpl, getFeaturedGameCodes } from '../games/index.js';
@@ -211,6 +212,36 @@ export function createUpdateThemeToken({ setThemeToken = setThemeTokenImpl } = {
 }
 
 export const updateThemeToken = createUpdateThemeToken();
+
+/** Hazır tema paketleri (A6). Liste — client swatch'ları doğrudan buradan render eder. */
+export async function getThemePresets(req, res, next) {
+  try {
+    res.json({ presets: THEME_PRESETS });
+  } catch (e) {
+    next(e);
+  }
+}
+
+/**
+ * DI: bkz. createUpdateThemeToken üzerindeki not — aynı desen. Paketteki
+ * her token'ı tek tek `setThemeToken` ile yazar; kısmi/başarısız bir
+ * uygulama sonucu next(err) ile yukarı bildirilir (sessizce yarım kalmaz).
+ */
+export function createApplyThemePreset({ setThemeToken = setThemeTokenImpl } = {}) {
+  return async function applyThemePreset(req, res, next) {
+    try {
+      const preset = THEME_PRESETS.find(p => p.id === req.validated.id);
+      for (const [tokenId, value] of Object.entries(preset.tokens)) {
+        await setThemeToken(tokenId, value, req.user.id);
+      }
+      res.json({ ok: true });
+    } catch (e) {
+      next(e);
+    }
+  };
+}
+
+export const applyThemePreset = createApplyThemePreset();
 
 /** Marka kimliği editörü (A3). Liste — tanım + güncel değer + kaynağı (db/default). */
 export async function getBrandingFields(req, res, next) {

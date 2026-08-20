@@ -22,6 +22,8 @@ export default function AdminTheme() {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [notice, setNotice] = useState(null);
+  const [presets, setPresets] = useState([]);
+  const [applyingPreset, setApplyingPreset] = useState(null);
 
   function load() {
     setLoading(true);
@@ -32,6 +34,29 @@ export default function AdminTheme() {
   }
 
   useEffect(load, []);
+  useEffect(() => {
+    api.get('/admin/theme/presets').then(r => setPresets(r.data.presets)).catch(() => {});
+  }, []);
+
+  async function applyPreset(preset) {
+    setApplyingPreset(preset.id);
+    setNotice(null);
+    // Canlı önizleme: sunucu yanıtını beklemeden paketin tüm token'larını enjekte et.
+    for (const [tokenId, value] of Object.entries(preset.tokens)) {
+      const cssVar = tokenCssVar(tokens, tokenId);
+      if (cssVar) document.documentElement.style.setProperty(cssVar, value);
+    }
+    try {
+      await api.post('/admin/theme/apply-preset', { id: preset.id });
+      setDraft({});
+      load();
+      setNotice({ type: 'ok', text: `"${preset.label}" uygulandı` });
+    } catch (e) {
+      setNotice({ type: 'error', text: e.response?.data?.error?.message || 'Paket uygulanamadı' });
+    } finally {
+      setApplyingPreset(null);
+    }
+  }
 
   function preview(id, value) {
     const cssVar = tokenCssVar(tokens, id);
@@ -84,6 +109,30 @@ export default function AdminTheme() {
       {notice && (
         <div className={`mb-4 px-4 py-2 rounded-lg text-sm ${notice.type === 'ok' ? 'bg-green-500/15 text-green-300' : 'bg-red-500/15 text-red-300'}`}>
           {notice.text}
+        </div>
+      )}
+
+      {presets.length > 0 && (
+        <div className="mb-8">
+          <h2 className="text-sm font-bold text-text-2 uppercase tracking-wide mb-2">Hazır Temalar</h2>
+          <div className="grid sm:grid-cols-3 gap-3">
+            {presets.map(p => (
+              <button
+                key={p.id}
+                onClick={() => applyPreset(p)}
+                disabled={applyingPreset === p.id}
+                className="bg-bg-card border border-white/10 rounded-xl p-4 text-left hover:border-primary/40 transition disabled:opacity-50"
+              >
+                <div className="flex gap-1 mb-2">
+                  <span className="w-6 h-6 rounded-full border border-white/20" style={{ background: p.tokens.primary }} />
+                  <span className="w-6 h-6 rounded-full border border-white/20" style={{ background: p.tokens.accent }} />
+                </div>
+                <div className="text-sm font-semibold text-text-1">{p.label}</div>
+                <div className="text-text-3 text-xs mt-0.5">{p.description}</div>
+                <div className="text-xs mt-2 text-primary">{applyingPreset === p.id ? 'Uygulanıyor…' : 'Uygula →'}</div>
+              </button>
+            ))}
+          </div>
         </div>
       )}
 

@@ -1,5 +1,6 @@
 import { z } from 'zod';
 import { THEME_TOKEN_DEFINITIONS } from '../theme/registry.js';
+import { THEME_PRESET_IDS } from '../theme/presets.js';
 import { BRANDING_FIELD_DEFINITIONS } from '../branding/registry.js';
 import { HOME_SECTION_IDS, HOME_BANNER_IDS } from '../pages/registry.js';
 
@@ -41,6 +42,10 @@ const THEME_TOKEN_IDS = THEME_TOKEN_DEFINITIONS.map(t => t.id);
 export const updateThemeSchema = z.object({
   id: z.enum(THEME_TOKEN_IDS),
   value: z.string().min(1).max(200),
+});
+
+export const applyThemePresetSchema = z.object({
+  id: z.enum(THEME_PRESET_IDS),
 });
 
 const BRANDING_FIELD_IDS = BRANDING_FIELD_DEFINITIONS.map(f => f.id);

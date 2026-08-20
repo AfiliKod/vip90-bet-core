@@ -2,7 +2,7 @@ import { Router } from 'express';
 import { requireAuth, requireAdmin } from '../middleware/auth.js';
 import { auditLog } from '../middleware/audit.js';
 import { validate } from '../middleware/validate.js';
-import { createEventSchema, settleEventSchema, createUserSchema, updateBalanceSchema, updateThemeSchema, updateBrandingSchema, updateHomeContentSchema, updateFeaturedGamesSchema } from '../validators/admin.js';
+import { createEventSchema, settleEventSchema, createUserSchema, updateBalanceSchema, updateThemeSchema, updateBrandingSchema, updateHomeContentSchema, updateFeaturedGamesSchema, applyThemePresetSchema } from '../validators/admin.js';
 import * as ctrl from '../controllers/admin.js';
 
 const r = Router();
@@ -51,6 +51,10 @@ r.post('/errors/clear',     ctrl.clearErrorLog);
 // Tema editörü (A2)
 r.get('/theme',   ctrl.getThemeTokens);
 r.patch('/theme', validate(updateThemeSchema), ctrl.updateThemeToken);
+
+// Hazır tema paketleri (A6)
+r.get('/theme/presets',       ctrl.getThemePresets);
+r.post('/theme/apply-preset', validate(applyThemePresetSchema), ctrl.applyThemePreset);
 
 // Marka kimliği: logo, favicon, site adı, font (A3)
 r.get('/branding',   ctrl.getBrandingFields);
