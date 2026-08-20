@@ -85,7 +85,15 @@ const schema = new mongoose.Schema({
   // ─── Agent (O3) ──────────────────────────────────────────────────
   agentId: { type: mongoose.Schema.Types.ObjectId, ref: 'Agent', default: null }, // which agent owns this player
   isAgent: { type: Boolean, default: false }, // is this user an agent?
+  // ─── Web3 / Wallet (P6) ──────────────────────────────────────────
+  walletAddress: { type: String }, // EVM wallet address (lowercase) - no default, undefined when not set
+  walletType: { type: String, enum: ['metamask', 'walletconnect', 'coinbase', 'injected', 'unknown'], default: null },
+  walletConnectedAt: { type: Date, default: null },
+  walletChainId: { type: Number, default: null }, // EVM chain ID (1=Ethereum, 56=BSC, 137=Polygon, etc.)
 }, { timestamps: true });
+
+// Unique index for walletAddress (only non-null values)
+schema.index({ walletAddress: 1 }, { unique: true, sparse: true });
 
 // Indexes (Phase E1)
 schema.index({ palaceUserCode: 1 }, { sparse: true });

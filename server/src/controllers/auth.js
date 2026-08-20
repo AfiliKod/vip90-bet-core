@@ -38,6 +38,8 @@ function signAccess(user) {
   );
 }
 
+export { signAccess };
+
 function signRefresh(user) {
   return jwt.sign(
     { id: user._id, family: user.tokenVersion || 0 },
