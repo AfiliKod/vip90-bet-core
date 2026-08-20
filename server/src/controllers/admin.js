@@ -14,6 +14,7 @@ import Setting from '../models/Setting.js';
 import { ALERT_KEYS, SECRET_KEYS, maskSecret, getSetting, getSettingSource, invalidateSettings } from '../services/settings.js';
 import { sendAlert } from '../services/alert.js';
 import escapeStringRegexp from 'escape-string-regexp';
+import { setThemeToken as setThemeTokenImpl, listThemeTokens } from '../theme/index.js';
 
 // Phase B13 — ReDoS protection
 function safeRegex(input, maxLength = 100) {
@@ -38,7 +39,6 @@ export async function getUsers(req, res, next) {
     if (status === 'active')    { filter.isActive = true;  filter.deletedAt = null; }
     if (status === 'suspended') { filter.isActive = false; filter.deletedAt = null; }
     if (status === 'deleted')   { filter.deletedAt = { $ne: null }; }
-
     const [users, total] = await Promise.all([
       User.find(filter)
         .select('-password')
@@ -177,6 +177,37 @@ export async function getUserTransactions(req, res, next) {
     res.json({ transactions });
   } catch(e) { next(e); }
 }
+
+/** Tema editörü (A2). Görüntülenen liste — tanım + güncel değer + kaynak (db/default). */
+export async function getThemeTokens(req, res, next) {
+  try {
+    const tokens = await listThemeTokens();
+    res.json({ tokens });
+  } catch (e) {
+    next(e);
+  }
+}
+
+/**
+ * `setThemeToken` enjekte edilebilir — `theme/registry.js`/`modules/registry.js`
+ * ile aynı DI deseni. Üretimde aşağıdaki `updateThemeToken` gerçek
+ * implementasyonla önceden bağlanmış halde dışa aktarılır; testler kendi
+ * sahte fonksiyonunu geçirir, ES module namespace'ini monkey-patch etmeye
+ * gerek kalmaz.
+ */
+export function createUpdateThemeToken({ setThemeToken = setThemeTokenImpl } = {}) {
+  return async function updateThemeToken(req, res, next) {
+    try {
+      const { id, value } = req.validated;
+      await setThemeToken(id, value, req.user.id);
+      res.json({ ok: true });
+    } catch (e) {
+      next(e);
+    }
+  };
+}
+
+export const updateThemeToken = createUpdateThemeToken();
 
 export async function getArchivedEvents(req, res, next) {
   try {

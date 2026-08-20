@@ -2,7 +2,7 @@ import { Router } from 'express';
 import { requireAuth, requireAdmin } from '../middleware/auth.js';
 import { auditLog } from '../middleware/audit.js';
 import { validate } from '../middleware/validate.js';
-import { createEventSchema, settleEventSchema, createUserSchema, updateBalanceSchema } from '../validators/admin.js';
+import { createEventSchema, settleEventSchema, createUserSchema, updateBalanceSchema, updateThemeSchema } from '../validators/admin.js';
 import * as ctrl from '../controllers/admin.js';
 
 const r = Router();
@@ -47,6 +47,10 @@ r.get('/palace/summary',            ctrl.getPalaceSummary);
 r.get('/errors/recent',     ctrl.getRecentErrors);
 r.get('/errors/status',     ctrl.getErrorLogStatus);
 r.post('/errors/clear',     ctrl.clearErrorLog);
+
+// Tema editörü (A2)
+r.get('/theme',   ctrl.getThemeTokens);
+r.patch('/theme', validate(updateThemeSchema), ctrl.updateThemeToken);
 
 // Alarm kanalı ayarları
 r.get('/settings/alerts',       ctrl.getAlertSettings);

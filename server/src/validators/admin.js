@@ -1,4 +1,6 @@
 import { z } from 'zod';
+import { THEME_TOKEN_DEFINITIONS } from '../theme/registry.js';
+
 export const createEventSchema = z.object({
   sport: z.string().min(1), league: z.string().min(1), leagueFlag: z.string().optional(),
   homeTeam: z.object({ name: z.string(), country: z.string() }),
@@ -28,4 +30,11 @@ export const updateBalanceSchema = z.object({
   amount: z.number().positive(),
   type:   z.enum(['credit', 'debit', 'bonus']),
   note:   z.string().max(200).optional(),
+});
+
+const THEME_TOKEN_IDS = THEME_TOKEN_DEFINITIONS.map(t => t.id);
+
+export const updateThemeSchema = z.object({
+  id: z.enum(THEME_TOKEN_IDS),
+  value: z.string().min(1).max(200),
 });
