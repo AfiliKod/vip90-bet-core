@@ -122,6 +122,29 @@ Dürüstlük notu: `commandQueue` testleri implementasyondan SONRA yazıldı
 
 TDD: 38 yeni test (37'si önce kırmızıydı). Suite 193/193. (D6)
 
+### D7 — Action-ID risk sınıflaması ve insan onay kapısı
+- `agent/actionCatalog.js`: merkezi Action-ID kataloğu, her eylem `safe`/
+  `destructive` olarak sınıflı. Kayıtsız eylem için risk sorgusu sessizce
+  "safe" varsaymaz, hata fırlatır (fail-closed).
+- `agent/approvalGate.js`: salt-okunur eylemler `propose()` anında
+  auto-approved; yıkıcı eylemler yalnızca temsilcinin açık `approve()`
+  çağrısıyla onaylanır (`reject()` de var). Kayıtsız eylem için öneri
+  hiç oluşmaz.
+- **Sertleştirme** (ilk entegrasyon testi yazarken bulundu): kriptografik
+  imza tek başına "onaylandı mı" sorusuna cevap vermiyordu — süreç
+  atlanıp doğrudan imzalansa bile localAgent reddetmiyordu. Düzeltildi:
+  `approvedBy` artık imza kapsamının içinde (`signature.js` canonical
+  payload'a eklendi, kurcalanamaz), ve `localAgent.tick()` yıkıcı eylemde
+  bunu yapısal olarak zorunlu kılıyor (`missing-approval` reddi).
+- **Fail-closed düzeltmesi:** lokal registry ile merkezi katalog iki ayrı
+  doğruluk kaynağı ve ayrışabilir — lokalde kayıtlı ama katalogda tanımsız
+  bir eylem artık `tick()`'i çökertmiyor, `unclassified-risk` ile temiz
+  reddediliyor.
+- Uçtan uca entegrasyon testi: propose→gate→sign→lokal ajan zinciri hem
+  salt-okunur hem yıkıcı yol için, onay atlanırsa reddi de dahil.
+
+TDD: 27 yeni test, tamamı önce kırmızı. Suite 220/220. (D7)
+
 ## [0.1.0] — 2026-08-20
 
 İlk sürüm çizgisi. Ürün yol haritasının (52 kart, 9 alan) başlangıç

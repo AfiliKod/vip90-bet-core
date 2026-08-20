@@ -57,3 +57,23 @@ describe('signCommand / verifyCommand', () => {
     assert.strictEqual(verifyCommand(withMeta, keys.publicKey), true);
   });
 });
+
+
+describe('signCommand — approvedBy imza kapsamında (D7 sertleştirmesi)', () => {
+  test('approvedBy alanı taşındığında imza kapsamına girer', () => {
+    const signed = signCommand({ actionId: 'RUN_MIGRATION', params: {}, approvedBy: 'rep-1' }, keys.privateKey);
+    assert.strictEqual(signed.approvedBy, 'rep-1');
+    assert.strictEqual(verifyCommand(signed, keys.publicKey), true);
+  });
+
+  test('approvedBy imzalandıktan sonra değiştirilirse doğrulama başarısız olur', () => {
+    const signed = signCommand({ actionId: 'RUN_MIGRATION', params: {}, approvedBy: 'rep-1' }, keys.privateKey);
+    const tampered = { ...signed, approvedBy: 'rep-EVIL' };
+    assert.strictEqual(verifyCommand(tampered, keys.publicKey), false);
+  });
+
+  test('approvedBy hiç yoksa (salt-okunur eylem) imza yine geçerli — alan opsiyonel', () => {
+    const signed = signCommand({ actionId: 'REINDEX_DB', params: {} }, keys.privateKey);
+    assert.strictEqual(verifyCommand(signed, keys.publicKey), true);
+  });
+});

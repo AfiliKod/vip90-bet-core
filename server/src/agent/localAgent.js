@@ -13,6 +13,7 @@
  * burada saf orkestrasyon mantığı test edilir, ağa çıkmadan.
  */
 import { verifyCommand } from './signature.js';
+import { isDestructive } from './actionCatalog.js';
 
 export function createLocalAgent({ registry, publicKey, pull, isEnabled = async () => true }) {
   async function tick() {
@@ -26,6 +27,22 @@ export function createLocalAgent({ registry, publicKey, pull, isEnabled = async 
     }
     if (!registry.has(command.actionId)) {
       return { rejected: 'unknown-action', actionId: command.actionId };
+    }
+    // D7: yıkıcı eylemler yalnızca temsilci onayından geçmişse çalışır.
+    // approvedBy imza kapsamında (bkz. signature.js) — kurcalanamaz.
+    //
+    // Lokal registry ve merkezi katalog iki ayrı doğruluk kaynağı ve
+    // ayrışabilir: bir eylem lokalde kayıtlı ama katalogda tanımsız olabilir.
+    // Bu durumda fail-closed davran — risk sınıfı bilinmeyen bir eylem
+    // ASLA "salt-okunur" varsayılıp sessizce çalıştırılmaz.
+    let destructive;
+    try {
+      destructive = isDestructive(command.actionId);
+    } catch {
+      return { rejected: 'unclassified-risk', actionId: command.actionId };
+    }
+    if (destructive && !command.approvedBy) {
+      return { rejected: 'missing-approval', actionId: command.actionId };
     }
 
     try {

@@ -12,14 +12,19 @@
  */
 import { sign, verify } from 'crypto';
 
-function canonicalPayload({ actionId, params }) {
+function canonicalPayload({ actionId, params, approvedBy }) {
   // Anahtar sırası sabit tutulur ki aynı mantıksal komut her zaman aynı
-  // baytları üretsin (JSON.stringify obje anahtar sırasını korur, biz de
-  // burada sırayı elle sabitliyoruz).
-  return Buffer.from(JSON.stringify({ actionId, params }));
+  // baytları üretsin. approvedBy DE imza kapsamına dahildir (D7): yıkıcı
+  // bir eylemde bu alan kurcalanırsa (ör. başka bir temsilcinin adı
+  // yazılırsa) imza geçersiz olur — onay bilgisi de veri kadar korunur.
+  return Buffer.from(JSON.stringify({ actionId, params, approvedBy: approvedBy ?? null }));
 }
 
-/** @returns {object} orijinal payload + base64 imza */
+/**
+ * @param {object} payload - { actionId, params, approvedBy? } — approvedBy
+ *   yalnızca yıkıcı eylemlerde (D7 onay kapısından geçtikten sonra) taşınır.
+ * @returns {object} orijinal payload + base64 imza
+ */
 export function signCommand(payload, privateKey) {
   const signature = sign(null, canonicalPayload(payload), privateKey).toString('base64');
   return { ...payload, signature };

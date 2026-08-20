@@ -79,10 +79,68 @@ describe('createLocalAgent.tick', () => {
 
   test('registry.execute patlarsa tick throw etmez, sonuçta hata bilgisi taşınır', async () => {
     const registry = createActionRegistry();
-    registry.register('BOOM', async () => { throw new Error('disk dolu'); });
-    const command = signCommand({ actionId: 'BOOM', params: {} }, keys.privateKey);
+    registry.register('REINDEX_DB', async () => { throw new Error('disk dolu'); });
+    const command = signCommand({ actionId: 'REINDEX_DB', params: {} }, keys.privateKey);
     const agent = createLocalAgent({ registry, publicKey: keys.publicKey, pull: async () => command, isEnabled: async () => true });
     const result = await agent.tick();
     assert.strictEqual(result.error, 'disk dolu');
+  });
+
+  test('lokal registry’de kayıtlı ama merkezi katalogda tanımsız eylem fail-closed reddedilir', async () => {
+    const registry = createActionRegistry();
+    let executed = false;
+    registry.register('LOCAL_ONLY_ACTION', async () => { executed = true; });
+    const command = signCommand({ actionId: 'LOCAL_ONLY_ACTION', params: {} }, keys.privateKey);
+    const agent = createLocalAgent({ registry, publicKey: keys.publicKey, pull: async () => command, isEnabled: async () => true });
+    const result = await agent.tick();
+    assert.strictEqual(result.rejected, 'unclassified-risk');
+    assert.strictEqual(executed, false);
+  });
+});
+
+
+describe('createLocalAgent.tick — yıkıcı eylemde temsilci onayı zorunlu (D7)', () => {
+  test('yıkıcı eylem approvedBy TAŞIMIYORSA imza geçerli olsa bile ÇALIŞTIRILMAZ', async () => {
+    const registry = createActionRegistry();
+    let executed = false;
+    registry.register('RUN_MIGRATION', async () => { executed = true; return { ok: true }; });
+    // approvedBy yok — approvalGate'in onay adımından geçmemiş demek.
+    const command = signCommand({ actionId: 'RUN_MIGRATION', params: {} }, keys.privateKey);
+    const agent = createLocalAgent({ registry, publicKey: keys.publicKey, pull: async () => command, isEnabled: async () => true });
+    const result = await agent.tick();
+    assert.strictEqual(result.rejected, 'missing-approval');
+    assert.strictEqual(executed, false);
+  });
+
+  test('yıkıcı eylem approvedBy TAŞIYORSA (imza kapsamında) çalıştırılır', async () => {
+    const registry = createActionRegistry();
+    let executed = false;
+    registry.register('RUN_MIGRATION', async () => { executed = true; return { ok: true }; });
+    const command = signCommand({ actionId: 'RUN_MIGRATION', params: {}, approvedBy: 'rep-1' }, keys.privateKey);
+    const agent = createLocalAgent({ registry, publicKey: keys.publicKey, pull: async () => command, isEnabled: async () => true });
+    const result = await agent.tick();
+    assert.strictEqual(result.executed, 'RUN_MIGRATION');
+    assert.strictEqual(executed, true);
+  });
+
+  test('salt-okunur eylem approvedBy TAŞIMASA da çalıştırılır — kapı yalnızca yıkıcı eylemde devrede', async () => {
+    const registry = createActionRegistry();
+    registry.register('REINDEX_DB', async () => ({ ok: true }));
+    const command = signCommand({ actionId: 'REINDEX_DB', params: {} }, keys.privateKey);
+    const agent = createLocalAgent({ registry, publicKey: keys.publicKey, pull: async () => command, isEnabled: async () => true });
+    const result = await agent.tick();
+    assert.strictEqual(result.executed, 'REINDEX_DB');
+  });
+
+  test('approvedBy alanı kurcalanmışsa (imzadan sonra değiştirilmiş) imza doğrulaması zaten reddeder', async () => {
+    const registry = createActionRegistry();
+    let executed = false;
+    registry.register('RUN_MIGRATION', async () => { executed = true; });
+    const command = signCommand({ actionId: 'RUN_MIGRATION', params: {}, approvedBy: 'rep-1' }, keys.privateKey);
+    const tampered = { ...command, approvedBy: 'rep-SAHTE' };
+    const agent = createLocalAgent({ registry, publicKey: keys.publicKey, pull: async () => tampered, isEnabled: async () => true });
+    const result = await agent.tick();
+    assert.strictEqual(result.rejected, 'invalid-signature');
+    assert.strictEqual(executed, false);
   });
 });
