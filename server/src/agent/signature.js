@@ -12,7 +12,7 @@
  */
 import { sign, verify } from 'crypto';
 
-function canonicalPayload({ actionId, params, approvedBy }) {
+export function canonicalPayload({ actionId, params, approvedBy }) {
   // Anahtar sırası sabit tutulur ki aynı mantıksal komut her zaman aynı
   // baytları üretsin. approvedBy DE imza kapsamına dahildir (D7): yıkıcı
   // bir eylemde bu alan kurcalanırsa (ör. başka bir temsilcinin adı
@@ -39,4 +39,16 @@ export function verifyCommand(signedPayload, publicKey) {
   } catch {
     return false;
   }
+}
+
+
+/**
+ * signCommand'ın sağlayıcı-tabanlı hali (D8). Ham privateKey yerine bir
+ * imza sağlayıcı alır — çağıran kod hangi donanımda imzalandığını bilmez.
+ * D6'nın signCommand'ı (ham anahtar) hâlâ geçerli ve değişmedi; bu, merkez
+ * tarafının HSM/KMS'e geçeceği yeni yol.
+ */
+export async function signCommandWithProvider(payload, provider) {
+  const signature = (await provider.sign(canonicalPayload(payload))).toString('base64');
+  return { ...payload, signature };
 }

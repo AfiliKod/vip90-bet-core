@@ -145,6 +145,26 @@ TDD: 38 yeni test (37'si önce kırmızıydı). Suite 193/193. (D6)
 
 TDD: 27 yeni test, tamamı önce kırmızı. Suite 220/220. (D7)
 
+### D8 — Merkez WAF ve HSM-uyumlu imza sağlayıcı
+- `agent/promptFirewall.js`: prompt-injection filtresi. D6'nın maskelemesi
+  hangi ALANLARIN geçtiğini sınırlar, bu ise geçen alanların İÇERİĞİNİ
+  tarar ("ignore previous instructions", sahte `system:`/`assistant:`
+  rol işaretleyicileri vb.). Fail-closed: herhangi bir alan şüpheliyse
+  TÜM payload reddedilir, kısmi temizlik yapılmaz.
+- `services/support/index.js` → `createDiagnosticInbox()`: müşteriden
+  merkeze giden teşhis raporu kuyruğu, `submit()` anında WAF'tan geçer —
+  şüpheli veri kuyruğa hiç girmez (`size()`/`next()` ile ispatlı).
+- `agent/signingProvider.js` + `signature.js` → `signCommandWithProvider`:
+  imza sağlayıcı arayüzü (`{ sign(buffer): Promise<Buffer> }`). Bu commit
+  yalnızca bellek-içi (dev/test) sağlayıcıyı içerir — **gerçek HSM/KMS
+  entegrasyonu (donanım seçimi, provisioning, IAM, maliyet) bir operasyon
+  kararıdır ve bilerek bu kod oturumunun kapsamı dışında bırakıldı.**
+  Kurulan şey: çağıran kodun özel anahtarı hiç görmediği, gerçek bir
+  HSM/KMS sağlayıcısının aynı sözleşmeyle (drop-in) takılabileceği arayüz.
+  D6'nın `signCommand` (ham anahtar) fonksiyonu değişmeden duruyor.
+
+TDD: 20 yeni test, tamamı önce kırmızı. Suite 240/240. (D8)
+
 ## [0.1.0] — 2026-08-20
 
 İlk sürüm çizgisi. Ürün yol haritasının (52 kart, 9 alan) başlangıç

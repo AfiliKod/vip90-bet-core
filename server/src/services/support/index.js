@@ -11,6 +11,7 @@
 import mongoose from 'mongoose';
 import Setting from '../../models/Setting.js';
 import { createAgentToggleStore } from './agentToggle.js';
+import { filterPayload } from '../../agent/promptFirewall.js';
 
 const TOGGLE_KEY = 'support.agentEnabled';
 
@@ -53,6 +54,30 @@ export function createCommandQueue() {
     },
     size() {
       return pending.size;
+    },
+  };
+}
+
+
+/**
+ * Müşteriden merkeze giden teşhis raporu kutusu (D8). Her `submit()`
+ * çağrısı D8'in WAF'ından (filterPayload) geçer — şüpheli veri kuyruğa
+ * hiç girmez, "LLM'e ulaşmıyor" garantisi burada uygulanır. D6'nın
+ * maskDiagnostics'i alan bazlı sınırlar, bu ise içerik bazlı süzer.
+ */
+export function createDiagnosticInbox() {
+  const items = [];
+
+  return {
+    submit(customerId, maskedPayload) {
+      const clean = filterPayload(maskedPayload); // şüpheliyse throw — kuyruğa girmez
+      items.push({ customerId, payload: clean, receivedAt: Date.now() });
+    },
+    next() {
+      return items.shift() ?? null;
+    },
+    size() {
+      return items.length;
     },
   };
 }
