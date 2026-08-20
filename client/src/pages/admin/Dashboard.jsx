@@ -86,6 +86,11 @@ export default function AdminDashboard() {
           <div className="font-semibold text-text-1">Tema Editörü</div>
           <div className="text-text-3 text-sm mt-1">Renk, yazı tipi, köşe — canlı önizleme</div>
         </Link>
+        <Link to="/admin/branding" className="bg-bg-card border border-white/10 rounded-xl p-5 hover:border-accent/30 transition text-center">
+          <div className="text-3xl mb-2">🏷️</div>
+          <div className="font-semibold text-text-1">Marka Kimliği</div>
+          <div className="text-text-3 text-sm mt-1">Logo, favicon, site adı, font</div>
+        </Link>
       </div>
     </div>
   );

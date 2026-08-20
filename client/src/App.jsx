@@ -7,6 +7,7 @@ import { socket } from './services/socket';
 import ProtectedRoute from './components/ProtectedRoute';
 import { I18nProvider } from './i18n/I18nProvider.jsx';
 import ThemeStyleInjector from './theme/ThemeStyleInjector.jsx';
+import BrandingInjector from './branding/BrandingInjector.jsx';
 import GuestRoute from './components/GuestRoute';
 import ToastSystem from './components/ToastSystem';
 import Navbar from './components/Navbar';
@@ -32,6 +33,7 @@ const AdminAnalytics = lazy(() => import('./pages/admin/Analytics'));
 const AdminPalace = lazy(() => import('./pages/admin/Palace'));
 const AdminSettings = lazy(() => import('./pages/admin/Settings'));
 const AdminTheme = lazy(() => import('./pages/admin/Theme'));
+const AdminBranding = lazy(() => import('./pages/admin/Branding'));
 const Casino = lazy(() => import('./pages/Casino'));
 const CasinoRedesign = lazy(() => import('./pages/CasinoRedesign'));
 const CasinoGame = lazy(() => import('./pages/CasinoGame'));
@@ -106,6 +108,7 @@ export default function App() {
   return (
     <I18nProvider>
     <ThemeStyleInjector />
+    <BrandingInjector />
     <BrowserRouter>
       <ToastSystem />
       <Navbar />
@@ -146,6 +149,7 @@ export default function App() {
         <Route path="/admin/analytics" element={<ProtectedRoute adminOnly><Suspense fallback={<PageLoader />}><AdminAnalytics /></Suspense></ProtectedRoute>} />
         <Route path="/admin/settings" element={<ProtectedRoute adminOnly><Suspense fallback={<PageLoader />}><AdminSettings /></Suspense></ProtectedRoute>} />
         <Route path="/admin/theme" element={<ProtectedRoute adminOnly><Suspense fallback={<PageLoader />}><AdminTheme /></Suspense></ProtectedRoute>} />
+        <Route path="/admin/branding" element={<ProtectedRoute adminOnly><Suspense fallback={<PageLoader />}><AdminBranding /></Suspense></ProtectedRoute>} />
         {/* Legal pages (public) */}
         <Route path="/legal/terms" element={<Suspense fallback={<PageLoader />}><Terms /></Suspense>} />
         <Route path="/legal/privacy" element={<Suspense fallback={<PageLoader />}><Privacy /></Suspense>} />

@@ -2,7 +2,7 @@ import { Router } from 'express';
 import { requireAuth, requireAdmin } from '../middleware/auth.js';
 import { auditLog } from '../middleware/audit.js';
 import { validate } from '../middleware/validate.js';
-import { createEventSchema, settleEventSchema, createUserSchema, updateBalanceSchema, updateThemeSchema } from '../validators/admin.js';
+import { createEventSchema, settleEventSchema, createUserSchema, updateBalanceSchema, updateThemeSchema, updateBrandingSchema } from '../validators/admin.js';
 import * as ctrl from '../controllers/admin.js';
 
 const r = Router();
@@ -51,6 +51,10 @@ r.post('/errors/clear',     ctrl.clearErrorLog);
 // Tema editörü (A2)
 r.get('/theme',   ctrl.getThemeTokens);
 r.patch('/theme', validate(updateThemeSchema), ctrl.updateThemeToken);
+
+// Marka kimliği: logo, favicon, site adı, font (A3)
+r.get('/branding',   ctrl.getBrandingFields);
+r.patch('/branding', validate(updateBrandingSchema), ctrl.updateBrandingField);
 
 // Alarm kanalı ayarları
 r.get('/settings/alerts',       ctrl.getAlertSettings);

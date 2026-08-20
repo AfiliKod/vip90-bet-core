@@ -1,5 +1,6 @@
 import { z } from 'zod';
 import { THEME_TOKEN_DEFINITIONS } from '../theme/registry.js';
+import { BRANDING_FIELD_DEFINITIONS } from '../branding/registry.js';
 
 export const createEventSchema = z.object({
   sport: z.string().min(1), league: z.string().min(1), leagueFlag: z.string().optional(),
@@ -38,3 +39,26 @@ export const updateThemeSchema = z.object({
   id: z.enum(THEME_TOKEN_IDS),
   value: z.string().min(1).max(200),
 });
+
+const BRANDING_FIELD_IDS = BRANDING_FIELD_DEFINITIONS.map(f => f.id);
+const BRANDING_FIELD_BY_ID = Object.fromEntries(BRANDING_FIELD_DEFINITIONS.map(f => [f.id, f]));
+
+/** `data:<mime>;base64,<payload>` gövdesinden yaklaşık decode edilmiş byte sayısı. */
+function approxDataUrlBytes(value) {
+  const comma = value.indexOf(',');
+  if (comma === -1) return Infinity; // biçimsiz — reddedilsin diye büyük say
+  const payload = value.slice(comma + 1);
+  const padding = payload.endsWith('==') ? 2 : payload.endsWith('=') ? 1 : 0;
+  return Math.floor((payload.length * 3) / 4) - padding;
+}
+
+export const updateBrandingSchema = z.object({
+  id: z.enum(BRANDING_FIELD_IDS),
+  value: z.string().min(1),
+}).refine(({ id, value }) => {
+  const def = BRANDING_FIELD_BY_ID[id];
+  if (def.type === 'text') return value.length <= def.maxLength;
+  // image | font — sunucu dosya sistemine hiç dokunmadan taşınan data: URL
+  if (!/^data:[\w.+-]+\/[\w.+-]+;base64,/.test(value)) return false;
+  return approxDataUrlBytes(value) <= def.maxBytes;
+}, { message: 'Geçersiz değer: tür veya boyut sınırı aşıldı' });

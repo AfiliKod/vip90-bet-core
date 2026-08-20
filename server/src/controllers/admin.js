@@ -15,6 +15,7 @@ import { ALERT_KEYS, SECRET_KEYS, maskSecret, getSetting, getSettingSource, inva
 import { sendAlert } from '../services/alert.js';
 import escapeStringRegexp from 'escape-string-regexp';
 import { setThemeToken as setThemeTokenImpl, listThemeTokens } from '../theme/index.js';
+import { setBrandingField as setBrandingFieldImpl, listBranding } from '../branding/index.js';
 
 // Phase B13 — ReDoS protection
 function safeRegex(input, maxLength = 100) {
@@ -208,6 +209,31 @@ export function createUpdateThemeToken({ setThemeToken = setThemeTokenImpl } = {
 }
 
 export const updateThemeToken = createUpdateThemeToken();
+
+/** Marka kimliği editörü (A3). Liste — tanım + güncel değer + kaynağı (db/default). */
+export async function getBrandingFields(req, res, next) {
+  try {
+    const fields = await listBranding();
+    res.json({ fields });
+  } catch (e) {
+    next(e);
+  }
+}
+
+/** DI: bkz. createUpdateThemeToken üzerindeki not — aynı desen. */
+export function createUpdateBrandingField({ setBrandingField = setBrandingFieldImpl } = {}) {
+  return async function updateBrandingField(req, res, next) {
+    try {
+      const { id, value } = req.validated;
+      await setBrandingField(id, value, req.user.id);
+      res.json({ ok: true });
+    } catch (e) {
+      next(e);
+    }
+  };
+}
+
+export const updateBrandingField = createUpdateBrandingField();
 
 export async function getArchivedEvents(req, res, next) {
   try {
