@@ -73,6 +73,9 @@ const schema = new mongoose.Schema({
   vipLevel: { type: mongoose.Schema.Types.ObjectId, ref: 'VipLevel', default: null },
   vipXp: { type: Number, default: 0, min: 0 },
   totalXpEarned: { type: Number, default: 0, min: 0 }, // lifetime XP for leaderboards
+  // ─── Agent (O3) ──────────────────────────────────────────────────
+  agentId: { type: mongoose.Schema.Types.ObjectId, ref: 'Agent', default: null }, // which agent owns this player
+  isAgent: { type: Boolean, default: false }, // is this user an agent?
 }, { timestamps: true });
 
 // Indexes (Phase E1)
