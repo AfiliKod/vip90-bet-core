@@ -69,6 +69,10 @@ const schema = new mongoose.Schema({
   twoFactorSecret:     { type: String, default: null },
   twoFactorBackupCodes: { type: [String], default: [] },
   twoFactorVerifiedAt: { type: Date, default: null },
+  // ─── VIP / XP (O1) ────────────────────────────────────────────────
+  vipLevel: { type: mongoose.Schema.Types.ObjectId, ref: 'VipLevel', default: null },
+  vipXp: { type: Number, default: 0, min: 0 },
+  totalXpEarned: { type: Number, default: 0, min: 0 }, // lifetime XP for leaderboards
 }, { timestamps: true });
 
 // Indexes (Phase E1)
