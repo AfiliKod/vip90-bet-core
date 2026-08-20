@@ -9,11 +9,10 @@ import { buildReferralTree, createPendingCommissions, approveCommission, rejectC
 
 describe('Referral System', () => {
   before(async () => {
-    await mongoose.connect(process.env.MONGODB_URI || 'mongodb://localhost:27017/betzone_test');
+    await mongoose.connect(process.env.MONGODB_URI || 'mongodb://localhost:27017/betzone_test_referral');
   });
 
   after(async () => {
-    await mongoose.connection.dropDatabase();
     await mongoose.disconnect();
   });
 

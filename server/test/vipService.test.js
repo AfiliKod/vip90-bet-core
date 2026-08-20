@@ -8,11 +8,10 @@ import { awardXp, getVipStatus, initDefaultVipLevels, getAllVipLevels, upsertVip
 
 describe('VIP Service', () => {
   before(async () => {
-    await mongoose.connect(process.env.MONGODB_URI || 'mongodb://localhost:27017/betzone_test');
+    await mongoose.connect(process.env.MONGODB_URI || 'mongodb://localhost:27017/betzone_test_vip');
   });
 
   after(async () => {
-    await mongoose.connection.dropDatabase();
     await mongoose.disconnect();
   });
 

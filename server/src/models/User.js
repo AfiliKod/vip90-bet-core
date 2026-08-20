@@ -6,6 +6,8 @@ const schema = new mongoose.Schema({
   email:    { type: String, required: true, unique: true, lowercase: true },
   password: { type: String, required: true },
   role:     { type: String, enum: ['user','admin'], default: 'user' },
+  // ─── Role-based access (O4) ──────────────────────────────────────
+  roles: [{ type: mongoose.Schema.Types.ObjectId, ref: 'Role' }], // additional roles beyond base role
   balance:  { type: Number, default: 0, min: 0 },
   bonusBalance: { type: Number, default: 0, min: 0 },
   // ─── Model B (Kilitli Bakiye) tek seferlik migration marker ───────

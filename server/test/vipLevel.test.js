@@ -5,11 +5,10 @@ import VipLevel from '../src/models/VipLevel.js';
 
 describe('VipLevel Model', () => {
   before(async () => {
-    await mongoose.connect(process.env.MONGODB_URI || 'mongodb://localhost:27017/betzone_test');
+    await mongoose.connect(process.env.MONGODB_URI || 'mongodb://localhost:27017/betzone_test_vip_model');
   });
 
   after(async () => {
-    await mongoose.connection.dropDatabase();
     await mongoose.disconnect();
   });
 
