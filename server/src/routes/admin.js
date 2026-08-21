@@ -6,6 +6,13 @@ import { createEventSchema, settleEventSchema, createUserSchema, updateBalanceSc
 import * as ctrl from '../controllers/admin.js';
 import modulesAdminRouter from '../controllers/modules.js';
 import { timezoneStore } from '../services/timezoneLive.js';
+import { createDemoAdminBlock } from '../middleware/demoAdmin.js';
+import User from '../models/User.js';
+
+// V1 — demo yönetici yıkıcı işlemleri yapamaz (bayrak DB'den taze okunur)
+const blockDemoAdmin = createDemoAdminBlock({
+  getUserById: (id) => (id ? User.findById(id).select('isDemoAdmin').lean() : null),
+});
 
 const r = Router();
 r.use(requireAuth, requireAdmin, auditLog('ADMIN_ACTION'));
@@ -16,15 +23,15 @@ r.use('/modules', modulesAdminRouter);
 r.get('/users',                  ctrl.getUsers);
 r.post('/users',                 validate(createUserSchema), ctrl.createUser);
 r.patch('/users/:id',            ctrl.updateUser);
-r.delete('/users/:id',           ctrl.deleteUser);
-r.patch('/users/:id/balance',    validate(updateBalanceSchema), ctrl.updateBalance);
+r.delete('/users/:id',           blockDemoAdmin, ctrl.deleteUser);
+r.patch('/users/:id/balance',    blockDemoAdmin, validate(updateBalanceSchema), ctrl.updateBalance);
 r.get('/users/:id/referrals',    ctrl.getReferrals);
 r.get('/users/:id/transactions', ctrl.getUserTransactions);
 
 r.get('/events/archived',    ctrl.getArchivedEvents);
 r.post('/events',            validate(createEventSchema), ctrl.createEvent);
 r.patch('/events/:id',       ctrl.updateEvent);
-r.post('/events/:id/settle', validate(settleEventSchema), ctrl.settle);
+r.post('/events/:id/settle', blockDemoAdmin, validate(settleEventSchema), ctrl.settle);
 
 r.get('/stats',       ctrl.getStats);
 r.get('/tasks',       ctrl.getTasks);
@@ -51,7 +58,7 @@ r.get('/palace/summary',            ctrl.getPalaceSummary);
 // Error log (admin monitoring)
 r.get('/errors/recent',     ctrl.getRecentErrors);
 r.get('/errors/status',     ctrl.getErrorLogStatus);
-r.post('/errors/clear',     ctrl.clearErrorLog);
+r.post('/errors/clear',     blockDemoAdmin, ctrl.clearErrorLog);
 
 // Tema editörü (A2)
 r.get('/theme',   ctrl.getThemeTokens);

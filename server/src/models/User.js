@@ -8,6 +8,9 @@ const schema = new mongoose.Schema({
   role:     { type: String, enum: ['user','admin'], default: 'user' },
   // ─── Role-based access (O4) ──────────────────────────────────────
   roles: [{ type: mongoose.Schema.Types.ObjectId, ref: 'Role' }], // additional roles beyond base role
+  // V1 — sınırlı demo yönetici: role=admin kalır, yıkıcı işlemler
+  // middleware/demoAdmin.js blockDemoAdmin ile engellenir.
+  isDemoAdmin: { type: Boolean, default: false },
   balance:  { type: Number, default: 0, min: 0 },
   bonusBalance: { type: Number, default: 0, min: 0 },
   // ─── Model B (Kilitli Bakiye) tek seferlik migration marker ───────

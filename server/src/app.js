@@ -33,6 +33,7 @@ import { createModuleGate } from './middleware/moduleGate.js';
 import { isModuleUsable } from './services/licensing/index.js';
 import currencyRoutes from './routes/currency.js';
 import localeConfigRoutes from './routes/localeConfig.js';
+import demoRoutes from './demo/showcase.js';
 import ticketRoutes from './routes/ticket.js';
 import installRoutes from './routes/install.js';
 import brandingRoutes from './routes/branding.js';
@@ -162,6 +163,9 @@ export function createApp() {
 
   // U5 — operatör saat dilimi (herkese açık; istemci render'da uygular)
   app.use('/api/locale-config', localeConfigRoutes);
+
+  // V1 — demo vitrini: "modül gerektirir" rozetinin veri katmanı (herkese açık)
+  app.use('/api/demo', demoRoutes);
 
   // M4 — modül kapalıyken zarif bozulma: ilgili bölümler 404 yerine anlamlı
   // 503 (MODULE_DISABLED) döner; site geri kalanında hatasız çalışır.
