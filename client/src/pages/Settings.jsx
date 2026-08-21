@@ -3,17 +3,18 @@ import { useForm } from 'react-hook-form';
 import { useSettingsStore, ACCENT_COLORS } from '../store/settingsStore';
 import { useAuthStore } from '../store/authStore';
 import { useToastStore } from '../store/toastStore';
+import { useTranslation } from '../i18n';
 import api from '../services/api';
 
 const SPORTS = [
-  { id: 'football',   label: 'Futbol',     icon: '⚽' },
-  { id: 'basketball', label: 'Basketbol',  icon: '🏀' },
-  { id: 'tennis',     label: 'Tenis',      icon: '🎾' },
-  { id: 'volleyball', label: 'Voleybol',   icon: '🏐' },
-  { id: 'icehockey',  label: 'Buz Hokeyi', icon: '🏒' },
-  { id: 'golf',       label: 'Golf',       icon: '⛳' },
-  { id: 'handball',   label: 'Hentbol',    icon: '🤾' },
-  { id: 'boxing',     label: 'Boks',       icon: '🥊' },
+  { id: 'football',   icon: '⚽' },
+  { id: 'basketball', icon: '🏀' },
+  { id: 'tennis',     icon: '🎾' },
+  { id: 'volleyball', icon: '🏐' },
+  { id: 'icehockey',  icon: '🏒' },
+  { id: 'golf',       icon: '⛳' },
+  { id: 'handball',   icon: '🤾' },
+  { id: 'boxing',     icon: '🥊' },
 ];
 
 const AVATAR_COLORS = ['#7c3aed','#00d4ff','#10b981','#f97316','#ef4444','#f59e0b','#ec4899','#6366f1'];
@@ -30,6 +31,7 @@ function Toggle({ checked, onChange }) {
 }
 
 function TabHesap() {
+  const { t } = useTranslation();
   const { user } = useAuthStore();
   const { preferences, updatePreference } = useSettingsStore();
   const addToast = useToastStore(s => s.add);
@@ -37,20 +39,20 @@ function TabHesap() {
   const { register: regEmail, handleSubmit: hsEmail, reset: resetEmail, formState: { isSubmitting: emailSubmitting } } = useForm();
 
   const onPassword = async ({ currentPassword, newPassword, confirmPassword }) => {
-    if (newPassword !== confirmPassword) { addToast('Şifreler eşleşmiyor', 'error'); return; }
+    if (newPassword !== confirmPassword) { addToast(t('settings.passwordMismatch'), 'error'); return; }
     try {
       await api.put('/users/me/password', { currentPassword, newPassword });
-      addToast('Şifre güncellendi', 'success');
+      addToast(t('settings.passwordUpdated'), 'success');
       resetPw();
-    } catch(e) { addToast(e.response?.data?.error?.message || 'Hata', 'error'); }
+    } catch(e) { addToast(e.response?.data?.error?.message || t('common.error'), 'error'); }
   };
 
   const onEmail = async ({ email, password }) => {
     try {
       await api.put('/users/me/email', { email, password });
-      addToast('E-posta güncellendi', 'success');
+      addToast(t('settings.emailUpdated'), 'success');
       resetEmail();
-    } catch(e) { addToast(e.response?.data?.error?.message || 'Hata', 'error'); }
+    } catch(e) { addToast(e.response?.data?.error?.message || t('common.error'), 'error'); }
   };
 
   return (
@@ -66,7 +68,7 @@ function TabHesap() {
           </div>
           <div className="flex-1 min-w-0">
             <div className="text-xs uppercase tracking-widest font-bold mb-2" style={{ color: '#4a5a78' }}>
-              Renk Seçin
+              {t('settings.chooseColor')}
             </div>
             <div className="flex gap-2 flex-wrap">
               {AVATAR_COLORS.map(c => (
@@ -89,31 +91,31 @@ function TabHesap() {
       </div>
 
       <div className="bg-bg-card border border-white/10 rounded-xl p-5">
-        <h3 className="text-sm font-semibold text-text-1 mb-4">Şifre Değiştir</h3>
+        <h3 className="text-sm font-semibold text-text-1 mb-4">{t('settings.changePassword')}</h3>
         <form onSubmit={hsPw(onPassword)} className="space-y-3">
           {['currentPassword','newPassword','confirmPassword'].map((name, i) => (
             <input key={name} {...regPw(name, { required: true, minLength: name !== 'currentPassword' ? 6 : 1 })}
               type="password"
-              placeholder={['Mevcut şifre','Yeni şifre (min. 6)','Yeni şifre tekrar'][i]}
+              placeholder={[t('settings.currentPassword'), t('settings.newPasswordMin6'), t('settings.newPasswordRepeat')][i]}
               className="w-full bg-bg-base border border-white/10 rounded-lg px-4 py-2.5 text-text-1 text-sm focus:outline-none focus:border-primary" />
           ))}
           <button type="submit" disabled={pwSubmitting}
             className="px-5 py-2 bg-accent text-white text-sm font-semibold rounded-lg hover:opacity-90 transition disabled:opacity-50">
-            Güncelle
+            {t('common.update')}
           </button>
         </form>
       </div>
 
       <div className="bg-bg-card border border-white/10 rounded-xl p-5">
-        <h3 className="text-sm font-semibold text-text-1 mb-4">E-posta Değiştir</h3>
+        <h3 className="text-sm font-semibold text-text-1 mb-4">{t('settings.changeEmail')}</h3>
         <form onSubmit={hsEmail(onEmail)} className="space-y-3">
-          <input {...regEmail('email', { required: true })} type="email" placeholder="Yeni e-posta"
+          <input {...regEmail('email', { required: true })} type="email" placeholder={t('settings.newEmail')}
             className="w-full bg-bg-base border border-white/10 rounded-lg px-4 py-2.5 text-text-1 text-sm focus:outline-none focus:border-primary" />
-          <input {...regEmail('password', { required: true })} type="password" placeholder="Şifrenizi doğrulayın"
+          <input {...regEmail('password', { required: true })} type="password" placeholder={t('settings.verifyYourPassword')}
             className="w-full bg-bg-base border border-white/10 rounded-lg px-4 py-2.5 text-text-1 text-sm focus:outline-none focus:border-primary" />
           <button type="submit" disabled={emailSubmitting}
             className="px-5 py-2 bg-accent text-white text-sm font-semibold rounded-lg hover:opacity-90 transition disabled:opacity-50">
-            Güncelle
+            {t('common.update')}
           </button>
         </form>
       </div>
@@ -122,6 +124,7 @@ function TabHesap() {
 }
 
 function TabGorunum() {
+  const { t } = useTranslation();
   const { preferences, updatePreference, isDirty, save } = useSettingsStore();
   const addToast = useToastStore(s => s.add);
 
@@ -133,15 +136,26 @@ function TabGorunum() {
   };
 
   const onSave = async () => {
-    try { await save(); addToast('Tercihler kaydedildi', 'success'); }
-    catch { addToast('Kaydetme hatası', 'error'); }
+    try { await save(); addToast(t('settings.preferencesSaved'), 'success'); }
+    catch { addToast(t('settings.saveError'), 'error'); }
   };
+
+  const accentNameKey = { cyan: 'settings.accent.cyan', purple: 'settings.accent.purple', green: 'settings.accent.green', orange: 'settings.accent.orange' };
+  const oddsFormats = [
+    ['decimal', t('settings.oddsFormat.decimal')],
+    ['fractional', t('settings.oddsFormat.fractional')],
+    ['american', t('settings.oddsFormat.american')],
+  ];
+  const languages = [
+    ['tr', `🇹🇷 ${t('settings.language.tr')}`],
+    ['en', `🇬🇧 ${t('settings.language.en')}`],
+  ];
 
   return (
     <div className="space-y-6">
       <div className="bg-bg-card border border-white/10 rounded-xl p-5">
-        <h3 className="text-sm font-semibold text-text-1 mb-1">Favori Sporlar</h3>
-        <p className="text-xs text-text-3 mb-4">Seçilen sporlar sidebar'da en üstte gösterilir</p>
+        <h3 className="text-sm font-semibold text-text-1 mb-1">{t('settings.favoriteSports')}</h3>
+        <p className="text-xs text-text-3 mb-4">{t('settings.favoriteSportsHint')}</p>
         <div className="flex flex-wrap gap-2">
           {SPORTS.map(s => (
             <button key={s.id} onClick={() => toggleSport(s.id)}
@@ -150,14 +164,14 @@ function TabGorunum() {
                   ? 'bg-primary/20 border-primary text-primary'
                   : 'bg-bg-base border-white/10 text-text-2 hover:border-white/30'
               }`}>
-              {s.icon} {s.label}
+              {s.icon} {t(`sports.name.${s.id}`)}
             </button>
           ))}
         </div>
       </div>
 
       <div className="bg-bg-card border border-white/10 rounded-xl p-5">
-        <h3 className="text-sm font-semibold text-text-1 mb-4">Tema Rengi</h3>
+        <h3 className="text-sm font-semibold text-text-1 mb-4">{t('settings.themeColor')}</h3>
         <div className="flex gap-3">
           {Object.entries(ACCENT_COLORS).map(([name, c]) => (
             <button key={name} onClick={() => updatePreference('accentColor', name)}
@@ -165,16 +179,16 @@ function TabGorunum() {
                 preferences.accentColor === name ? 'border-white scale-105' : 'border-transparent hover:border-white/30'
               }`}
               style={{ backgroundColor: c.primary + '33', color: c.primary }}>
-              {name === 'cyan' ? 'Cyan' : name === 'purple' ? 'Mor' : name === 'green' ? 'Yeşil' : 'Turuncu'}
+              {t(accentNameKey[name] || 'settings.accent.cyan')}
             </button>
           ))}
         </div>
       </div>
 
       <div className="bg-bg-card border border-white/10 rounded-xl p-5">
-        <h3 className="text-sm font-semibold text-text-1 mb-4">Oran Formatı</h3>
+        <h3 className="text-sm font-semibold text-text-1 mb-4">{t('settings.oddsFormatTitle')}</h3>
         <div className="flex gap-2">
-          {[['decimal','Ondalık (2.50)'],['fractional','Kesirli (3/2)'],['american','Amerikan (+150)']].map(([v,l]) => (
+          {oddsFormats.map(([v,l]) => (
             <button key={v} onClick={() => updatePreference('oddsFormat', v)}
               className={`flex-1 py-2.5 rounded-lg text-sm font-medium border transition-all ${
                 preferences.oddsFormat === v
@@ -186,9 +200,9 @@ function TabGorunum() {
       </div>
 
       <div className="bg-bg-card border border-white/10 rounded-xl p-5">
-        <h3 className="text-sm font-semibold text-text-1 mb-4">Dil</h3>
+        <h3 className="text-sm font-semibold text-text-1 mb-4">{t('settings.languageTitle')}</h3>
         <div className="flex gap-2">
-          {[['tr','🇹🇷 Türkçe'],['en','🇬🇧 English']].map(([v,l]) => (
+          {languages.map(([v,l]) => (
             <button key={v} onClick={() => updatePreference('language', v)}
               className={`flex-1 py-2.5 rounded-lg text-sm font-medium border transition-all ${
                 preferences.language === v
@@ -201,28 +215,31 @@ function TabGorunum() {
 
       <button onClick={onSave} disabled={!isDirty}
         className="w-full py-3 bg-primary text-bg-deep font-bold rounded-xl hover:opacity-90 transition disabled:opacity-40 disabled:cursor-not-allowed">
-        {isDirty ? 'Kaydet' : 'Kaydedildi ✓'}
+        {isDirty ? t('common.save') : `${t('settings.saved')} ✓`}
       </button>
     </div>
   );
 }
 
 function TabBildirimler() {
+  const { t } = useTranslation();
   const { preferences, updatePreference, isDirty, save } = useSettingsStore();
   const addToast = useToastStore(s => s.add);
 
   const onSave = async () => {
-    try { await save(); addToast('Tercihler kaydedildi', 'success'); }
-    catch { addToast('Kaydetme hatası', 'error'); }
+    try { await save(); addToast(t('settings.preferencesSaved'), 'success'); }
+    catch { addToast(t('settings.saveError'), 'error'); }
   };
+
+  const toggles = [
+    ['notifyLive', t('settings.notifyLiveTitle'), t('settings.notifyLiveDesc')],
+    ['notifyOddsChange', t('settings.notifyOddsTitle'), t('settings.notifyOddsDesc')],
+  ];
 
   return (
     <div className="space-y-6">
       <div className="bg-bg-card border border-white/10 rounded-xl p-5 space-y-5">
-        {[
-          ['notifyLive', 'Canlı Maç Bildirimleri', 'Maç canlıya geçtiğinde in-app bildirim'],
-          ['notifyOddsChange', 'Oran Değişimi', 'Favori sporlarınızdaki maçlarda oran değişince bildir'],
-        ].map(([key, title, desc]) => (
+        {toggles.map(([key, title, desc]) => (
           <div key={key} className="flex items-center justify-between">
             <div>
               <div className="text-sm font-semibold text-text-1">{title}</div>
@@ -234,8 +251,8 @@ function TabBildirimler() {
       </div>
 
       <div className="bg-bg-card border border-white/10 rounded-xl p-5">
-        <h3 className="text-sm font-semibold text-text-1 mb-1">Varsayılan Bahis Miktarı</h3>
-        <p className="text-xs text-text-3 mb-3">Bahis kuponu açıldığında otomatik doldurulur</p>
+        <h3 className="text-sm font-semibold text-text-1 mb-1">{t('settings.defaultStakeTitle')}</h3>
+        <p className="text-xs text-text-3 mb-3">{t('settings.defaultStakeHint')}</p>
         <div className="flex items-center gap-3">
           <input type="number" min="1" value={preferences.defaultStake}
             onChange={e => updatePreference('defaultStake', +e.target.value)}
@@ -246,34 +263,35 @@ function TabBildirimler() {
 
       <button onClick={onSave} disabled={!isDirty}
         className="w-full py-3 bg-primary text-bg-deep font-bold rounded-xl hover:opacity-90 transition disabled:opacity-40 disabled:cursor-not-allowed">
-        {isDirty ? 'Kaydet' : 'Kaydedildi ✓'}
+        {isDirty ? t('common.save') : `${t('settings.saved')} ✓`}
       </button>
     </div>
   );
 }
 
-const TABS = [
-  { id: 'hesap',        label: '👤 Hesap' },
-  { id: 'gorunum',      label: '🎨 Görünüm' },
-  { id: 'bildirimler',  label: '🔔 Bildirimler' },
-];
-
 export default function Settings() {
+  const { t } = useTranslation();
   const [tab, setTab] = useState('hesap');
   const { load } = useSettingsStore();
 
   useEffect(() => { load(); }, []);
 
+  const TABS = [
+    { id: 'hesap',        label: `👤 ${t('settings.tabAccount')}` },
+    { id: 'gorunum',      label: `🎨 ${t('settings.tabAppearance')}` },
+    { id: 'bildirimler',  label: `🔔 ${t('settings.tabNotifications')}` },
+  ];
+
   return (
     <div className="max-w-2xl mx-auto px-4 py-6">
-      <h1 className="text-2xl font-black text-text-1 mb-6">Ayarlar</h1>
+      <h1 className="text-2xl font-black text-text-1 mb-6">{t('settings.title')}</h1>
       <div className="flex gap-1 mb-6 bg-bg-card border border-white/10 rounded-xl p-1">
-        {TABS.map(t => (
-          <button key={t.id} onClick={() => setTab(t.id)}
+        {TABS.map(tb => (
+          <button key={tb.id} onClick={() => setTab(tb.id)}
             className={`flex-1 py-2 rounded-lg text-sm font-medium transition-all ${
-              tab === t.id ? 'bg-accent text-white shadow' : 'text-text-2 hover:text-text-1'
+              tab === tb.id ? 'bg-accent text-white shadow' : 'text-text-2 hover:text-text-1'
             }`}>
-            {t.label}
+            {tb.label}
           </button>
         ))}
       </div>
