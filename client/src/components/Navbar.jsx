@@ -1,8 +1,10 @@
 import { useState, useRef, useEffect } from 'react';
 import { Link, NavLink, useNavigate } from 'react-router-dom';
 import { useAuthStore } from '../store/authStore';
+import { useBrandingStore } from '../store/brandingStore';
 export default function Navbar() {
   const { user, logout } = useAuthStore();
+  const { siteName, logo } = useBrandingStore();
   const navigate = useNavigate();
   const [open, setOpen] = useState(false);
   const ref = useRef(null);
@@ -28,7 +30,11 @@ export default function Navbar() {
     <nav className="sticky top-0 z-40 bg-bg-base/80 backdrop-blur border-b border-white/10">
       <div className="max-w-7xl mx-auto px-4 h-14 flex items-center justify-between gap-4">
         <Link to="/" className="flex items-center gap-2 font-bold text-lg text-text-1 shrink-0">
-          <span className="text-2xl">💎</span> VIP90.bet
+          {logo ? (
+            <img src={logo} alt={siteName || 'Logo'} className="h-8 w-auto object-contain" />
+          ) : (
+            <><span className="text-2xl">💎</span> {siteName || 'VIP90.bet'}</>
+          )}
         </Link>
         <div className="hidden lg:flex items-center gap-1 flex-1 overflow-x-auto">
           <NavLink to="/bahis" end className={({isActive}) => `px-3 py-1.5 rounded-lg text-sm hover:text-text-1 hover:bg-bg-hover transition whitespace-nowrap ${isActive ? 'text-text-1 bg-bg-hover' : 'text-text-2'}`}>⚽ Bahis</NavLink>

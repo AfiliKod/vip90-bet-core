@@ -33,6 +33,9 @@ import { createModuleGate } from './middleware/moduleGate.js';
 import { isModuleUsable } from './services/licensing/index.js';
 import ticketRoutes from './routes/ticket.js';
 import installRoutes from './routes/install.js';
+import brandingRoutes from './routes/branding.js';
+import pagesRoutes from './routes/pages.js';
+import gamesRoutes from './routes/games.js';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const isProd = process.env.NODE_ENV === 'production';
@@ -105,6 +108,12 @@ export function createApp() {
 
   app.use(cors(corsOptions));
   app.use(compression({ level: 6, threshold: 1024 })); // Phase E2
+  // A3 — logo/favicon/font dosyaları data: URL olarak JSON gövdede taşınır,
+  // global 10kb sınırına sığmaz. Yalnızca bu yol için önce (daha büyük
+  // limitli) bir parser çalıştırılır; body-parser zaten parse edilmiş
+  // gövdeyi tekrar okumadığı için aşağıdaki global express.json bu istekler
+  // için no-op olur — global limit diğer tüm uçlarda 10kb olarak kalır.
+  app.use('/api/admin/branding', express.json({ limit: '1mb' }));
   app.use(express.json({ limit: '10kb' })); // Phase B3
   app.use(express.urlencoded({ extended: false, limit: '10kb' }));
   app.use(mongoSanitize()); // Phase B12
@@ -144,6 +153,9 @@ export function createApp() {
   app.use('/api/admin/analytics', analyticsRoutes);
   app.use('/api/auth/2fa', admin2faRoutes);
   app.use('/api/theme', themeRoutes);
+  app.use('/api/branding', brandingRoutes);
+  app.use('/api/pages', pagesRoutes);
+  app.use('/api/games', gamesRoutes);
 
   // M4 — modül kapalıyken zarif bozulma: ilgili bölümler 404 yerine anlamlı
   // 503 (MODULE_DISABLED) döner; site geri kalanında hatasız çalışır.

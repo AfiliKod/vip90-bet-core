@@ -2,7 +2,7 @@ import { Router } from 'express';
 import { requireAuth, requireAdmin } from '../middleware/auth.js';
 import { auditLog } from '../middleware/audit.js';
 import { validate } from '../middleware/validate.js';
-import { createEventSchema, settleEventSchema, createUserSchema, updateBalanceSchema } from '../validators/admin.js';
+import { createEventSchema, settleEventSchema, createUserSchema, updateBalanceSchema, updateThemeSchema, updateBrandingSchema, updateHomeContentSchema, updateFeaturedGamesSchema, applyThemePresetSchema } from '../validators/admin.js';
 import * as ctrl from '../controllers/admin.js';
 import modulesAdminRouter from '../controllers/modules.js';
 
@@ -51,6 +51,26 @@ r.get('/palace/summary',            ctrl.getPalaceSummary);
 r.get('/errors/recent',     ctrl.getRecentErrors);
 r.get('/errors/status',     ctrl.getErrorLogStatus);
 r.post('/errors/clear',     ctrl.clearErrorLog);
+
+// Tema editörü (A2)
+r.get('/theme',   ctrl.getThemeTokens);
+r.patch('/theme', validate(updateThemeSchema), ctrl.updateThemeToken);
+
+// Hazır tema paketleri (A6)
+r.get('/theme/presets',       ctrl.getThemePresets);
+r.post('/theme/apply-preset', validate(applyThemePresetSchema), ctrl.applyThemePreset);
+
+// Marka kimliği: logo, favicon, site adı, font (A3)
+r.get('/branding',   ctrl.getBrandingFields);
+r.patch('/branding', validate(updateBrandingSchema), ctrl.updateBrandingField);
+
+// Sayfa/blok düzenleyici: ana sayfa bölüm sırası + banner'lar (A4)
+r.get('/pages/home',   ctrl.getHomeContentAdmin);
+r.patch('/pages/home', validate(updateHomeContentSchema), ctrl.updateHomeContent);
+
+// Oyun vitrini: öne çıkan oyunlar, sırayla (A5)
+r.get('/games/featured',   ctrl.getFeaturedGamesAdmin);
+r.patch('/games/featured', validate(updateFeaturedGamesSchema), ctrl.updateFeaturedGames);
 
 // Alarm kanalı ayarları
 r.get('/settings/alerts',       ctrl.getAlertSettings);

@@ -14,6 +14,11 @@ import Setting from '../models/Setting.js';
 import { ALERT_KEYS, SECRET_KEYS, maskSecret, getSetting, getSettingSource, invalidateSettings } from '../services/settings.js';
 import { sendAlert } from '../services/alert.js';
 import escapeStringRegexp from 'escape-string-regexp';
+import { setThemeToken as setThemeTokenImpl, listThemeTokens } from '../theme/index.js';
+import { THEME_PRESETS } from '../theme/presets.js';
+import { setBrandingField as setBrandingFieldImpl, listBranding } from '../branding/index.js';
+import { setHomeContent as setHomeContentImpl, getHomeContent } from '../pages/index.js';
+import { setFeaturedGameCodes as setFeaturedGameCodesImpl, getFeaturedGameCodes } from '../games/index.js';
 
 // Phase B13 — ReDoS protection
 function safeRegex(input, maxLength = 100) {
@@ -38,7 +43,6 @@ export async function getUsers(req, res, next) {
     if (status === 'active')    { filter.isActive = true;  filter.deletedAt = null; }
     if (status === 'suspended') { filter.isActive = false; filter.deletedAt = null; }
     if (status === 'deleted')   { filter.deletedAt = { $ne: null }; }
-
     const [users, total] = await Promise.all([
       User.find(filter)
         .select('-password')
@@ -177,6 +181,140 @@ export async function getUserTransactions(req, res, next) {
     res.json({ transactions });
   } catch(e) { next(e); }
 }
+
+/** Tema editörü (A2). Görüntülenen liste — tanım + güncel değer + kaynak (db/default). */
+export async function getThemeTokens(req, res, next) {
+  try {
+    const tokens = await listThemeTokens();
+    res.json({ tokens });
+  } catch (e) {
+    next(e);
+  }
+}
+
+/**
+ * `setThemeToken` enjekte edilebilir — `theme/registry.js`/`modules/registry.js`
+ * ile aynı DI deseni. Üretimde aşağıdaki `updateThemeToken` gerçek
+ * implementasyonla önceden bağlanmış halde dışa aktarılır; testler kendi
+ * sahte fonksiyonunu geçirir, ES module namespace'ini monkey-patch etmeye
+ * gerek kalmaz.
+ */
+export function createUpdateThemeToken({ setThemeToken = setThemeTokenImpl } = {}) {
+  return async function updateThemeToken(req, res, next) {
+    try {
+      const { id, value } = req.validated;
+      await setThemeToken(id, value, req.user.id);
+      res.json({ ok: true });
+    } catch (e) {
+      next(e);
+    }
+  };
+}
+
+export const updateThemeToken = createUpdateThemeToken();
+
+/** Hazır tema paketleri (A6). Liste — client swatch'ları doğrudan buradan render eder. */
+export async function getThemePresets(req, res, next) {
+  try {
+    res.json({ presets: THEME_PRESETS });
+  } catch (e) {
+    next(e);
+  }
+}
+
+/**
+ * DI: bkz. createUpdateThemeToken üzerindeki not — aynı desen. Paketteki
+ * her token'ı tek tek `setThemeToken` ile yazar; kısmi/başarısız bir
+ * uygulama sonucu next(err) ile yukarı bildirilir (sessizce yarım kalmaz).
+ */
+export function createApplyThemePreset({ setThemeToken = setThemeTokenImpl } = {}) {
+  return async function applyThemePreset(req, res, next) {
+    try {
+      const preset = THEME_PRESETS.find(p => p.id === req.validated.id);
+      for (const [tokenId, value] of Object.entries(preset.tokens)) {
+        await setThemeToken(tokenId, value, req.user.id);
+      }
+      res.json({ ok: true });
+    } catch (e) {
+      next(e);
+    }
+  };
+}
+
+export const applyThemePreset = createApplyThemePreset();
+
+/** Marka kimliği editörü (A3). Liste — tanım + güncel değer + kaynağı (db/default). */
+export async function getBrandingFields(req, res, next) {
+  try {
+    const fields = await listBranding();
+    res.json({ fields });
+  } catch (e) {
+    next(e);
+  }
+}
+
+/** DI: bkz. createUpdateThemeToken üzerindeki not — aynı desen. */
+export function createUpdateBrandingField({ setBrandingField = setBrandingFieldImpl } = {}) {
+  return async function updateBrandingField(req, res, next) {
+    try {
+      const { id, value } = req.validated;
+      await setBrandingField(id, value, req.user.id);
+      res.json({ ok: true });
+    } catch (e) {
+      next(e);
+    }
+  };
+}
+
+export const updateBrandingField = createUpdateBrandingField();
+
+/** Sayfa/blok düzenleyici (A4). Ana sayfa bölüm sırası + banner override'ları. */
+export async function getHomeContentAdmin(req, res, next) {
+  try {
+    const content = await getHomeContent();
+    res.json({ content });
+  } catch (e) {
+    next(e);
+  }
+}
+
+/** DI: bkz. createUpdateThemeToken üzerindeki not — aynı desen. */
+export function createUpdateHomeContent({ setHomeContent = setHomeContentImpl } = {}) {
+  return async function updateHomeContent(req, res, next) {
+    try {
+      await setHomeContent(req.validated, req.user.id);
+      res.json({ ok: true });
+    } catch (e) {
+      next(e);
+    }
+  };
+}
+
+export const updateHomeContent = createUpdateHomeContent();
+
+/** Oyun vitrini (A5). Öne çıkan oyun kodları, sırayla. */
+export async function getFeaturedGamesAdmin(req, res, next) {
+  try {
+    const codes = await getFeaturedGameCodes();
+    res.json({ codes });
+  } catch (e) {
+    next(e);
+  }
+}
+
+/** DI: bkz. createUpdateThemeToken üzerindeki not — aynı desen. */
+export function createUpdateFeaturedGames({ setFeaturedGameCodes = setFeaturedGameCodesImpl } = {}) {
+  return async function updateFeaturedGames(req, res, next) {
+    try {
+      await setFeaturedGameCodes(req.validated.codes, req.user.id);
+      res.json({ ok: true });
+    } catch (e) {
+      next(e);
+    }
+  };
+}
+
+export const updateFeaturedGames = createUpdateFeaturedGames();
 
 export async function getArchivedEvents(req, res, next) {
   try {
