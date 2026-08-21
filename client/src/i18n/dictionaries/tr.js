@@ -20,8 +20,10 @@ export default {
   'common.languageSwitcher.label': 'Dil',
   'common.loading': 'Yükleniyor...',
   'common.error': 'Hata oluştu',
+  'common.errorTitle': 'Hata',
   'common.success': 'Başarılı',
   'common.warning': 'Uyarı',
+  'common.sessionExpired': 'Oturumunuz sona erdi, lütfen tekrar giriş yapın.',
   'common.copy': 'Kopyala',
   'common.copied': '✓ Kopyalandı',
   'common.info': 'Bilgi',
@@ -474,4 +476,34 @@ export default {
   'ui.tooltip.profile': 'Profil',
   'ui.tooltip.settings': 'Ayarlar',
   'ui.tooltip.logout': 'Çıkış Yap',
+
+  // Bets (MyBets sayfası)
+  'bets.myBets': 'Bahislerim',
+  'bets.all': 'Tümü',
+  'bets.pending': 'Bekliyor',
+  'bets.won': 'Kazandı',
+  'bets.lost': 'Kaybetti',
+  'bets.cancelled': 'İptal',
+  'bets.pendingPlural': 'Bekleyenler',
+  'bets.wonPlural': 'Kazananlar',
+  'bets.lostPlural': 'Kaybedenler',
+  'bets.combo': 'Kombine',
+  'bets.single': 'Tekli',
+  'bets.stake': 'Tutar',
+  'bets.potentialWin': 'Kazanılabilir',
+  'bets.noneFound': 'Bahis bulunamadı',
+
+  // Games (ortak oyun kontrolleri)
+  'games.stopAuto': 'Otomatiği durdur',
+  'games.autoBet': 'Otomatik bahis',
+
+  // Verify Email
+  'verifyEmail.title': 'Email Doğrulama',
+  'verifyEmail.verifying': 'Doğrulanıyor...',
+  'verifyEmail.success': 'Email adresiniz doğrulandı. Artık giriş yapabilirsiniz.',
+  'verifyEmail.backToLogin': 'Girişe Dön',
+  'verifyEmail.invalidOrExpired': 'Doğrulama linki geçersiz veya süresi dolmuş.',
+  'verifyEmail.resendSent': 'Yeni bir doğrulama maili gönderildiyse, gelen kutunuzu kontrol edin.',
+  'verifyEmail.emailPlaceholder': 'E-posta adresiniz',
+  'verifyEmail.sendVerificationEmail': 'Doğrulama Maili Gönder',
 };

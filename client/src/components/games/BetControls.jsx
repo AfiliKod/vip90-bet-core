@@ -1,4 +1,5 @@
 import { useState, useRef, useEffect } from 'react';
+import { useTranslation } from '../../i18n';
 
 function smartStep(n) {
   if (n < 10)   return 1;
@@ -33,6 +34,7 @@ function StopIcon() {
 //   balance              — optional number; shows balance bar at top
 //   lastResult           — optional { net: number }; shows last round result
 export default function BetControls({ value, onChange, disabled, presets, onAuto, autoActive, potWin, balance, lastResult }) {
+  const { t } = useTranslation();
   const [open, setOpen]   = useState(false);
   const inputRef          = useRef(null);
   const wrapRef           = useRef(null);
@@ -124,7 +126,7 @@ export default function BetControls({ value, onChange, disabled, presets, onAuto
         {onAuto && (
           <button type="button" onClick={onAuto}
             disabled={disabled && !autoActive}
-            title={autoActive ? 'Otomatiği durdur' : 'Otomatik bahis'}
+            title={autoActive ? t('games.stopAuto') : t('games.autoBet')}
             className={`w-11 h-11 shrink-0 rounded-xl border transition touch-manipulation disabled:opacity-40 flex items-center justify-center
               ${autoActive
                 ? 'bg-red-500/15 border-red-500/40 text-red-400'

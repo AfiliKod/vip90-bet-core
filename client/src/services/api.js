@@ -1,6 +1,19 @@
 import axios from 'axios';
 import { useToastStore } from '../store/toastStore';
 import { coordinatedRefresh } from './refreshCoordinator';
+import { createI18nCore, dictionaries, DEFAULT_LOCALE } from '../i18n';
+
+// React dışı (axios interceptor) bağlamda çeviri — useTranslation() burada
+// kullanılamaz, I18nProvider'ın kullandığı aynı locale okuma mantığını
+// (localStorage) tekrarlayan hafif bir yardımcı.
+function tOutsideReact(key) {
+  let locale = DEFAULT_LOCALE;
+  try {
+    const stored = localStorage.getItem('locale');
+    if (stored && dictionaries[stored]) locale = stored;
+  } catch { /* localStorage yoksa varsayılan dille devam */ }
+  return createI18nCore({ dictionaries, defaultLocale: locale, fallbackLocale: DEFAULT_LOCALE }).t(key);
+}
 
 const api = axios.create({
   baseURL: '/api',
@@ -50,7 +63,7 @@ api.interceptors.response.use(
           useAuthStore.getState().clearAuth();
         } catch { /* store yüklenememişse hard-reload zaten toparlar */ }
         if (hadToken && window.location.pathname !== '/login') {
-          useToastStore.getState().add('Oturumunuz sona erdi, lütfen tekrar giriş yapın.', 'error');
+          useToastStore.getState().add(tOutsideReact('common.sessionExpired'), 'error');
           setTimeout(() => { window.location.href = '/login'; }, 1500);
         }
       }

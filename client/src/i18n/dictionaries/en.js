@@ -20,8 +20,10 @@ export default {
   'common.languageSwitcher.label': 'Language',
   'common.loading': 'Loading...',
   'common.error': 'An error occurred',
+  'common.errorTitle': 'Error',
   'common.success': 'Success',
   'common.warning': 'Warning',
+  'common.sessionExpired': 'Your session has expired, please log in again.',
   'common.copy': 'Copy',
   'common.copied': '✓ Copied',
   'common.info': 'Info',
@@ -506,4 +508,34 @@ export default {
 
   // ScrollToTop
   'scrollToTop.label': 'Scroll to top',
+
+  // Bets (MyBets page)
+  'bets.myBets': 'My Bets',
+  'bets.all': 'All',
+  'bets.pending': 'Pending',
+  'bets.won': 'Won',
+  'bets.lost': 'Lost',
+  'bets.cancelled': 'Cancelled',
+  'bets.pendingPlural': 'Pending',
+  'bets.wonPlural': 'Won',
+  'bets.lostPlural': 'Lost',
+  'bets.combo': 'Combo',
+  'bets.single': 'Single',
+  'bets.stake': 'Stake',
+  'bets.potentialWin': 'Potential Win',
+  'bets.noneFound': 'No bets found',
+
+  // Games (shared game controls)
+  'games.stopAuto': 'Stop auto',
+  'games.autoBet': 'Auto bet',
+
+  // Verify Email
+  'verifyEmail.title': 'Email Verification',
+  'verifyEmail.verifying': 'Verifying...',
+  'verifyEmail.success': 'Your email has been verified. You can now log in.',
+  'verifyEmail.backToLogin': 'Back to Login',
+  'verifyEmail.invalidOrExpired': 'Verification link is invalid or expired.',
+  'verifyEmail.resendSent': 'If a new verification email was sent, check your inbox.',
+  'verifyEmail.emailPlaceholder': 'Your email address',
+  'verifyEmail.sendVerificationEmail': 'Send Verification Email',
 };
