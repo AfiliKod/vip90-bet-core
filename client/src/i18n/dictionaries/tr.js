@@ -668,4 +668,36 @@ export default {
   // LiveHelp
   'livehelp.online': 'Çevrimiçi',
   'livehelp.disclaimer': 'Yanıtlar otomatik asistan tarafından üretilir, hatalı olabilir.',
+
+  // Casino (CasinoRedesign.jsx)
+  'casino.categories.all': 'Tüm Oyunlar',
+  'casino.categories.providers': 'Tüm Providerlar',
+  'casino.categories.popular': 'Popüler Oyunlar',
+  'casino.categories.new': 'Yeni Çıkanlar',
+  'casino.categories.slots': 'Slot Oyunlar',
+  'casino.categories.inhouse': 'Özel Oyunlar',
+  'casino.inhouseGames': 'In-House Oyunlar',
+  'casino.resultsCount': '{count} sonuç',
+  'casino.exclusive': 'Özel',
+  'casino.showMore': 'Daha Fazla Göster ({count})',
+  'casino.searchPlaceholder': 'Oyun veya sağlayıcı ara...',
+  'casino.ctaTitle': 'VIP90.bet Casino ile Kazanmaya Başla',
+  'casino.ctaSubtitle': 'Yüzlerce oyun, en büyük jackpotlar ve benzersiz in-house deneyim. Hemen katıl, kazanmaya başla.',
+  'casino.exploreAllGames': 'Tüm Oyunları Keşfet',
+  'common.scrollUp': 'Yukarı çık',
+
+  // Oyun kart açıklamaları (CasinoRedesign grid — mevcut games.*.subtitle'dan farklı, orijinal metin korundu)
+  'games.crash.cardDesc': 'Katsayı uçmadan önce çık',
+  'games.mines.cardDesc': 'Mayınları bul, elmasları topla',
+  'games.plinko.cardDesc': 'Topu bırak, kazancı yakala',
+  'games.dice.cardDesc': 'Zarı at, çarpanını seç',
+  'games.limbo.cardDesc': 'Hedef katsayıyı geç',
+  'games.wheel.cardDesc': 'Çarkı çevir, talihi dene',
+  'games.hilo.cardDesc': 'Yüksek mi düşük mü tahmin et',
+  'games.keno.cardDesc': '10 sayı seç, büyük kazan',
+  'games.blackjack.cardDesc': "21'e ulaş, krupiyeyi yen",
+  'games.roulette.cardDesc': 'Topu döndür, şansını dene',
+  'games.baccarat.cardDesc': 'Oyuncu mu banker mi kazanır',
+  'games.videopoker.cardDesc': 'Jacks or Better poker',
+  'games.dragontiger.cardDesc': 'Dragon mı Tiger mı?',
 };
