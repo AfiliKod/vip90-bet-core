@@ -1,6 +1,7 @@
 import jwt from 'jsonwebtoken';
 import { startStream, handleInput, stopStream, spinGame } from '../services/streamService.js';
 import { subscribeToGameStream, unsubscribeFromGameStream, initializeGameStream } from '../services/liveGameStream.js';
+import { initChatSocket } from '../services/chat.js';
 
 export function initSocket(io) {
   // Ana namespace — mevcut event/user subscription'ları
@@ -79,6 +80,9 @@ export function initSocket(io) {
       // Cleanup handled by subscribe/unsubscribe
     });
   });
+
+  // /chat namespace — Sohbet, yağmur, bahşiş
+  initChatSocket(io);
 
   // Initialize default game streams
   initializeGameStream('inhouse-crash');
