@@ -25,10 +25,12 @@ operatörün günlük işi).
 | `ADMIN_ALLOWED_IPS` | Hayır | Admin paneline IP kısıtlaması, virgülle ayrılmış liste |
 | `DISABLE_TURNSTILE` | Hayır | `true` ise Turnstile kontrolü atlanır (geliştirme için) |
 | `LEGAL_VERSION` | Hayır | Kullanım şartları sürüm etiketi, kayıt formunda gösterilir |
+| `ODDS_PROVIDER` | Hayır (varsayılan `oddsSource`) | Aktif odds sağlayıcısını seçer — `theoddsapi` yapılırsa lisanslı The Odds API'ye geçilir |
+| `ODDS_API_KEY` / `ODDS_API_SPORT` | `ODDS_PROVIDER=theoddsapi` ise zorunlu | The Odds API erişim anahtarı ve spor kodu (bkz. [05 — API Referansı](05-api-referansi.md)) |
 
-`.env.example`'daki `ODDS_API_KEY` **kullanılmayan, kaldırılması gereken
-bir kalıntıdır** — kodda hiçbir yerde okunmuyor, dosyada kafa
-karıştırmasın diye burada not düşülüyor.
+> Düzeltme notu: bu belgenin önceki sürümü `ODDS_API_KEY`'i kullanılmayan
+> bir kalıntı olarak işaretlemişti — o zaman doğruydu, artık değil.
+> T2 kartıyla birlikte gerçek bir sağlayıcıya (The Odds API) bağlandı.
 
 ## Panelden yönetilen ayarlar
 

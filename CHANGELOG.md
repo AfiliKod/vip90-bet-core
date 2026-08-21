@@ -12,6 +12,24 @@ Madde formatı ve kategoriler için `docs/CHANGELOG_GUIDE.md`'ye bakın —
 
 ## [Yayınlanmadı]
 
+### T2 — Lisanslı feed sağlayıcısı, ilk gerçek adaptör
+- `services/oddsProviders/theOddsApiProvider.js`: The Odds API adaptörü,
+  T1'deki oddsSource adaptörüyle aynı sözleşmeye (NormalizedEvent) uyuyor.
+  Sağlayıcı canlı/yaklaşan ayrımını ayrı uçlarla vermediği için
+  `commence_time`'a göre sınıflandırma yapılıyor (basitleştirilmiş
+  sezgisel — kesin dakika-bazlı canlı skor bu sağlayıcıdan gelmiyor,
+  oddsSource'in nodeupd akışının aksine).
+- `oddsProviders/index.js`: kayıt defterine eklendi.
+  `ODDS_PROVIDER=theoddsapi` ile aktif hale geliyor — kaynağı
+  değiştirmek env değiştirmekten ibaret, sync job'ı hiç değişmiyor
+  (T1'in kurduğu ayrışmanın kanıtı).
+- `ODDS_API_KEY` artık gerçekten kullanılıyor — önceki sürümde
+  "kullanılmayan kalıntı" olarak işaretlenmişti, docs/product/
+  02-yapilandirma.md düzeltildi.
+
+TDD: 9 yeni test, tamamı önce kırmızı. Suite 288/288. (T2)
+
+
 ### D2 — Video kütüphanesi storyboard'ları (kısmi)
 - `docs/product/07-video-storyboardlari.md`: 18 video için sahne-sahne
   storyboard (ekran + anlatım + süre), D2'nin istediği 15-20 aralığında.
