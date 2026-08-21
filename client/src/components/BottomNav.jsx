@@ -1,13 +1,17 @@
 import { NavLink, useLocation } from 'react-router-dom';
+import { useModuleStore } from '../store/moduleStore';
 
 const TABS = [
-  { to: '/bahis',     icon: '⚽', label: 'Bahis',  end: true  },
-  { to: '/canli',     icon: '🔴', label: 'Canlı',  end: false },
-  { to: '/casino',    icon: '🎰', label: 'Casino', end: false },
+  { to: '/bahis',     icon: '⚽', label: 'Bahis',  end: true,  module: 'betting' },
+  { to: '/canli',     icon: '🔴', label: 'Canlı',  end: false, module: 'betting' },
+  { to: '/casino',    icon: '🎰', label: 'Casino', end: false, module: 'casino-content' },
 ];
 
 export default function BottomNav() {
   const location = useLocation();
+  const available = useModuleStore(s => s.available);
+  // M4 — kapalı modülün sekmesi menüde görünmez (undefined = bilinmiyor → göster)
+  const visibleTabs = TABS.filter(t => available[t.module] !== false);
   if (location.pathname.startsWith('/games/') || /^\/casino(-v2)?\/[^/]+/.test(location.pathname)) return null;
 
   return (
@@ -19,7 +23,7 @@ export default function BottomNav() {
         boxShadow: '0 -8px 24px rgba(0,0,0,0.4), 0 -1px 0 #00d4ff22 inset',
       }}
     >
-      {TABS.map(tab => (
+      {visibleTabs.map(tab => (
         <NavLink
           key={tab.to}
           to={tab.to}

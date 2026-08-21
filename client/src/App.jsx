@@ -3,6 +3,8 @@ import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { useAuthStore } from './store/authStore';
 import { useToastStore } from './store/toastStore';
 import { useBetNotificationStore } from './store/betNotificationStore';
+import { useModuleStore } from './store/moduleStore';
+import ModuleGate from './components/ModuleGate';
 import { socket } from './services/socket';
 import ProtectedRoute from './components/ProtectedRoute';
 import { I18nProvider } from './i18n/I18nProvider.jsx';
@@ -30,6 +32,7 @@ const AdminCasinoStats = lazy(() => import('./pages/admin/CasinoStats'));
 const AdminBankRequests = lazy(() => import('./pages/admin/BankRequests'));
 const AdminAnalytics = lazy(() => import('./pages/admin/Analytics'));
 const AdminPalace = lazy(() => import('./pages/admin/Palace'));
+const AdminModules = lazy(() => import('./pages/admin/Modules'));
 const AdminSettings = lazy(() => import('./pages/admin/Settings'));
 const CasinoRedesign = lazy(() => import('./pages/CasinoRedesign'));
 const PalaceGame = lazy(() => import('./pages/PalaceGame'));
@@ -74,8 +77,10 @@ export default function App() {
   const { init } = useAuthStore();
   const addToast = useToastStore(s => s.add);
   const incrementUnread = useBetNotificationStore(s => s.increment);
+  const fetchModules = useModuleStore(s => s.fetch);
 
   useEffect(() => { init(); }, []);
+  useEffect(() => { fetchModules(); }, [fetchModules]);
 
   useEffect(() => {
     function onBalanceUpdate({ balance }) {
@@ -110,10 +115,10 @@ export default function App() {
       <Routes>
         <Route path="/login" element={<GuestRoute><Suspense fallback={<PageLoader />}><Login /></Suspense></GuestRoute>} />
         <Route path="/" element={<Layout><Suspense fallback={<PageLoader />}><HomePage /></Suspense></Layout>} />
-        <Route path="/bahis" element={<Layout><Suspense fallback={<PageLoader />}><Bahis /></Suspense></Layout>} />
-        <Route path="/canli" element={<Layout><Suspense fallback={<PageLoader />}><Live /></Suspense></Layout>} />
-        <Route path="/events/:id" element={<Layout><Suspense fallback={<PageLoader />}><EventDetail /></Suspense></Layout>} />
-        <Route path="/casino" element={<Layout><Suspense fallback={<PageLoader />}><CasinoRedesign /></Suspense></Layout>} />
+        <Route path="/bahis" element={<Layout><ModuleGate module="betting"><Suspense fallback={<PageLoader />}><Bahis /></Suspense></ModuleGate></Layout>} />
+        <Route path="/canli" element={<Layout><ModuleGate module="betting"><Suspense fallback={<PageLoader />}><Live /></Suspense></ModuleGate></Layout>} />
+        <Route path="/events/:id" element={<Layout><ModuleGate module="betting"><Suspense fallback={<PageLoader />}><EventDetail /></Suspense></ModuleGate></Layout>} />
+        <Route path="/casino" element={<Layout><ModuleGate module="casino-content"><Suspense fallback={<PageLoader />}><CasinoRedesign /></Suspense></ModuleGate></Layout>} />
         <Route path="/palace/:gameId" element={<ProtectedRoute><Suspense fallback={<PageLoader />}><PalaceGame /></Suspense></ProtectedRoute>} />
         <Route path="/games/crash" element={<ProtectedRoute><Suspense fallback={<PageLoader />}><Crash /></Suspense></ProtectedRoute>} />
         <Route path="/games/mines" element={<ProtectedRoute><Suspense fallback={<PageLoader />}><Mines /></Suspense></ProtectedRoute>} />
@@ -141,6 +146,7 @@ export default function App() {
         <Route path="/admin/bank" element={<ProtectedRoute adminOnly><Suspense fallback={<PageLoader />}><AdminBankRequests /></Suspense></ProtectedRoute>} />
         <Route path="/admin/analytics" element={<ProtectedRoute adminOnly><Suspense fallback={<PageLoader />}><AdminAnalytics /></Suspense></ProtectedRoute>} />
         <Route path="/admin/settings" element={<ProtectedRoute adminOnly><Suspense fallback={<PageLoader />}><AdminSettings /></Suspense></ProtectedRoute>} />
+        <Route path="/admin/modules" element={<ProtectedRoute adminOnly><Suspense fallback={<PageLoader />}><AdminModules /></Suspense></ProtectedRoute>} />
         {/* Legal pages (public) */}
         <Route path="/legal/terms" element={<Suspense fallback={<PageLoader />}><Terms /></Suspense>} />
         <Route path="/legal/privacy" element={<Suspense fallback={<PageLoader />}><Privacy /></Suspense>} />
