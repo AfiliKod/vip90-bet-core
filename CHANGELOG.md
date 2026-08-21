@@ -12,6 +12,19 @@ Madde formatı ve kategoriler için `docs/CHANGELOG_GUIDE.md`'ye bakın —
 
 ## [Yayınlanmadı]
 
+## [0.3.0] — 2026-08-21
+
+Faz 1'in dört paralel akışı (K, M, U, ve büyük ölçüde V) bu sürümde
+toplandı: `feat/akis-k`, `feat/akis-m`, `feat/akis-bc`, `feat/akis-a`,
+`feat/akis-u`, `feat/akis-u4`, `feat/akis-u5`, `feat/akis-v` dallarının
+tümü `feat/integration`'a merge edildi. 52 karttan 48'i `done` —
+kalan üçü (V2 tanıtım görselleri/video, V5 lisanslı aggregator görüşmesi,
+V6 tüzel kişilik/hukuki kurulum) kod dışı iş/hukuk kararları, bu oturumun
+kapsamı dışında; V3 (ürün sayfası metni) kullanıcı onayı bekliyor.
+
+**Bu hâlâ satışa hazır sürüm değildir.** 1.0.0 etiketi, kalan üç kart
+kapanıp ürün fiilen yayına gönderilmeye hazır olduğunda verilecek.
+
 ### T4/T5 — Tamamlama: oddsSource/BGaming demo oyun vitrini tamamen kaldırıldı
 Aşağıdaki T4 (kısmi) ve T5 kritik bulgu maddelerini kapatır. Palace
 casino entegrasyonu (T3) pazara sürülecek üründen çıkarıldığı için,
@@ -108,6 +121,108 @@ değişiklikten sonra hatasız geçti.
 
 TDD: 9 yeni test, tamamı önce kırmızı. Suite 288/288. (T2)
 
+
+### Akış K — Kurulum ve dağıtım (K2–K4 tamamlandı, K1 0.2.0'da)
+- **K2 — Web kurulum sihirbazı** (`installer/`, `POST /install`): terminal
+  açmadan site adı, para birimi ve ilk yönetici hesabı kurulur; sihirbaz
+  üretilen `.env` içeriğini kopyala-yapıştır olarak gösterir. Client
+  build'siz de çalışır (bağımlılıksız statik HTML). Varsayılan parolayla
+  admin hesabı açılmaz.
+- **K4 — Migration koşucusu** (`server/migrations/`, `runner.js`): D9'un
+  bıraktığı `applyMigration({version, manifest})` enjeksiyon noktasına
+  bağlanır; semver-sıralı ve idempotent çalışır, patlayan migration
+  işaretlenmez — retry kaldığı yerden devam eder.
+- **K3 — Sağlık kontrolü ve ilk çalıştırma tohumlaması** (`server/src/
+  health/`): `checks.js` Docker healthcheck/izleme ile uyumlu 0/1 çıkış
+  kodu döner; `seed.js` idempotent — mevcut ayarların üzerine yazmaz.
+- `docker-compose.yml` + `deploy/Caddyfile` + `.env.docker.example`
+  (K1, 0.2.0'da): sabit `tls internal` kullanmaz — Caddy varsayılanı
+  gerçek domainde Let's Encrypt, localhost'ta self-signed sertifika verir.
+  Mongo ve uygulama dış dünyaya port açmaz.
+
+### Akış M — Modül ve lisans altyapısı (M2–M4 tamamlandı, M1 0.2.0'da)
+- **M2 — Abonelik doğrulama servisi** (`services/licensing/`): çevrimdışı
+  toleranslı lisans deposu. `modules/`'tan bilinçli olarak farklı fail
+  yönü — modül kayıt defteri DB'ye erişemeyince fail-CLOSED (hepsi
+  kapalı) davranırken, licensing merkez sunucuya erişemeyince son bilinen
+  geçerli durumu `graceMs` (varsayılan 72 saniye) kadar korur.
+  `LICENSE_SERVER_URL` tanımlı değilse tanımlı modüller geçerli sayılır
+  (kutudan çalışan ürün) — merkezi zorlama yalnızca bir lisans sunucusuna
+  bağlanınca devreye girer.
+- **M3 — Admin modül ekranı** (`GET/PATCH /admin/modules`,
+  `POST /admin/modules/refresh`): aktivasyon durumu + lisans bilgisi
+  birleşik listelenir, panelden aç/kapa ve önbellek tazeleme yapılır.
+  Kendi router'ı olarak mount edilir, `routes/admin.js`'e dokunmaz.
+- **M4 — Modül kapalıyken zarif bozulma**: kapalı modüle bağlı API
+  route'ları artık 404 üretmiyor, anlamlı `503
+  { error: { code: 'MODULE_DISABLED', module } }` (no-store) dönüyor.
+  İstemcide `<ModuleGate>` nazik bir bilgilendirme gösterir, `BottomNav`
+  ilgili sekmeyi gizler. "Kullanılabilir" = panel anahtarı açık VE lisans
+  geçerli (çift kapı). `/api/events` + `/api/bets` → betting modülü,
+  `/api/casino` → casino-content modülü kapsamında; `/api/inhouse`
+  çekirdek platform olduğu için hiçbir zaman gate'lenmez.
+
+### Akış U — Çeviri, para birimi ve biçimlendirme (U2–U5)
+- **U2 — Tam çeviri taşıması**: platformdaki tüm sayfa ve bileşenlerdeki
+  sabit Türkçe metinler `t('...')` anahtarlarına taşındı (oyun sayfaları,
+  admin paneli, profil, bahis kuponu, vb.) — eksik sözlük anahtarı
+  denetimiyle doğrulanmış.
+- **U3 — İngilizce sözlük kalite geçişi**: `en.js`/`tr.js` tam okundu,
+  gerçek yinelenen-anahtar hataları (ör. `profile.bonus` çakışması,
+  `profile.*` bloğunun iki kez tanımlanması) düzeltildi.
+- **U4 — Para birimi soyutlaması** (`server/src/currency/`,
+  `client/src/utils/money.js`): sabit `₺` sembolü kod tabanından
+  kaldırıldı, yerine `formatMoney()` (Intl.NumberFormat tabanlı, aktif
+  para birimini `Setting` koleksiyonundaki `currency.code` anahtarından
+  okur) geçti. `GET /api/currency` herkese açık uçtan istemci aktif para
+  birimini öğrenir.
+- **U5 — Tarih, saat dilimi ve sayı biçimlendirme**
+  (`i18n/useFormatters.jsx`, `services/timezone.js`): operatör saat
+  dilimi ayarı (`general.timezone` Setting anahtarı, varsayılan
+  `Europe/Istanbul`, IANA doğrulamalı) + `Intl`-tabanlı `formatDate`/
+  `formatTime`/`formatDateTime`/`formatNumber`. `GET /api/locale-config`
+  ile istemci render'da operatör bölgesine çevirir; geçersiz tarih/sayı
+  `'—'` döner, throw etmez. 12 dosyadaki ham `toLocaleDateString/
+  TimeString` kullanımları ve hardcoded `'tr-TR'` locale'i temizlendi.
+
+### Kırılan Değişiklikler
+- Kapalı bir modüle (`betting` veya `casino-content`) bağlı API uçları
+  artık 404 yerine `503 { error: { code: 'MODULE_DISABLED' } }` döner —
+  bu uçları doğrudan tüketen entegrasyonlar 404 kontrolü yapıyorsa
+  güncellenmeli.
+- `₺` sembolü artık kod içinde sabit değil; para birimi operatör
+  panelinden (`currency.code` Setting anahtarı) değiştirilebilir.
+  Varsayılan hâlâ TRY, davranış değişmez, ancak sabit metin arayan
+  entegrasyon/test varsa `formatMoney()` çıktısına göre güncellenmeli.
+
+### V1 — Demo ortamı ve sınırlı demo yöneticisi
+- `demo/seedCore.js`: `demo_admin` (role=admin + `isDemoAdmin` bayrağı),
+  3 demo oyuncu, örnek etkinlik ile bahis/casino geçmişi — tümü açıkça
+  sahte (`demo_` öneki, `@demo.local`). İdempotent, ikinci koşuda hiçbir
+  varlık çoğalmaz.
+- `middleware/demoAdmin.js`: demo yönetici hesabı yıkıcı işlemler
+  (kullanıcı silme, bakiye değiştirme, etkinlik sonuçlandırma) yapamaz —
+  403 `DEMO_ADMIN_READONLY`. Bayrak her istekte DB'den taze okunur, yeni
+  bir rol değeri eklemez.
+- `GET /api/demo/showcase`: her vitrin kalemini bağlı modülün lisans
+  durumuna (M4'ün `isModuleUsable` çift kapısı) göre `requiresModule`
+  bayrağıyla döner — kapalı/lisanssız modül rozetle işaretlenir, asla
+  500 dönmez.
+
+### V4 — Satış sitesi (sales-site/)
+- Ayrı, sade Vite+React uygulaması (`sales-site/`): İngilizce pazarlama
+  sayfası — hero, kutu içeriği, modül listesi, "dahil olmayanlar"
+  bölümü, SSS. Tüm içerik `docs/product/*.md` kaynaklı.
+- Sepet + checkout formu **TEST MODU**: gerçek ödeme entegrasyonu ve
+  gerçek anahtar yok (`.env.example`'da `PAYMENT_PROVIDER_KEY=sk_test_...`
+  placeholder'ı). Fiyat alanı katalogda `price:null`; arayüz her yerde
+  "[FİYAT — insan onayı bekliyor]" gösterir, sepet null fiyatta toplam
+  üretmez.
+
+### V3 — ürün sayfası taslağı
+- `docs/marketing/product-page.md`: gerçek pazar
+  listelemeleri (casino/oyun scriptleri kategorisi) okunarak ortak
+  dil/format kavrandıktan sonra yazılan ürün sayfası taslağı.
 
 ### D2 — Video kütüphanesi storyboard'ları (kısmi)
 - `docs/product/07-video-storyboardlari.md`: 18 video için sahne-sahne
