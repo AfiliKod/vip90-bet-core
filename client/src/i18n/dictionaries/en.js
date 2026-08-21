@@ -1035,4 +1035,6 @@ export default {
   'games.videopoker.held': 'HELD',
   'games.videopoker.tap': 'tap',
   'games.videopoker.holdHint': 'Tap the cards you want to hold, then press Draw',
+  'games.blackjack.push': 'Push',
+  'games.blackjack.play': 'Play',
 };

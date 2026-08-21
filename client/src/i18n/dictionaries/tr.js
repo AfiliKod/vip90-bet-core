@@ -1003,4 +1003,6 @@ export default {
   'games.videopoker.held': 'TUTA',
   'games.videopoker.tap': 'dokunun',
   'games.videopoker.holdHint': 'Tutmak istediğiniz kartlara dokunun, sonra Çek butonuna basın',
+  'games.blackjack.push': 'Berabere',
+  'games.blackjack.play': 'Oyna',
 };
