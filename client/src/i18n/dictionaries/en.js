@@ -50,7 +50,6 @@ export default {
   'common.ageRestriction': '18+ Age Restriction',
   'common.required': 'Required field',
   'common.optional': 'Optional',
-  'common.all': 'All',
 
   // Navigation
   'nav.sports': 'Sports',
@@ -121,35 +120,6 @@ export default {
   'nav.bankTransfer': 'Bank Transfer',
   'nav.crypto': 'Crypto (USDT)',
   'nav.legal': 'Legal',
-  // Profile
-  'profile.deposit': 'Deposit',
-  'profile.withdraw': 'Withdraw',
-  'profile.bet': 'Bet',
-  'profile.win': 'Win',
-  'profile.bonus': 'Bonus',
-  'profile.refund': 'Refund',
-  'profile.casinoReturn': 'Casino Return',
-  'profile.bonusConversion': 'Bonus Conversion',
-  'profile.cryptoDeposit': 'Crypto Deposit',
-  'profile.cryptoWithdraw': 'Crypto Withdraw',
-  'profile.usdt': 'USDT',
-  'profile.depositConfirmed': 'deposit confirmed!',
-  'profile.noDepositsYet': 'No deposits yet',
-  'profile.checkFailed': 'Check failed',
-  'profile.loading': 'Loading...',
-  'profile.onlyUSDT': 'Only send <strong>USDT (TRC20 / Tron network)</strong>. Other networks or tokens will be permanently lost.',
-  'profile.trc20Address': 'Your TRC20 Address',
-  'profile.checking': 'Checking...',
-  'profile.checkDeposit': '🔄 Check Deposit',
-  'profile.sendThenCheck': 'After sending, click "Check" button · Min 1 USDT · Tron network ~1 min',
-  'profile.withdrawInfo': 'Withdrawal processed manually within 24 hours. Only enter TRC20 address.',
-  'profile.trc20WalletAddress': 'TRC20 Wallet Address',
-  'profile.amountUSDT': 'Amount (USDT)',
-  'profile.validTrc20Address': 'Enter a valid TRC20 address',
-  'profile.min5USDT': 'Min. 5 USDT',
-  'profile.sending': 'Sending...',
-  'profile.createWithdrawalRequest': 'Create Withdrawal Request',
-  'profile.operationFailed': 'Operation failed',
 
   // Footer
   'footer.brand': 'VIP90.bet',
@@ -464,7 +434,6 @@ export default {
   'legal.terms.clause25': 'These terms shall be interpreted in accordance with the laws of Curacao.',
   'legal.terms.clause26': 'In case of dispute, contact support@vip90.bet first.',
   'legal.terms.clause27': 'Unresolved disputes may be referred to Curacao Gaming Control Board arbitration.',
-  'legal.privacy.title': 'Privacy Policy',
   'legal.privacy.intro': 'This privacy policy explains how Bet Platform collects, uses, and protects your personal data. Prepared under Law No. 6698 on Protection of Personal Data (KVKK).',
   'legal.privacy.section1': '1. Personal Data Collected',
   'legal.privacy.clause1': 'Identity information: username, email, date of birth (for age verification)',
@@ -515,9 +484,6 @@ export default {
   'ui.tooltip.profile': 'Profile',
   'ui.tooltip.settings': 'Settings',
   'ui.tooltip.logout': 'Logout',
-
-  // ScrollToTop
-  'scrollToTop.label': 'Scroll to top',
 
   // Bets (MyBets page)
   'bets.myBets': 'My Bets',
@@ -761,7 +727,6 @@ export default {
   'auth.referredByPlaceholder': 'Referral username (optional)',
   'auth.hidePassword': 'Hide password',
   'auth.showPassword': 'Show password',
-  'auth.forgotPassword': 'Forgot Password',
   'common.backToLogin': 'Back to Login',
   'common.ok': 'OK',
   'common.sending': 'Sending...',

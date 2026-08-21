@@ -50,7 +50,6 @@ export default {
   'common.ageRestriction': '18+ Yaş Sınırı',
   'common.required': 'Zorunlu alan',
   'common.optional': 'İsteğe bağlı',
-  'common.all': 'Tümü',
 
   // Navigation
   'nav.sports': 'Bahis',
@@ -100,7 +99,6 @@ export default {
     'profile.expired': '⛔ Süresi doldu',
     'profile.daysLeft': '{days}g {hours}s kaldı',
     'profile.hoursLeft': '{hours}s kaldı',
-    'profile.bonus': 'bonus',
     'profile.wageringCompleted': 'Wagering tamamlandı ✓',
     'profile.convert': 'Çevir',
     'profile.referralTitle': 'Arkadaşını Davet Et',
@@ -435,7 +433,6 @@ export default {
   'legal.terms.clause25': 'Bu koşullar Curacao yasalarına göre yorumlanır.',
   'legal.terms.clause26': 'Uyuşmazlık durumunda öncelikle support@vip90.bet üzerinden iletişime geçilir.',
   'legal.terms.clause27': 'Çözülmeyen uyuşmazlıklar Curacao Gaming Control Board tahkimine götürülebilir.',
-  'legal.privacy.title': 'Gizlilik Politikası',
   'legal.privacy.intro': 'Bu gizlilik politikası, Bet Platform\'un kişisel verilerinizi nasıl topladığını, kullandığını ve koruduğunu açıklar. 6698 sayılı Kişisel Verilerin Korunması Kanunu (KVKK) kapsamında hazırlanmıştır.',
   'legal.privacy.section1': '1. Toplanan Kişisel Veriler',
   'legal.privacy.clause1': 'Kimlik bilgileri: kullanıcı adı, e-posta, doğum tarihi (yaş doğrulama için)',
@@ -729,7 +726,6 @@ export default {
   'auth.referredByPlaceholder': 'Referans kullanıcısı (opsiyonel)',
   'auth.hidePassword': 'Şifreyi gizle',
   'auth.showPassword': 'Şifreyi göster',
-  'auth.forgotPassword': 'Şifremi Unuttum',
   'common.backToLogin': 'Girişe Dön',
   'common.ok': 'Tamam',
   'common.sending': 'Gönderiliyor...',
