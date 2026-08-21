@@ -1048,4 +1048,6 @@ export default {
   'games.crash.roundInProgress': 'Round in progress ({mult}×)',
   'games.crash.waiting': 'Waiting...',
   'games.crash.autoRepeatEveryRound': 'Auto-bet every round',
+  'games.dice.wonBang': 'WON!',
+  'games.dice.target': 'Target',
 };

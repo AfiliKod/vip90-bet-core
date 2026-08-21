@@ -1016,4 +1016,6 @@ export default {
   'games.crash.roundInProgress': 'Tur devam ediyor ({mult}×)',
   'games.crash.waiting': 'Bekleniyor...',
   'games.crash.autoRepeatEveryRound': 'Her turda otomatik bahis',
+  'games.dice.wonBang': 'KAZANDI!',
+  'games.dice.target': 'Hedef',
 };
