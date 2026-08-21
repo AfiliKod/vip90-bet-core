@@ -525,4 +525,26 @@ export default {
   // Games (ortak)
   'games.invalidAmount': 'Geçersiz miktar',
   'games.wonWithMultiplier': '{mult}x — {payout} kazandınız!',
+  'games.lost': 'Kaybedildi',
+  'games.placeBet': 'Bahis Koy',
+  'games.insufficientBalance': 'Yetersiz bakiye',
+  'games.wonAmountShort': '{amount} kazandınız!',
+
+  // Roulette
+  'games.roulette.red': 'Kırmızı',
+  'games.roulette.black': 'Siyah',
+  'games.roulette.even': 'Çift',
+  'games.roulette.odd': 'Tek',
+  'games.roulette.green': 'Yeşil',
+  'games.roulette.connectionFailed': 'Rulet sunucusuna bağlanılamadı ({msg}). Sunucuyu yeniden başlatın.',
+  'games.roulette.wonAmount': '{number} — {amount} kazandınız!',
+  'games.roulette.betAccepted': '{amount} bahis kabul edildi',
+  'games.roulette.ballSpinning': 'Top dönüyor...',
+  'games.roulette.waitingForBetPhase': 'Bahis aşaması bekleniyor...',
+  'games.roulette.connectingWait': 'Sunucuya bağlanılıyor, bekleyin...',
+  'games.roulette.alreadyBetThisRound': 'Bu tur için zaten bahis koydunuz',
+  'games.roulette.enterNumber0to36': '0-36 arası bir sayı girin',
+  'games.roulette.betPlacedWaiting': 'Bahis koyuldu — top bekleniyor',
+  'games.roulette.newRoundStarting': 'Yeni tur başlıyor...',
+  'games.roulette.liveMultiplayer': 'Canlı çok oyunculu',
 };

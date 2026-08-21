@@ -557,4 +557,26 @@ export default {
   // Games (shared)
   'games.invalidAmount': 'Invalid amount',
   'games.wonWithMultiplier': '{mult}x — you won {payout}!',
+  'games.lost': 'Lost',
+  'games.placeBet': 'Place Bet',
+  'games.insufficientBalance': 'Insufficient balance',
+  'games.wonAmountShort': 'You won {amount}!',
+
+  // Roulette
+  'games.roulette.red': 'Red',
+  'games.roulette.black': 'Black',
+  'games.roulette.even': 'Even',
+  'games.roulette.odd': 'Odd',
+  'games.roulette.green': 'Green',
+  'games.roulette.connectionFailed': 'Could not connect to the roulette server ({msg}). Please restart the server.',
+  'games.roulette.wonAmount': '{number} — you won {amount}!',
+  'games.roulette.betAccepted': '{amount} bet accepted',
+  'games.roulette.ballSpinning': 'Ball is spinning...',
+  'games.roulette.waitingForBetPhase': 'Waiting for betting phase...',
+  'games.roulette.connectingWait': 'Connecting to server, please wait...',
+  'games.roulette.alreadyBetThisRound': 'You already placed a bet this round',
+  'games.roulette.enterNumber0to36': 'Enter a number between 0-36',
+  'games.roulette.betPlacedWaiting': 'Bet placed — waiting for the ball',
+  'games.roulette.newRoundStarting': 'New round starting...',
+  'games.roulette.liveMultiplayer': 'Live multiplayer',
 };
