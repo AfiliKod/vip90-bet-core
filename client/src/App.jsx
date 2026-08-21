@@ -8,7 +8,7 @@ import ModuleGate from './components/ModuleGate';
 import { formatMoney } from './utils/money.js';
 import { socket } from './services/socket';
 import ProtectedRoute from './components/ProtectedRoute';
-import { I18nProvider, useTranslation } from './i18n/I18nProvider.jsx';
+import { useTranslation } from './i18n/I18nProvider.jsx';
 import ThemeStyleInjector from './theme/ThemeStyleInjector.jsx';
 import BrandingInjector from './branding/BrandingInjector.jsx';
 import CurrencyLoader from './utils/CurrencyLoader.jsx';
@@ -115,7 +115,7 @@ export default function App() {
   }, []);
 
   return (
-    <I18nProvider>
+    <>
     <ThemeStyleInjector />
     <BrandingInjector />
     <CurrencyLoader />
@@ -179,6 +179,6 @@ export default function App() {
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
     </BrowserRouter>
-    </I18nProvider>
+    </>
   );
 }
