@@ -29,6 +29,7 @@ import analyticsRoutes from './routes/analytics.js';
 import admin2faRoutes from './routes/admin2fa.js';
 import themeRoutes from './routes/theme.js';
 import ticketRoutes from './routes/ticket.js';
+import installRoutes from './routes/install.js';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const isProd = process.env.NODE_ENV === 'production';
@@ -123,6 +124,9 @@ export function createApp() {
       }));
     }
   }
+
+  // Kurulum sihirbazı (K2) — ilk açılışta terminal gerektirmeden kurulabilsin
+  app.use('/install', installRoutes);
 
   app.use('/api/auth', authRoutes);
   app.use('/api/events', eventsRoutes);
