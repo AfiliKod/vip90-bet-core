@@ -3,10 +3,12 @@ import MiniEventCard from './MiniEventCard';
 import MarketDrawer from './MarketDrawer';
 import { useSettingsStore } from '../store/settingsStore';
 import { translateLeagueKey } from '../utils/i18n';
+import { useTranslation } from '../i18n';
 
 export default function LeagueGroup({ league, leagueFlag, events, openDrawerId, onToggleDrawer, accent, bgColor }) {
   const [collapsed, setCollapsed] = useState(false);
   const lang = useSettingsStore(s => s.preferences.language);
+  const { t } = useTranslation();
   const displayLeague = translateLeagueKey(league, lang);
 
   return (
@@ -26,7 +28,7 @@ export default function LeagueGroup({ league, leagueFlag, events, openDrawerId, 
             : displayLeague}
         </span>
         <span className="text-[10px] text-text-3 bg-bg-base rounded-full px-2 py-0.5 mr-1">
-          {events.length} {lang === 'en' ? 'match' : 'maç'}
+          {events.length} {t('sports.match')}
         </span>
         <span className="text-text-3 text-[10px]">{collapsed ? '▶' : '▼'}</span>
       </button>

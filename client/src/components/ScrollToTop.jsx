@@ -1,6 +1,8 @@
 import { useState, useEffect } from 'react';
+import { useTranslation } from '../i18n';
 
 export default function ScrollToTop() {
+  const { t } = useTranslation();
   const [visible, setVisible] = useState(false);
 
   useEffect(() => {
@@ -24,11 +26,11 @@ export default function ScrollToTop() {
   return (
     <button
       onClick={scrollUp}
-      aria-label="Yukarı çık"
+      aria-label={t('scrollToTop.label')}
       className={`fixed bottom-20 left-4 lg:bottom-6 lg:left-6 z-50 w-10 h-10 rounded-lg flex items-center justify-center shadow-lg transition-all duration-300 hover:scale-110 active:scale-95 border border-white/20 ${
         visible ? 'opacity-100 pointer-events-auto' : 'opacity-0 pointer-events-none'
       }`}
-      title="Yukarı çık"
+      title={t('scrollToTop.label')}
     >
       ↑
     </button>

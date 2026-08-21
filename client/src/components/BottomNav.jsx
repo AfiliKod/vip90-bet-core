@@ -1,13 +1,15 @@
 import { NavLink, useLocation } from 'react-router-dom';
+import { useTranslation } from '../i18n';
 
 const TABS = [
-  { to: '/bahis',     icon: '⚽', label: 'Bahis',  end: true  },
-  { to: '/canli',     icon: '🔴', label: 'Canlı',  end: false },
-  { to: '/casino',    icon: '🎰', label: 'Casino', end: false },
+  { to: '/bahis',     icon: '⚽', label: 'nav.sports', end: true  },
+  { to: '/canli',     icon: '🔴', label: 'nav.live',  end: false },
+  { to: '/casino',    icon: '🎰', label: 'nav.casino', end: false },
 ];
 
 export default function BottomNav() {
   const location = useLocation();
+  const { t } = useTranslation();
   if (location.pathname.startsWith('/games/') || /^\/casino(-v2)?\/[^/]+/.test(location.pathname)) return null;
 
   return (
@@ -27,8 +29,7 @@ export default function BottomNav() {
           className={({ isActive }) =>
             `relative flex-1 flex flex-col items-center justify-center gap-1 py-3 transition-all duration-200 ${
               isActive ? '' : 'text-text-3 hover:text-text-1'
-            }`
-          }
+            }`}
         >
           {({ isActive }) => (
             <>
@@ -56,7 +57,7 @@ export default function BottomNav() {
                   backgroundClip: 'text',
                 } : {}}
               >
-                {tab.label}
+                {t(tab.label)}
               </span>
             </>
           )}

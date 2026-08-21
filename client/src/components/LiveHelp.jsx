@@ -1,11 +1,12 @@
 import { useState, useRef, useEffect, useCallback } from 'react';
 import api from '../services/api';
+import { useTranslation } from '../i18n';
 
 const SUGGESTIONS = [
-  'Para nasıl yatırırım?',
-  'Kazancımı nasıl çekerim?',
-  'Canlı bahis nasıl oynanır?',
-  'Hesabımı nasıl doğrularım?',
+  'livehelp.faq.deposit',
+  'livehelp.faq.withdraw',
+  'livehelp.faq.liveBet',
+  'livehelp.faq.verify',
 ];
 
 function TypingDots() {
@@ -23,10 +24,11 @@ function TypingDots() {
 }
 
 export default function LiveHelp({ open, onClose }) {
+  const { t } = useTranslation();
   const [messages, setMessages] = useState([
     {
       role: 'assistant',
-      content: 'Merhaba! Ben VIP90.bet destek asistanıyım. Size nasıl yardımcı olabilirim?',
+      content: t('livehelp.welcome'),
     },
   ]);
   const [input, setInput] = useState('');
@@ -60,7 +62,7 @@ export default function LiveHelp({ open, onClose }) {
     } catch {
       setMessages(prev => [
         ...prev,
-        { role: 'assistant', content: 'Şu an yanıt veremiyorum. Lütfen daha sonra tekrar deneyin.' },
+        { role: 'assistant', content: t('livehelp.unavailable') },
       ]);
     } finally {
       setLoading(false);
@@ -69,7 +71,7 @@ export default function LiveHelp({ open, onClose }) {
 
   const summarize = useCallback(async () => {
     if (messages.length < 3 || loading) return;
-    await send('Bu görüşmedeki önemli noktaları ve çözümleri özetle.');
+    await send(t('livehelp.summarize'));
   }, [messages, loading, send]);
 
   const handleKey = (e) => {
@@ -93,18 +95,18 @@ export default function LiveHelp({ open, onClose }) {
             <span className="absolute -bottom-0.5 -right-0.5 w-2.5 h-2.5 bg-green-400 rounded-full border border-bg-card" />
           </div>
           <div>
-            <p className="text-sm font-semibold text-text-1">VIP90.bet Destek</p>
-            <p className="text-[10px] text-green-400">Çevrimiçi · AI Destekli</p>
+            <p className="text-sm font-semibold text-text-1">{t('livehelp.title')}</p>
+            <p className="text-[10px] text-green-400">{t('livehelp.online')}</p>
           </div>
         </div>
         <div className="flex items-center gap-1">
           {messages.length > 2 && (
             <button
               onClick={summarize}
-              title="Görüşmeyi özetle"
+              title={t('livehelp.summarizeBtn')}
               className="text-[10px] text-text-3 hover:text-text-1 px-2 py-1 rounded-lg hover:bg-white/5 transition"
             >
-              📋 Özetle
+              {t('livehelp.summarizeBtn')}
             </button>
           )}
           <button onClick={onClose} className="text-text-3 hover:text-text-1 transition p-1 rounded-lg hover:bg-white/5">
@@ -151,10 +153,10 @@ export default function LiveHelp({ open, onClose }) {
           {SUGGESTIONS.map(s => (
             <button
               key={s}
-              onClick={() => send(s)}
+              onClick={() => send(t(s))}
               className="text-[11px] text-text-3 border border-white/10 rounded-full px-2.5 py-1 hover:border-primary/40 hover:text-text-1 transition"
             >
-              {s}
+              {t(s)}
             </button>
           ))}
         </div>
@@ -168,7 +170,7 @@ export default function LiveHelp({ open, onClose }) {
             value={input}
             onChange={e => setInput(e.target.value)}
             onKeyDown={handleKey}
-            placeholder="Mesajınızı yazın…"
+            placeholder={t('livehelp.placeholder')}
             rows={1}
             className="flex-1 bg-transparent text-sm text-text-1 placeholder-text-3 resize-none focus:outline-none max-h-24 leading-5"
             style={{ minHeight: '20px' }}
@@ -181,7 +183,7 @@ export default function LiveHelp({ open, onClose }) {
             ↑
           </button>
         </div>
-        <p className="text-[10px] text-text-3/50 text-center mt-1.5">AI yanıtlar yanlış olabilir, önemli konularda teyit edin</p>
+        <p className="text-[10px] text-text-3/50 text-center mt-1.5">{t('livehelp.disclaimer')}</p>
       </div>
     </div>
   );

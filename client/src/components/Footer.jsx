@@ -1,48 +1,50 @@
 import { Link } from 'react-router-dom';
+import { useTranslation } from '../i18n';
 
-const LINKS = [
-  {
-    heading: 'VIP90.bet',
-    items: [
-      { label: 'Hakkımızda', href: '#' },
-      { label: 'Kariyer', href: '#' },
-      { label: 'Basın', href: '#' },
-      { label: 'İletişim', href: '#' },
-    ],
-  },
-  {
-    heading: 'Bahis',
-    items: [
-      { label: 'Canlı Bahis', to: '/bahis' },
-      { label: 'Yaklaşan Maçlar', to: '/bahis' },
-      { label: 'Casino', to: '/casino' },
-      { label: 'Kampanyalar', to: '/promotions' },
-    ],
-  },
-  {
-    heading: 'Destek',
-    items: [
-      { label: 'Yardım Merkezi', to: '/status' },
-      { label: 'Para Yatır / Çek', to: '/profile' },
-      { label: 'Canlı Yardım', action: 'livehelp' },
-      { label: 'Sorumlu Oyun', to: '/legal/responsible-gaming' },
-    ],
-  },
-  {
-    heading: 'Yasal',
-    items: [
-      { label: 'Kullanım Koşulları', to: '/legal/terms' },
-      { label: 'Gizlilik Politikası', to: '/legal/privacy' },
-      { label: 'KVKK Aydınlatma', to: '/legal/kvkk' },
-      { label: 'Çerez Politikası', to: '/legal/cookies' },
-      { label: 'Bonus Koşulları', to: '/legal/bonus-terms' },
-      { label: 'Sistem Durumu', to: '/status' },
-    ],
-  },
-];
-
-export default function Footer({ onOpenHelp }) {
+function Footer({ onOpenHelp }) {
+  const { t } = useTranslation();
   const year = new Date().getFullYear();
+
+  const LINKS = [
+    {
+      heading: t('footer.brand'),
+      items: [
+        { label: t('footer.about'), href: '#' },
+        { label: t('footer.career'), href: '#' },
+        { label: t('footer.press'), href: '#' },
+        { label: t('footer.contact'), href: '#' },
+      ],
+    },
+    {
+      heading: t('nav.sports'),
+      items: [
+        { label: t('nav.liveBetting'), to: '/bahis' },
+        { label: t('nav.upcomingMatches'), to: '/bahis' },
+        { label: t('nav.casino'), to: '/casino' },
+        { label: t('nav.promotions'), to: '/promotions' },
+      ],
+    },
+    {
+      heading: t('footer.support'),
+      items: [
+        { label: t('footer.helpCenter'), to: '/status' },
+        { label: t('footer.depositWithdraw'), to: '/profile' },
+        { label: t('footer.liveHelp'), action: 'livehelp' },
+        { label: t('footer.responsibleGaming'), to: '/legal/responsible-gaming' },
+      ],
+    },
+    {
+      heading: t('footer.legal'),
+      items: [
+        { label: t('footer.terms'), to: '/legal/terms' },
+        { label: t('footer.privacy'), to: '/legal/privacy' },
+        { label: t('footer.kvkk'), to: '/legal/kvkk' },
+        { label: t('footer.cookies'), to: '/legal/cookies' },
+        { label: t('footer.bonusTerms'), to: '/legal/bonus-terms' },
+        { label: t('footer.status'), to: '/status' },
+      ],
+    },
+  ];
 
   return (
     <footer className="border-t border-white/8 bg-bg-base mt-12">
@@ -85,14 +87,14 @@ export default function Footer({ onOpenHelp }) {
             <span className="text-xl select-none">💎</span>
             <div>
               <p className="text-sm font-bold text-text-1">VIP90.bet</p>
-              <p className="text-[11px] text-text-3">© {year} VIP90.bet. Tüm hakları saklıdır.</p>
+              <p className="text-[11px] text-text-3">{t('footer.copyright', { year })}</p>
             </div>
           </div>
 
           {/* Orta — rozet */}
           <div className="flex items-center gap-2">
             <span className="border border-white/15 text-text-3 text-[11px] font-bold px-2 py-1 rounded-md">18+</span>
-            <span className="border border-white/15 text-text-3 text-[11px] px-2 py-1 rounded-md">Sorumlu Oyun</span>
+            <span className="border border-white/15 text-text-3 text-[11px] px-2 py-1 rounded-md">{t('footer.responsibleGaming')}</span>
             <span className="border border-white/15 text-text-3 text-[11px] px-2 py-1 rounded-md">🔒 SSL</span>
           </div>
 
@@ -107,15 +109,16 @@ export default function Footer({ onOpenHelp }) {
         {/* Yasal uyarı */}
         <div className="max-w-6xl mx-auto px-6 pb-6">
           <p className="text-[10px] text-text-3/60 leading-relaxed text-center">
-            VIP90.bet lisanslı ve denetlenen bir bahis platformudur. 18 yaş altındaki kişilerin siteye erişimi yasaktır.
-            Kumar bağımlılığı ciddi finansal ve psikolojik sorunlara yol açabilir. Yardım için{' '}
-            <a href="https://www.gamblingtherapy.org" target="_blank" rel="noopener noreferrer" className="underline hover:text-text-3">
+            {t('footer.legalWarning')}
+            {' '}<a href="https://www.gamblingtherapy.org" target="_blank" rel="noopener noreferrer" className="underline hover:text-text-3">
               gamblingtherapy.org
             </a>{' '}
-            adresini ziyaret edebilirsiniz.
+            {t('footer.legalWarningUrl')}
           </p>
         </div>
       </div>
     </footer>
   );
 }
+
+export default Footer;

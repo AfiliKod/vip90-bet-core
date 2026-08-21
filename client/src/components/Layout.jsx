@@ -5,11 +5,13 @@ import Footer from './Footer';
 import LiveHelp from './LiveHelp';
 import CookieConsent from './CookieConsent';
 import ScrollToTop from './ScrollToTop';
+import { useTranslation } from '../i18n';
 
 export default function Layout({ children }) {
   const { pathname } = useLocation();
   const showSidebar = !pathname.startsWith('/casino') && pathname !== '/';
   const [helpOpen, setHelpOpen] = useState(false);
+  const { t } = useTranslation();
 
   return (
     <div className="flex pb-14 lg:pb-0" style={{ height: 'calc(100vh - 56px)' }}>
@@ -26,7 +28,7 @@ export default function Layout({ children }) {
               ? 'bg-bg-card border border-white/20 text-text-1 rotate-90'
               : 'bg-primary text-bg-deep hover:bg-primary/90'
           }`}
-          title="Canlı Yardım"
+          title={t('layout.liveHelp')}
         >
           {helpOpen ? '✕' : '💬'}
         </button>

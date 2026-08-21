@@ -1,9 +1,12 @@
 import { useState, useRef, useEffect } from 'react';
 import { Link, NavLink, useNavigate } from 'react-router-dom';
 import { useAuthStore } from '../store/authStore';
+import { useTranslation } from '../i18n';
+
 export default function Navbar() {
   const { user, logout } = useAuthStore();
   const navigate = useNavigate();
+  const { t } = useTranslation();
   const [open, setOpen] = useState(false);
   const ref = useRef(null);
 
@@ -18,7 +21,7 @@ export default function Navbar() {
     return () => document.removeEventListener('mousedown', handleClick);
   }, []);
 
-  const username = user?.username || 'Profil';
+  const username = user?.username || t('nav.profile');
   const initial = username.charAt(0).toUpperCase();
   const balance = user?.balance?.toFixed(2) ?? '0.00';
   const palaceBalance = user?.activePalaceBalance;
@@ -31,11 +34,11 @@ export default function Navbar() {
           <span className="text-2xl">💎</span> VIP90.bet
         </Link>
         <div className="hidden lg:flex items-center gap-1 flex-1 overflow-x-auto">
-          <NavLink to="/bahis" end className={({isActive}) => `px-3 py-1.5 rounded-lg text-sm hover:text-text-1 hover:bg-bg-hover transition whitespace-nowrap ${isActive ? 'text-text-1 bg-bg-hover' : 'text-text-2'}`}>⚽ Bahis</NavLink>
-          <NavLink to="/canli" className={({isActive}) => `px-3 py-1.5 rounded-lg text-sm hover:text-text-1 hover:bg-bg-hover transition whitespace-nowrap ${isActive ? 'text-text-1 bg-bg-hover' : 'text-text-2'}`}>🔴 Canlı</NavLink>
-          <NavLink to="/casino" className={({isActive}) => `px-3 py-1.5 rounded-lg text-sm hover:text-text-1 hover:bg-bg-hover transition whitespace-nowrap ${isActive ? 'text-text-1 bg-bg-hover' : 'text-text-2'}`}>🎰 Casino</NavLink>
+          <NavLink to="/bahis" end className={({isActive}) => `px-3 py-1.5 rounded-lg text-sm hover:text-text-1 hover:bg-bg-hover transition whitespace-nowrap ${isActive ? 'text-text-1 bg-bg-hover' : 'text-text-2'}`}>{t('nav.sports')}</NavLink>
+          <NavLink to="/canli" className={({isActive}) => `px-3 py-1.5 rounded-lg text-sm hover:text-text-1 hover:bg-bg-hover transition whitespace-nowrap ${isActive ? 'text-text-1 bg-bg-hover' : 'text-text-2'}`}>{t('nav.live')}</NavLink>
+          <NavLink to="/casino" className={({isActive}) => `px-3 py-1.5 rounded-lg text-sm hover:text-text-1 hover:bg-bg-hover transition whitespace-nowrap ${isActive ? 'text-text-1 bg-bg-hover' : 'text-text-2'}`}>{t('nav.casino')}</NavLink>
           {user?.role === 'admin' && (
-            <Link to="/admin" className="px-3 py-1.5 rounded-lg text-sm text-warning hover:bg-bg-hover transition whitespace-nowrap">⚙️ Admin</Link>
+            <Link to="/admin" className="px-3 py-1.5 rounded-lg text-sm text-warning hover:bg-bg-hover transition whitespace-nowrap">{t('nav.admin')}</Link>
           )}
         </div>
 
@@ -45,7 +48,7 @@ export default function Navbar() {
             className="shrink-0 px-4 py-2 rounded-full text-sm font-bold text-black transition hover:scale-105 active:scale-95"
             style={{ background: 'linear-gradient(90deg, #00d4ff 0%, #7c3aed 100%)' }}
           >
-            Giriş Yap
+            {t('auth.login')}
           </Link>
         ) : (
         <div className="relative shrink-0" ref={ref}>
@@ -94,12 +97,12 @@ export default function Navbar() {
                   <div className="flex items-center justify-between">
                     <div>
                       <div className="text-[10px] uppercase tracking-widest font-bold" style={{ color: '#4a5a78' }}>
-                        Toplam Bakiye
+                        {t('balance.total')}
                       </div>
                       <div className="text-2xl font-black mt-0.5" style={{ color: '#00d4ff' }}>₺{totalBalance}</div>
                       {user?.locked > 0 && (
                         <div className="text-[11px] font-bold mt-0.5" style={{ color: '#fbbf24' }}>
-                          🔒 ₺{user.locked.toFixed(2)} kilitli
+                          🔒 ₺{user.locked.toFixed(2)} {t('balance.locked')}
                         </div>
                       )}
                     </div>
@@ -112,7 +115,7 @@ export default function Navbar() {
                   </div>
                   {palaceBalance != null && (
                     <div className="mt-2 pt-2 border-t border-white/[0.06] flex justify-between text-xs" style={{ color: '#7c8aae' }}>
-                      <span>🏰 Casino'da</span>
+                      <span>{t('balance.casino')}</span>
                       <span className="font-semibold" style={{ color: '#c8d8f0' }}>₺{palaceBalance.toFixed(2)}</span>
                     </div>
                   )}
@@ -127,22 +130,22 @@ export default function Navbar() {
                   style={{ background: 'linear-gradient(90deg, #00d4ff 0%, #7c3aed 100%)' }}
                 >
                   <span className="text-base">💸</span>
-                  <span>Yatır · Çek</span>
+                  <span>{t('balance.depositWithdraw')}</span>
                   <span className="text-base">→</span>
                 </button>
                 <div className="flex justify-center gap-3 mt-2 text-[10px]" style={{ color: '#4a5a78' }}>
-                  <span>🏦 Havale / EFT</span>
+                  <span>{t('nav.bankTransfer')}</span>
                   <span>·</span>
-                  <span>🪙 Kripto (USDT)</span>
+                  <span>{t('nav.crypto')}</span>
                 </div>
               </div>
 
               {/* Menü linkleri */}
               <div className="py-1 border-t border-white/5">
                 {[
-                  { to: '/my-bets',    icon: '📋', label: 'Bahislerim' },
-                  { to: '/promotions', icon: '🎁', label: 'Kampanyalar' },
-                  { to: '/settings',   icon: '⚙️', label: 'Ayarlar' },
+                  { to: '/my-bets',    icon: '📋', label: t('nav.myBets') },
+                  { to: '/promotions', icon: '🎁', label: t('nav.promotions') },
+                  { to: '/settings',   icon: '⚙️', label: t('nav.settings') },
                 ].map(item => (
                   <Link
                     key={item.to}
@@ -167,7 +170,7 @@ export default function Navbar() {
                   <span className="w-7 h-7 rounded-lg flex items-center justify-center text-sm bg-danger/10 border border-danger/20">
                     🚪
                   </span>
-                  <span className="font-medium">Çıkış Yap</span>
+                  <span className="font-medium">{t('auth.logout')}</span>
                 </button>
               </div>
             </div>
