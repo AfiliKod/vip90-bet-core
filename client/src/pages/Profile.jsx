@@ -7,22 +7,26 @@ import { useToastStore } from '../store/toastStore';
 import api from '../services/api';
 import { useTranslation } from '../i18n';
 
-const TX_LABEL = {
-  deposit: t('profile.deposit'),
-  withdraw: t('profile.withdraw'),
-  bet: t('profile.bet'),
-  win: t('profile.win'),
-  bonus: t('profile.bonus'),
-  refund: t('profile.refund'),
-  casino_return: t('profile.casinoReturn'),
-  bonus_conversion: t('profile.bonusConversion'),
-  crypto_deposit: t('profile.cryptoDeposit'),
-  crypto_withdraw: t('profile.cryptoWithdraw'),
-};
+function txLabel(t, type) {
+  const labels = {
+    deposit: t('profile.deposit'),
+    withdraw: t('profile.withdraw'),
+    bet: t('profile.bet'),
+    win: t('profile.win'),
+    bonus: t('profile.bonus'),
+    refund: t('profile.refund'),
+    casino_return: t('profile.casinoReturn'),
+    bonus_conversion: t('profile.bonusConversion'),
+    crypto_deposit: t('profile.cryptoDeposit'),
+    crypto_withdraw: t('profile.cryptoWithdraw'),
+  };
+  return labels[type] || type;
+}
 
 const AMOUNT_PRESETS = [100, 250, 500, 1000, 2000, 5000];
 
 function CopyButton({ text }) {
+  const { t } = useTranslation();
   const [copied, setCopied] = useState(false);
   const copy = () => {
     navigator.clipboard.writeText(text).then(() => {
@@ -39,6 +43,7 @@ function CopyButton({ text }) {
 }
 
 function CryptoDeposit({ onBalanceUpdate }) {
+  const { t } = useTranslation();
   const [address, setAddress]   = useState(null);
   const [checking, setChecking] = useState(false);
   const addToast = useToastStore(s => s.add);
@@ -100,6 +105,7 @@ function CryptoDeposit({ onBalanceUpdate }) {
 }
 
 function CryptoWithdraw({ onBalanceUpdate }) {
+  const { t } = useTranslation();
   const { register, handleSubmit, reset, formState: { isSubmitting, errors } } = useForm();
   const addToast = useToastStore(s => s.add);
 
@@ -263,9 +269,9 @@ const handleBankSubmit = async (confirmForfeit = false) => {
        const errorMessage = e.response?.data?.error?.message
                           || e.response?.data?.error
                           || e.response?.data
-                          || 'İşlem başarısız';
+                          || t('profile.operationFailed');
        if (errorCode === 'ACTIVE_BONUS_LOCK' && !confirmForfeit) {
-         if (window.confirm(`${errorMessage}\n\nDevam etmek istiyor musunuz?`)) {
+         if (window.confirm(`${errorMessage}\n\n${t('profile.continueConfirm')}`)) {
            // setSubmitting(false) burada ÇAĞRILMAZ: dışarıdaki finally, bu
            // await'in sonucu beklenmeden senkron olarak setSubmitting(false)
            // çalıştırırdı (return + finally JS semantiği), retry isteği hâlâ
@@ -365,7 +371,7 @@ const handleBankSubmit = async (confirmForfeit = false) => {
                     <div className="min-w-0 flex-1">
                       <div className="text-sm font-bold text-text-1 truncate">{w.description || 'Bonus'}</div>
                       <div className="text-[10px] text-text-3 mt-0.5 flex flex-wrap items-center gap-x-2 gap-y-0.5">
-                        <span>₺{w.bonusAmount} bonus · {w.multiplier}x çevrim</span>
+                        <span>{t('profile.wageringSummary', { amount: `₺${w.bonusAmount}`, multiplier: w.multiplier })}</span>
                         {deadlineText && (
                           <span
                             className="font-bold"
@@ -413,32 +419,32 @@ const handleBankSubmit = async (confirmForfeit = false) => {
         {wagerings.filter(w => w.status === 'completed').length > 0 && (
           <div className="mb-5 space-y-2">
             <div className="text-[10px] uppercase tracking-widest font-bold" style={{ color: '#8899bb' }}>
-              Çevrime Hazır Bonuslar
+              {t('profile.readyToConvert')}
             </div>
             {wagerings.filter(w => w.status === 'completed').map(w => (
               <div key={w._id} className="bg-bg-base/40 border border-[#00d4ff44] rounded-xl p-3 flex items-center justify-between gap-3">
                 <div className="min-w-0 flex-1">
                   <div className="text-sm font-bold text-text-1 truncate">{w.description || 'Bonus'}</div>
                   <div className="text-[10px] text-text-3 mt-0.5">
-                    ₺{w.bonusAmount} bonus · Wagering tamamlandı ✓
+                    {t('profile.wageringDone', { amount: `₺${w.bonusAmount}` })}
                   </div>
                 </div>
                 <button
                   onClick={async () => {
                     try {
                       const { data } = await api.post(`/promotions/${w.promotionId || 'manual'}/wagerings/${w._id}/convert`);
-                      addToast(data.message || 'Bonus cash\'e çevrildi', 'success');
+                      addToast(data.message || t('profile.convertedToCash'), 'success');
                       updateBalance(data.newBalance);
                       fetchWagerings();
                       fetchTx();
                     } catch (e) {
-                      addToast(e.response?.data?.error?.message || 'Çevrim başarısız', 'error');
+                      addToast(e.response?.data?.error?.message || t('profile.convertFailed'), 'error');
                     }
                   }}
                   className="px-4 py-2 rounded-lg text-xs font-bold text-black whitespace-nowrap"
                   style={{ background: 'linear-gradient(90deg, #00d4ff, #7c3aed)', boxShadow: '0 0 12px #00d4ff55' }}
                 >
-                  💰 Çevir
+                  💰 {t('profile.convert')}
                 </button>
               </div>
             ))}
@@ -448,20 +454,20 @@ const handleBankSubmit = async (confirmForfeit = false) => {
         {/* ── Arkadaşını Davet Et ── */}
         <div className="mb-5 bg-bg-base/40 border border-accent/20 rounded-xl p-4">
           <div className="text-[10px] uppercase tracking-widest font-bold mb-2" style={{ color: '#8899bb' }}>
-            🎁 Arkadaşını Davet Et
+            🎁 {t('profile.referralTitle')}
           </div>
           <p className="text-xs text-text-3 mb-3">
-            Davet ettiğin arkadaşın platforma kazandırdığı kârın %10'u anında senin hesabına aktarılır.
+            {t('profile.referralDescription')}
           </p>
           <div className="flex items-center justify-between mb-1">
-            <span className="text-xs text-text-3">Referans Linkin</span>
+            <span className="text-xs text-text-3">{t('profile.referralLink')}</span>
             <CopyButton text={`${window.location.origin}/login?ref=${user?.username}&tab=register`} />
           </div>
           <div className="bg-bg-base border border-white/10 rounded-lg px-3 py-2 font-mono text-xs text-text-1 break-all mb-3">
             {`${window.location.origin}/login?ref=${user?.username}&tab=register`}
           </div>
           <div className="text-sm text-text-1">
-            Şimdiye kadar kazandığın: <span className="font-bold text-accent">₺{(user?.totalReferralEarnings ?? 0).toFixed(2)}</span>
+            {t('profile.referralEarnings')} <span className="font-bold text-accent">₺{(user?.totalReferralEarnings ?? 0).toFixed(2)}</span>
           </div>
         </div>
 
@@ -470,8 +476,8 @@ const handleBankSubmit = async (confirmForfeit = false) => {
           {/* Üst: Para Yatır / Para Çek toggle */}
           <div className="flex bg-bg-deep/40 rounded-xl p-1 mb-4">
             {[
-              { key: 'deposit', label: '📥 Para Yatır' },
-              { key: 'withdraw', label: '📤 Para Çek' },
+              { key: 'deposit', label: `📥 ${t('profile.deposit')}` },
+              { key: 'withdraw', label: `📤 ${t('profile.withdraw')}` },
             ].map(m => (
               <button key={m.key} onClick={() => switchMode(m.key)}
                 className={`flex-1 py-2.5 rounded-lg text-sm font-semibold transition ${
@@ -485,8 +491,8 @@ const handleBankSubmit = async (confirmForfeit = false) => {
           {/* Alt: Banka / Kripto seçici */}
           <div className="flex gap-2 mb-4">
             {[
-              { key: 'bank', label: '🏦 Banka ile', desc: 'Havale / EFT' },
-              { key: 'crypto', label: '🪙 Kripto ile', desc: 'USDT TRC20' },
+              { key: 'bank', label: `🏦 ${t('profile.viaBank')}`, desc: t('profile.bankTransferShort') },
+              { key: 'crypto', label: `🪙 ${t('profile.viaCrypto')}`, desc: 'USDT TRC20' },
             ].map(m => (
               <button key={m.key} onClick={() => switchMethod(m.key)}
                 className={`flex-1 flex flex-col items-center gap-0.5 py-3 rounded-xl text-sm font-medium border transition ${
@@ -516,20 +522,20 @@ const handleBankSubmit = async (confirmForfeit = false) => {
               </div>
               <div className="relative">
                 <div className="absolute inset-0 flex items-center"><div className="w-full border-t border-white/10" /></div>
-                <div className="relative flex justify-center"><span className="bg-bg-base/60 px-2 text-xs text-text-3">veya</span></div>
+                <div className="relative flex justify-center"><span className="bg-bg-base/60 px-2 text-xs text-text-3">{t('profile.or')}</span></div>
               </div>
               <div className="flex gap-2">
                 <input type="number" value={customAmount}
                   onChange={handleCustomChange}
-                  placeholder="Özel tutar (min. 10₺)"
+                  placeholder={t('profile.customAmountMin10')}
                   className="flex-1 bg-bg-deep/40 border border-white/10 rounded-xl px-4 py-2.5 text-text-1 text-sm focus:outline-none focus:border-accent/50" />
                 <button onClick={() => {
                   const v = parseFloat(customAmount);
                   if (v >= 10) handleAmountSelect(v);
-                  else addToast('Minimum 10₺', 'error');
+                  else addToast(t('profile.min10'), 'error');
                 }} disabled={!customAmount || parseFloat(customAmount) < 10}
                   className="px-5 py-2.5 bg-accent text-white font-semibold rounded-xl text-sm hover:opacity-90 transition disabled:opacity-40">
-                  Devam
+                  {t('profile.continue')}
                 </button>
               </div>
             </div>
@@ -539,21 +545,21 @@ const handleBankSubmit = async (confirmForfeit = false) => {
             <div className="space-y-4 animate-fade-in">
               <div className="text-center">
                 <div className="text-3xl font-black text-primary mb-1">₺{amount.toFixed(2)}</div>
-                <div className="text-xs text-text-3">Yatırma Talebi</div>
+                <div className="text-xs text-text-3">{t('profile.depositRequest')}</div>
               </div>
 
               {bankInfo && (
                 <div className="bg-bg-deep/40 border border-white/[0.06] rounded-xl p-4 space-y-3">
                   <div className="flex items-center justify-between">
-                    <span className="text-xs text-text-3">Banka</span>
+                    <span className="text-xs text-text-3">{t('profile.bankName')}</span>
                     <span className="text-sm text-text-1 font-medium">{bankInfo.bankName}</span>
                   </div>
                   <div className="flex items-center justify-between">
-                    <span className="text-xs text-text-3">Şube</span>
+                    <span className="text-xs text-text-3">{t('profile.bankBranch')}</span>
                     <span className="text-sm text-text-1">{bankInfo.bankBranch}</span>
                   </div>
                   <div className="flex items-center justify-between">
-                    <span className="text-xs text-text-3">Alıcı</span>
+                    <span className="text-xs text-text-3">{t('profile.recipient')}</span>
                     <span className="text-sm text-text-1 font-medium">{bankInfo.accountHolder}</span>
                   </div>
                   <div>
@@ -570,19 +576,19 @@ const handleBankSubmit = async (confirmForfeit = false) => {
               )}
 
               <div className="bg-accent/5 border border-accent/20 rounded-xl p-3 text-xs text-text-2 leading-relaxed space-y-1">
-                <p>1️⃣ Yukarıdaki hesaba <strong className="text-text-1">₺{amount.toFixed(2)}</strong> gönderin</p>
-                <p>2️⃣ Ödemeyi <strong className="text-amber-400">yalnızca kendi adınıza kayıtlı banka hesabınızdan</strong> gönderin — hesap eşleştirmesi ancak bu şekilde yapılabilir</p>
-                <p>3️⃣ Admin onayından sonra bakiye otomatik yüklenecektir</p>
+                <p>1️⃣ {t('profile.sendToAccount')} <strong className="text-text-1">₺{amount.toFixed(2)}</strong></p>
+                <p>2️⃣ {t('profile.sendFromOwnAccountPrefix')} <strong className="text-amber-400">{t('profile.sendFromOwnAccountBold')}</strong> {t('profile.sendFromOwnAccountSuffix')}</p>
+                <p>3️⃣ {t('profile.balanceAutoAfterApproval')}</p>
               </div>
 
               <div className="flex gap-2">
                 <button onClick={() => setStep('amount')}
                   className="flex-1 py-2.5 border border-white/20 text-text-3 rounded-xl text-sm font-medium hover:bg-bg-hover transition">
-                  Geri
+                  {t('profile.back')}
                 </button>
                 <button onClick={() => handleBankSubmit()} disabled={submitting}
                   className="flex-1 py-2.5 bg-accent text-white font-semibold rounded-xl text-sm hover:opacity-90 transition disabled:opacity-50">
-                  {submitting ? 'Gönderiliyor...' : '✅ Havale Bildirimi Yap'}
+                  {submitting ? t('profile.sending') : `✅ ${t('profile.notifyBankTransfer')}`}
                 </button>
               </div>
             </div>
@@ -591,14 +597,14 @@ const handleBankSubmit = async (confirmForfeit = false) => {
           {method === 'bank' && mode === 'deposit' && successRequest && (
             <div className="text-center py-4 space-y-3 animate-fade-in">
               <div className="text-4xl">✅</div>
-              <div className="text-lg font-bold text-text-1">Talep Oluşturuldu</div>
+              <div className="text-lg font-bold text-text-1">{t('profile.requestCreated')}</div>
               <div className="text-3xl font-black text-primary">₺{successRequest.amount.toFixed(2)}</div>
               <p className="text-sm text-text-3 max-w-xs mx-auto">
-                Hesaba havale yaptıktan sonra admin onayını bekleyin. Onaylandığında bakiyenize yansıyacaktır.
+                {t('profile.awaitAdminApprovalDeposit')}
               </p>
               <button onClick={() => { setStep('amount'); setSelectedAmount(null); setSuccessRequest(null); }}
                 className="px-5 py-2 border border-accent/40 text-accent rounded-xl text-sm font-medium hover:bg-accent/10 transition">
-                Yeni Talep
+                {t('profile.newRequest')}
               </button>
             </div>
           )}
@@ -608,7 +614,7 @@ const handleBankSubmit = async (confirmForfeit = false) => {
             <div className="space-y-4">
               {step === 'amount' && (
                 <>
-                  <p className="text-sm text-text-2 font-medium">Çekilecek Tutarı Seçin</p>
+                  <p className="text-sm text-text-2 font-medium">{t('profile.selectWithdrawAmount')}</p>
                   <div className="grid grid-cols-3 gap-2">
                     {AMOUNT_PRESETS.map(a => (
                       <button key={a} onClick={() => handleAmountSelect(a)}
@@ -621,26 +627,26 @@ const handleBankSubmit = async (confirmForfeit = false) => {
                   </div>
                   <div className="relative">
                     <div className="absolute inset-0 flex items-center"><div className="w-full border-t border-white/10" /></div>
-                    <div className="relative flex justify-center"><span className="bg-bg-base/60 px-2 text-xs text-text-3">veya</span></div>
+                    <div className="relative flex justify-center"><span className="bg-bg-base/60 px-2 text-xs text-text-3">{t('profile.or')}</span></div>
                   </div>
                   <div className="flex gap-2">
                     <input type="number" value={customAmount}
                       onChange={handleCustomChange}
-                      placeholder="Özel tutar (min. 20₺)"
+                      placeholder={t('profile.customAmountMin20')}
                       className="flex-1 bg-bg-deep/40 border border-white/10 rounded-xl px-4 py-2.5 text-text-1 text-sm focus:outline-none focus:border-accent/50" />
                     <button onClick={() => {
                       const v = parseFloat(customAmount);
                       if (v >= 20) { handleAmountSelect(v); }
-                      else addToast('Minimum 20₺', 'error');
+                      else addToast(t('profile.min20'), 'error');
                     }} disabled={!customAmount || parseFloat(customAmount) < 20}
                       className="px-5 py-2.5 bg-accent text-white font-semibold rounded-xl text-sm hover:opacity-90 transition disabled:opacity-40">
-                      Devam
+                      {t('profile.continue')}
                     </button>
                   </div>
 
                   {selectedAmount && selectedAmount > (user?.balance || 0) && (
                     <div className="bg-danger/10 border border-danger/30 rounded-lg p-2.5 text-danger text-xs text-center">
-                      Yetersiz bakiye. Mevcut bakiyeniz: ₺{user?.balance?.toFixed(2)}
+                      {t('profile.insufficientBalanceCurrent', { balance: `₺${user?.balance?.toFixed(2)}` })}
                     </div>
                   )}
                 </>
@@ -650,54 +656,54 @@ const handleBankSubmit = async (confirmForfeit = false) => {
                 <div className="space-y-4 animate-fade-in">
                   <div className="text-center">
                     <div className="text-3xl font-black text-danger mb-1">₺{amount.toFixed(2)}</div>
-                    <div className="text-xs text-text-3">Çekim Talebi</div>
+                    <div className="text-xs text-text-3">{t('profile.withdrawRequest')}</div>
                   </div>
 
                   <div className="bg-bg-deep/40 border border-white/[0.06] rounded-xl p-4 space-y-3">
                     <div className="flex items-center justify-between">
-                      <span className="text-xs text-text-3">Mevcut Bakiye</span>
+                      <span className="text-xs text-text-3">{t('profile.currentBalance')}</span>
                       <span className="text-sm text-text-1 font-medium">₺{user?.balance?.toFixed(2)}</span>
                     </div>
                     <div className="flex items-center justify-between">
-                      <span className="text-xs text-text-3">Çekim Tutarı</span>
+                      <span className="text-xs text-text-3">{t('profile.withdrawAmount')}</span>
                       <span className="text-sm text-text-1 font-medium text-danger">₺{amount.toFixed(2)}</span>
                     </div>
                     <div className="border-t border-white/10 pt-3 flex items-center justify-between">
-                      <span className="text-xs text-text-3">Kalan Bakiye</span>
+                      <span className="text-xs text-text-3">{t('profile.remainingBalance')}</span>
                       <span className="text-base font-bold text-text-1">₺{((user?.balance || 0) - amount).toFixed(2)}</span>
                     </div>
                   </div>
 
                   <div className="space-y-2">
                     <div>
-                      <label className="text-xs text-text-3 mb-1 block">Alıcı IBAN (TR ile başlamalı)</label>
+                      <label className="text-xs text-text-3 mb-1 block">{t('profile.recipientIban')}</label>
                       <input type="text" value={withdrawIban}
                         onChange={e => setWithdrawIban(e.target.value.toUpperCase())}
                         placeholder="TR__ ____ ____ ____ ____ ____ __"
                         className="w-full bg-bg-deep/40 border border-white/10 rounded-xl px-4 py-2.5 text-text-1 text-sm focus:outline-none focus:border-accent/50" />
                     </div>
                     <div>
-                      <label className="text-xs text-text-3 mb-1 block">Hesap Sahibinin Adı Soyadı</label>
+                      <label className="text-xs text-text-3 mb-1 block">{t('profile.accountHolderName')}</label>
                       <input type="text" value={withdrawFullName}
                         onChange={e => setWithdrawFullName(e.target.value)}
-                        placeholder="Ad Soyad"
+                        placeholder={t('profile.fullNamePlaceholder')}
                         className="w-full bg-bg-deep/40 border border-white/10 rounded-xl px-4 py-2.5 text-text-1 text-sm focus:outline-none focus:border-accent/50" />
                     </div>
                   </div>
 
                   <div className="bg-blue-500/10 border border-blue-500/30 rounded-xl p-3 text-xs text-text-2 leading-relaxed">
-                    Çekim talebiniz admin onayına gönderilecektir. Onaylandığında tutar banka hesabınıza aktarılır. İşlem 1-2 iş günü sürebilir.
+                    {t('profile.withdrawApprovalNote')}
                   </div>
 
                   <div className="flex gap-2">
                     <button onClick={() => setStep('amount')}
                       className="flex-1 py-2.5 border border-white/20 text-text-3 rounded-xl text-sm font-medium hover:bg-bg-hover transition">
-                      Geri
+                      {t('profile.back')}
                     </button>
                     <button onClick={() => handleBankSubmit()}
                       disabled={submitting || amount > (user?.balance || 0) || withdrawIban.trim().length < 26 || withdrawFullName.trim().length < 3}
                       className="flex-1 py-2.5 bg-accent text-white font-semibold rounded-xl text-sm hover:opacity-90 transition disabled:opacity-50">
-                      {submitting ? 'Gönderiliyor...' : '✅ Çekim Talebi Oluştur'}
+                      {submitting ? t('profile.sending') : `✅ ${t('profile.createWithdrawalRequest')}`}
                     </button>
                   </div>
                 </div>
@@ -708,14 +714,14 @@ const handleBankSubmit = async (confirmForfeit = false) => {
           {method === 'bank' && mode === 'withdraw' && successRequest && (
             <div className="text-center py-4 space-y-3 animate-fade-in">
               <div className="text-4xl">✅</div>
-              <div className="text-lg font-bold text-text-1">Çekim Talebi Alındı</div>
+              <div className="text-lg font-bold text-text-1">{t('profile.withdrawRequestReceived')}</div>
               <div className="text-3xl font-black text-danger">₺{successRequest.amount.toFixed(2)}</div>
               <p className="text-sm text-text-3 max-w-xs mx-auto">
-                Talebiniz admin tarafından incelenecek ve onaylandığında hesabınıza aktarılacaktır.
+                {t('profile.awaitAdminApprovalWithdraw')}
               </p>
               <button onClick={() => { setStep('amount'); setSelectedAmount(null); setSuccessRequest(null); onBalanceUpdate(user?.balance); }}
                 className="px-5 py-2 border border-accent/40 text-accent rounded-xl text-sm font-medium hover:bg-accent/10 transition">
-                Yeni Talep
+                {t('profile.newRequest')}
               </button>
             </div>
           )}
@@ -735,7 +741,7 @@ const handleBankSubmit = async (confirmForfeit = false) => {
           {transactions.map(tx => (
             <div key={tx._id} className="flex items-center justify-between text-sm py-2 border-b border-white/5 last:border-0">
               <div>
-                <span className="text-text-2">{TX_LABEL[tx.type] || tx.type}</span>
+                <span className="text-text-2">{txLabel(t, tx.type)}</span>
                 {tx.note && <div className="text-text-3 text-xs truncate max-w-[100px] sm:max-w-[200px]">{tx.note}</div>}
                 <div className="text-text-3 text-xs">{new Date(tx.createdAt).toLocaleDateString('tr-TR')}</div>
               </div>
@@ -771,13 +777,13 @@ const handleBankSubmit = async (confirmForfeit = false) => {
              to="/legal/kvkk"
              className="block w-full px-4 py-2.5 rounded-lg text-sm font-semibold border border-white/10 text-text-1 hover:border-white/20 transition text-center"
            >
-             📜 KVKK Aydınlatma Metni
+             📜 {t('profile.kvkkNotice')}
            </Link>
            <Link
              to="/legal/responsible-gaming"
              className="block w-full px-4 py-2.5 rounded-lg text-sm font-semibold border border-white/10 text-text-1 hover:border-white/20 transition text-center"
            >
-             🎲 Sorumlu Oyun & Limitler
+             🎲 {t('profile.responsibleGaming')}
            </Link>
          </div>
        </div>
@@ -787,18 +793,17 @@ const handleBankSubmit = async (confirmForfeit = false) => {
          <div className="fixed inset-0 z-50 flex items-center justify-center p-4" style={{ background: 'rgba(0,0,0,0.7)' }}>
            <div className="max-w-md w-full rounded-2xl p-6" style={{ background: '#0c1220', border: '1px solid rgba(0,212,255,0.3)' }}>
              <div className="flex items-center justify-between mb-4">
-               <h3 className="text-lg font-bold text-text-1">📥 Verilerimi İndir</h3>
+               <h3 className="text-lg font-bold text-text-1">📥 {t('profile.downloadMyData')}</h3>
                <button onClick={() => { setShowPrivacyModal(false); setPrivacyPassword(''); setPrivacyError(''); }} className="text-text-3 text-xl">×</button>
              </div>
              <p className="text-sm mb-4" style={{ color: '#8899bb' }}>
-               KVKK md.11 kapsamında tüm verilerinizi JSON formatında indirebilirsiniz.
-               Bahis, casino, bonus, para yatırma/çekme geçmişi dahil.
+               {t('profile.dataExportNotice')}
              </p>
              <input
                type="password"
                value={privacyPassword}
                onChange={e => setPrivacyPassword(e.target.value)}
-               placeholder="Şifrenizi girin"
+               placeholder={t('profile.enterYourPassword')}
                className="w-full bg-bg-base border border-white/10 rounded-lg px-3 py-2 text-sm text-text-1 mb-3 focus:outline-none focus:border-cyan-400/50"
              />
              {privacyError && <p className="text-xs text-red-400 mb-3">{privacyError}</p>}
@@ -807,11 +812,11 @@ const handleBankSubmit = async (confirmForfeit = false) => {
                  onClick={() => { setShowPrivacyModal(false); setPrivacyPassword(''); setPrivacyError(''); }}
                  className="flex-1 py-2.5 rounded-lg text-sm font-semibold border border-white/10"
                >
-                 İptal
+                 {t('profile.cancel')}
                </button>
                <button
                  onClick={async () => {
-                   if (!privacyPassword) { setPrivacyError('Şifre gerekli'); return; }
+                   if (!privacyPassword) { setPrivacyError(t('profile.passwordRequired')); return; }
                    try {
                      const res = await api.post('/users/me/data-export', { password: privacyPassword }, { responseType: 'blob' });
                      const url = URL.createObjectURL(new Blob([res.data]));
@@ -819,17 +824,17 @@ const handleBankSubmit = async (confirmForfeit = false) => {
                      a.href = url;
                      a.download = `data-export-${user?.username}-${Date.now()}.json`;
                      a.click();
-                     addToast('Verileriniz indirildi', 'success');
+                     addToast(t('profile.dataDownloaded'), 'success');
                      setShowPrivacyModal(false);
                      setPrivacyPassword('');
                    } catch (e) {
-                     setPrivacyError(e.response?.data?.error?.message || 'İndirme başarısız');
+                     setPrivacyError(e.response?.data?.error?.message || t('profile.downloadFailed'));
                    }
                  }}
                  className="flex-1 py-2.5 rounded-lg text-sm font-bold text-black"
                  style={{ background: 'linear-gradient(90deg, #00d4ff, #7c3aed)' }}
                >
-                 İndir
+                 {t('profile.download')}
                </button>
              </div>
            </div>
