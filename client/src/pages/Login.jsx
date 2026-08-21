@@ -73,9 +73,9 @@ export default function Login() {
             .join('\n');
           Swal.fire({
             icon: 'error',
-            title: 'Kayıt Bilgileriniz Geçersiz',
+            title: t('auth.invalidRegistrationInfo'),
             html: `<pre style="text-align:left;font-size:13px;line-height:1.6;color:#ccc;background:#111;padding:12px;border-radius:8px;white-space:pre-wrap">${lines}</pre>`,
-            confirmButtonText: 'Tamam',
+            confirmButtonText: t('common.ok'),
             confirmButtonColor: '#00d4ff',
             background: '#0c1220',
             color: '#f0f4ff',
@@ -126,7 +126,7 @@ export default function Login() {
         <div className="text-center mb-8">
           <div className="text-5xl mb-3">💎</div>
           <h1 className="text-2xl font-bold text-text-1">VIP90.bet</h1>
-          <p className="text-text-2 text-sm mt-1">Spor Bahis Platformu</p>
+          <p className="text-text-2 text-sm mt-1">{t('auth.sportsBettingPlatform')}</p>
         </div>
 
         {unverifiedEmail ? (
@@ -173,25 +173,25 @@ export default function Login() {
                 className="w-full bg-bg-base border border-white/10 rounded-lg px-4 py-3 text-text-1 placeholder-text-3 focus:outline-none focus:border-primary transition" />
               {tab === 'register' && refUsername && (
                 <div className="bg-accent/10 border border-accent/30 rounded-lg px-3 py-2 text-xs text-text-2">
-                  🎉 <strong className="text-accent">{refUsername}</strong> sizi davet etti
+                  🎉 <strong className="text-accent">{refUsername}</strong> {t('auth.invitedYou')}
                 </div>
               )}
               {tab === 'register' && (
-                <input {...register('email', { required: true })} type="email" placeholder="E-posta"
+                <input {...register('email', { required: true })} type="email" placeholder={t('auth.email')}
                   className="w-full bg-bg-base border border-white/10 rounded-lg px-4 py-3 text-text-1 placeholder-text-3 focus:outline-none focus:border-primary transition" />
               )}
               {tab === 'register' && (
-                <input {...register('referredBy')} defaultValue={refUsername || ''} placeholder="Referans kullanıcısı (opsiyonel)"
+                <input {...register('referredBy')} defaultValue={refUsername || ''} placeholder={t('auth.referredByPlaceholder')}
                   className="w-full bg-bg-base border border-white/10 rounded-lg px-4 py-3 text-text-1 placeholder-text-3 focus:outline-none focus:border-primary transition" />
               )}
               <div>
                 <div className="relative">
-                  <input {...register('password', { required: true })} type={showPassword ? 'text' : 'password'} placeholder="Şifre"
+                  <input {...register('password', { required: true })} type={showPassword ? 'text' : 'password'} placeholder={t('auth.password')}
                     className="w-full bg-bg-base border border-white/10 rounded-lg pl-4 pr-10 py-3 text-text-1 placeholder-text-3 focus:outline-none focus:border-primary transition" />
                   <button
                     type="button"
                     onClick={() => setShowPassword(v => !v)}
-                    aria-label={showPassword ? 'Şifreyi gizle' : 'Şifreyi göster'}
+                    aria-label={showPassword ? t('auth.hidePassword') : t('auth.showPassword')}
                     className="absolute right-3 top-1/2 -translate-y-1/2 transition"
                     style={{ color: '#7c8aae' }}
                     onMouseEnter={e => e.currentTarget.style.color = '#00d4ff'}
@@ -218,7 +218,7 @@ export default function Login() {
                       onMouseEnter={e => e.currentTarget.style.color = '#00d4ff'}
                       onMouseLeave={e => e.currentTarget.style.color = '#7c8aae'}
                     >
-                      Şifremi Unuttum
+                      {t('auth.forgotPassword')}
                     </Link>
                   </div>
                 )}

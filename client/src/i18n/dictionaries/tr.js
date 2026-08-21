@@ -620,4 +620,52 @@ export default {
   'games.mines.yourMineCountUsed': 'Seçtiğiniz mayın sayısı kullanılır',
   'games.winAmount': 'Kazanç',
   'games.won': 'Kazandınız',
+
+  // Auth (Login.jsx — daha önce eksik kalan anahtarlar)
+  'auth.acceptAllRequired': 'Devam etmek için tüm onay kutularını işaretlemelisiniz',
+  'auth.acceptKvkkLabel': 'okudum ve kabul ediyorum',
+  'auth.acceptKvkkLink': 'KVKK Aydınlatma Metni\'ni',
+  'auth.acceptTermsLabel': 'okudum ve kabul ediyorum',
+  'auth.acceptTermsLink': 'Kullanım Koşulları\'nı',
+  'auth.acceptedByRegister': 'kabul etmiş olursunuz.',
+  'auth.devLink': 'Doğrulama linkini aç',
+  'auth.devNotice': 'E-posta gönderilemedi (dev ortamı), linki manuel açabilirsiniz:',
+  'auth.emailNotVerified': 'adresine gönderilen doğrulama linkine tıklamanız gerekiyor.',
+  'auth.invalidCredentials': 'Kullanıcı adı veya şifre hatalı',
+  'auth.invalidData': 'Girdiğiniz bilgiler geçersiz',
+  'auth.invalidRegistrationInfo': 'Kayıt Bilgileriniz Geçersiz',
+  'auth.loginFailed': 'Giriş başarısız',
+  'auth.registerFailed': 'Kayıt Başarısız',
+  'auth.registerImplies': 'Kayıt olarak',
+  'auth.resendFailed': 'Mail gönderilemedi, tekrar deneyin',
+  'auth.resendVerification': 'Doğrulama Mailini Tekrar Gönder',
+  'auth.tooManyAttempts': 'Çok fazla deneme yaptınız, lütfen biraz bekleyin',
+  'auth.unknownError': 'Bilinmeyen bir hata oluştu',
+  'auth.userAgreement': 'Kullanıcı Sözleşmesi\'ni',
+  'auth.sportsBettingPlatform': 'Spor Bahis Platformu',
+  'auth.invitedYou': 'sizi davet etti',
+  'auth.referredByPlaceholder': 'Referans kullanıcısı (opsiyonel)',
+  'auth.hidePassword': 'Şifreyi gizle',
+  'auth.showPassword': 'Şifreyi göster',
+  'auth.forgotPassword': 'Şifremi Unuttum',
+  'common.backToLogin': 'Girişe Dön',
+  'common.ok': 'Tamam',
+  'common.sending': 'Gönderiliyor...',
+  'common.sent': 'Gönderildi',
+  'common.wait': 'Bekleyin...',
+
+  // BetSlip
+  'common.clear': 'Temizle',
+  'common.selections': 'Seçim',
+
+  // Navbar
+  'balance.depositWithdraw': 'Yatır / Çek',
+
+  // MiniEventCard
+  'game.total': 'Toplam',
+  'sports.vs': 'vs',
+
+  // LiveHelp
+  'livehelp.online': 'Çevrimiçi',
+  'livehelp.disclaimer': 'Yanıtlar otomatik asistan tarafından üretilir, hatalı olabilir.',
 };
