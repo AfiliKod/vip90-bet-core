@@ -538,4 +538,23 @@ export default {
   'verifyEmail.resendSent': 'If a new verification email was sent, check your inbox.',
   'verifyEmail.emailPlaceholder': 'Your email address',
   'verifyEmail.sendVerificationEmail': 'Send Verification Email',
+
+  // Admin Dashboard
+  'admin.dashboard.totalUsers': 'Total Users',
+  'admin.dashboard.totalBets': 'Total Bets',
+  'admin.dashboard.pendingBets': 'Pending Bets',
+  'admin.dashboard.totalDeposits': 'Total Deposits',
+
+  // Admin Game Tasks
+  'admin.gameTasks.title': 'Game Tasks',
+  'admin.gameTasks.pending': 'Pending',
+  'admin.gameTasks.resolved': 'Resolved',
+  'admin.gameTasks.ignored': 'Ignored',
+  'admin.gameTasks.ignore': 'Ignore',
+  'admin.gameTasks.noneFound': 'No tasks found',
+  'admin.gameTasks.addNotePlaceholder': 'Add note (optional)',
+
+  // Games (shared)
+  'games.invalidAmount': 'Invalid amount',
+  'games.wonWithMultiplier': '{mult}x — you won {payout}!',
 };

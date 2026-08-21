@@ -506,4 +506,23 @@ export default {
   'verifyEmail.resendSent': 'Yeni bir doğrulama maili gönderildiyse, gelen kutunuzu kontrol edin.',
   'verifyEmail.emailPlaceholder': 'E-posta adresiniz',
   'verifyEmail.sendVerificationEmail': 'Doğrulama Maili Gönder',
+
+  // Admin Dashboard
+  'admin.dashboard.totalUsers': 'Toplam Kullanıcı',
+  'admin.dashboard.totalBets': 'Toplam Bahis',
+  'admin.dashboard.pendingBets': 'Bekleyen Bahis',
+  'admin.dashboard.totalDeposits': 'Toplam Yatırım',
+
+  // Admin Game Tasks
+  'admin.gameTasks.title': 'Oyun Görevleri',
+  'admin.gameTasks.pending': 'Bekliyor',
+  'admin.gameTasks.resolved': 'Çözüldü',
+  'admin.gameTasks.ignored': 'Görmezden Gelindi',
+  'admin.gameTasks.ignore': 'Yoksay',
+  'admin.gameTasks.noneFound': 'Görev bulunamadı',
+  'admin.gameTasks.addNotePlaceholder': 'Not ekle (opsiyonel)',
+
+  // Games (ortak)
+  'games.invalidAmount': 'Geçersiz miktar',
+  'games.wonWithMultiplier': '{mult}x — {payout} kazandınız!',
 };

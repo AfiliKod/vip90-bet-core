@@ -1,9 +1,10 @@
 import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import api from '../../services/api';
-
+import { useTranslation } from '../../i18n';
 
 export default function AdminDashboard() {
+  const { t } = useTranslation();
   const [stats, setStats] = useState(null);
   const [pendingTasks, setPendingTasks] = useState(0);
   const [pendingBank, setPendingBank] = useState(0);
@@ -17,10 +18,10 @@ export default function AdminDashboard() {
   }, []);
 
   const cards = stats ? [
-    { label: 'Toplam Kullanıcı', value: stats.userCount, icon: '👥' },
-    { label: 'Toplam Bahis', value: stats.totalBets, icon: '🎯' },
-    { label: 'Bekleyen Bahis', value: stats.pendingBets, icon: '⏳' },
-    { label: 'Toplam Yatırım', value: `₺${(stats.totalDeposit || 0).toFixed(0)}`, icon: '💰' },
+    { label: t('admin.dashboard.totalUsers'), value: stats.userCount, icon: '👥' },
+    { label: t('admin.dashboard.totalBets'), value: stats.totalBets, icon: '🎯' },
+    { label: t('admin.dashboard.pendingBets'), value: stats.pendingBets, icon: '⏳' },
+    { label: t('admin.dashboard.totalDeposits'), value: `₺${(stats.totalDeposit || 0).toFixed(0)}`, icon: '💰' },
   ] : [];
 
   return (
