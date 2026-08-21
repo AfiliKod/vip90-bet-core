@@ -3,14 +3,16 @@ import { useEventsStore } from '../store/eventsStore';
 import { useBetSlipStore } from '../store/betSlipStore';
 import { groupOddsIntoLines } from '../utils/oddsUtils';
 import { fetchTeamInfo, resolveTeamColor, buildTeamGradient } from '../utils/matchHeroColors';
+import { useTranslation } from '../i18n';
 
 function formatDate(dateStr) {
   const d = new Date(dateStr);
   const today    = new Date(); today.setHours(0,0,0,0);
   const tomorrow = new Date(today); tomorrow.setDate(today.getDate()+1);
   const day = new Date(dateStr); day.setHours(0,0,0,0);
-  const label = day.getTime() === today.getTime() ? 'Bugün' :
-                day.getTime() === tomorrow.getTime() ? 'Yarın' :
+  const { t } = useTranslation();
+  const label = day.getTime() === today.getTime() ? t('sports.today') :
+                day.getTime() === tomorrow.getTime() ? t('sports.tomorrow') :
                 d.toLocaleDateString('tr-TR', { day:'numeric', month:'short' });
   return `${label}, ${d.toLocaleTimeString('tr-TR', { hour:'2-digit', minute:'2-digit' })}`;
 }
@@ -21,6 +23,7 @@ export default function MatchSlider({ statusFilter }) {
   const [active, setActive] = useState(0);
   const [teamColors, setTeamColors] = useState(new Map());
   const intervalRef = useRef(null);
+  const { t } = useTranslation();
 
   const slides = events
     .filter(e => e.status === statusFilter && (statusFilter !== 'upcoming' || e.markets?.some(m => m.type === 'maç_sonucu')))
@@ -96,7 +99,7 @@ export default function MatchSlider({ statusFilter }) {
           <div className="absolute top-4 left-5 z-10">
             <span className="flex items-center gap-1.5 bg-red-600 text-white text-[10px] font-bold px-2.5 py-1 rounded-full">
               <span className="w-1.5 h-1.5 bg-white rounded-full animate-pulse" />
-              CANLI {event.liveScore ? `${event.liveScore.home}–${event.liveScore.away}` : ''}
+              {t('sports.live')} {event.liveScore ? `${event.liveScore.home}–${event.liveScore.away}` : ''}
             </span>
           </div>
         )}
