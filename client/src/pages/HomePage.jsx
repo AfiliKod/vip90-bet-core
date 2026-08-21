@@ -4,6 +4,7 @@ import api from '../services/api';
 import MiniEventCard from '../components/MiniEventCard';
 import BetSlip from '../components/BetSlip';
 import { BRAND_GRADIENT, BRAND_GRADIENT_H, BRAND_GLOW } from '../styles/brand';
+import { formatMoney } from '../utils/money.js';
 
 const HERO_SLIDES = [
   {
@@ -41,14 +42,14 @@ const HERO_SLIDES = [
 const PROMO_SLIDES = [
   {
     id: 'deneme-bonusu', icon: '🎁', title: 'Deneme Bonusu', path: '/promotions', cta: 'Bonusu Al',
-    desc: '500₺\'ye kadar deneme bonusuyla platformu risksiz keşfet, kazancını hemen değerlendir!',
+    desc: () => `${formatMoney(500)}'ye kadar deneme bonusuyla platformu risksiz keşfet, kazancını hemen değerlendir!`,
     image: '/images/promo-deneme-bonusu.png',
     gradient: 'from-amber-900/80 to-yellow-900/60',
     accent: '#fbbf24',
   },
   {
     id: 'hosgeldin-bonusu', icon: '💰', title: 'Hoşgeldin Bonusu', path: '/promotions', cta: 'Hemen Yatır',
-    desc: 'İlk para yatırmana %100 bonus, 1000₺\'ye kadar! Üyeliğini tamamla, bonusunu kap.',
+    desc: () => `İlk para yatırmana %100 bonus, ${formatMoney(1000)}'ye kadar! Üyeliğini tamamla, bonusunu kap.`,
     image: '/images/promo-hosgeldin-bonusu.png',
     gradient: 'from-emerald-900/80 to-green-900/60',
     accent: '#34d399',
@@ -173,7 +174,7 @@ export default function HomePage() {
               {slide.title}
             </h1>
             <p className="text-sm sm:text-lg text-white/70 mb-6 max-w-lg drop-shadow-lg font-medium">
-              {slide.desc}
+              {typeof slide.desc === 'function' ? slide.desc() : slide.desc}
             </p>
             <button
               onClick={() => navigate(slide.path)}
@@ -243,7 +244,7 @@ export default function HomePage() {
               <div className="relative p-6 sm:p-8 h-full flex flex-col justify-end">
                 <span className="text-3xl mb-2 block">{s.icon}</span>
                 <h3 className="text-lg font-bold text-text-1 mb-1">{s.title}</h3>
-                <p className="text-xs text-text-2/80 mb-4 line-clamp-2">{s.desc}</p>
+                <p className="text-xs text-text-2/80 mb-4 line-clamp-2">{typeof s.desc === 'function' ? s.desc() : s.desc}</p>
                 <span
                   className="inline-flex items-center gap-1 text-xs font-bold transition-all group-hover:gap-2"
                   style={{ color: s.accent }}

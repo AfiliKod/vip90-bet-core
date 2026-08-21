@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom';
 import api from '../services/api';
 import { useToastStore } from '../store/toastStore';
 import { useAuthStore } from '../store/authStore';
+import { formatMoney } from '../utils/money.js';
 
 export default function Promotions() {
   const [promos, setPromos] = useState([]);
@@ -55,7 +56,7 @@ export default function Promotions() {
                 <h3 className="font-bold text-text-1 mb-1">{p.title}</h3>
                 <p className="text-text-3 text-sm mb-3">{p.description}</p>
                 <div className="flex flex-wrap gap-2 text-xs text-text-3">
-                  <span className="bg-bg-base px-2 py-1 rounded">💰 {p.amount}₺</span>
+                  <span className="bg-bg-base px-2 py-1 rounded">💰 {formatMoney(p.amount)}</span>
                   <span className="bg-bg-base px-2 py-1 rounded">📊 Min. oran: {p.minOdds}</span>
                   <span className="bg-bg-base px-2 py-1 rounded">🔄 {p.wageringMultiplier ?? p.wagering}x çevrim</span>
                   {p.deadlineDays && <span className="bg-bg-base px-2 py-1 rounded">⏰ {p.deadlineDays}g</span>}
@@ -90,7 +91,7 @@ export default function Promotions() {
             </div>
 
             <div className="space-y-3 mb-5">
-              <DetailRow label="Bonus Tutarı" value={`₺${activePromo.amount}`} />
+              <DetailRow label="Bonus Tutarı" value={formatMoney(activePromo.amount)} />
               <DetailRow label="Çevrim Şartı" value={`${activePromo.wageringMultiplier ?? activePromo.wagering}x`} />
               <DetailRow label="Min. Oran" value={activePromo.minOdds} />
               {activePromo.deadlineDays && <DetailRow label="Süre" value={`${activePromo.deadlineDays} gün`} />}
@@ -99,7 +100,7 @@ export default function Promotions() {
 
             <div className="text-xs space-y-1.5 mb-4 p-3 rounded-lg" style={{ background: 'rgba(255,255,255,0.03)', color: '#8899bb' }}>
               <p>• Bonus cash'e çevrilmeden çekim yapılırsa bonus iptal edilir.</p>
-              <p>• Maks. bahis: ₺50 (slot) / ₺100 (spor).</p>
+              <p>• Maks. bahis: {formatMoney(50)} (slot) / {formatMoney(100)} (spor).</p>
               <p>• Karşıt bahis ve risk-free oyun bonus iptaline yol açar.</p>
               <p>
                 Detaylı koşullar için{' '}

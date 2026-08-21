@@ -3,10 +3,12 @@ import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { useAuthStore } from './store/authStore';
 import { useToastStore } from './store/toastStore';
 import { useBetNotificationStore } from './store/betNotificationStore';
+import { formatMoney } from './utils/money.js';
 import { socket } from './services/socket';
 import ProtectedRoute from './components/ProtectedRoute';
 import { I18nProvider } from './i18n/I18nProvider.jsx';
 import ThemeStyleInjector from './theme/ThemeStyleInjector.jsx';
+import CurrencyLoader from './utils/CurrencyLoader.jsx';
 import GuestRoute from './components/GuestRoute';
 import ToastSystem from './components/ToastSystem';
 import Navbar from './components/Navbar';
@@ -86,11 +88,11 @@ export default function App() {
     function onBetSettled({ eventTitle, result, payout, amount }) {
       incrementUnread();
       if (result === 'win') {
-        addToast(`Kazandınız! ${eventTitle} — +₺${payout.toFixed(2)}`, 'success');
+        addToast(`Kazandınız! ${eventTitle} — +${formatMoney(payout)}`, 'success');
       } else if (result === 'refund') {
-        addToast(`İade edildi! ${eventTitle} — ₺${amount.toFixed(2)}`, 'info');
+        addToast(`İade edildi! ${eventTitle} — ${formatMoney(amount)}`, 'info');
       } else {
-        addToast(`Kaybedildi: ${eventTitle} — -₺${amount.toFixed(2)}`, 'error');
+        addToast(`Kaybedildi: ${eventTitle} — -${formatMoney(amount)}`, 'error');
       }
     }
     socket.on('bet:settled', onBetSettled);
@@ -103,6 +105,7 @@ export default function App() {
   return (
     <I18nProvider>
     <ThemeStyleInjector />
+    <CurrencyLoader />
     <BrowserRouter>
       <ToastSystem />
       <Navbar />

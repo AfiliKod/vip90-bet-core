@@ -2,6 +2,7 @@ import mongoose from 'mongoose';
 import User from '../models/User.js';
 import Transaction from '../models/Transaction.js';
 import { createError } from '../middleware/error.js';
+import { formatMoney } from '../currency/index.js';
 
 export async function deposit(req, res, next) {
   const session = await mongoose.startSession();
@@ -14,7 +15,7 @@ export async function deposit(req, res, next) {
     await user.save({ session });
     await Transaction.create([{ userId: user._id, type:'deposit', amount, balanceBefore, balanceAfter: user.balance }], { session });
     await session.commitTransaction();
-    res.json({ newBalance: user.balance, message: `${amount}₺ yatırıldı` });
+    res.json({ newBalance: user.balance, message: `${await formatMoney(amount)} yatırıldı` });
   } catch(e) { await session.abortTransaction(); next(e); }
   finally { session.endSession(); }
 }
@@ -28,7 +29,7 @@ export async function withdraw(req, res, next) {
     if (amount > breakdown.withdrawable) {
       if (breakdown.locked <= 0) throw createError(400, 'INSUFFICIENT_BALANCE', 'Yetersiz bakiye');
       if (!confirmForfeit) {
-        throw createError(409, 'ACTIVE_BONUS_LOCK', `Bu çekim ₺${breakdown.locked.toFixed(2)} tutarındaki aktif bonusunuzu iptal eder. Onaylıyor musunuz?`);
+        throw createError(409, 'ACTIVE_BONUS_LOCK', `Bu çekim ${await formatMoney(breakdown.locked)} tutarındaki aktif bonusunuzu iptal eder. Onaylıyor musunuz?`);
       }
       // Forfeit geri dönüşsüz — önce, işe yarayıp yaramayacağını (state
       // değiştirmeden) doğrula. Fresh/az ilerlemiş bonuslarda forfeitRatio
@@ -53,7 +54,7 @@ export async function withdraw(req, res, next) {
       await user.save({ session });
       await Transaction.create([{ userId: user._id, type:'withdraw', amount: -amount, balanceBefore, balanceAfter: user.balance }], { session });
       await session.commitTransaction();
-      res.json({ newBalance: user.balance, message: `${amount}₺ çekildi` });
+      res.json({ newBalance: user.balance, message: `${await formatMoney(amount)} çekildi` });
     } catch (e) {
       await session.abortTransaction();
       throw e;

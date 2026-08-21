@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import api from '../../services/api';
+import { formatMoney, getActiveCurrency } from '../../utils/money.js';
 import {
   AreaChart, Area, BarChart, Bar, PieChart, Pie, Cell,
   LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip,
@@ -18,9 +19,10 @@ const CHART_COLORS = ['#8b5cf6', '#f59e0b', '#10b981', '#ef4444', '#3b82f6', '#e
 const PIE_COLORS = ['#8b5cf6', '#f59e0b', '#10b981', '#ef4444', '#3b82f6', '#ec4899', '#14b8a6', '#f97316', '#6366f1'];
 
 function formatCurrency(v) {
-  if (v >= 1000000) return `₺${(v / 1000000).toFixed(1)}M`;
-  if (v >= 1000) return `₺${(v / 1000).toFixed(1)}B`;
-  return `₺${Number(v).toFixed(0)}`;
+  const symbol = getActiveCurrency().symbol;
+  if (v >= 1000000) return `${symbol}${(v / 1000000).toFixed(1)}M`;
+  if (v >= 1000) return `${symbol}${(v / 1000).toFixed(1)}B`;
+  return `${symbol}${Number(v).toFixed(0)}`;
 }
 
 function formatNumber(v) {
@@ -47,7 +49,7 @@ function CustomTooltip({ active, payload, label }) {
       {payload.map((p, i) => (
         <div key={i} className="flex items-center gap-2">
           <span className="w-2 h-2 rounded-full" style={{ background: p.color }} />
-          <span className="text-text-2">{p.name}: <strong className="text-text-1">{typeof p.value === 'number' ? p.name?.includes('₺') || p.name?.includes('Tutar') || p.value > 1000 ? formatCurrency(p.value) : formatNumber(p.value) : p.value}</strong></span>
+          <span className="text-text-2">{p.name}: <strong className="text-text-1">{typeof p.value === 'number' ? p.name?.includes(getActiveCurrency().symbol) || p.name?.includes('Tutar') || p.value > 1000 ? formatCurrency(p.value) : formatNumber(p.value) : p.value}</strong></span>
         </div>
       ))}
     </div>
@@ -161,10 +163,10 @@ function CasinoTab() {
           <ResponsiveContainer width="100%" height={300}>
             <BarChart data={topGames} layout="vertical">
               <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.05)" />
-              <XAxis type="number" tick={{ fill: '#888', fontSize: 10 }} tickFormatter={v => `₺${v.toFixed(0)}`} />
+              <XAxis type="number" tick={{ fill: '#888', fontSize: 10 }} tickFormatter={v => `${getActiveCurrency().symbol}${v.toFixed(0)}`} />
               <YAxis type="category" dataKey="gameTitle" tick={{ fill: '#888', fontSize: 9 }} width={100} />
               <Tooltip content={<CustomTooltip />} />
-              <Bar dataKey="ggr" name="GGR (₺)" radius={[0, 4, 4, 0]}>
+              <Bar dataKey="ggr" name={`GGR (${getActiveCurrency().symbol})`} radius={[0, 4, 4, 0]}>
                 {topGames.map((_, i) => <Cell key={i} fill={CHART_COLORS[i % CHART_COLORS.length]} />)}
               </Bar>
             </BarChart>
@@ -175,7 +177,7 @@ function CasinoTab() {
           <h4 className="text-sm font-semibold text-text-1 mb-3">Sağlayıcı Dağılımı</h4>
           <ResponsiveContainer width="100%" height={300}>
             <PieChart>
-              <Pie data={data.providerStats} dataKey="ggr" nameKey="_id" cx="50%" cy="50%" outerRadius={90} label={({ _id, ggr }) => `${_id} ₺${(ggr || 0).toFixed(0)}`}>
+              <Pie data={data.providerStats} dataKey="ggr" nameKey="_id" cx="50%" cy="50%" outerRadius={90} label={({ _id, ggr }) => `${_id} ${formatMoney(ggr || 0)}`}>
                 {data.providerStats.map((_, i) => <Cell key={i} fill={PIE_COLORS[i % PIE_COLORS.length]} />)}
               </Pie>
               <Tooltip />
@@ -194,11 +196,11 @@ function CasinoTab() {
             </defs>
             <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.05)" />
             <XAxis dataKey="_id" tick={{ fill: '#888', fontSize: 10 }} />
-            <YAxis tick={{ fill: '#888', fontSize: 10 }} tickFormatter={v => `₺${(v / 1000).toFixed(0)}B`} />
+            <YAxis tick={{ fill: '#888', fontSize: 10 }} tickFormatter={v => `${getActiveCurrency().symbol}${(v / 1000).toFixed(0)}B`} />
             <Tooltip content={<CustomTooltip />} />
             <Legend />
-            <Area type="monotone" dataKey="bet" name="Bahis (₺)" stroke="#f59e0b" fill="url(#casinoBet)" strokeWidth={2} />
-            <Area type="monotone" dataKey="ggr" name="GGR (₺)" stroke="#10b981" fill="url(#casinoGgr)" strokeWidth={2} />
+            <Area type="monotone" dataKey="bet" name={`Bahis (${getActiveCurrency().symbol})`} stroke="#f59e0b" fill="url(#casinoBet)" strokeWidth={2} />
+            <Area type="monotone" dataKey="ggr" name={`GGR (${getActiveCurrency().symbol})`} stroke="#10b981" fill="url(#casinoGgr)" strokeWidth={2} />
           </AreaChart>
         </ResponsiveContainer>
       </div>
@@ -277,7 +279,7 @@ function FinanceTab() {
             <LineChart data={processedDaily}>
               <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.05)" />
               <XAxis dataKey="date" tick={{ fill: '#888', fontSize: 9 }} />
-              <YAxis tick={{ fill: '#888', fontSize: 10 }} tickFormatter={v => `₺${(v / 1000).toFixed(0)}B`} />
+              <YAxis tick={{ fill: '#888', fontSize: 10 }} tickFormatter={v => `${getActiveCurrency().symbol}${(v / 1000).toFixed(0)}B`} />
               <Tooltip content={<CustomTooltip />} />
               <Legend />
               <Line type="monotone" dataKey="deposit" name="🏦 Yatırma" stroke="#10b981" strokeWidth={2} dot={false} />
@@ -342,11 +344,11 @@ function SportsTab() {
               </defs>
               <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.05)" />
               <XAxis dataKey="_id" tick={{ fill: '#888', fontSize: 10 }} />
-              <YAxis yAxisId="left" tick={{ fill: '#888', fontSize: 10 }} tickFormatter={v => `₺${(v / 1000).toFixed(0)}B`} />
+              <YAxis yAxisId="left" tick={{ fill: '#888', fontSize: 10 }} tickFormatter={v => `${getActiveCurrency().symbol}${(v / 1000).toFixed(0)}B`} />
               <YAxis yAxisId="right" orientation="right" tick={{ fill: '#888', fontSize: 10 }} />
               <Tooltip content={<CustomTooltip />} />
               <Legend />
-              <Area yAxisId="left" type="monotone" dataKey="totalStake" name="Bahis Hacmi (₺)" stroke="#3b82f6" fill="url(#betGrad)" strokeWidth={2} />
+              <Area yAxisId="left" type="monotone" dataKey="totalStake" name={`Bahis Hacmi (${getActiveCurrency().symbol})`} stroke="#3b82f6" fill="url(#betGrad)" strokeWidth={2} />
               <Line yAxisId="right" type="monotone" dataKey="count" name="Bahis Sayısı" stroke="#10b981" strokeWidth={2} dot={false} />
             </AreaChart>
           </ResponsiveContainer>
@@ -388,9 +390,9 @@ function SportsTab() {
             <LineChart data={data.averageStake}>
               <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.05)" />
               <XAxis dataKey="_id" tick={{ fill: '#888', fontSize: 10 }} />
-              <YAxis tick={{ fill: '#888', fontSize: 10 }} tickFormatter={v => `₺${v.toFixed(0)}`} domain={['dataMin - 10', 'dataMax + 10']} />
+              <YAxis tick={{ fill: '#888', fontSize: 10 }} tickFormatter={v => `${getActiveCurrency().symbol}${v.toFixed(0)}`} domain={['dataMin - 10', 'dataMax + 10']} />
               <Tooltip content={<CustomTooltip />} />
-              <Line type="monotone" dataKey="avgStake" name="Ort. Bahis (₺)" stroke="#ec4899" strokeWidth={2} dot={false} />
+              <Line type="monotone" dataKey="avgStake" name={`Ort. Bahis (${getActiveCurrency().symbol})`} stroke="#ec4899" strokeWidth={2} dot={false} />
             </LineChart>
           </ResponsiveContainer>
         </div>

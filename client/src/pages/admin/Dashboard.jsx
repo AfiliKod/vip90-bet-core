@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import api from '../../services/api';
+import { formatMoney } from '../../utils/money.js';
 
 
 export default function AdminDashboard() {
@@ -20,7 +21,7 @@ export default function AdminDashboard() {
     { label: 'Toplam Kullanıcı', value: stats.userCount, icon: '👥' },
     { label: 'Toplam Bahis', value: stats.totalBets, icon: '🎯' },
     { label: 'Bekleyen Bahis', value: stats.pendingBets, icon: '⏳' },
-    { label: 'Toplam Yatırım', value: `₺${(stats.totalDeposit || 0).toFixed(0)}`, icon: '💰' },
+    { label: 'Toplam Yatırım', value: formatMoney(stats.totalDeposit || 0), icon: '💰' },
   ] : [];
 
   return (

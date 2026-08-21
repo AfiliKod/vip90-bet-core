@@ -3,6 +3,7 @@ import Bet from '../models/Bet.js';
 import Transaction from '../models/Transaction.js';
 import CasinoRound from '../models/CasinoRound.js';
 import BankDepositRequest from '../models/BankDepositRequest.js';
+import { getActiveCurrency } from '../currency/index.js';
 
 function daysAgo(n) {
   const d = new Date();
@@ -74,6 +75,7 @@ export async function getUserAnalytics(req, res, next) {
   try {
     const days = parseInt(req.query.days) || 30;
     const since = daysAgo(days);
+    const { symbol } = await getActiveCurrency();
 
     const [registrations, balanceBuckets, activeUsers, hourlyActivity] = await Promise.all([
       User.aggregate([
@@ -94,16 +96,16 @@ export async function getUserAnalytics(req, res, next) {
           label: {
             $switch: {
               branches: [
-                { case: { $eq: ['$_id', 0] }, then: '₺0' },
-                { case: { $eq: ['$_id', 100] }, then: '₺1-100' },
-                { case: { $eq: ['$_id', 500] }, then: '₺101-500' },
-                { case: { $eq: ['$_id', 1000] }, then: '₺501-1,000' },
-                { case: { $eq: ['$_id', 5000] }, then: '₺1,001-5,000' },
-                { case: { $eq: ['$_id', 10000] }, then: '₺5,001-10,000' },
-                { case: { $eq: ['$_id', 50000] }, then: '₺10,001-50,000' },
-                { case: { $eq: ['$_id', 100000] }, then: '₺50,001-100,000' },
+                { case: { $eq: ['$_id', 0] }, then: `${symbol}0` },
+                { case: { $eq: ['$_id', 100] }, then: `${symbol}1-100` },
+                { case: { $eq: ['$_id', 500] }, then: `${symbol}101-500` },
+                { case: { $eq: ['$_id', 1000] }, then: `${symbol}501-1,000` },
+                { case: { $eq: ['$_id', 5000] }, then: `${symbol}1,001-5,000` },
+                { case: { $eq: ['$_id', 10000] }, then: `${symbol}5,001-10,000` },
+                { case: { $eq: ['$_id', 50000] }, then: `${symbol}10,001-50,000` },
+                { case: { $eq: ['$_id', 100000] }, then: `${symbol}50,001-100,000` },
               ],
-              default: '₺100,000+',
+              default: `${symbol}100,000+`,
             }
           },
         }},

@@ -4,6 +4,7 @@ import { useBetSlipStore } from '../store/betSlipStore';
 import { useAuthStore } from '../store/authStore';
 import { useToastStore } from '../store/toastStore';
 import api from '../services/api';
+import { formatMoney, getActiveCurrency } from '../utils/money.js';
 
 function SlipContent({ onSubmitted }) {
   const { selections, type, stake, setType, setStake, removeSelection, clear, getTotalOdds } = useBetSlipStore();
@@ -16,7 +17,7 @@ function SlipContent({ onSubmitted }) {
   const potentialWin = stake && !isNaN(parseFloat(stake)) ? +(parseFloat(stake) * totalOdds).toFixed(2) : 0;
 
   const submit = async () => {
-    if (!stake || parseFloat(stake) < 1) return addToast('Minimum bahis tutarı 1₺', 'warning');
+    if (!stake || parseFloat(stake) < 1) return addToast(`Minimum bahis tutarı ${formatMoney(1)}`, 'warning');
     if (!user) {
       // Misafir: bahis kuponu (state, sayfa/route'tan bağımsız) korunur — login sonrası
       // aynı sayfaya dönülür, kullanıcı bilinçli olarak tekrar "Bahis Yap"a basar.
@@ -77,13 +78,13 @@ function SlipContent({ onSubmitted }) {
         <input
           value={stake}
           onChange={e => setStake(e.target.value)}
-          type="number" min="1" placeholder="Bahis tutarı (₺)"
+          type="number" min="1" placeholder={`Bahis tutarı (${getActiveCurrency().symbol})`}
           className="w-full bg-bg-base border border-white/10 rounded-lg px-3 py-2 text-text-1 text-sm focus:outline-none focus:border-primary"
         />
         {potentialWin > 0 && (
           <div className="flex justify-between text-sm">
             <span className="text-text-2">Kazanılabilir</span>
-            <span className="text-success font-bold">₺{potentialWin.toFixed(2)}</span>
+            <span className="text-success font-bold">{formatMoney(potentialWin)}</span>
           </div>
         )}
         <button onClick={submit} className="w-full bg-gradient-to-r from-primary to-accent text-bg-deep font-semibold py-2.5 rounded-lg hover:opacity-90 transition text-sm">

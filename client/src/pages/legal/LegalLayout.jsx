@@ -100,7 +100,7 @@ export default function LegalLayout({ title, intro, sections, children }) {
                   <div className="space-y-2">
                     {section.content.map((p, i) => (
                       <p key={i} className="text-sm leading-relaxed" style={{ color: '#c8d8f0' }}>
-                        {p}
+                        {typeof p === 'function' ? p() : p}
                       </p>
                     ))}
                   </div>

@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useForm } from 'react-hook-form';
 import { useSettingsStore, ACCENT_COLORS } from '../store/settingsStore';
+import { getActiveCurrency } from '../utils/money.js';
 import { useAuthStore } from '../store/authStore';
 import { useToastStore } from '../store/toastStore';
 import api from '../services/api';
@@ -240,7 +241,7 @@ function TabBildirimler() {
           <input type="number" min="1" value={preferences.defaultStake}
             onChange={e => updatePreference('defaultStake', +e.target.value)}
             className="w-32 bg-bg-base border border-white/10 rounded-lg px-4 py-2.5 text-text-1 text-sm focus:outline-none focus:border-primary" />
-          <span className="text-text-3 text-sm">₺</span>
+          <span className="text-text-3 text-sm">{getActiveCurrency().symbol}</span>
         </div>
       </div>
 

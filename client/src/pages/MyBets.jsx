@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import api from '../services/api';
+import { formatMoney } from '../utils/money.js';
 
 const STATUS_LABEL = { pending: '⏳ Bekliyor', won: '✅ Kazandı', lost: '❌ Kaybetti', cancelled: '⊘ İptal' };
 const STATUS_COLOR = { pending: 'text-warning', won: 'text-success', lost: 'text-danger', cancelled: 'text-text-3' };
@@ -41,8 +42,8 @@ export default function MyBets() {
                 </div>
               ))}
               <div className="flex items-center justify-between mt-3 pt-3 border-t border-white/10 text-sm">
-                <span className="text-text-3">Tutar: <span className="text-text-1 font-medium">₺{bet.stake}</span></span>
-                <span className="text-text-3">Kazanılabilir: <span className="text-success font-medium">₺{bet.potentialWin}</span></span>
+                <span className="text-text-3">Tutar: <span className="text-text-1 font-medium">{formatMoney(bet.stake)}</span></span>
+                <span className="text-text-3">Kazanılabilir: <span className="text-success font-medium">{formatMoney(bet.potentialWin)}</span></span>
               </div>
             </div>
           ))}
