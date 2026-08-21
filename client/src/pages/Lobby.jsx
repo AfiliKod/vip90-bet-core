@@ -1,4 +1,5 @@
 import { useEffect, useState, useMemo } from 'react';
+import { useTranslation } from '../i18n';
 import { useEventsStore, groupByLeague } from '../store/eventsStore';
 import { SPORT_META } from '../utils/sportMeta';
 import LeagueGroup from '../components/LeagueGroup';
@@ -6,6 +7,7 @@ import BetSlip from '../components/BetSlip';
 import HeroSlider from '../components/HeroSlider';
 
 export default function Lobby() {
+  const { t } = useTranslation();
   const {
     sport, statusFilter, setStatusFilter,
     events, isLoading, fetchEvents, initSocket, cleanup,
@@ -73,7 +75,7 @@ export default function Lobby() {
         {/* Ana içerik */}
         <main className="flex-1 min-w-0">
           <div className="flex gap-2 mb-4 items-center flex-wrap">
-            {[['', 'Tümü'], ['live', '🔴 Canlı'], ['upcoming', 'Yaklaşan']].map(([v, l]) => (
+            {[['', t('common.all')], ['live', t('sports.live')], ['upcoming', t('sports.upcoming')]].map(([v, l]) => (
               <button key={v} onClick={() => setStatusFilter(v)}
                 className={`px-3 py-1 rounded-lg text-xs font-medium transition ${
                   statusFilter === v
@@ -86,15 +88,15 @@ export default function Lobby() {
             <input
               value={search}
               onChange={e => setSearch(e.target.value)}
-              placeholder="Takım veya lig ara..."
+              placeholder={t('sports.searchPlaceholder')}
               className="ml-auto bg-bg-card border border-white/10 rounded-lg px-3 py-1 text-xs text-text-1 focus:outline-none focus:border-primary/50 w-44"
             />
           </div>
 
           {isLoading ? (
-            <div className="text-center text-text-3 py-16">Yükleniyor...</div>
+            <div className="text-center text-text-3 py-16">{t('common.loading')}</div>
           ) : (hierarchicalGroups !== null ? hierarchicalGroups.size === 0 : groupedEvents.size === 0) ? (
-            <div className="text-center text-text-3 py-16">Etkinlik bulunamadı</div>
+            <div className="text-center text-text-3 py-16">{t('sports.noEvents')}</div>
           ) : hierarchicalGroups !== null ? (
             <div>
               {[...hierarchicalGroups.entries()].map(([sport, leagueMap]) => {

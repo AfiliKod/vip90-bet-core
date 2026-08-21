@@ -1,18 +1,20 @@
 import { Link, useLocation } from 'react-router-dom';
+import { useTranslation } from '../../i18n';
 import { COMPANY, LEGAL_VERSION } from '../../data/legalContent';
 
 const SECTIONS = [
-  { to: '/legal/terms', label: 'Kullanım Koşulları', key: 'terms' },
-  { to: '/legal/user-agreement', label: 'Kullanıcı Sözleşmesi', key: 'user-agreement' },
-  { to: '/legal/privacy', label: 'Gizlilik Politikası', key: 'privacy' },
-  { to: '/legal/kvkk', label: 'KVKK Aydınlatma Metni', key: 'kvkk' },
-  { to: '/legal/cookies', label: 'Çerez Politikası', key: 'cookies' },
-  { to: '/legal/bonus-terms', label: 'Bonus Kullanım Koşulları', key: 'bonus' },
-  { to: '/legal/responsible-gaming', label: 'Sorumlu Oyun', key: 'responsible' },
+  { to: '/legal/terms', label: 'legal.terms.title', key: 'terms' },
+  { to: '/legal/user-agreement', label: 'legal.terms.subtitle', key: 'user-agreement' },
+  { to: '/legal/privacy', label: 'legal.privacy.title', key: 'privacy' },
+  { to: '/legal/kvkk', label: 'legal.kvkk.title', key: 'kvkk' },
+  { to: '/legal/cookies', label: 'legal.cookies.title', key: 'cookies' },
+  { to: '/legal/bonus-terms', label: 'legal.bonus.title', key: 'bonus' },
+  { to: '/legal/responsible-gaming', label: 'legal.responsible.title', key: 'responsible' },
 ];
 
 export default function LegalLayout({ title, intro, sections, children }) {
   const location = useLocation();
+  const { t } = useTranslation();
   const updatedAt = new Date().toLocaleDateString('tr-TR');
 
   return (
@@ -21,7 +23,7 @@ export default function LegalLayout({ title, intro, sections, children }) {
         {/* Header */}
         <div className="mb-6">
           <Link to="/" className="text-[10px] uppercase tracking-widest font-bold" style={{ color: '#00d4ff' }}>
-            ← Ana sayfa
+            ← {t('common.back')}
           </Link>
           <h1 className="text-2xl font-black mt-2" style={{
             background: 'linear-gradient(90deg, #00d4ff, #7c3aed)',
@@ -46,7 +48,7 @@ export default function LegalLayout({ title, intro, sections, children }) {
           <aside className="hidden lg:block">
             <div className="sticky top-4">
               <div className="text-[10px] uppercase tracking-widest font-bold mb-3" style={{ color: '#8899bb' }}>
-                Yasal Belgeler
+                {t('nav.legal')}
               </div>
               <nav className="space-y-1">
                 {SECTIONS.map(s => {
@@ -62,7 +64,7 @@ export default function LegalLayout({ title, intro, sections, children }) {
                         borderLeft: active ? '2px solid #00d4ff' : '2px solid transparent',
                       }}
                     >
-                      {s.label}
+                      {t(s.label)}
                     </Link>
                   );
                 })}
@@ -71,10 +73,10 @@ export default function LegalLayout({ title, intro, sections, children }) {
               {/* 18+ badge */}
               <div className="mt-6 p-3 rounded-lg" style={{ background: 'rgba(239,68,68,0.08)', border: '1px solid rgba(239,68,68,0.3)' }}>
                 <div className="text-[10px] font-black uppercase tracking-wider" style={{ color: '#ef4444' }}>
-                  ⚠️ 18+ Yaş Sınırı
+                  ⚠️ {t('common.ageRestriction')}
                 </div>
                 <p className="text-[10px] mt-1.5" style={{ color: '#8899bb' }}>
-                  Kumar bağımlılığı ciddi bir sağlık sorunudur. Yardım için:{' '}
+                  {t('legal.responsible.warning')} {' '}
                   <a href="https://www.gamblingtherapy.org" target="_blank" rel="noopener noreferrer" className="underline" style={{ color: '#00d4ff' }}>
                     gamblingtherapy.org
                   </a>
