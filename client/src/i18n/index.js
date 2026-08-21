@@ -11,3 +11,4 @@ import en from './dictionaries/en.js';
 export const dictionaries = { tr, en };
 export const DEFAULT_LOCALE = 'tr';
 export { createI18nCore, assertValidKey } from './core.js';
+export { I18nProvider, useTranslation } from './I18nProvider.jsx';
