@@ -2,6 +2,10 @@ import 'dotenv/config';
 import mongoose from 'mongoose';
 import User from './models/User.js';
 import GameTask from './models/GameTask.js';
+import Event from './models/Event.js';
+import Bet from './models/Bet.js';
+import CasinoRound from './models/CasinoRound.js';
+import { createDemoSeeder } from './demo/seedCore.js';
 
 await mongoose.connect(process.env.MONGODB_URI);
 
@@ -43,5 +47,17 @@ await GameTask.insertMany(
   BROKEN_GAMES.map(g => ({ ...g, provider: 'BGaming', status: 'pending' }))
 );
 console.log(`✅ ${BROKEN_GAMES.length} sorunlu BGaming oyunu GameTask'a eklendi`);
+
+// ─── V1 — Demo ortamı verisi (idempotent) ─────────────────────────
+// Sınırlı yetkili demo yöneticisi, örnek oyuncular, bahis ve casino
+// round geçmişleri. Tümü açıkça sahte: demo_ öneki, @demo.local, DEMOLIG.
+const demo = await createDemoSeeder({
+  userModel: User,
+  eventModel: Event,
+  betModel: Bet,
+  casinoRoundModel: CasinoRound,
+}).seed();
+for (const c of demo.created) console.log(`✅ demo oluşturuldu: ${c}`);
+for (const s of demo.skipped) console.log(`• demo zaten mevcut: ${s}`);
 
 await mongoose.disconnect();

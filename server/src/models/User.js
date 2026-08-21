@@ -6,6 +6,9 @@ const schema = new mongoose.Schema({
   email:    { type: String, required: true, unique: true, lowercase: true },
   password: { type: String, required: true },
   role:     { type: String, enum: ['user','admin'], default: 'user' },
+  // V1 — sınırlı demo yönetici: role=admin kalır, yıkıcı işlemler
+  // middleware/demoAdmin.js blockDemoAdmin ile engellenir.
+  isDemoAdmin: { type: Boolean, default: false },
   balance:  { type: Number, default: 0, min: 0 },
   bonusBalance: { type: Number, default: 0, min: 0 },
   // ─── Model B (Kilitli Bakiye) tek seferlik migration marker ───────

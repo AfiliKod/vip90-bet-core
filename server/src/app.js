@@ -28,6 +28,7 @@ import bankRoutes from './routes/bank.js';
 import analyticsRoutes from './routes/analytics.js';
 import admin2faRoutes from './routes/admin2fa.js';
 import themeRoutes from './routes/theme.js';
+import demoRoutes from './demo/showcase.js';
 import ticketRoutes from './routes/ticket.js';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
@@ -140,6 +141,9 @@ export function createApp() {
   app.use('/api/admin/analytics', analyticsRoutes);
   app.use('/api/auth/2fa', admin2faRoutes);
   app.use('/api/theme', themeRoutes);
+
+  // V1 — demo vitrini: "modül gerektirir" rozetinin veri katmanı (herkese açık)
+  app.use('/api/demo', demoRoutes);
   app.use('/api/tickets', ticketRoutes);
 
   // Health check — Render uptime monitoring için
