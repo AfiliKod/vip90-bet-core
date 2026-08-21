@@ -5,18 +5,19 @@ import { Link, useSearchParams } from 'react-router-dom';
 import { useAuthStore } from '../store/authStore';
 import { useToastStore } from '../store/toastStore';
 import api from '../services/api';
+import { useTranslation } from '../i18n';
 
 const TX_LABEL = {
-  deposit: '📥 Para Yatır',
-  withdraw: '📤 Para Çek',
-  bet: '🎯 Bahis',
-  win: '🏆 Kazanç',
-  bonus: '🎁 Bonus',
-  refund: '↩️ İade',
-  casino_return: '🎰 Casino Dönüş',
-  bonus_conversion: '💰 Bonus Çevrimi',
-  crypto_deposit: '🪙 Kripto Yatırım',
-  crypto_withdraw: '🪙 Kripto Çekim',
+  deposit: t('profile.deposit'),
+  withdraw: t('profile.withdraw'),
+  bet: t('profile.bet'),
+  win: t('profile.win'),
+  bonus: t('profile.bonus'),
+  refund: t('profile.refund'),
+  casino_return: t('profile.casinoReturn'),
+  bonus_conversion: t('profile.bonusConversion'),
+  crypto_deposit: t('profile.cryptoDeposit'),
+  crypto_withdraw: t('profile.cryptoWithdraw'),
 };
 
 const AMOUNT_PRESETS = [100, 250, 500, 1000, 2000, 5000];
@@ -32,7 +33,7 @@ function CopyButton({ text }) {
   return (
     <button onClick={copy}
       className="text-xs px-2 py-1 rounded bg-white/10 hover:bg-white/20 text-text-2 transition shrink-0">
-      {copied ? '✓ Kopyalandı' : 'Kopyala'}
+      {copied ? t('common.copied') : t('common.copy')}
     </button>
   );
 }
@@ -54,23 +55,23 @@ function CryptoDeposit({ onBalanceUpdate }) {
       const { data } = await api.post('/crypto/check-deposit');
       if (data.credited?.length > 0) {
         const total = data.credited.reduce((s, c) => s + c.usdtAmount, 0);
-        addToast(`${total.toFixed(2)} USDT yatırım onaylandı!`, 'success');
+        addToast(`${total.toFixed(2)} ${t('profile.usdt')} ${t('profile.depositConfirmed')}`, 'success');
         onBalanceUpdate(data.newBalance);
       } else {
-        addToast('Henüz onaylanan yatırım yok', 'info');
+        addToast(t('profile.noDepositsYet'), 'info');
       }
-    } catch { addToast('Kontrol başarısız', 'error'); }
+    } catch { addToast(t('profile.checkFailed'), 'error'); }
     finally { setChecking(false); }
   };
 
   if (!address) return (
-    <div className="flex items-center justify-center py-12 text-text-3 text-sm">Yükleniyor...</div>
+    <div className="flex items-center justify-center py-12 text-text-3 text-sm">{t('profile.loading')}</div>
   );
 
   return (
     <div className="space-y-5">
       <div className="bg-yellow-500/10 border border-yellow-500/30 rounded-lg p-3 text-yellow-300 text-xs leading-relaxed">
-        Yalnızca <strong>USDT (TRC20 / Tron ağı)</strong> gönderin. Diğer ağlar veya tokenler kalıcı olarak kaybolur.
+        {t('profile.onlyUSDT')}
       </div>
 
       <div className="flex flex-col items-center gap-4">
@@ -78,7 +79,7 @@ function CryptoDeposit({ onBalanceUpdate }) {
           <QRCodeSVG value={address} size={160} level="M" />
         </div>
         <div className="w-full">
-          <div className="text-xs text-text-3 mb-1">TRC20 Adresiniz</div>
+          <div className="text-xs text-text-3 mb-1">{t('profile.trc20Address')}</div>
           <div className="flex items-center gap-2 bg-bg-base border border-white/10 rounded-lg px-3 py-2">
             <span className="text-text-2 text-xs font-mono break-all flex-1">{address}</span>
             <CopyButton text={address} />
@@ -88,11 +89,11 @@ function CryptoDeposit({ onBalanceUpdate }) {
 
       <button onClick={checkDeposit} disabled={checking}
         className="w-full py-2.5 border border-primary/40 text-primary rounded-lg text-sm font-medium hover:bg-primary/10 transition disabled:opacity-50">
-        {checking ? 'Kontrol ediliyor...' : '🔄 Yatırımımı Kontrol Et'}
+        {checking ? t('profile.checking') : t('profile.checkDeposit')}
       </button>
 
       <p className="text-text-3 text-xs text-center">
-        Gönderim sonrası "Kontrol Et" butonuna basın · Min 1 USDT · Tron ağı ~1 dk
+        {t('profile.sendThenCheck')} · Min 1 ${t('profile.usdt')} · Tron ağı ~1 dk
       </p>
     </div>
   );
@@ -111,37 +112,38 @@ function CryptoWithdraw({ onBalanceUpdate }) {
       onBalanceUpdate(res.newBalance);
       addToast(res.message, 'success');
       reset();
-    } catch (e) { addToast(e.response?.data?.error || 'İşlem başarısız', 'error'); }
+    } catch (e) { addToast(e.response?.data?.error || t('profile.operationFailed'), 'error'); }
   };
 
   return (
     <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
       <div className="bg-blue-500/10 border border-blue-500/30 rounded-lg p-3 text-blue-300 text-xs">
-        Çekim 24 saat içinde manuel olarak işlenir. Yalnızca TRC20 adresi girin.
+        {t('profile.withdrawInfo')}
       </div>
       <div>
-        <label className="text-xs text-text-3 mb-1 block">TRC20 Cüzdan Adresiniz</label>
+        <label className="text-xs text-text-3 mb-1 block">{t('profile.trc20WalletAddress')}</label>
         <input {...register('address', { required: true, pattern: /^T[A-Za-z0-9]{33}$/ })}
           placeholder="T..."
           className="w-full bg-bg-base border border-white/10 rounded-lg px-4 py-2.5 text-text-1 text-sm font-mono focus:outline-none focus:border-primary" />
-        {errors.address && <p className="text-danger text-xs mt-1">Geçerli bir TRC20 adresi girin</p>}
+        {errors.address && <p className="text-danger text-xs mt-1">{t('profile.validTrc20Address')}</p>}
       </div>
       <div>
-        <label className="text-xs text-text-3 mb-1 block">Miktar (USDT)</label>
+        <label className="text-xs text-text-3 mb-1 block">{t('profile.amountUSDT')}</label>
         <input {...register('usdtAmount', { required: true, min: 5, valueAsNumber: true })}
-          type="number" step="0.01" placeholder="Min. 5 USDT"
+          type="number" step="0.01" placeholder={`Min. 5 ${t('profile.usdt')}`}
           className="w-full bg-bg-base border border-white/10 rounded-lg px-4 py-2.5 text-text-1 focus:outline-none focus:border-primary" />
-        {errors.usdtAmount && <p className="text-danger text-xs mt-1">Min. 5 USDT</p>}
+        {errors.usdtAmount && <p className="text-danger text-xs mt-1">{t('profile.min5USDT')}</p>}
       </div>
       <button type="submit" disabled={isSubmitting}
         className="w-full py-2.5 bg-primary text-bg-deep font-semibold rounded-lg hover:opacity-90 transition disabled:opacity-50">
-        {isSubmitting ? 'Gönderiliyor...' : 'Çekim Talebi Oluştur'}
+        {isSubmitting ? t('profile.sending') : t('profile.createWithdrawalRequest')}
       </button>
     </form>
   );
 }
 
 export default function Profile() {
+  const { t } = useTranslation();
   const { user, updateBalance } = useAuthStore();
   const addToast = useToastStore(s => s.add);
   const [searchParams, setSearchParams] = useSearchParams();
@@ -287,7 +289,7 @@ const handleBankSubmit = async (confirmForfeit = false) => {
       onBalanceUpdate(res.newBalance);
       addToast(res.message, 'success');
       reset();
-    } catch (e) { addToast(e.response?.data?.error?.message || 'İşlem başarısız', 'error'); }
+    } catch (e) { addToast(e.response?.data?.error?.message || t('profile.operationFailed'), 'error'); }
   };
 
   return (
@@ -312,7 +314,7 @@ const handleBankSubmit = async (confirmForfeit = false) => {
             )}
             {user?.withdrawable != null && (
               <div className="text-[11px] mt-1" style={{ color: '#7c8aae' }}>
-                Çekilebilir: ₺{user.withdrawable.toFixed(2)}
+                {t('profile.withdrawable')}: ₺{user.withdrawable.toFixed(2)}
               </div>
             )}
             {user?.activePalaceBalance != null && (
@@ -343,12 +345,12 @@ const handleBankSubmit = async (confirmForfeit = false) => {
               const urgent = !expired && daysLeft !== null && daysLeft < 3;
               const deadlineColor = expired ? '#ef4444' : urgent ? '#fbbf24' : '#8899bb';
               const deadlineText = expired
-                ? '⛔ Süresi doldu'
-                : daysLeft !== null && daysLeft >= 1
-                  ? `⏰ ${daysLeft}g ${hoursLeft}s kaldı`
-                  : hoursLeft !== null
-                    ? `⏰ ${hoursLeft}s kaldı`
-                    : null;
+                               ? t('profile.expired')
+                               : daysLeft !== null && daysLeft >= 1
+                                 ? `${t('profile.daysLeft', { days: daysLeft, hours: hoursLeft })}`
+                                 : hoursLeft !== null
+                                   ? `${t('profile.hoursLeft', { hours: hoursLeft })}`
+                                   : null;
               return (
                 <div
                   key={w._id}
