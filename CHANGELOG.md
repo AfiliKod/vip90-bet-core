@@ -12,6 +12,19 @@ Madde formatı ve kategoriler için `docs/CHANGELOG_GUIDE.md`'ye bakın —
 
 ## [Yayınlanmadı]
 
+## [0.2.0] — 2026-08-21
+
+Faz 0 (Sözleşmeler) tamamlandı ve Faz 1'in (dört paralel akış) büyük
+bölümü bu sürümde toplandı: Akış A (arayüz özelleştirme) tam, Akış B
+(operatör araçları) tam, Akış C (oyuncu deneyimi) büyük ölçüde tam,
+D akışının (bakım ajanı + dokümantasyon) 7/9 kartı, Akış K'nın ilk
+kartı. Toplam 29/52 kart.
+
+**Bu hâlâ bir geliştirme sürümüdür, satışa hazır sürüm değildir.**
+1.0.0 etiketi, Faz 2 (entegrasyon ve sertleştirme) ile Faz 3 (vitrin ve
+yayına çıkış) tamamlanıp ürün yayına gönderilmeye hazır olduğunda
+verilecek.
+
 ### D5 — Oyuncu yardım masası / ticket sistemi
 - `models/Ticket.js`: konu + mesaj dizisi (gönderen, rol, metin),
   status (open/in_progress/resolved/closed).
