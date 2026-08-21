@@ -2,6 +2,8 @@ import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import api from '../../services/api';
 import { useTranslation } from '../../i18n';
+import { formatMoney } from '../../utils/money.js';
+
 
 export default function AdminDashboard() {
   const { t } = useTranslation();
@@ -21,7 +23,7 @@ export default function AdminDashboard() {
     { label: t('admin.dashboard.totalUsers'), value: stats.userCount, icon: '👥' },
     { label: t('admin.dashboard.totalBets'), value: stats.totalBets, icon: '🎯' },
     { label: t('admin.dashboard.pendingBets'), value: stats.pendingBets, icon: '⏳' },
-    { label: t('admin.dashboard.totalDeposits'), value: `₺${(stats.totalDeposit || 0).toFixed(0)}`, icon: '💰' },
+    { label: t('admin.dashboard.totalDeposits'), value: formatMoney(stats.totalDeposit || 0), icon: '💰' },
   ] : [];
 
   return (

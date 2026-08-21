@@ -163,7 +163,7 @@ export default function HomePage() {
               {slide.title}
             </h1>
             <p className="text-sm sm:text-lg text-white/70 mb-6 max-w-lg drop-shadow-lg font-medium">
-              {slide.desc}
+              {typeof slide.desc === 'function' ? slide.desc() : slide.desc}
             </p>
             <button
               onClick={() => navigate(slide.path)}
@@ -235,7 +235,7 @@ export default function HomePage() {
               <div className="relative p-6 sm:p-8 h-full flex flex-col justify-end">
                 <span className="text-3xl mb-2 block">{s.icon}</span>
                 <h3 className="text-lg font-bold text-text-1 mb-1">{s.title}</h3>
-                <p className="text-xs text-text-2/80 mb-4 line-clamp-2">{s.desc}</p>
+                <p className="text-xs text-text-2/80 mb-4 line-clamp-2">{typeof s.desc === 'function' ? s.desc() : s.desc}</p>
                 <span
                   className="inline-flex items-center gap-1 text-xs font-bold transition-all group-hover:gap-2"
                   style={{ color: s.accent }}

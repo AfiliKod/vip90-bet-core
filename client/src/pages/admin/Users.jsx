@@ -3,6 +3,7 @@ import api from '../../services/api';
 import UserSlideOver from './components/UserSlideOver.jsx';
 import CreateUserModal from './components/CreateUserModal.jsx';
 import { useTranslation } from '../../i18n';
+import { formatMoney } from '../../utils/money.js';
 
 export default function AdminUsers() {
   const { t } = useTranslation();
@@ -98,7 +99,7 @@ export default function AdminUsers() {
                 className={`border-b border-white/5 hover:bg-bg-hover transition cursor-pointer last:border-0 ${u.deletedAt ? 'opacity-50' : ''}`}>
                 <td className="p-3 text-text-1 font-medium">{u.username}</td>
                 <td className="p-3 text-text-3 text-xs hidden sm:table-cell">{u.email}</td>
-                <td className="p-3 text-right text-primary font-medium">₺{u.balance?.toFixed(2)}</td>
+                <td className="p-3 text-right text-primary font-medium">{formatMoney(u.balance)}</td>
                 <td className="p-3 text-center">
                   {u.deletedAt ? (
                     <span className="text-xs font-semibold text-danger/60">● {t('admin.users.deletedDot')}</span>

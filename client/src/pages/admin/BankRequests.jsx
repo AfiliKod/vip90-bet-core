@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import api from '../../services/api';
 import { useToastStore } from '../../store/toastStore';
 import { useTranslation } from '../../i18n';
+import { formatMoney } from '../../utils/money.js';
 
 export default function AdminBankRequests() {
   const { t } = useTranslation();
@@ -71,7 +72,7 @@ export default function AdminBankRequests() {
                   </span>
                 </div>
                 <div className="text-2xl font-black text-primary">
-                  ₺{r.amount.toFixed(2)}
+                  {formatMoney(r.amount)}
                 </div>
                 <div className="text-xs text-text-3 mt-1">
                   {new Date(r.createdAt).toLocaleString('tr-TR')}

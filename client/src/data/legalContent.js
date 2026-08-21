@@ -4,6 +4,8 @@
 // Türkiye'de online bahis/sans oyunları yasal değildir; kullanıcı kendi yargı alanının
 // yasalarına uymakla sorumludur.
 
+import { formatMoney } from '../utils/money.js';
+
 export const LEGAL_VERSION = '1.0.0';
 
 export const COMPANY = {
@@ -41,7 +43,7 @@ export const TERMS = {
     {
       title: '3. Para Yatırma ve Çekme',
       content: [
-        'Minimum para yatırma: ₺50 · Minimum çekim: ₺100 · Maksimum çekim: KYC seviyesine göre değişir.',
+        () => `Minimum para yatırma: ${formatMoney(50)} · Minimum çekim: ${formatMoney(100)} · Maksimum çekim: KYC seviyesine göre değişir.`,
         'Çekim talepleri 24 saat içinde işleme alınır; banka transferi 1-3 iş günü sürebilir.',
         'Aktif bonus çevrim şartı tamamlanmadan yapılan çekimlerde bonus bakiyesi iptal edilir.',
         'Şüpheli işlem tespit edilirse ek doğrulama (kimlik, adres, kaynak) talep edilebilir.',
@@ -368,7 +370,7 @@ export const BONUS_TERMS = {
       title: '2. Oyun Ağırlıkları',
       content: [
         'Spor bahisleri: 1.0 (100%)',
-        'Casino slot: 0.5 (50%) — örn. ₺100 bahis = ₺50 çevrim',
+        () => `Casino slot: 0.5 (50%) — örn. ${formatMoney(100)} bahis = ${formatMoney(50)} çevrim`,
         'Casino canlı: 0.7 (70%)',
         'In-house oyunlar (Crash, Mines vb.): 0.5 (50%)',
         'Bonus kötüye kullanımına izin veren oyunlar (düşük RTP slot): 0.0',
@@ -377,7 +379,7 @@ export const BONUS_TERMS = {
     {
       title: '3. Maksimum Bahis',
       content: [
-        'Bonus aktifken maksimum bahis: ₺50 (slot) / ₺100 (spor)',
+        () => `Bonus aktifken maksimum bahis: ${formatMoney(50)} (slot) / ${formatMoney(100)} (spor)`,
         'Maksimum bahis aşılırsa bonus ve kazançlar iptal edilir.',
       ],
     },

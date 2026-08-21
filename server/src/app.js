@@ -31,6 +31,7 @@ import themeRoutes from './routes/theme.js';
 import modulesRoutes from './routes/modules.js';
 import { createModuleGate } from './middleware/moduleGate.js';
 import { isModuleUsable } from './services/licensing/index.js';
+import currencyRoutes from './routes/currency.js';
 import ticketRoutes from './routes/ticket.js';
 import installRoutes from './routes/install.js';
 import brandingRoutes from './routes/branding.js';
@@ -156,6 +157,7 @@ export function createApp() {
   app.use('/api/branding', brandingRoutes);
   app.use('/api/pages', pagesRoutes);
   app.use('/api/games', gamesRoutes);
+  app.use('/api/currency', currencyRoutes);
 
   // M4 — modül kapalıyken zarif bozulma: ilgili bölümler 404 yerine anlamlı
   // 503 (MODULE_DISABLED) döner; site geri kalanında hatasız çalışır.

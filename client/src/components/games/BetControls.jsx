@@ -1,5 +1,6 @@
 import { useState, useRef, useEffect } from 'react';
 import { useTranslation } from '../../i18n';
+import { formatMoney, getActiveCurrency } from '../../utils/money.js';
 
 function smartStep(n) {
   if (n < 10)   return 1;
@@ -72,13 +73,13 @@ export default function BetControls({ value, onChange, disabled, presets, onAuto
           style={{ background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.07)' }}>
           <div>
             <div className="text-[9px] text-white/30 uppercase tracking-widest leading-tight">Bakiye</div>
-            <div className="text-sm font-black text-white tabular-nums">₺{balance.toFixed(2)}</div>
+            <div className="text-sm font-black text-white tabular-nums">{formatMoney(balance)}</div>
           </div>
           {lastResult != null && (
             <div className="text-right">
               <div className="text-[9px] text-white/30 uppercase tracking-widest leading-tight">Son El</div>
               <div className={`text-sm font-black tabular-nums ${lastResult.net > 0 ? 'text-green-400' : lastResult.net < 0 ? 'text-red-400' : 'text-white/40'}`}>
-                {lastResult.net > 0 ? '+' : ''}{lastResult.net.toFixed(2)} ₺
+                {lastResult.net > 0 ? '+' : ''}{formatMoney(lastResult.net)}
               </div>
             </div>
           )}
@@ -103,7 +104,7 @@ export default function BetControls({ value, onChange, disabled, presets, onAuto
           disabled={disabled}
           className="flex-1 h-11 rounded-xl border border-white/15 hover:border-primary/60 focus:border-primary/70 disabled:opacity-40 transition-all flex items-center justify-between px-3 gap-2"
           style={{ background: 'rgba(255,255,255,0.05)' }}>
-          <span className="text-[11px] text-text-3 font-bold">₺</span>
+          <span className="text-[11px] text-text-3 font-bold">{getActiveCurrency().symbol}</span>
           <span className="text-sm font-black text-white tabular-nums flex-1 text-center">
             {num > 0 ? num.toLocaleString('tr-TR') : '0'}
           </span>
@@ -164,7 +165,7 @@ export default function BetControls({ value, onChange, disabled, presets, onAuto
                     ? 'bg-primary text-white border-primary/80 shadow-lg shadow-primary/20'
                     : 'border-white/10 text-text-2 hover:border-primary/40 hover:text-primary'}`}
                 style={num !== v ? { background: 'rgba(255,255,255,0.04)' } : {}}>
-                ₺{v >= 1000 ? `${v / 1000}K` : v}
+                {getActiveCurrency().symbol}{v >= 1000 ? `${v / 1000}K` : v}
               </button>
             ))}
           </div>
@@ -191,7 +192,7 @@ export default function BetControls({ value, onChange, disabled, presets, onAuto
         <div className="flex items-center justify-between px-1">
           <span className="text-[10px] text-text-3 font-medium">Pot. kazanç</span>
           <span className="text-[11px] font-black text-green-400 tabular-nums">
-            ₺{typeof potWin === 'number' ? potWin.toFixed(2) : potWin}
+            {formatMoney(typeof potWin === 'number' ? potWin.toFixed(2) : potWin)}
           </span>
         </div>
       )}

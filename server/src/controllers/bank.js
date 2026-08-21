@@ -3,6 +3,7 @@ import User from '../models/User.js';
 import Transaction from '../models/Transaction.js';
 import BankDepositRequest from '../models/BankDepositRequest.js';
 import { createError } from '../middleware/error.js';
+import { formatMoney } from '../currency/index.js';
 
 export function getInfo(req, res) {
   res.json({
@@ -41,7 +42,7 @@ export async function createWithdraw(req, res, next) {
     if (amount > breakdown.withdrawable) {
       if (breakdown.locked <= 0) throw createError(400, 'INSUFFICIENT_BALANCE', 'Yetersiz bakiye');
       if (!confirmForfeit) {
-        throw createError(409, 'ACTIVE_BONUS_LOCK', `Bu çekim ₺${breakdown.locked.toFixed(2)} tutarındaki aktif bonusunuzu iptal eder. Onaylıyor musunuz?`);
+        throw createError(409, 'ACTIVE_BONUS_LOCK', `Bu çekim ${await formatMoney(breakdown.locked)} tutarındaki aktif bonusunuzu iptal eder. Onaylıyor musunuz?`);
       }
       // Forfeit geri dönüşsüz — önce, işe yarayıp yaramayacağını (state
       // değiştirmeden) doğrula. Bkz. #17 final review Finding 1.

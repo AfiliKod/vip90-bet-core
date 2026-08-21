@@ -17,7 +17,7 @@ export function getWeight(gameType, customWeights = null) {
 /**
  * Bir bahis için aktif bonus wagering'lerine credit ekler.
  * gameType: 'sports' | 'casino_slot' | 'casino_live' | 'inhouse'
- * amount: bahis miktarı (₺)
+ * amount: bahis miktarı (aktif para birimi cinsinden)
  * customWeights: opsiyonel per-bonus weights override
  *
  * @returns {Array} tamamlanan wagering'ler
@@ -129,7 +129,7 @@ function computeForfeitAmount(w) {
  * final review Finding 1: forfeit geri dönüşsüz olduğu için, işe yaramayacaksa
  * hiç tetiklenmemeli.
  *
- * @returns {number} toplam feda edilecek tutar (₺)
+ * @returns {number} toplam feda edilecek tutar (aktif para birimi cinsinden)
  */
 export async function previewForfeitAmount(userId) {
   const active = await BonusWagering.find({

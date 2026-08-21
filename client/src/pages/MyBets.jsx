@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import api from '../services/api';
 import { useTranslation } from '../i18n';
+import { formatMoney } from '../utils/money.js';
 
 function statusLabel(t, status) {
   const labels = {
@@ -58,8 +59,8 @@ export default function MyBets() {
                 </div>
               ))}
               <div className="flex items-center justify-between mt-3 pt-3 border-t border-white/10 text-sm">
-                <span className="text-text-3">{t('bets.stake')}: <span className="text-text-1 font-medium">₺{bet.stake}</span></span>
-                <span className="text-text-3">{t('bets.potentialWin')}: <span className="text-success font-medium">₺{bet.potentialWin}</span></span>
+                <span className="text-text-3">{t('bets.stake')}: <span className="text-text-1 font-medium">{formatMoney(bet.stake)}</span></span>
+                <span className="text-text-3">{t('bets.potentialWin')}: <span className="text-success font-medium">{formatMoney(bet.potentialWin)}</span></span>
               </div>
             </div>
           ))}

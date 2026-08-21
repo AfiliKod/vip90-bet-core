@@ -5,11 +5,13 @@ import { useToastStore } from './store/toastStore';
 import { useBetNotificationStore } from './store/betNotificationStore';
 import { useModuleStore } from './store/moduleStore';
 import ModuleGate from './components/ModuleGate';
+import { formatMoney } from './utils/money.js';
 import { socket } from './services/socket';
 import ProtectedRoute from './components/ProtectedRoute';
 import { I18nProvider, useTranslation } from './i18n/I18nProvider.jsx';
 import ThemeStyleInjector from './theme/ThemeStyleInjector.jsx';
 import BrandingInjector from './branding/BrandingInjector.jsx';
+import CurrencyLoader from './utils/CurrencyLoader.jsx';
 import GuestRoute from './components/GuestRoute';
 import ToastSystem from './components/ToastSystem';
 import Navbar from './components/Navbar';
@@ -98,11 +100,11 @@ export default function App() {
     function onBetSettled({ eventTitle, result, payout, amount }) {
       incrementUnread();
       if (result === 'win') {
-        addToast(`${t('toast.wonPrefix')} ${eventTitle} — +₺${payout.toFixed(2)}`, 'success');
+        addToast(`${t('toast.wonPrefix')} ${eventTitle} — +${formatMoney(payout)}`, 'success');
       } else if (result === 'refund') {
-        addToast(`${t('toast.refundedPrefix')} ${eventTitle} — ₺${amount.toFixed(2)}`, 'info');
+        addToast(`${t('toast.refundedPrefix')} ${eventTitle} — ${formatMoney(amount)}`, 'info');
       } else {
-        addToast(`${t('toast.lostPrefix')} ${eventTitle} — -₺${amount.toFixed(2)}`, 'error');
+        addToast(`${t('toast.lostPrefix')} ${eventTitle} — -${formatMoney(amount)}`, 'error');
       }
     }
     socket.on('bet:settled', onBetSettled);
@@ -116,6 +118,7 @@ export default function App() {
     <I18nProvider>
     <ThemeStyleInjector />
     <BrandingInjector />
+    <CurrencyLoader />
     <BrowserRouter>
       <ToastSystem />
       <PWAUpdateBanner />

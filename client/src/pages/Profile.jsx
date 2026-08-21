@@ -6,6 +6,7 @@ import { useAuthStore } from '../store/authStore';
 import { useToastStore } from '../store/toastStore';
 import api from '../services/api';
 import { useTranslation } from '../i18n';
+import { formatMoney, getActiveCurrency } from '../utils/money.js';
 
 function txLabel(t, type) {
   const labels = {
@@ -311,21 +312,21 @@ const handleBankSubmit = async (confirmForfeit = false) => {
             <div className="text-text-2 text-sm">{user?.email}</div>
           </div>
           <div className="ml-auto text-right">
-            <div className="text-2xl sm:text-3xl font-black" style={{ color: '#00d4ff' }}>₺{(user?.balance ?? 0).toFixed(2)}</div>
+            <div className="text-2xl sm:text-3xl font-black" style={{ color: '#00d4ff' }}>{formatMoney((user?.balance ?? 0))}</div>
             <div className="text-text-3 text-xs mt-1">Ana Bakiye</div>
             {user?.locked > 0 && (
               <div className="text-sm font-bold mt-1" style={{ color: '#fbbf24' }}>
-                🔒 ₺{user.locked.toFixed(2)} kilitli (aktif bonus)
+                🔒 {formatMoney(user.locked)} kilitli (aktif bonus)
               </div>
             )}
             {user?.withdrawable != null && (
               <div className="text-[11px] mt-1" style={{ color: '#7c8aae' }}>
-                {t('profile.withdrawable')}: ₺{user.withdrawable.toFixed(2)}
+                {t('profile.withdrawable')}: {formatMoney(user.withdrawable)}
               </div>
             )}
             {user?.activePalaceBalance != null && (
               <div className="text-xs mt-1.5" style={{ color: '#7c8aae' }}>
-                🏰 Casino'da ₺{user.activePalaceBalance.toFixed(2)}
+                🏰 Casino'da {formatMoney(user.activePalaceBalance)}
               </div>
             )}
           </div>
@@ -371,7 +372,7 @@ const handleBankSubmit = async (confirmForfeit = false) => {
                     <div className="min-w-0 flex-1">
                       <div className="text-sm font-bold text-text-1 truncate">{w.description || 'Bonus'}</div>
                       <div className="text-[10px] text-text-3 mt-0.5 flex flex-wrap items-center gap-x-2 gap-y-0.5">
-                        <span>{t('profile.wageringSummary', { amount: `₺${w.bonusAmount}`, multiplier: w.multiplier })}</span>
+                        <span>{t('profile.wageringSummary', { amount: formatMoney(w.bonusAmount), multiplier: w.multiplier })}</span>
                         {deadlineText && (
                           <span
                             className="font-bold"
@@ -406,8 +407,8 @@ const handleBankSubmit = async (confirmForfeit = false) => {
                     />
                   </div>
                   <div className="flex justify-between text-[10px] text-text-3 mt-1.5">
-                    <span>₺{w.wageringProgress.toFixed(2)} / ₺{w.wageringRequired.toFixed(2)}</span>
-                    <span>Kalan: ₺{remaining.toFixed(2)}</span>
+                    <span>{formatMoney(w.wageringProgress)} / {formatMoney(w.wageringRequired)}</span>
+                    <span>Kalan: {formatMoney(remaining)}</span>
                   </div>
                 </div>
               );
@@ -426,7 +427,7 @@ const handleBankSubmit = async (confirmForfeit = false) => {
                 <div className="min-w-0 flex-1">
                   <div className="text-sm font-bold text-text-1 truncate">{w.description || 'Bonus'}</div>
                   <div className="text-[10px] text-text-3 mt-0.5">
-                    {t('profile.wageringDone', { amount: `₺${w.bonusAmount}` })}
+                    {t('profile.wageringDone', { amount: formatMoney(w.bonusAmount) })}
                   </div>
                 </div>
                 <button
@@ -467,7 +468,7 @@ const handleBankSubmit = async (confirmForfeit = false) => {
             {`${window.location.origin}/login?ref=${user?.username}&tab=register`}
           </div>
           <div className="text-sm text-text-1">
-            {t('profile.referralEarnings')} <span className="font-bold text-accent">₺{(user?.totalReferralEarnings ?? 0).toFixed(2)}</span>
+            {t('profile.referralEarnings')} <span className="font-bold text-accent">{formatMoney(user?.totalReferralEarnings ?? 0)}</span>
           </div>
         </div>
 
@@ -517,7 +518,7 @@ const handleBankSubmit = async (confirmForfeit = false) => {
                       selectedAmount === a
                         ? 'bg-accent text-white border-accent shadow-lg shadow-accent/20'
                         : 'bg-bg-deep/40 border-white/[0.06] text-text-2 hover:border-accent/30 hover:text-text-1'
-                    }`}>₺{a}</button>
+                    }`}>{formatMoney(a)}</button>
                 ))}
               </div>
               <div className="relative">
@@ -527,12 +528,12 @@ const handleBankSubmit = async (confirmForfeit = false) => {
               <div className="flex gap-2">
                 <input type="number" value={customAmount}
                   onChange={handleCustomChange}
-                  placeholder={t('profile.customAmountMin10')}
+                  placeholder={t('profile.customAmountMin10', { amount: formatMoney(10) })}
                   className="flex-1 bg-bg-deep/40 border border-white/10 rounded-xl px-4 py-2.5 text-text-1 text-sm focus:outline-none focus:border-accent/50" />
                 <button onClick={() => {
                   const v = parseFloat(customAmount);
                   if (v >= 10) handleAmountSelect(v);
-                  else addToast(t('profile.min10'), 'error');
+                  else addToast(t('profile.min10', { amount: formatMoney(10) }), 'error');
                 }} disabled={!customAmount || parseFloat(customAmount) < 10}
                   className="px-5 py-2.5 bg-accent text-white font-semibold rounded-xl text-sm hover:opacity-90 transition disabled:opacity-40">
                   {t('profile.continue')}
@@ -544,7 +545,7 @@ const handleBankSubmit = async (confirmForfeit = false) => {
           {method === 'bank' && mode === 'deposit' && !successRequest && step === 'confirm' && (
             <div className="space-y-4 animate-fade-in">
               <div className="text-center">
-                <div className="text-3xl font-black text-primary mb-1">₺{amount.toFixed(2)}</div>
+                <div className="text-3xl font-black text-primary mb-1">{formatMoney(amount)}</div>
                 <div className="text-xs text-text-3">{t('profile.depositRequest')}</div>
               </div>
 
@@ -576,7 +577,7 @@ const handleBankSubmit = async (confirmForfeit = false) => {
               )}
 
               <div className="bg-accent/5 border border-accent/20 rounded-xl p-3 text-xs text-text-2 leading-relaxed space-y-1">
-                <p>1️⃣ {t('profile.sendToAccount')} <strong className="text-text-1">₺{amount.toFixed(2)}</strong></p>
+                <p>1️⃣ {t('profile.sendToAccount')} <strong className="text-text-1">{formatMoney(amount)}</strong></p>
                 <p>2️⃣ {t('profile.sendFromOwnAccountPrefix')} <strong className="text-amber-400">{t('profile.sendFromOwnAccountBold')}</strong> {t('profile.sendFromOwnAccountSuffix')}</p>
                 <p>3️⃣ {t('profile.balanceAutoAfterApproval')}</p>
               </div>
@@ -598,7 +599,7 @@ const handleBankSubmit = async (confirmForfeit = false) => {
             <div className="text-center py-4 space-y-3 animate-fade-in">
               <div className="text-4xl">✅</div>
               <div className="text-lg font-bold text-text-1">{t('profile.requestCreated')}</div>
-              <div className="text-3xl font-black text-primary">₺{successRequest.amount.toFixed(2)}</div>
+              <div className="text-3xl font-black text-primary">{formatMoney(successRequest.amount)}</div>
               <p className="text-sm text-text-3 max-w-xs mx-auto">
                 {t('profile.awaitAdminApprovalDeposit')}
               </p>
@@ -622,7 +623,7 @@ const handleBankSubmit = async (confirmForfeit = false) => {
                           selectedAmount === a
                             ? 'bg-accent text-white border-accent shadow-lg shadow-accent/20'
                             : 'bg-bg-deep/40 border-white/[0.06] text-text-2 hover:border-accent/30 hover:text-text-1'
-                        }`}>₺{a}</button>
+                        }`}>{formatMoney(a)}</button>
                     ))}
                   </div>
                   <div className="relative">
@@ -632,12 +633,12 @@ const handleBankSubmit = async (confirmForfeit = false) => {
                   <div className="flex gap-2">
                     <input type="number" value={customAmount}
                       onChange={handleCustomChange}
-                      placeholder={t('profile.customAmountMin20')}
+                      placeholder={t('profile.customAmountMin20', { amount: formatMoney(20) })}
                       className="flex-1 bg-bg-deep/40 border border-white/10 rounded-xl px-4 py-2.5 text-text-1 text-sm focus:outline-none focus:border-accent/50" />
                     <button onClick={() => {
                       const v = parseFloat(customAmount);
                       if (v >= 20) { handleAmountSelect(v); }
-                      else addToast(t('profile.min20'), 'error');
+                      else addToast(t('profile.min20', { amount: formatMoney(20) }), 'error');
                     }} disabled={!customAmount || parseFloat(customAmount) < 20}
                       className="px-5 py-2.5 bg-accent text-white font-semibold rounded-xl text-sm hover:opacity-90 transition disabled:opacity-40">
                       {t('profile.continue')}
@@ -646,7 +647,7 @@ const handleBankSubmit = async (confirmForfeit = false) => {
 
                   {selectedAmount && selectedAmount > (user?.balance || 0) && (
                     <div className="bg-danger/10 border border-danger/30 rounded-lg p-2.5 text-danger text-xs text-center">
-                      {t('profile.insufficientBalanceCurrent', { balance: `₺${user?.balance?.toFixed(2)}` })}
+                      {t('profile.insufficientBalanceCurrent', { balance: formatMoney(user?.balance) })}
                     </div>
                   )}
                 </>
@@ -655,22 +656,22 @@ const handleBankSubmit = async (confirmForfeit = false) => {
               {step === 'confirm' && (
                 <div className="space-y-4 animate-fade-in">
                   <div className="text-center">
-                    <div className="text-3xl font-black text-danger mb-1">₺{amount.toFixed(2)}</div>
+                    <div className="text-3xl font-black text-danger mb-1">{formatMoney(amount)}</div>
                     <div className="text-xs text-text-3">{t('profile.withdrawRequest')}</div>
                   </div>
 
                   <div className="bg-bg-deep/40 border border-white/[0.06] rounded-xl p-4 space-y-3">
                     <div className="flex items-center justify-between">
                       <span className="text-xs text-text-3">{t('profile.currentBalance')}</span>
-                      <span className="text-sm text-text-1 font-medium">₺{user?.balance?.toFixed(2)}</span>
+                      <span className="text-sm text-text-1 font-medium">{formatMoney(user?.balance)}</span>
                     </div>
                     <div className="flex items-center justify-between">
                       <span className="text-xs text-text-3">{t('profile.withdrawAmount')}</span>
-                      <span className="text-sm text-text-1 font-medium text-danger">₺{amount.toFixed(2)}</span>
+                      <span className="text-sm text-text-1 font-medium text-danger">{formatMoney(amount)}</span>
                     </div>
                     <div className="border-t border-white/10 pt-3 flex items-center justify-between">
                       <span className="text-xs text-text-3">{t('profile.remainingBalance')}</span>
-                      <span className="text-base font-bold text-text-1">₺{((user?.balance || 0) - amount).toFixed(2)}</span>
+                      <span className="text-base font-bold text-text-1">{formatMoney((user?.balance || 0) - amount)}</span>
                     </div>
                   </div>
 
@@ -715,7 +716,7 @@ const handleBankSubmit = async (confirmForfeit = false) => {
             <div className="text-center py-4 space-y-3 animate-fade-in">
               <div className="text-4xl">✅</div>
               <div className="text-lg font-bold text-text-1">{t('profile.withdrawRequestReceived')}</div>
-              <div className="text-3xl font-black text-danger">₺{successRequest.amount.toFixed(2)}</div>
+              <div className="text-3xl font-black text-danger">{formatMoney(successRequest.amount)}</div>
               <p className="text-sm text-text-3 max-w-xs mx-auto">
                 {t('profile.awaitAdminApprovalWithdraw')}
               </p>
@@ -747,7 +748,7 @@ const handleBankSubmit = async (confirmForfeit = false) => {
               </div>
               <div className="text-right">
                 <span className={`font-medium ${tx.amount > 0 ? 'text-success' : 'text-danger'}`}>
-                  {tx.amount > 0 ? '+' : ''}₺{Math.abs(tx.amount).toFixed(2)}
+                  {tx.amount > 0 ? '+' : ''}{formatMoney(Math.abs(tx.amount))}
                 </span>
                 {tx.status === 'pending' && (
                   <div className="text-yellow-400 text-xs">Bekliyor</div>

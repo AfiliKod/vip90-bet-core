@@ -4,6 +4,7 @@ import api from '../services/api';
 import { useToastStore } from '../store/toastStore';
 import { useAuthStore } from '../store/authStore';
 import { useTranslation } from '../i18n';
+import { formatMoney } from '../utils/money.js';
 
 export default function Promotions() {
   const { t } = useTranslation();
@@ -57,7 +58,7 @@ export default function Promotions() {
                 <h3 className="font-bold text-text-1 mb-1">{p.title}</h3>
                 <p className="text-text-3 text-sm mb-3">{p.description}</p>
                 <div className="flex flex-wrap gap-2 text-xs text-text-3">
-                  <span className="bg-bg-base px-2 py-1 rounded">💰 {p.amount}₺</span>
+                  <span className="bg-bg-base px-2 py-1 rounded">💰 {formatMoney(p.amount)}</span>
                   <span className="bg-bg-base px-2 py-1 rounded">📊 {t('promotions.minOdds')}: {p.minOdds}</span>
                   <span className="bg-bg-base px-2 py-1 rounded">🔄 {p.wageringMultiplier ?? p.wagering}x {t('promotions.wagering')}</span>
                   {p.deadlineDays && <span className="bg-bg-base px-2 py-1 rounded">⏰ {p.deadlineDays}{t('promotions.daysShort')}</span>}
@@ -92,7 +93,7 @@ export default function Promotions() {
             </div>
 
             <div className="space-y-3 mb-5">
-              <DetailRow label={t('promotions.bonusAmount')} value={`₺${activePromo.amount}`} />
+              <DetailRow label={t('promotions.bonusAmount')} value={formatMoney(activePromo.amount)} />
               <DetailRow label={t('promotions.wageringRequirement')} value={`${activePromo.wageringMultiplier ?? activePromo.wagering}x`} />
               <DetailRow label={t('promotions.minOdds')} value={activePromo.minOdds} />
               {activePromo.deadlineDays && <DetailRow label={t('promotions.duration')} value={`${activePromo.deadlineDays} ${t('promotions.daysWord')}`} />}
@@ -101,7 +102,7 @@ export default function Promotions() {
 
             <div className="text-xs space-y-1.5 mb-4 p-3 rounded-lg" style={{ background: 'rgba(255,255,255,0.03)', color: '#8899bb' }}>
               <p>• {t('promotions.ruleWithdrawCancel')}</p>
-              <p>• {t('promotions.ruleMaxBet')}</p>
+              <p>• {t('promotions.ruleMaxBet', { slot: formatMoney(50), sports: formatMoney(100) })}</p>
               <p>• {t('promotions.ruleHedgeCancel')}</p>
               <p>
                 {t('promotions.detailedTermsPrefix')}{' '}

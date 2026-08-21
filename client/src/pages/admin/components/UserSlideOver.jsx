@@ -3,6 +3,7 @@ import { useForm } from 'react-hook-form';
 import api from '../../../services/api';
 import { useToastStore } from '../../../store/toastStore';
 import { useTranslation } from '../../../i18n';
+import { formatMoney, getActiveCurrency } from '../../../utils/money.js';
 
 export default function UserSlideOver({ user, onClose, onUpdated }) {
   const { t } = useTranslation();
@@ -118,7 +119,7 @@ export default function UserSlideOver({ user, onClose, onUpdated }) {
               <div className="grid grid-cols-2 gap-3">
                 <div className="bg-bg-hover rounded-xl p-3">
                   <div className="text-xs text-text-3 mb-1">{t('admin.userSlideOver.balance')}</div>
-                  <div className="font-bold text-primary">₺{user.balance?.toFixed(2)}</div>
+                  <div className="font-bold text-primary">{formatMoney(user.balance)}</div>
                 </div>
                 <div className="bg-bg-hover rounded-xl p-3">
                   <div className="text-xs text-text-3 mb-1">{t('admin.userSlideOver.registration')}</div>
@@ -191,16 +192,16 @@ export default function UserSlideOver({ user, onClose, onUpdated }) {
               <div className="grid grid-cols-2 gap-3">
                 <div className="bg-bg-hover rounded-xl p-3">
                   <div className="text-xs text-text-3 mb-1">{t('admin.userSlideOver.mainBalance')}</div>
-                  <div className="font-bold text-primary">₺{user.balance?.toFixed(2)}</div>
+                  <div className="font-bold text-primary">{formatMoney(user.balance)}</div>
                 </div>
                 <div className="bg-bg-hover rounded-xl p-3">
                   <div className="text-xs text-text-3 mb-1">{t('admin.userSlideOver.bonusBalance')}</div>
-                  <div className="font-bold text-yellow-400">₺{(user.bonusBalance ?? 0).toFixed(2)}</div>
+                  <div className="font-bold text-yellow-400">{formatMoney(user.bonusBalance ?? 0)}</div>
                 </div>
               </div>
               <form onSubmit={handleSubmit(onBalanceSubmit)} className="space-y-3">
                 <div>
-                  <label className="text-xs text-text-3 mb-1 block">{t('admin.userSlideOver.amountLabel')}</label>
+                  <label className="text-xs text-text-3 mb-1 block">{t('admin.userSlideOver.amountLabel', { symbol: getActiveCurrency().symbol })}</label>
                   <input type="number" step="0.01" min="0.01"
                     {...register('amount', { required: true, min: 0.01 })}
                     className="w-full bg-bg-hover border border-white/10 rounded-lg px-3 py-2 text-sm text-text-1 focus:outline-none focus:border-primary/50" />
@@ -280,7 +281,7 @@ export default function UserSlideOver({ user, onClose, onUpdated }) {
                       </div>
                       <div className="text-right">
                         <div className={`text-sm font-bold ${tx.amount >= 0 ? 'text-success' : 'text-danger'}`}>
-                          {tx.amount >= 0 ? '+' : ''}₺{tx.amount.toFixed(2)}
+                          {tx.amount >= 0 ? '+' : ''}{formatMoney(tx.amount)}
                         </div>
                         <div className="text-xs text-text-3">{new Date(tx.createdAt).toLocaleDateString('tr')}</div>
                       </div>
@@ -299,11 +300,11 @@ export default function UserSlideOver({ user, onClose, onUpdated }) {
                   <div className="grid grid-cols-2 gap-3">
                     <div className="bg-bg-hover rounded-xl p-3">
                       <div className="text-xs text-text-3 mb-1">{t('admin.userSlideOver.bonusWageringContribution')}</div>
-                      <div className="font-bold text-yellow-400">₺{casinoSummary.bonusAttributedBet.toFixed(2)}</div>
+                      <div className="font-bold text-yellow-400">{formatMoney(casinoSummary.bonusAttributedBet)}</div>
                     </div>
                     <div className="bg-bg-hover rounded-xl p-3">
                       <div className="text-xs text-text-3 mb-1">{t('admin.userSlideOver.pureRealBalance')}</div>
-                      <div className="font-bold text-primary">₺{casinoSummary.realBet.toFixed(2)}</div>
+                      <div className="font-bold text-primary">{formatMoney(casinoSummary.realBet)}</div>
                     </div>
                   </div>
                   {casinoSummary.byGame.length > 0 && (
@@ -314,7 +315,7 @@ export default function UserSlideOver({ user, onClose, onUpdated }) {
                           <div key={g._id} className="flex items-center justify-between bg-bg-hover rounded-lg p-2 text-xs">
                             <span className="text-text-1 font-medium truncate max-w-[45%]">{g.gameTitle || g._id}</span>
                             <span className="text-text-3">{t('admin.userSlideOver.roundsCount', { count: g.rounds })}</span>
-                            <span className="text-primary font-bold">₺{g.totalBet.toFixed(0)}</span>
+                            <span className="text-primary font-bold">{formatMoney(g.totalBet)}</span>
                           </div>
                         ))}
                       </div>
@@ -335,11 +336,11 @@ export default function UserSlideOver({ user, onClose, onUpdated }) {
                           {r.gameTitle || r.gameId}
                         </div>
                         <div className={`text-sm font-bold ${r.net >= 0 ? 'text-success' : 'text-danger'}`}>
-                          {r.net >= 0 ? '+' : ''}₺{r.net.toFixed(2)}
+                          {r.net >= 0 ? '+' : ''}{formatMoney(r.net)}
                         </div>
                       </div>
                       <div className="flex items-center justify-between text-xs text-text-3">
-                        <span>{t('admin.userSlideOver.roundLine', { provider: r.provider, bet: r.bet.toFixed(2), payout: r.payout.toFixed(2) })}</span>
+                        <span>{t('admin.userSlideOver.roundLine', { provider: r.provider, bet: formatMoney(r.bet), payout: formatMoney(r.payout) })}</span>
                         <span>{new Date(r.createdAt).toLocaleDateString('tr')}</span>
                       </div>
                     </div>

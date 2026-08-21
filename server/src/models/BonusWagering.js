@@ -12,7 +12,7 @@ const BonusWageringSchema = new mongoose.Schema({
   promotionId:   { type: mongoose.Schema.Types.ObjectId, ref: 'Promotion', default: null },
   source:         { type: String, default: 'manual' }, // 'promotion' | 'manual' | 'admin_adjustment'
   description:   { type: String, default: '' },        // kullanıcıya gösterilecek açıklama
-  bonusAmount:   { type: Number, required: true },     // verilen bonus (₺100 gibi)
+  bonusAmount:   { type: Number, required: true },     // verilen bonus (para birimi bağımsız tutar)
   wageringRequired: { type: Number, required: true },  // tamamlanması gereken wagering (35x ise 3500)
   wageringProgress: { type: Number, default: 0 },      // tamamlanan wagering
   gameWeights:   { type: mongoose.Schema.Types.Mixed, default: () => ({ ...DEFAULT_GAME_WEIGHTS }) },
