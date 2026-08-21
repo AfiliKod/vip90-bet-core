@@ -1052,4 +1052,7 @@ export default {
   'games.dice.target': 'Target',
   'games.dragontiger.refunded': 'refunded',
   'games.keno.hits': 'hits',
+  'games.limbo.minTarget': 'Target must be at least 1.01×',
+  'games.limbo.playing': 'Playing...',
+  'games.limbo.targetMultiplier': 'Target Multiplier (×)',
 };

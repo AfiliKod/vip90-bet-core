@@ -1020,4 +1020,7 @@ export default {
   'games.dice.target': 'Hedef',
   'games.dragontiger.refunded': 'iade edildi',
   'games.keno.hits': 'isabet',
+  'games.limbo.minTarget': 'Hedef en az 1.01×',
+  'games.limbo.playing': 'Oynuyor...',
+  'games.limbo.targetMultiplier': 'Hedef Çarpan (×)',
 };
