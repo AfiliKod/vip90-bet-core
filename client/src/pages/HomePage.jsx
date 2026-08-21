@@ -4,9 +4,6 @@ import api from '../services/api';
 import MiniEventCard from '../components/MiniEventCard';
 import BetSlip from '../components/BetSlip';
 import { BRAND_GRADIENT, BRAND_GRADIENT_H, BRAND_GLOW } from '../styles/brand';
-import { CASINO_GAMES } from '../data/casinoGames';
-
-const PP_GAMES = CASINO_GAMES.filter(g => g.provider === 'Pragmatic Play').slice(0, 8);
 
 const HERO_SLIDES = [
   {
@@ -385,70 +382,6 @@ export default function HomePage() {
             style={{ background: '#ef4444', color: '#fff' }}
           >
             Canlı Bahislere Katıl →
-          </Link>
-        </div>
-      </section>
-
-      {/* ── 🎰 Casino — Pragmatic Play Oyunları ────────────── */}
-      <section className="border-t border-white/[0.04]">
-        <div className="max-w-6xl mx-auto px-4 py-10">
-          <div className="flex items-end justify-between mb-6">
-            <div>
-              <h2 className="text-2xl sm:text-3xl font-black text-text-1 flex items-center gap-2">
-                🎰 Casino
-              </h2>
-              <p className="text-sm text-text-2 mt-1">Yüzlerce oyun, dev jackpotlar, sınırsız eğlence</p>
-            </div>
-            <Link
-              to="/casino"
-              className="hidden sm:inline-flex items-center gap-1 text-xs font-bold px-4 py-2 rounded-lg transition-all hover:gap-2"
-              style={{ background: '#a78bfa', color: '#000' }}
-            >
-              Tüm Oyunlar →
-            </Link>
-          </div>
-
-          <div className="flex items-center gap-2 mb-3">
-            <span className="text-xs font-bold text-purple-400 uppercase tracking-wider">🎯 Pragmatic Play</span>
-          </div>
-          <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-            {PP_GAMES.map((g, i) => {
-              const colors = ['from-violet-800 to-purple-900','from-emerald-800 to-teal-900','from-rose-800 to-pink-900','from-sky-800 to-blue-900','from-fuchsia-800 to-purple-900','from-cyan-800 to-sky-900','from-red-800 to-rose-900','from-indigo-800 to-violet-900'];
-              const grad = colors[i % colors.length];
-              return (
-              <Link
-                key={g.id}
-                to={`/casino/${g.launchCode}`}
-                className="group relative rounded-xl overflow-hidden transition-all duration-200 hover:scale-[1.02] active:scale-[0.98]"
-                style={{
-                  background: '#0d1526',
-                  border: '1px solid #ffffff0a',
-                }}
-              >
-                <div className={`aspect-[16/9] relative overflow-hidden bg-gradient-to-br ${grad} flex items-end`}>
-                  <img
-                    src={g.image}
-                    alt={g.title}
-                    loading="lazy"
-                    className="absolute inset-0 w-full h-full object-cover transition-transform duration-500 group-hover:scale-110"
-                    onError={e => { e.currentTarget.style.display = 'none'; }}
-                  />
-                  <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-transparent to-transparent" />
-                  <div className="relative z-10 p-2.5">
-                    <span className="text-xs font-bold text-white block drop-shadow-lg truncate">{g.title}</span>
-                  </div>
-                </div>
-              </Link>
-              );
-            })}
-          </div>
-
-          <Link
-            to="/casino"
-            className="sm:hidden mt-4 flex items-center justify-center gap-1 text-xs font-bold px-4 py-2.5 rounded-xl transition-all"
-            style={{ background: '#a78bfa', color: '#000' }}
-          >
-            Casinoyu Keşfet →
           </Link>
         </div>
       </section>

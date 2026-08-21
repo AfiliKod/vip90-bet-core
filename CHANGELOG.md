@@ -12,6 +12,51 @@ Madde formatı ve kategoriler için `docs/CHANGELOG_GUIDE.md`'ye bakın —
 
 ## [Yayınlanmadı]
 
+### T4/T5 — Tamamlama: oddsSource/BGaming demo oyun vitrini tamamen kaldırıldı
+Aşağıdaki T4 (kısmi) ve T5 kritik bulgu maddelerini kapatır. Palace
+casino entegrasyonu (T3) pazara sürülecek üründen çıkarıldığı için,
+Palace'tan önceki dönemde deneme amaçlı kurulmuş bu vitrin sistemi
+artık hiçbir işlevsel amaca hizmet etmiyordu (oddsSource sadece spor bahis
+oranı kaynağı olarak kalıyor — bu kaldırma onu etkilemez).
+
+**Kaldırıldı:**
+- `client/src/data/casinoGames.js` (19.952 satır, 1.994 kayıt) — 657
+  Pragmatic Play + 969 BGaming kaydı, 646 doğrudan `pragmaticplay.com`
+  CDN hotlink'i içeren lisanssız üçüncü taraf veri kümesi.
+- `client/src/pages/CasinoGame.jsx` ve `/casino/:gameSymbol` rotası.
+- `client/public/images/pragmatic-play/*` (8 dosya) — lisanssız, artık
+  hiçbir yerden referans alınmıyor.
+- `client/src/pages/HomePage.jsx`: anasayfadaki "Pragmatic Play
+  Oyunları" tanıtım bölümü.
+- `server/src/services/oddsSourceService.js`, `server/src/services/
+  streamService.js` — oddsSource/BGaming oyun sayfalarını canlı proxy'leyip
+  CDP screencast ile yayınlayan sunucu-taraflı tarayıcı otomasyonu.
+- `server/data/oddsSource-games.json` (3,2 MB) — oddsSource oyun kataloğu.
+- `server/src/routes/casino.js`: `/game/:gameId`, `/relay`, `/cdn/*`,
+  `/launcher-proxy/*`, `/logo-stub.js`, `/oddsSource-game/:id`,
+  `/oddsSource-games`, `/oddsSource-launch`, `/swintt-proxy`,
+  `/broken-games`, `/broken-game` — hepsi yalnızca kaldırılan vitrin
+  tarafından kullanılıyordu. `POST /api/casino/spin` (in-house oyun
+  bakiye güncellemesi) korundu, `useSlotGame.js` hâlâ bağımlı.
+
+### Kırılan Değişiklikler
+- `GET /api/casino/game/:gameId`, `ALL /api/casino/relay`,
+  `GET /api/casino/cdn/*`, `GET /api/casino/launcher-proxy/*`,
+  `GET /api/casino/logo-stub.js`, `GET /api/casino/oddsSource-game/:id`,
+  `GET /api/casino/oddsSource-games`, `POST /api/casino/oddsSource-launch`,
+  `POST /api/casino/swintt-proxy`, `GET /api/casino/broken-games`,
+  `POST /api/casino/broken-game` uç noktaları kaldırıldı — hepsi 404
+  döner. Bu uçlar yalnızca artık kaldırılmış demo vitrini tarafından
+  çağrılıyordu; hiçbir yayınlanmış API sözleşmesinin parçası değildi.
+- `/casino/:gameSymbol` istemci rotası kaldırıldı, artık 404/yönlendirme.
+- Socket.IO `/stream` namespace'i (`stream:start/input/spin/stop`
+  event'leri) kaldırıldı — yalnızca kaldırılan vitrin kullanıyordu.
+- Anasayfadaki (`/`) "Casino — Pragmatic Play Oyunları" bölümü artık
+  görünmüyor.
+
+Tam depo çapında test suite (23/23 suite) ve `client` build'i bu
+değişiklikten sonra hatasız geçti.
+
 ### T5 — Varlık lisans denetimi
 - `docs/product/08-varlik-lisans-denetimi.md`: `client/public/`'teki her
   dosya için kaynak + lisans durumu, `git log --follow` ile doğrulanmış.
