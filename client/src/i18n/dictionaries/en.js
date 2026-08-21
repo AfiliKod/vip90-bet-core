@@ -1051,4 +1051,5 @@ export default {
   'games.dice.wonBang': 'WON!',
   'games.dice.target': 'Target',
   'games.dragontiger.refunded': 'refunded',
+  'games.keno.hits': 'hits',
 };

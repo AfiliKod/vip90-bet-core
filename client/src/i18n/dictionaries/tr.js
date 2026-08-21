@@ -1019,4 +1019,5 @@ export default {
   'games.dice.wonBang': 'KAZANDI!',
   'games.dice.target': 'Hedef',
   'games.dragontiger.refunded': 'iade edildi',
+  'games.keno.hits': 'isabet',
 };
