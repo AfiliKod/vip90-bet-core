@@ -15,6 +15,8 @@ ve kod içi yorumlarda).
 - [06 — Sıkça Sorulan Sorular](06-sss.md)
 - [07 — Video Kütüphanesi Storyboard'ları](07-video-storyboardlari.md) —
   gerçek video kaydının temeli, henüz video üretilmedi.
+- [08 — Varlık Lisans Denetimi](08-varlik-lisans-denetimi.md) — kritik
+  bulgu içerir: `casinoGames.js` lisanssız üçüncü taraf içeriği barındırıyor.
 
 ## Durum notu (dürüstlük)
 

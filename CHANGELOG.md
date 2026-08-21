@@ -12,6 +12,40 @@ Madde formatı ve kategoriler için `docs/CHANGELOG_GUIDE.md`'ye bakın —
 
 ## [Yayınlanmadı]
 
+### T5 — Varlık lisans denetimi
+- `docs/product/08-varlik-lisans-denetimi.md`: `client/public/`'teki her
+  dosya için kaynak + lisans durumu, `git log --follow` ile doğrulanmış.
+- **Kritik bulgu:** `client/src/data/casinoGames.js` (19.952 satır,
+  1.994 kayıt) lisanssız üçüncü taraf içeriği barındırıyor — 657 kayıt
+  Pragmatic Play, 969 kayıt BGaming ibaresi geçiriyor, 646 kayıt
+  doğrudan `pragmaticplay.com` CDN'ine hotlink. Commit geçmişi
+  (`4b3b764`) bunun bilinçli bir kopyalama olduğunu gösteriyor, kaza
+  değil. Üç sayfa (`CasinoGame.jsx`, `HomePage.jsx`, `Casino.jsx`) bu
+  veriye doğrudan bağımlı. **Bu oturumda düzeltilmedi** — ayrı, düzgün
+  kapsamlı bir kart gerektiriyor (bkz. belge).
+- 13 in-house oyun görseli (26 dosya) ve spor görselleri (8 dosya)
+  AI-üretimi olarak doğrulandı (FLUX.1-schnell / image-gen commit
+  etiketleri) — güvenli.
+
+
+### T4 — Ölü veri ve dosya temizliği (kısmi)
+- Silindi: `server/src/data/oddsSource-events.js` (1.110.619 satır),
+  `server/src/data/rakipsite-events.js` (1.798 satır), `server/src/
+  utils/sportdigi.js` (36 satır, kullanılmayan), `server/src/backups/
+  oddsSourceService.js.bak`, `server/src/backups/casino.js.bak`. Hiçbiri
+  hiçbir yerden import edilmiyordu — sıfır işlevsel etki, suite 288/288
+  değişmedi. Toplam 1.114.475 satır repo'dan çıktı.
+- **Bu kart `done` değil, kasıtlı olarak.** Kabul kriteri ("hiçbir
+  üçüncü taraf marka adı geçmiyor") beklenenden çok daha büyük bir
+  kapsam ortaya çıkardı: oddsSource yalnızca bahis oranı kaynağı değil,
+  `services/oddsSourceService.js` + `services/streamService.js` üzerinden
+  **ayrı bir casino oyun akışı sağlayıcısı** olarak da gömülü — bu iki
+  ayrı sistemin (odds senkronizasyon motoru + casino akışı) sökülmesi
+  gerekiyor. Yarım bırakılmış bir çıkarma, çalışan bir sistemi
+  kırma riski taşıdığı için burada durduruldu; kalan iş için önerilen
+  takip kartları kullanıcıya iletildi (bkz. sohbet geçmişi).
+
+
 ### T2 — Lisanslı feed sağlayıcısı, ilk gerçek adaptör
 - `services/oddsProviders/theOddsApiProvider.js`: The Odds API adaptörü,
   T1'deki oddsSource adaptörüyle aynı sözleşmeye (NormalizedEvent) uyuyor.
