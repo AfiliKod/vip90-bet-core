@@ -1,18 +1,11 @@
 import { useState, useEffect } from 'react';
 import api from '../../services/api';
+import { useTranslation } from '../../i18n';
 import {
   AreaChart, Area, BarChart, Bar, PieChart, Pie, Cell,
   LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip,
   Legend, ResponsiveContainer,
 } from 'recharts';
-
-const TABS = [
-  { key: 'overview', label: '📊 Genel', endpoint: '/admin/analytics/overview' },
-  { key: 'users',    label: '👥 Kullanıcılar', endpoint: '/admin/analytics/users' },
-  { key: 'casino',   label: '🎰 Casino', endpoint: '/admin/analytics/casino' },
-  { key: 'finance',  label: '💰 Finans', endpoint: '/admin/analytics/finance' },
-  { key: 'sports',   label: '⚽ Spor', endpoint: '/admin/analytics/sports' },
-];
 
 const CHART_COLORS = ['#8b5cf6', '#f59e0b', '#10b981', '#ef4444', '#3b82f6', '#ec4899', '#14b8a6', '#f97316', '#6366f1', '#84cc16'];
 const PIE_COLORS = ['#8b5cf6', '#f59e0b', '#10b981', '#ef4444', '#3b82f6', '#ec4899', '#14b8a6', '#f97316', '#6366f1'];
@@ -55,45 +48,47 @@ function CustomTooltip({ active, payload, label }) {
 }
 
 function OverviewTab() {
+  const { t } = useTranslation();
   const [data, setData] = useState(null);
   useEffect(() => { api.get('/admin/analytics/overview').then(r => setData(r.data)).catch(() => {}); }, []);
-  if (!data) return <div className="text-center text-text-3 py-12 text-sm">Yükleniyor...</div>;
+  if (!data) return <div className="text-center text-text-3 py-12 text-sm">{t('common.loading')}</div>;
 
   return (
     <div className="space-y-6">
       <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-        <MetricCard title="Toplam Kullanıcı" value={formatNumber(data.users.total)} subtitle={`+${data.users.newToday} bugün`} color="text-purple-400" />
-        <MetricCard title="Toplam Bahis" value={formatNumber(data.bets.total)} subtitle={`${data.bets.pending} bekleyen`} color="text-blue-400" />
-        <MetricCard title="Casino Round" value={formatNumber(data.casino.totalRounds)} subtitle={`GGR ${formatCurrency(data.casino.ggr)}`} color="text-amber-400" />
-        <MetricCard title="Spor Bahis Hacmi" value={formatCurrency(data.sports.totalStake)} subtitle={`${formatNumber(data.sports.betCount)} bahis`} color="text-green-400" />
+        <MetricCard title={t('admin.analytics.totalUsers')} value={formatNumber(data.users.total)} subtitle={t('admin.analytics.newToday', { count: data.users.newToday })} color="text-purple-400" />
+        <MetricCard title={t('admin.analytics.totalBets')} value={formatNumber(data.bets.total)} subtitle={t('admin.analytics.pendingCount', { count: data.bets.pending })} color="text-blue-400" />
+        <MetricCard title={t('admin.analytics.casinoRounds')} value={formatNumber(data.casino.totalRounds)} subtitle={`GGR ${formatCurrency(data.casino.ggr)}`} color="text-amber-400" />
+        <MetricCard title={t('admin.analytics.sportsVolume')} value={formatCurrency(data.sports.totalStake)} subtitle={t('admin.analytics.betsSuffix', { count: formatNumber(data.sports.betCount) })} color="text-green-400" />
       </div>
       <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-        <MetricCard title="Toplam Yatırım" value={formatCurrency(data.finance.totalDeposit)} color="text-emerald-400" />
-        <MetricCard title="Toplam Çekim" value={formatCurrency(data.finance.totalWithdraw)} color="text-red-400" />
-        <MetricCard title="Bekleyen Yatırma" value={formatNumber(data.pending.deposits)} subtitle="Onay bekliyor" color="text-yellow-400" />
-        <MetricCard title="Bekleyen Çekme" value={formatNumber(data.pending.withdraws)} subtitle="Onay bekliyor" color="text-orange-400" />
+        <MetricCard title={t('admin.analytics.totalDeposit')} value={formatCurrency(data.finance.totalDeposit)} color="text-emerald-400" />
+        <MetricCard title={t('admin.analytics.totalWithdraw')} value={formatCurrency(data.finance.totalWithdraw)} color="text-red-400" />
+        <MetricCard title={t('admin.analytics.pendingDeposits')} value={formatNumber(data.pending.deposits)} subtitle={t('admin.analytics.awaitingApproval')} color="text-yellow-400" />
+        <MetricCard title={t('admin.analytics.pendingWithdraws')} value={formatNumber(data.pending.withdraws)} subtitle={t('admin.analytics.awaitingApproval')} color="text-orange-400" />
       </div>
     </div>
   );
 }
 
 function UsersTab() {
+  const { t } = useTranslation();
   const [data, setData] = useState(null);
   useEffect(() => { api.get('/admin/analytics/users?days=30').then(r => setData(r.data)).catch(() => {}); }, []);
-  if (!data) return <div className="text-center text-text-3 py-12 text-sm">Yükleniyor...</div>;
+  if (!data) return <div className="text-center text-text-3 py-12 text-sm">{t('common.loading')}</div>;
 
   const activePct = data.registrations.length > 0 ? ((data.activeUsers / (data.registrations.reduce((s, r) => s + r.count, 0))) * 100).toFixed(1) : '0';
 
   return (
     <div className="space-y-6">
       <div className="grid grid-cols-3 gap-3">
-        <MetricCard title="Son 30 Gün Kayıt" value={formatNumber(data.registrations.reduce((s, r) => s + r.count, 0))} color="text-purple-400" />
-        <MetricCard title="Aktif Kullanıcı (30g)" value={formatNumber(data.activeUsers)} subtitle={`${activePct}% aktiflik`} color="text-green-400" />
-        <MetricCard title="Saatlik Tepe Aktivite" value={data.hourlyActivity?.reduce((a, b) => a.count > b.count ? a : b, { count: 0 })._id + ':00' || '-'} color="text-amber-400" />
+        <MetricCard title={t('admin.analytics.last30DaysRegistrations')} value={formatNumber(data.registrations.reduce((s, r) => s + r.count, 0))} color="text-purple-400" />
+        <MetricCard title={t('admin.analytics.activeUsers30d')} value={formatNumber(data.activeUsers)} subtitle={t('admin.analytics.activityPct', { pct: activePct })} color="text-green-400" />
+        <MetricCard title={t('admin.analytics.peakHourlyActivity')} value={data.hourlyActivity?.reduce((a, b) => a.count > b.count ? a : b, { count: 0 })._id + ':00' || '-'} color="text-amber-400" />
       </div>
 
       <div className="bg-bg-card border border-white/10 rounded-xl p-4">
-        <h4 className="text-sm font-semibold text-text-1 mb-3">Günlük Kayıt (30 Gün)</h4>
+        <h4 className="text-sm font-semibold text-text-1 mb-3">{t('admin.analytics.dailyRegistrations30d')}</h4>
         <ResponsiveContainer width="100%" height={220}>
           <AreaChart data={data.registrations}>
             <defs>
@@ -103,28 +98,28 @@ function UsersTab() {
             <XAxis dataKey="_id" tick={{ fill: '#888', fontSize: 10 }} />
             <YAxis tick={{ fill: '#888', fontSize: 10 }} />
             <Tooltip content={<CustomTooltip />} />
-            <Area type="monotone" dataKey="count" name="Kayıt" stroke="#8b5cf6" fill="url(#regGrad)" strokeWidth={2} />
+            <Area type="monotone" dataKey="count" name={t('admin.analytics.registration')} stroke="#8b5cf6" fill="url(#regGrad)" strokeWidth={2} />
           </AreaChart>
         </ResponsiveContainer>
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
         <div className="bg-bg-card border border-white/10 rounded-xl p-4">
-          <h4 className="text-sm font-semibold text-text-1 mb-3">Bakiye Dağılımı</h4>
+          <h4 className="text-sm font-semibold text-text-1 mb-3">{t('admin.analytics.balanceDistribution')}</h4>
           <ResponsiveContainer width="100%" height={260}>
             <BarChart data={data.balanceBuckets}>
               <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.05)" />
               <XAxis dataKey="label" tick={{ fill: '#888', fontSize: 9 }} angle={-30} textAnchor="end" height={50} />
               <YAxis tick={{ fill: '#888', fontSize: 10 }} />
               <Tooltip content={<CustomTooltip />} />
-              <Bar dataKey="count" name="Kullanıcı" radius={[4, 4, 0, 0]}>
+              <Bar dataKey="count" name={t('admin.analytics.user')} radius={[4, 4, 0, 0]}>
                 {data.balanceBuckets.map((_, i) => <Cell key={i} fill={CHART_COLORS[i % CHART_COLORS.length]} />)}
               </Bar>
             </BarChart>
           </ResponsiveContainer>
         </div>
         <div className="bg-bg-card border border-white/10 rounded-xl p-4">
-          <h4 className="text-sm font-semibold text-text-1 mb-3">Saatlik Aktivite</h4>
+          <h4 className="text-sm font-semibold text-text-1 mb-3">{t('admin.analytics.hourlyActivity')}</h4>
           <ResponsiveContainer width="100%" height={260}>
             <BarChart data={data.hourlyActivity}>
               <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.05)" />
@@ -141,23 +136,24 @@ function UsersTab() {
 }
 
 function CasinoTab() {
+  const { t } = useTranslation();
   const [data, setData] = useState(null);
   useEffect(() => { api.get('/admin/analytics/casino?days=30').then(r => setData(r.data)).catch(() => {}); }, []);
-  if (!data) return <div className="text-center text-text-3 py-12 text-sm">Yükleniyor...</div>;
+  if (!data) return <div className="text-center text-text-3 py-12 text-sm">{t('common.loading')}</div>;
 
   const topGames = data.perGame?.slice(0, 10) || [];
 
   return (
     <div className="space-y-6">
       <div className="grid grid-cols-3 gap-3">
-        <MetricCard title="Toplam Round" value={formatNumber(data.perGame?.reduce((s, g) => s + g.rounds, 0) || 0)} color="text-amber-400" />
-        <MetricCard title="Toplam Bahis" value={formatCurrency(data.perGame?.reduce((s, g) => s + g.totalBet, 0) || 0)} color="text-blue-400" />
-        <MetricCard title="Toplam GGR" value={formatCurrency(data.perGame?.reduce((s, g) => s + g.ggr, 0) || 0)} color="text-green-400" />
+        <MetricCard title={t('admin.analytics.totalRounds')} value={formatNumber(data.perGame?.reduce((s, g) => s + g.rounds, 0) || 0)} color="text-amber-400" />
+        <MetricCard title={t('admin.analytics.totalBets')} value={formatCurrency(data.perGame?.reduce((s, g) => s + g.totalBet, 0) || 0)} color="text-blue-400" />
+        <MetricCard title={t('admin.analytics.totalGGR')} value={formatCurrency(data.perGame?.reduce((s, g) => s + g.ggr, 0) || 0)} color="text-green-400" />
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
         <div className="bg-bg-card border border-white/10 rounded-xl p-4">
-          <h4 className="text-sm font-semibold text-text-1 mb-3">Top 10 Oyun (GGR)</h4>
+          <h4 className="text-sm font-semibold text-text-1 mb-3">{t('admin.analytics.top10Games')}</h4>
           <ResponsiveContainer width="100%" height={300}>
             <BarChart data={topGames} layout="vertical">
               <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.05)" />
@@ -172,7 +168,7 @@ function CasinoTab() {
         </div>
 
         <div className="bg-bg-card border border-white/10 rounded-xl p-4">
-          <h4 className="text-sm font-semibold text-text-1 mb-3">Sağlayıcı Dağılımı</h4>
+          <h4 className="text-sm font-semibold text-text-1 mb-3">{t('admin.analytics.providerDistribution')}</h4>
           <ResponsiveContainer width="100%" height={300}>
             <PieChart>
               <Pie data={data.providerStats} dataKey="ggr" nameKey="_id" cx="50%" cy="50%" outerRadius={90} label={({ _id, ggr }) => `${_id} ₺${(ggr || 0).toFixed(0)}`}>
@@ -185,7 +181,7 @@ function CasinoTab() {
       </div>
 
       <div className="bg-bg-card border border-white/10 rounded-xl p-4">
-        <h4 className="text-sm font-semibold text-text-1 mb-3">Günlük Casino Hacmi (30 Gün)</h4>
+        <h4 className="text-sm font-semibold text-text-1 mb-3">{t('admin.analytics.dailyCasinoVolume30d')}</h4>
         <ResponsiveContainer width="100%" height={220}>
           <AreaChart data={data.dailyTrend}>
             <defs>
@@ -204,19 +200,19 @@ function CasinoTab() {
       </div>
 
       <div className="bg-bg-card border border-white/10 rounded-xl overflow-hidden">
-        <h4 className="text-sm font-semibold text-text-1 p-4 border-b border-white/10">Oyun Detay Tablosu</h4>
+        <h4 className="text-sm font-semibold text-text-1 p-4 border-b border-white/10">{t('admin.analytics.gameDetailTable')}</h4>
         <div className="overflow-x-auto">
           <table className="w-full text-xs">
             <thead>
               <tr className="text-text-3 border-b border-white/10">
-                <th className="text-left p-3 font-medium">Oyun</th>
-                <th className="text-left p-3 font-medium hidden sm:table-cell">Sağlayıcı</th>
+                <th className="text-left p-3 font-medium">{t('admin.analytics.colGame')}</th>
+                <th className="text-left p-3 font-medium hidden sm:table-cell">{t('admin.analytics.colProvider')}</th>
                 <th className="text-right p-3 font-medium">Round</th>
-                <th className="text-right p-3 font-medium">Bahis</th>
-                <th className="text-right p-3 font-medium">Ödeme</th>
+                <th className="text-right p-3 font-medium">{t('admin.analytics.colBet')}</th>
+                <th className="text-right p-3 font-medium">{t('admin.analytics.colPayout')}</th>
                 <th className="text-right p-3 font-medium">GGR</th>
                 <th className="text-right p-3 font-medium">RTP</th>
-                <th className="text-right p-3 font-medium hidden md:table-cell">Oyuncu</th>
+                <th className="text-right p-3 font-medium hidden md:table-cell">{t('admin.analytics.colPlayer')}</th>
               </tr>
             </thead>
             <tbody>
@@ -241,9 +237,10 @@ function CasinoTab() {
 }
 
 function FinanceTab() {
+  const { t } = useTranslation();
   const [data, setData] = useState(null);
   useEffect(() => { api.get('/admin/analytics/finance?days=30').then(r => setData(r.data)).catch(() => {}); }, []);
-  if (!data) return <div className="text-center text-text-3 py-12 text-sm">Yükleniyor...</div>;
+  if (!data) return <div className="text-center text-text-3 py-12 text-sm">{t('common.loading')}</div>;
 
   const processedDaily = [];
   const dateMap = {};
@@ -255,24 +252,24 @@ function FinanceTab() {
   Object.keys(dateMap).sort().forEach(d => processedDaily.push(dateMap[d]));
 
   const typeLabels = {
-    deposit: '🏦 Banka Yatırma', withdraw: '🏦 Banka Çekme',
-    crypto_deposit: '🪙 Kripto Yatırma', crypto_withdraw: '🪙 Kripto Çekme',
-    bet: '🎯 Bahis', win: '🏆 Kazanç', bonus: '🎁 Bonus',
-    refund: '↩️ İade', admin_adjustment: '⚙️ Admin',
+    deposit: t('admin.analytics.typeLabel.deposit'), withdraw: t('admin.analytics.typeLabel.withdraw'),
+    crypto_deposit: t('admin.analytics.typeLabel.cryptoDeposit'), crypto_withdraw: t('admin.analytics.typeLabel.cryptoWithdraw'),
+    bet: t('admin.analytics.typeLabel.bet'), win: t('admin.analytics.typeLabel.win'), bonus: t('admin.analytics.typeLabel.bonus'),
+    refund: t('admin.analytics.typeLabel.refund'), admin_adjustment: t('admin.analytics.typeLabel.adminAdjustment'),
   };
 
   return (
     <div className="space-y-6">
       <div className="grid grid-cols-4 gap-3">
-        <MetricCard title="Banka Yatırma" value={formatCurrency(data.typeBreakdown?.find(t => t._id === 'deposit')?.total || 0)} color="text-emerald-400" />
-        <MetricCard title="Banka Çekme" value={formatCurrency(data.typeBreakdown?.find(t => t._id === 'withdraw')?.total || 0)} color="text-red-400" />
-        <MetricCard title="Kripto Yatırma" value={formatCurrency(data.typeBreakdown?.find(t => t._id === 'crypto_deposit')?.total || 0)} color="text-amber-400" />
-        <MetricCard title="Kripto Çekme" value={formatCurrency(data.typeBreakdown?.find(t => t._id === 'crypto_withdraw')?.total || 0)} color="text-orange-400" />
+        <MetricCard title={t('admin.analytics.bankDeposit')} value={formatCurrency(data.typeBreakdown?.find(t => t._id === 'deposit')?.total || 0)} color="text-emerald-400" />
+        <MetricCard title={t('admin.analytics.bankWithdraw')} value={formatCurrency(data.typeBreakdown?.find(t => t._id === 'withdraw')?.total || 0)} color="text-red-400" />
+        <MetricCard title={t('admin.analytics.cryptoDeposit')} value={formatCurrency(data.typeBreakdown?.find(t => t._id === 'crypto_deposit')?.total || 0)} color="text-amber-400" />
+        <MetricCard title={t('admin.analytics.cryptoWithdraw')} value={formatCurrency(data.typeBreakdown?.find(t => t._id === 'crypto_withdraw')?.total || 0)} color="text-orange-400" />
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
         <div className="bg-bg-card border border-white/10 rounded-xl p-4">
-          <h4 className="text-sm font-semibold text-text-1 mb-3">Günlük Para Akışı (30 Gün)</h4>
+          <h4 className="text-sm font-semibold text-text-1 mb-3">{t('admin.analytics.dailyMoneyFlow30d')}</h4>
           <ResponsiveContainer width="100%" height={260}>
             <LineChart data={processedDaily}>
               <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.05)" />
@@ -280,16 +277,16 @@ function FinanceTab() {
               <YAxis tick={{ fill: '#888', fontSize: 10 }} tickFormatter={v => `₺${(v / 1000).toFixed(0)}B`} />
               <Tooltip content={<CustomTooltip />} />
               <Legend />
-              <Line type="monotone" dataKey="deposit" name="🏦 Yatırma" stroke="#10b981" strokeWidth={2} dot={false} />
-              <Line type="monotone" dataKey="crypto_deposit" name="🪙 Kripto Yatırma" stroke="#f59e0b" strokeWidth={2} dot={false} />
-              <Line type="monotone" dataKey="withdraw" name="🏦 Çekme" stroke="#ef4444" strokeWidth={2} dot={false} />
-              <Line type="monotone" dataKey="crypto_withdraw" name="🪙 Kripto Çekme" stroke="#f97316" strokeWidth={2} dot={false} />
+              <Line type="monotone" dataKey="deposit" name={t('admin.analytics.typeLabel.deposit')} stroke="#10b981" strokeWidth={2} dot={false} />
+              <Line type="monotone" dataKey="crypto_deposit" name={t('admin.analytics.typeLabel.cryptoDeposit')} stroke="#f59e0b" strokeWidth={2} dot={false} />
+              <Line type="monotone" dataKey="withdraw" name={t('admin.analytics.typeLabel.withdraw')} stroke="#ef4444" strokeWidth={2} dot={false} />
+              <Line type="monotone" dataKey="crypto_withdraw" name={t('admin.analytics.typeLabel.cryptoWithdraw')} stroke="#f97316" strokeWidth={2} dot={false} />
             </LineChart>
           </ResponsiveContainer>
         </div>
 
         <div className="bg-bg-card border border-white/10 rounded-xl p-4">
-          <h4 className="text-sm font-semibold text-text-1 mb-3">İşlem Tipi Dağılımı (Tutar)</h4>
+          <h4 className="text-sm font-semibold text-text-1 mb-3">{t('admin.analytics.transactionTypeDistribution')}</h4>
           <ResponsiveContainer width="100%" height={260}>
             <PieChart>
               <Pie data={data.typeBreakdown?.filter(t => !['bet', 'win', 'refund'].includes(t._id))} dataKey="total" nameKey="_id" cx="50%" cy="50%" outerRadius={90} label={({ _id, total }) => `${typeLabels[_id] || _id} ${formatCurrency(total)}`}>
@@ -304,7 +301,7 @@ function FinanceTab() {
       {data.pendingWithdrawCount > 0 && (
         <div className="bg-amber-500/10 border border-amber-500/30 rounded-xl p-4 text-center">
           <div className="text-lg font-bold text-amber-400">{formatCurrency(data.pendingWithdrawTotal)}</div>
-          <div className="text-xs text-amber-300">{data.pendingWithdrawCount} bekleyen çekim talebi</div>
+          <div className="text-xs text-amber-300">{t('admin.analytics.pendingWithdrawRequest', { count: data.pendingWithdrawCount })}</div>
         </div>
       )}
     </div>
@@ -312,29 +309,30 @@ function FinanceTab() {
 }
 
 function SportsTab() {
+  const { t } = useTranslation();
   const [data, setData] = useState(null);
   useEffect(() => { api.get('/admin/analytics/sports?days=30').then(r => setData(r.data)).catch(() => {}); }, []);
-  if (!data) return <div className="text-center text-text-3 py-12 text-sm">Yükleniyor...</div>;
+  if (!data) return <div className="text-center text-text-3 py-12 text-sm">{t('common.loading')}</div>;
 
   const winRate = data.winRate;
   const winPct = winRate.won + winRate.lost > 0 ? ((winRate.won / (winRate.won + winRate.lost)) * 100).toFixed(1) : '0';
   const pieData = [
-    { name: 'Kazandı', value: winRate.won },
-    { name: 'Kaybetti', value: winRate.lost },
+    { name: t('admin.analytics.won'), value: winRate.won },
+    { name: t('admin.analytics.lost'), value: winRate.lost },
   ];
 
   return (
     <div className="space-y-6">
       <div className="grid grid-cols-4 gap-3">
-        <MetricCard title="Toplam Bahis" value={formatNumber(data.dailyBets?.reduce((s, d) => s + d.count, 0) || 0)} subtitle="30 gün" color="text-blue-400" />
-        <MetricCard title="Toplam Hacim" value={formatCurrency(data.dailyBets?.reduce((s, d) => s + d.totalStake, 0) || 0)} color="text-purple-400" />
-        <MetricCard title="Kazanma Oranı" value={`%${winPct}`} subtitle={`${winRate.won} kazanç / ${winRate.lost} kayıp`} color="text-green-400" />
-        <MetricCard title="Net Kazanç" value={formatCurrency(winRate.wonAmount - winRate.totalStake)} subtitle="Oyuncu bazında" color={winRate.wonAmount >= winRate.totalStake ? 'text-danger' : 'text-success'} />
+        <MetricCard title={t('admin.analytics.totalBets')} value={formatNumber(data.dailyBets?.reduce((s, d) => s + d.count, 0) || 0)} subtitle={t('admin.analytics.days30')} color="text-blue-400" />
+        <MetricCard title={t('admin.analytics.totalVolume')} value={formatCurrency(data.dailyBets?.reduce((s, d) => s + d.totalStake, 0) || 0)} color="text-purple-400" />
+        <MetricCard title={t('admin.analytics.winRate')} value={`%${winPct}`} subtitle={t('admin.analytics.wonVsLost', { won: winRate.won, lost: winRate.lost })} color="text-green-400" />
+        <MetricCard title={t('admin.analytics.netWin')} value={formatCurrency(winRate.wonAmount - winRate.totalStake)} subtitle={t('admin.analytics.perPlayer')} color={winRate.wonAmount >= winRate.totalStake ? 'text-danger' : 'text-success'} />
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
         <div className="bg-bg-card border border-white/10 rounded-xl p-4">
-          <h4 className="text-sm font-semibold text-text-1 mb-3">Günlük Bahis Hacmi (30 Gün)</h4>
+          <h4 className="text-sm font-semibold text-text-1 mb-3">{t('admin.analytics.dailyBetVolume30d')}</h4>
           <ResponsiveContainer width="100%" height={240}>
             <AreaChart data={data.dailyBets}>
               <defs>
@@ -346,14 +344,14 @@ function SportsTab() {
               <YAxis yAxisId="right" orientation="right" tick={{ fill: '#888', fontSize: 10 }} />
               <Tooltip content={<CustomTooltip />} />
               <Legend />
-              <Area yAxisId="left" type="monotone" dataKey="totalStake" name="Bahis Hacmi (₺)" stroke="#3b82f6" fill="url(#betGrad)" strokeWidth={2} />
-              <Line yAxisId="right" type="monotone" dataKey="count" name="Bahis Sayısı" stroke="#10b981" strokeWidth={2} dot={false} />
+              <Area yAxisId="left" type="monotone" dataKey="totalStake" name={t('admin.analytics.betVolume')} stroke="#3b82f6" fill="url(#betGrad)" strokeWidth={2} />
+              <Line yAxisId="right" type="monotone" dataKey="count" name={t('admin.analytics.betCount')} stroke="#10b981" strokeWidth={2} dot={false} />
             </AreaChart>
           </ResponsiveContainer>
         </div>
 
         <div className="bg-bg-card border border-white/10 rounded-xl p-4">
-          <h4 className="text-sm font-semibold text-text-1 mb-3">Kazanç / Kayıp Oranı</h4>
+          <h4 className="text-sm font-semibold text-text-1 mb-3">{t('admin.analytics.winLossRatio')}</h4>
           <ResponsiveContainer width="100%" height={240}>
             <PieChart>
               <Pie data={pieData} dataKey="value" nameKey="name" cx="50%" cy="50%" outerRadius={90} innerRadius={45} label={({ name, value }) => `${name}: ${value}`}>
@@ -368,14 +366,14 @@ function SportsTab() {
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
         <div className="bg-bg-card border border-white/10 rounded-xl p-4">
-          <h4 className="text-sm font-semibold text-text-1 mb-3">Popüler Spor Dalları</h4>
+          <h4 className="text-sm font-semibold text-text-1 mb-3">{t('admin.analytics.popularSports')}</h4>
           <ResponsiveContainer width="100%" height={280}>
             <BarChart data={data.popularSports} layout="vertical">
               <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.05)" />
               <XAxis type="number" tick={{ fill: '#888', fontSize: 10 }} />
               <YAxis type="category" dataKey="_id" tick={{ fill: '#888', fontSize: 10 }} width={80} />
               <Tooltip content={<CustomTooltip />} />
-              <Bar dataKey="count" name="Bahis Sayısı" radius={[0, 4, 4, 0]}>
+              <Bar dataKey="count" name={t('admin.analytics.betCount')} radius={[0, 4, 4, 0]}>
                 {data.popularSports.map((_, i) => <Cell key={i} fill={CHART_COLORS[i % CHART_COLORS.length]} />)}
               </Bar>
             </BarChart>
@@ -383,28 +381,28 @@ function SportsTab() {
         </div>
 
         <div className="bg-bg-card border border-white/10 rounded-xl p-4">
-          <h4 className="text-sm font-semibold text-text-1 mb-3">Ortalama Bahis Miktarı (30 Gün)</h4>
+          <h4 className="text-sm font-semibold text-text-1 mb-3">{t('admin.analytics.avgBetAmount30d')}</h4>
           <ResponsiveContainer width="100%" height={280}>
             <LineChart data={data.averageStake}>
               <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.05)" />
               <XAxis dataKey="_id" tick={{ fill: '#888', fontSize: 10 }} />
               <YAxis tick={{ fill: '#888', fontSize: 10 }} tickFormatter={v => `₺${v.toFixed(0)}`} domain={['dataMin - 10', 'dataMax + 10']} />
               <Tooltip content={<CustomTooltip />} />
-              <Line type="monotone" dataKey="avgStake" name="Ort. Bahis (₺)" stroke="#ec4899" strokeWidth={2} dot={false} />
+              <Line type="monotone" dataKey="avgStake" name={t('admin.analytics.avgBet')} stroke="#ec4899" strokeWidth={2} dot={false} />
             </LineChart>
           </ResponsiveContainer>
         </div>
       </div>
 
       <div className="bg-bg-card border border-white/10 rounded-xl p-4">
-        <h4 className="text-sm font-semibold text-text-1 mb-3">Popüler Ligler / Sporlar</h4>
+        <h4 className="text-sm font-semibold text-text-1 mb-3">{t('admin.analytics.popularLeaguesSports')}</h4>
         <div className="overflow-x-auto">
           <table className="w-full text-xs">
             <thead>
               <tr className="text-text-3 border-b border-white/10">
-                <th className="text-left p-3 font-medium">Lig / Spor</th>
-                <th className="text-right p-3 font-medium">Bahis Sayısı</th>
-                <th className="text-right p-3 font-medium">Toplam Hacim</th>
+                <th className="text-left p-3 font-medium">{t('admin.analytics.colLeagueSport')}</th>
+                <th className="text-right p-3 font-medium">{t('admin.analytics.betCount')}</th>
+                <th className="text-right p-3 font-medium">{t('admin.analytics.totalVolume')}</th>
               </tr>
             </thead>
             <tbody>
@@ -432,22 +430,31 @@ const TAB_COMPONENTS = {
 };
 
 export default function AdminAnalytics() {
+  const { t } = useTranslation();
   const [activeTab, setActiveTab] = useState('overview');
+
+  const TABS = [
+    { key: 'overview', label: `📊 ${t('admin.analytics.tabOverview')}` },
+    { key: 'users',    label: `👥 ${t('admin.analytics.tabUsers')}` },
+    { key: 'casino',   label: `🎰 ${t('admin.analytics.tabCasino')}` },
+    { key: 'finance',  label: `💰 ${t('admin.analytics.tabFinance')}` },
+    { key: 'sports',   label: `⚽ ${t('admin.analytics.tabSports')}` },
+  ];
 
   const TabComponent = TAB_COMPONENTS[activeTab];
 
   return (
     <div className="max-w-7xl mx-auto px-4 py-6">
       <div className="flex items-center justify-between mb-6">
-        <h1 className="text-xl font-bold text-text-1">📈 Analitik & İstatistik</h1>
+        <h1 className="text-xl font-bold text-text-1">📈 {t('admin.analytics.title')}</h1>
       </div>
 
       <div className="flex gap-1 bg-bg-card border border-white/10 rounded-lg p-1 mb-6 overflow-x-auto">
-        {TABS.map(t => (
-          <button key={t.key} onClick={() => setActiveTab(t.key)}
+        {TABS.map(tab => (
+          <button key={tab.key} onClick={() => setActiveTab(tab.key)}
             className={`px-4 py-2 rounded-md text-sm font-medium transition whitespace-nowrap ${
-              activeTab === t.key ? 'bg-accent text-white' : 'text-text-3 hover:text-text-1'
-            }`}>{t.label}</button>
+              activeTab === tab.key ? 'bg-accent text-white' : 'text-text-3 hover:text-text-1'
+            }`}>{tab.label}</button>
         ))}
       </div>
 
