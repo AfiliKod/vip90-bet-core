@@ -28,6 +28,9 @@ import bankRoutes from './routes/bank.js';
 import analyticsRoutes from './routes/analytics.js';
 import admin2faRoutes from './routes/admin2fa.js';
 import themeRoutes from './routes/theme.js';
+import modulesRoutes from './routes/modules.js';
+import { createModuleGate } from './middleware/moduleGate.js';
+import { isModuleUsable } from './services/licensing/index.js';
 import ticketRoutes from './routes/ticket.js';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
@@ -125,13 +128,10 @@ export function createApp() {
   }
 
   app.use('/api/auth', authRoutes);
-  app.use('/api/events', eventsRoutes);
-  app.use('/api/bets', betsRoutes);
   app.use('/api/users', usersRoutes);
   app.use('/api/transactions', transactionsRoutes);
   app.use('/api/promotions', promotionsRoutes);
   app.use('/api/admin', adminRoutes);
-  app.use('/api/casino', casinoRoutes);
   app.use('/api/palace', palaceRoutes);
   app.use('/api/inhouse', inhouseRoutes);
   app.use('/api/help', helpRoutes);
@@ -140,6 +140,16 @@ export function createApp() {
   app.use('/api/admin/analytics', analyticsRoutes);
   app.use('/api/auth/2fa', admin2faRoutes);
   app.use('/api/theme', themeRoutes);
+
+  // M4 — modül kapalıyken zarif bozulma: ilgili bölümler 404 yerine anlamlı
+  // 503 (MODULE_DISABLED) döner; site geri kalanında hatasız çalışır.
+  // inhouse = çekirdek platform (M1), asla gate'lenmez.
+  const requireBetting = createModuleGate({ isUsable: isModuleUsable, moduleId: 'betting' });
+  const requireCasinoContent = createModuleGate({ isUsable: isModuleUsable, moduleId: 'casino-content' });
+  app.use('/api/modules', modulesRoutes); // herkese açık — istemci menü/yönlendirme
+  app.use('/api/events', requireBetting, eventsRoutes);
+  app.use('/api/bets', requireBetting, betsRoutes);
+  app.use('/api/casino', requireCasinoContent, casinoRoutes);
   app.use('/api/tickets', ticketRoutes);
 
   // Health check — Render uptime monitoring için

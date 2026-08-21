@@ -3,6 +3,8 @@ import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { useAuthStore } from './store/authStore';
 import { useToastStore } from './store/toastStore';
 import { useBetNotificationStore } from './store/betNotificationStore';
+import { useModuleStore } from './store/moduleStore';
+import ModuleGate from './components/ModuleGate';
 import { socket } from './services/socket';
 import ProtectedRoute from './components/ProtectedRoute';
 import { I18nProvider } from './i18n/I18nProvider.jsx';
@@ -77,8 +79,10 @@ export default function App() {
   const { init } = useAuthStore();
   const addToast = useToastStore(s => s.add);
   const incrementUnread = useBetNotificationStore(s => s.increment);
+  const fetchModules = useModuleStore(s => s.fetch);
 
   useEffect(() => { init(); }, []);
+  useEffect(() => { fetchModules(); }, [fetchModules]);
 
   useEffect(() => {
     function onBalanceUpdate({ balance }) {
@@ -113,11 +117,11 @@ export default function App() {
       <Routes>
         <Route path="/login" element={<GuestRoute><Suspense fallback={<PageLoader />}><Login /></Suspense></GuestRoute>} />
         <Route path="/" element={<Layout><Suspense fallback={<PageLoader />}><HomePage /></Suspense></Layout>} />
-        <Route path="/bahis" element={<Layout><Suspense fallback={<PageLoader />}><Bahis /></Suspense></Layout>} />
-        <Route path="/canli" element={<Layout><Suspense fallback={<PageLoader />}><Live /></Suspense></Layout>} />
-        <Route path="/events/:id" element={<Layout><Suspense fallback={<PageLoader />}><EventDetail /></Suspense></Layout>} />
-        <Route path="/casino" element={<Layout><Suspense fallback={<PageLoader />}><CasinoRedesign /></Suspense></Layout>} />
-        <Route path="/casino/:gameSymbol" element={<ProtectedRoute><Suspense fallback={<PageLoader />}><CasinoGame /></Suspense></ProtectedRoute>} />
+        <Route path="/bahis" element={<Layout><ModuleGate module="betting"><Suspense fallback={<PageLoader />}><Bahis /></Suspense></ModuleGate></Layout>} />
+        <Route path="/canli" element={<Layout><ModuleGate module="betting"><Suspense fallback={<PageLoader />}><Live /></Suspense></ModuleGate></Layout>} />
+        <Route path="/events/:id" element={<Layout><ModuleGate module="betting"><Suspense fallback={<PageLoader />}><EventDetail /></Suspense></ModuleGate></Layout>} />
+        <Route path="/casino" element={<Layout><ModuleGate module="casino-content"><Suspense fallback={<PageLoader />}><CasinoRedesign /></Suspense></ModuleGate></Layout>} />
+        <Route path="/casino/:gameSymbol" element={<ProtectedRoute><ModuleGate module="casino-content"><Suspense fallback={<PageLoader />}><CasinoGame /></Suspense></ModuleGate></ProtectedRoute>} />
         <Route path="/palace/:gameId" element={<ProtectedRoute><Suspense fallback={<PageLoader />}><PalaceGame /></Suspense></ProtectedRoute>} />
         <Route path="/games/crash" element={<ProtectedRoute><Suspense fallback={<PageLoader />}><Crash /></Suspense></ProtectedRoute>} />
         <Route path="/games/mines" element={<ProtectedRoute><Suspense fallback={<PageLoader />}><Mines /></Suspense></ProtectedRoute>} />
