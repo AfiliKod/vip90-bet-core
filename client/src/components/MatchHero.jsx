@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { useSettingsStore } from '../store/settingsStore';
 import { translateTeam, translateLeague } from '../utils/i18n';
+import { useFormatters } from '../i18n/useFormatters.jsx';
 import { buildTeamGradient, fetchTeamInfo } from '../utils/matchHeroColors';
 
 const SPORT_GRADIENTS = {
@@ -50,7 +51,7 @@ export default function MatchHero({ event }) {
   const [homeColor, setHomeColor] = useState('');
   const [awayColor, setAwayColor] = useState('');
   const lang = useSettingsStore(s => s.preferences.language);
-  const locale = lang === 'en' ? 'en-GB' : 'tr-TR';
+  const fmt = useFormatters();
   const homeName = translateTeam(event.homeTeam.name, lang);
   const awayName = translateTeam(event.awayTeam.name, lang);
   const leagueName = translateLeague(event.league, lang);
@@ -101,10 +102,7 @@ export default function MatchHero({ event }) {
               <>
                 <div className="text-text-3 text-lg font-bold">vs</div>
                 <div className="text-text-3 text-xs mt-1.5">
-                  {new Date(event.startTime).toLocaleString(locale, {
-                    day: '2-digit', month: 'short',
-                    hour: '2-digit', minute: '2-digit',
-                  })}
+                  {fmt.formatDateTime(event.startTime)}
                 </div>
               </>
             )}

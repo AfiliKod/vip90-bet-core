@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { useFormatters } from '../../../i18n/useFormatters.jsx';
 import { useForm } from 'react-hook-form';
 import api from '../../../services/api';
 import { useToastStore } from '../../../store/toastStore';
@@ -7,6 +8,7 @@ import { formatMoney, getActiveCurrency } from '../../../utils/money.js';
 
 export default function UserSlideOver({ user, onClose, onUpdated }) {
   const { t } = useTranslation();
+  const fmt = useFormatters();
   const [tab, setTab] = useState('general');
   const [referrals, setReferrals] = useState(null);
   const [transactions, setTransactions] = useState(null);
@@ -123,7 +125,7 @@ export default function UserSlideOver({ user, onClose, onUpdated }) {
                 </div>
                 <div className="bg-bg-hover rounded-xl p-3">
                   <div className="text-xs text-text-3 mb-1">{t('admin.userSlideOver.registration')}</div>
-                  <div className="text-sm text-text-1">{new Date(user.createdAt).toLocaleDateString('tr')}</div>
+                  <div className="text-sm text-text-1">{fmt.formatDate(user.createdAt)}</div>
                 </div>
               </div>
 
@@ -180,7 +182,7 @@ export default function UserSlideOver({ user, onClose, onUpdated }) {
               )}
               {user.deletedAt && (
                 <div className="text-center text-xs text-danger/70 py-2">
-                  {t('admin.userSlideOver.deletedOn', { date: new Date(user.deletedAt).toLocaleDateString('tr') })}
+                  {t('admin.userSlideOver.deletedOn', { date: fmt.formatDate(user.deletedAt) })}
                 </div>
               )}
             </div>
@@ -255,7 +257,7 @@ export default function UserSlideOver({ user, onClose, onUpdated }) {
                     {referrals.map(r => (
                       <div key={r._id} className="flex items-center justify-between bg-bg-hover rounded-xl p-3">
                         <span className="text-sm text-text-1 font-medium">{r.username}</span>
-                        <span className="text-xs text-text-3">{new Date(r.createdAt).toLocaleDateString('tr')}</span>
+                        <span className="text-xs text-text-3">{fmt.formatDate(r.createdAt)}</span>
                       </div>
                     ))}
                   </div>
@@ -283,7 +285,7 @@ export default function UserSlideOver({ user, onClose, onUpdated }) {
                         <div className={`text-sm font-bold ${tx.amount >= 0 ? 'text-success' : 'text-danger'}`}>
                           {tx.amount >= 0 ? '+' : ''}{formatMoney(tx.amount)}
                         </div>
-                        <div className="text-xs text-text-3">{new Date(tx.createdAt).toLocaleDateString('tr')}</div>
+                        <div className="text-xs text-text-3">{fmt.formatDate(tx.createdAt)}</div>
                       </div>
                     </div>
                   ))}
@@ -341,7 +343,7 @@ export default function UserSlideOver({ user, onClose, onUpdated }) {
                       </div>
                       <div className="flex items-center justify-between text-xs text-text-3">
                         <span>{t('admin.userSlideOver.roundLine', { provider: r.provider, bet: formatMoney(r.bet), payout: formatMoney(r.payout) })}</span>
-                        <span>{new Date(r.createdAt).toLocaleDateString('tr')}</span>
+                        <span>{fmt.formatDate(r.createdAt)}</span>
                       </div>
                     </div>
                   ))}

@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback } from 'react';
+import { useFormatters } from '../i18n/useFormatters.jsx';
 import { useForm } from 'react-hook-form';
 import { QRCodeSVG } from 'qrcode.react';
 import { Link, useSearchParams } from 'react-router-dom';
@@ -151,6 +152,7 @@ function CryptoWithdraw({ onBalanceUpdate }) {
 
 export default function Profile() {
   const { t } = useTranslation();
+  const fmt = useFormatters();
   const { user, updateBalance } = useAuthStore();
   const addToast = useToastStore(s => s.add);
   const [searchParams, setSearchParams] = useSearchParams();
@@ -744,7 +746,7 @@ const handleBankSubmit = async (confirmForfeit = false) => {
               <div>
                 <span className="text-text-2">{txLabel(t, tx.type)}</span>
                 {tx.note && <div className="text-text-3 text-xs truncate max-w-[100px] sm:max-w-[200px]">{tx.note}</div>}
-                <div className="text-text-3 text-xs">{new Date(tx.createdAt).toLocaleDateString('tr-TR')}</div>
+                <div className="text-text-3 text-xs">{fmt.formatDate(tx.createdAt)}</div>
               </div>
               <div className="text-right">
                 <span className={`font-medium ${tx.amount > 0 ? 'text-success' : 'text-danger'}`}>

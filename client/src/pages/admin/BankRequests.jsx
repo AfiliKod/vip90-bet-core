@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { useFormatters } from '../../i18n/useFormatters.jsx';
 import api from '../../services/api';
 import { useToastStore } from '../../store/toastStore';
 import { useTranslation } from '../../i18n';
@@ -6,6 +7,7 @@ import { formatMoney } from '../../utils/money.js';
 
 export default function AdminBankRequests() {
   const { t } = useTranslation();
+  const fmt = useFormatters();
   const [requests, setRequests] = useState([]);
   const [type, setType] = useState('deposit');
   const [loading, setLoading] = useState(true);
@@ -75,7 +77,7 @@ export default function AdminBankRequests() {
                   {formatMoney(r.amount)}
                 </div>
                 <div className="text-xs text-text-3 mt-1">
-                  {new Date(r.createdAt).toLocaleString('tr-TR')}
+                  {fmt.formatDateTime(r.createdAt)}
                 </div>
               </div>
               <div className="flex gap-2 shrink-0">

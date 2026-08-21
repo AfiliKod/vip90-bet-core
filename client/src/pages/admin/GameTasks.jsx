@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { useFormatters } from '../../i18n/useFormatters.jsx';
 import api from '../../services/api';
 import { useTranslation } from '../../i18n';
 
@@ -13,6 +14,7 @@ function statusLabels(t) {
 export default function AdminGameTasks() {
   const { t } = useTranslation();
   const STATUS_LABELS = statusLabels(t);
+  const fmt = useFormatters();
   const [tasks, setTasks] = useState([]);
   const [filter, setFilter] = useState('pending');
   const [loading, setLoading] = useState(true);
@@ -71,7 +73,7 @@ export default function AdminGameTasks() {
                     </div>
                     <p className="text-sm font-semibold text-text-1 truncate">{task.gameTitle || task.gameId}</p>
                     <p className="text-xs text-text-3 mt-0.5">
-                      {task.provider} · {new Date(task.detectedAt).toLocaleString('tr-TR')}
+                      {task.provider} · {fmt.formatDateTime(task.detectedAt)}
                     </p>
                     {task.notes && (
                       <p className="text-xs text-text-2 mt-1 italic">"{task.notes}"</p>

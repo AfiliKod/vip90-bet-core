@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { useBetSlipStore } from '../store/betSlipStore';
 import { formatOdd, pickMainLine } from '../utils/oddsUtils';
+import { useFormatters } from '../i18n/useFormatters.jsx';
 import { useSettingsStore } from '../store/settingsStore';
 import { sportIcon } from '../utils/sportMeta';
 import { translateTeam } from '../utils/i18n';
@@ -57,7 +58,7 @@ function OddCell({ eventId, eventLabel, market, targetLabel, fallbackIndex, oddO
 export default function EventRow({ event, isDrawerOpen, onToggleDrawer }) {
   const isMobile = useIsMobile();
   const lang = useSettingsStore(s => s.preferences.language);
-  const locale = lang === 'en' ? 'en-GB' : 'tr-TR';
+  const fmt = useFormatters();
   const homeName = translateTeam(event.homeTeam.name, lang);
   const awayName = translateTeam(event.awayTeam.name, lang);
   const label = `${homeName} vs ${awayName}`;
@@ -70,9 +71,8 @@ export default function EventRow({ event, isDrawerOpen, onToggleDrawer }) {
   const hMain  = pickMainLine(handikapMarket);   // [ev, deplasman] ana hat
   // Kaynağın gösterdiği tam market sayısı (benzersiz market_id) — grup değil.
   const extraCount = Math.max(0, (event.marketCount || event.marketsCount || event.markets?.length || 0) - 1);
-  const date = new Date(event.startTime);
-  const dateStr = date.toLocaleDateString(locale, { day: '2-digit', month: 'short' });
-  const timeStr = date.toLocaleTimeString(locale, { hour: '2-digit', minute: '2-digit' });
+  const dateStr = fmt.formatDate(event.startTime);
+  const timeStr = fmt.formatTime(event.startTime);
   const grid = isMobile ? ROW_GRID_MOBILE : ROW_GRID;
 
   return (

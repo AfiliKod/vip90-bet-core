@@ -3,6 +3,7 @@ import { NavLink, useNavigate, useLocation } from 'react-router-dom';
 import { useEventsStore } from '../store/eventsStore';
 import { useSettingsStore } from '../store/settingsStore';
 import { SPORT_META } from '../utils/sportMeta';
+import { useFormatters } from '../i18n/useFormatters.jsx';
 import { BRAND_GRADIENT, BRAND_GLOW } from '../styles/brand';
 
 const SPORT_ORDER = [
@@ -12,6 +13,7 @@ const SPORT_ORDER = [
 ];
 
 export default function Sidebar() {
+  const fmt = useFormatters();
   const {
     events,
     summary,
@@ -251,8 +253,7 @@ export default function Sidebar() {
             {importantEvents.map(ev => {
               const isLive = ev.status === 'live';
               const meta = SPORT_META[ev.sport] ?? { icon: '🏆', label: ev.sport };
-              const date = new Date(ev.startTime);
-              const timeStr = date.toLocaleTimeString('tr-TR', { hour: '2-digit', minute: '2-digit' });
+              const timeStr = fmt.formatTime(ev.startTime);
               return (
                 <button
                   key={ev._id}
