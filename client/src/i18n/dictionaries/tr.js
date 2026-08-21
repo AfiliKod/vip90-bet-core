@@ -1009,4 +1009,5 @@ export default {
   'games.baccarat.banker': 'Banker',
   'games.baccarat.tieLabel': 'Berabere',
   'games.baccarat.liveGame': 'Canlı oyun',
+  'games.plinko.soundOff': 'Sesi kapat',
 };

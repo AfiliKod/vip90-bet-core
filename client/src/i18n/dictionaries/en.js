@@ -1041,4 +1041,5 @@ export default {
   'games.baccarat.banker': 'Banker',
   'games.baccarat.tieLabel': 'Tie',
   'games.baccarat.liveGame': 'Live game',
+  'games.plinko.soundOff': 'Mute sound',
 };
