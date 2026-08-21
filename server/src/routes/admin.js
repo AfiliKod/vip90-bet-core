@@ -4,9 +4,13 @@ import { auditLog } from '../middleware/audit.js';
 import { validate } from '../middleware/validate.js';
 import { createEventSchema, settleEventSchema, createUserSchema, updateBalanceSchema } from '../validators/admin.js';
 import * as ctrl from '../controllers/admin.js';
+import modulesAdminRouter from '../controllers/modules.js';
 
 const r = Router();
 r.use(requireAuth, requireAdmin, auditLog('ADMIN_ACTION'));
+
+// Modül yönetimi (M3) — kendi router'ı, controllers/modules.js'te
+r.use('/modules', modulesAdminRouter);
 
 r.get('/users',                  ctrl.getUsers);
 r.post('/users',                 validate(createUserSchema), ctrl.createUser);
