@@ -12,6 +12,25 @@ Madde formatı ve kategoriler için `docs/CHANGELOG_GUIDE.md`'ye bakın —
 
 ## [Yayınlanmadı]
 
+### D3 — Ürüne hakim chatbot
+- `services/chatbotKnowledge.js`: docs/product/ ve CHANGELOG.md'yi
+  başlıklara göre parçalayan `chunkMarkdown`, terim örtüşmesine dayalı
+  `searchKnowledge`. Vektör/embedding altyapısı yok — bilinçli kapsam
+  kararı, küçük doküman kümesinde terim örtüşmesi yeterli sinyal verir.
+- `services/chatbot.js`: `answerQuestion` — alakalı hiçbir doküman
+  parçası bulunamazsa **LLM'e hiç gidilmez**, deterministik bir
+  yönlendirme mesajı döner. "Bilmediğinde insana yönlendiriyor" kabul
+  kriteri bir prompt talimatına değil, koda dayanır. Sistem prompt'u
+  her seferinde güncel sürüm numarasını taşır (sürüm farkı kriteri).
+- `routes/help.js`: eskiden VIP90.bet'e özgü, ürünle bağlantısız sabit
+  bir prompt kullanıyordu — artık gerçek dokümanlara köklenmiş.
+- `LiveHelp.jsx`: `escalated` bayrağı görsel olarak ayırt ediliyor.
+  Oyuncuya dönük ticket oluşturma ekranı (D5'in istemci tarafı) henüz
+  yok — bu yüzden işlevsiz bir "ticket aç" linki eklenmedi, yalnızca
+  dürüst bir görsel işaret var.
+
+TDD: 14 yeni test, tamamı önce kırmızı. Suite 279/279. Build başarılı. (D3)
+
 ## [0.2.0] — 2026-08-21
 
 Faz 0 (Sözleşmeler) tamamlandı ve Faz 1'in (dört paralel akış) büyük

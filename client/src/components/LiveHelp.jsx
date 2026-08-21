@@ -56,7 +56,7 @@ export default function LiveHelp({ open, onClose }) {
     try {
       const history = [...messages, userMsg].map(m => ({ role: m.role, content: m.content }));
       const res = await api.post('/help/chat', { messages: history });
-      setMessages(prev => [...prev, { role: 'assistant', content: res.data.reply }]);
+      setMessages(prev => [...prev, { role: 'assistant', content: res.data.reply, escalated: !!res.data.escalated }]);
     } catch {
       setMessages(prev => [
         ...prev,
@@ -124,7 +124,9 @@ export default function LiveHelp({ open, onClose }) {
               className={`max-w-[80%] px-3 py-2 rounded-2xl text-sm leading-relaxed whitespace-pre-wrap ${
                 m.role === 'user'
                   ? 'bg-primary/20 text-text-1 rounded-tr-sm'
-                  : 'bg-bg-base text-text-2 rounded-tl-sm border border-white/8'
+                  : m.escalated
+                    ? 'bg-amber-500/10 text-text-2 rounded-tl-sm border border-amber-500/25'
+                    : 'bg-bg-base text-text-2 rounded-tl-sm border border-white/8'
               }`}
             >
               {m.content}
