@@ -6,8 +6,8 @@ import { useAuthStore } from '../store/authStore';
 import { useToastStore } from '../store/toastStore';
 import { LEGAL_VERSION } from '../data/legalContent';
 import api from '../services/api';
-import { useTranslation } from '../i18n/I18nProvider.jsx';
-import LanguageSwitcher from '../i18n/LanguageSwitcher.jsx';
+import { useTranslation } from '../i18n';
+import LanguageSwitcher from '../i18n/LanguageSwitcher';
 
 export default function Login() {
   const { t } = useTranslation();
@@ -35,7 +35,7 @@ export default function Login() {
         navigate(user.role === 'admin' ? '/admin' : (redirect || '/'));
       } else {
         if (!canSubmitRegister) {
-          addToast('Devam etmek için tüm onayları tamamlamalısınız.', 'error');
+          addToast(t('auth.acceptAllRequired'), 'error');
           return;
         }
         const result = await registerFn(data.username, data.email, data.password, {
@@ -56,9 +56,9 @@ export default function Login() {
       const msg = errData?.message;
       const status = e.response?.status;
       if (status === 401) {
-        addToast('Kullanıcı adı veya şifre hatalı.', 'error');
+        addToast(t('auth.invalidCredentials'), 'error');
       } else if (status === 429) {
-        addToast('Çok fazla deneme. Lütfen biraz bekleyin.', 'error');
+        addToast(t('auth.tooManyAttempts'), 'error');
       } else if (status === 403 && errData?.code === 'EMAIL_NOT_VERIFIED') {
         setUnverifiedEmail(errData.details?.email || data.username);
       } else if (status === 400 && errData?.code === 'VALIDATION_ERROR' && errData?.details) {
@@ -73,9 +73,9 @@ export default function Login() {
             .join('\n');
           Swal.fire({
             icon: 'error',
-            title: 'Kayıt Bilgileriniz Geçersiz',
+            title: t('auth.invalidRegistrationInfo'),
             html: `<pre style="text-align:left;font-size:13px;line-height:1.6;color:#ccc;background:#111;padding:12px;border-radius:8px;white-space:pre-wrap">${lines}</pre>`,
-            confirmButtonText: 'Tamam',
+            confirmButtonText: t('common.ok'),
             confirmButtonColor: '#00d4ff',
             background: '#0c1220',
             color: '#f0f4ff',
@@ -83,19 +83,19 @@ export default function Login() {
           });
           return;
         }
-        addToast(msg || 'Geçersiz veri', 'error');
+        addToast(msg || t('auth.invalidData'), 'error');
       } else if (tab === 'register') {
         Swal.fire({
           icon: 'error',
-          title: 'Kayıt Başarısız',
-          text: msg || 'Bilinmeyen bir hata oluştu',
-          confirmButtonText: 'Tamam',
+          title: t('auth.registerFailed'),
+          text: msg || t('auth.unknownError'),
+          confirmButtonText: t('common.ok'),
           confirmButtonColor: '#00d4ff',
           background: '#0c1220',
           color: '#f0f4ff',
         });
       } else {
-        addToast(msg || 'Giriş yapılamadı, lütfen tekrar deneyin.', 'error');
+        addToast(msg || t('auth.loginFailed'), 'error');
       }
     }
   };
@@ -108,7 +108,7 @@ export default function Login() {
       if (import.meta.env.DEV && data.devVerifyUrl) setDevVerifyUrl(data.devVerifyUrl);
     } catch {
       setResendStatus('idle');
-      addToast('Gönderilemedi, lütfen tekrar deneyin.', 'error');
+      addToast(t('auth.resendFailed'), 'error');
     }
   }
 
@@ -126,13 +126,13 @@ export default function Login() {
         <div className="text-center mb-8">
           <div className="text-5xl mb-3">💎</div>
           <h1 className="text-2xl font-bold text-text-1">VIP90.bet</h1>
-          <p className="text-text-2 text-sm mt-1">Spor Bahis Platformu</p>
+          <p className="text-text-2 text-sm mt-1">{t('auth.sportsBettingPlatform')}</p>
         </div>
 
         {unverifiedEmail ? (
           <div className="space-y-4">
             <div className="p-4 rounded-lg text-sm" style={{ background: 'rgba(239,68,68,0.08)', border: '1px solid rgba(239,68,68,0.3)', color: '#c8d8f0' }}>
-              <strong style={{ color: '#f0f4ff' }}>{unverifiedEmail}</strong> adresini henüz doğrulamadınız. Giriş yapabilmek için email adresinizi doğrulamanız gerekiyor.
+              <strong style={{ color: '#f0f4ff' }}>{unverifiedEmail}</strong> {t('auth.emailNotVerified')}
             </div>
             <button
               type="button"
@@ -140,22 +140,21 @@ export default function Login() {
               disabled={resendStatus !== 'idle'}
               className="w-full bg-gradient-to-r from-primary to-accent text-bg-deep font-semibold py-3 rounded-lg hover:opacity-90 disabled:opacity-50 disabled:cursor-not-allowed transition"
             >
-              {resendStatus === 'sending' ? 'Gönderiliyor...' : resendStatus === 'sent' ? 'Gönderildi ✓' : 'Doğrulama Emailini Tekrar Gönder'}
+              {resendStatus === 'sending' ? t('common.sending') : resendStatus === 'sent' ? t('common.sent') : t('auth.resendVerification')}
             </button>
             {devVerifyUrl && (
               <div className="p-3 rounded-lg text-xs break-all" style={{ background: 'rgba(0,212,255,0.08)', border: '1px solid rgba(0,212,255,0.3)', color: '#8ab4d8' }}>
-                <strong style={{ color: '#00d4ff' }}>DEV:</strong> SMTP yapılandırılmadığı için mail gönderilmedi.{' '}
-                <a href={devVerifyUrl} className="underline" style={{ color: '#00d4ff' }}>Doğrulama linkine git</a>
+                <strong style={{ color: '#00d4ff' }}>DEV:</strong> {t('auth.devNotice')} {' '}
+                <a href={devVerifyUrl} className="underline" style={{ color: '#00d4ff' }}>{t('auth.devLink')}</a>
               </div>
             )}
             <div className="text-center">
-              <button
-                type="button"
+              <button type="button"
                 onClick={() => { setUnverifiedEmail(null); setResendStatus('idle'); }}
                 className="text-xs underline"
                 style={{ color: '#7c8aae' }}
               >
-                ← Girişe Dön
+                {t('common.backToLogin')}
               </button>
             </div>
           </div>
@@ -164,8 +163,8 @@ export default function Login() {
             <div className="flex mb-6 bg-bg-base rounded-lg p-1">
               {['login', 'register'].map(tabId => (
                 <button key={tabId} onClick={() => setTab(tabId)}
-                  className={`flex-1 py-2 rounded-md text-sm font-medium transition-colors ${tab === tabId ? 'bg-accent text-white' : 'text-text-2 hover:text-text-1'}`}>
-                  {tabId === 'login' ? 'Giriş Yap' : 'Kayıt Ol'}
+                  className={`flex-1 py-2 rounded-md text-sm font-medium transition-colors ${tab === tabId ? 'bg-accent text-white' : 'text-text-2 hover:text-text-1'}`}
+                  >{tabId === 'login' ? t('auth.login') : t('auth.register')}
                 </button>
               ))}
             </div>
@@ -174,25 +173,25 @@ export default function Login() {
                 className="w-full bg-bg-base border border-white/10 rounded-lg px-4 py-3 text-text-1 placeholder-text-3 focus:outline-none focus:border-primary transition" />
               {tab === 'register' && refUsername && (
                 <div className="bg-accent/10 border border-accent/30 rounded-lg px-3 py-2 text-xs text-text-2">
-                  🎉 <strong className="text-accent">{refUsername}</strong> sizi davet etti
+                  🎉 <strong className="text-accent">{refUsername}</strong> {t('auth.invitedYou')}
                 </div>
               )}
               {tab === 'register' && (
-                <input {...register('email', { required: true })} type="email" placeholder="E-posta"
+                <input {...register('email', { required: true })} type="email" placeholder={t('auth.email')}
                   className="w-full bg-bg-base border border-white/10 rounded-lg px-4 py-3 text-text-1 placeholder-text-3 focus:outline-none focus:border-primary transition" />
               )}
               {tab === 'register' && (
-                <input {...register('referredBy')} defaultValue={refUsername || ''} placeholder="Referans kullanıcısı (opsiyonel)"
+                <input {...register('referredBy')} defaultValue={refUsername || ''} placeholder={t('auth.referredByPlaceholder')}
                   className="w-full bg-bg-base border border-white/10 rounded-lg px-4 py-3 text-text-1 placeholder-text-3 focus:outline-none focus:border-primary transition" />
               )}
               <div>
                 <div className="relative">
-                  <input {...register('password', { required: true })} type={showPassword ? 'text' : 'password'} placeholder="Şifre"
+                  <input {...register('password', { required: true })} type={showPassword ? 'text' : 'password'} placeholder={t('auth.password')}
                     className="w-full bg-bg-base border border-white/10 rounded-lg pl-4 pr-10 py-3 text-text-1 placeholder-text-3 focus:outline-none focus:border-primary transition" />
                   <button
                     type="button"
                     onClick={() => setShowPassword(v => !v)}
-                    aria-label={showPassword ? 'Şifreyi gizle' : 'Şifreyi göster'}
+                    aria-label={showPassword ? t('auth.hidePassword') : t('auth.showPassword')}
                     className="absolute right-3 top-1/2 -translate-y-1/2 transition"
                     style={{ color: '#7c8aae' }}
                     onMouseEnter={e => e.currentTarget.style.color = '#00d4ff'}
@@ -219,56 +218,55 @@ export default function Login() {
                       onMouseEnter={e => e.currentTarget.style.color = '#00d4ff'}
                       onMouseLeave={e => e.currentTarget.style.color = '#7c8aae'}
                     >
-                      Şifremi Unuttum
+                      {t('auth.forgotPassword')}
                     </Link>
                   </div>
                 )}
               </div>
 
               {/* Kayıt onayları */}
-              {tab === 'register' && (
-                <div className="space-y-2 pt-2">
-                  <ConsentCheckbox
-                    checked={acceptedTerms}
-                    onChange={setAcceptedTerms}
-                    label={
-                      <>
-                        <Link to="/legal/terms" target="_blank" className="underline" style={{ color: '#00d4ff' }}>Kullanım Koşulları</Link>{' '}
-                        ve{' '}
-                        <Link to="/legal/privacy" target="_blank" className="underline" style={{ color: '#00d4ff' }}>Gizlilik Politikası</Link>'nı okudum, kabul ediyorum
-                      </>
-                    }
-                  />
-                  <ConsentCheckbox
-                    checked={acceptedKvkk}
-                    onChange={setAcceptedKvkk}
-                    label={
-                      <>
-                        <Link to="/legal/kvkk" target="_blank" className="underline" style={{ color: '#00d4ff' }}>KVKK Aydınlatma Metni</Link>{' '}
-                        kapsamında kişisel verilerimin işlenmesini kabul ediyorum
-                      </>
-                    }
-                  />
-                </div>
-              )}
+                            {tab === 'register' && (
+                              <div className="space-y-2 pt-2">
+                                <ConsentCheckbox
+                                  checked={acceptedTerms}
+                                  onChange={setAcceptedTerms}
+                                  label={
+                                    <>
+                                      <Link to="/legal/terms" target="_blank" className="underline" style={{ color: '#00d4ff' }}>{t('auth.acceptTermsLink')}</Link>{' '}
+                                      {t('auth.acceptTermsLabel')}
+                                    </>
+                                  }
+                                />
+                                <ConsentCheckbox
+                                  checked={acceptedKvkk}
+                                  onChange={setAcceptedKvkk}
+                                  label={
+                                    <>
+                                      <Link to="/legal/kvkk" target="_blank" className="underline" style={{ color: '#00d4ff' }}>{t('auth.acceptKvkkLink')}</Link>{' '}
+                                      {t('auth.acceptKvkkLabel')}
+                                    </>
+                                  }
+                                />
+                              </div>
+                            )}
 
-              <button
-                type="submit"
-                disabled={isSubmitting || (tab === 'register' && !canSubmitRegister)}
-                className="w-full bg-gradient-to-r from-primary to-accent text-bg-deep font-semibold py-3 rounded-lg hover:opacity-90 disabled:opacity-50 disabled:cursor-not-allowed transition"
-              >
-                {isSubmitting ? 'Bekleyin...' : (tab === 'login' ? 'Giriş Yap' : 'Kayıt Ol')}
-              </button>
-            </form>
+                            <button
+                              type="submit"
+                              disabled={isSubmitting || (tab === 'register' && !canSubmitRegister)}
+                              className="w-full bg-gradient-to-r from-primary to-accent text-bg-deep font-semibold py-3 rounded-lg hover:opacity-90 disabled:opacity-50 disabled:cursor-not-allowed transition"
+                            >
+                              {isSubmitting ? t('common.wait') : (tab === 'login' ? t('auth.login') : t('auth.register'))}
+                            </button>
+                          </form>
 
-            {/* Footer linkler */}
-            <div className="mt-6 pt-4 border-t border-white/[0.06] text-[10px] text-center" style={{ color: '#4a5a78' }}>
-              Kayıt olarak{' '}
-              <Link to="/legal/user-agreement" target="_blank" className="underline" style={{ color: '#00d4ff' }}>
-                kullanıcı sözleşmemizi
-              </Link>{' '}
-              kabul etmiş sayılırsınız.
-            </div>
+                          {/* Footer linkler */}
+                          <div className="mt-6 pt-4 border-t border-white/[0.06] text-[10px] text-center" style={{ color: '#4a5a78' }}>
+                            {t('auth.registerImplies')} {' '}
+                            <Link to="/legal/user-agreement" target="_blank" className="underline" style={{ color: '#00d4ff' }}>
+                              {t('auth.userAgreement')}
+                            </Link>{' '}
+                            {t('auth.acceptedByRegister')}
+                          </div>
           </>
         )}
       </div>

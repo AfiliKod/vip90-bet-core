@@ -1,17 +1,19 @@
 import { NavLink, useLocation } from 'react-router-dom';
 import { useModuleStore } from '../store/moduleStore';
+import { useTranslation } from '../i18n';
 
 const TABS = [
-  { to: '/bahis',     icon: '⚽', label: 'Bahis',  end: true,  module: 'betting' },
-  { to: '/canli',     icon: '🔴', label: 'Canlı',  end: false, module: 'betting' },
-  { to: '/casino',    icon: '🎰', label: 'Casino', end: false, module: 'casino-content' },
+  { to: '/bahis',     icon: '⚽', label: 'nav.sports', end: true,  module: 'betting' },
+  { to: '/canli',     icon: '🔴', label: 'nav.live',  end: false, module: 'betting' },
+  { to: '/casino',    icon: '🎰', label: 'nav.casino', end: false, module: 'casino-content' },
 ];
 
 export default function BottomNav() {
   const location = useLocation();
   const available = useModuleStore(s => s.available);
+  const { t } = useTranslation();
   // M4 — kapalı modülün sekmesi menüde görünmez (undefined = bilinmiyor → göster)
-  const visibleTabs = TABS.filter(t => available[t.module] !== false);
+  const visibleTabs = TABS.filter(tab => available[tab.module] !== false);
   if (location.pathname.startsWith('/games/') || /^\/casino(-v2)?\/[^/]+/.test(location.pathname)) return null;
 
   return (
@@ -31,8 +33,7 @@ export default function BottomNav() {
           className={({ isActive }) =>
             `relative flex-1 flex flex-col items-center justify-center gap-1 py-3 transition-all duration-200 ${
               isActive ? '' : 'text-text-3 hover:text-text-1'
-            }`
-          }
+            }`}
         >
           {({ isActive }) => (
             <>
@@ -60,7 +61,7 @@ export default function BottomNav() {
                   backgroundClip: 'text',
                 } : {}}
               >
-                {tab.label}
+                {t(tab.label)}
               </span>
             </>
           )}

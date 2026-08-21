@@ -3,6 +3,7 @@ import { useEventsStore } from '../store/eventsStore';
 import { SPORT_META, sportLabel } from '../utils/sportMeta';
 import { useSettingsStore } from '../store/settingsStore';
 import { translateLeagueKey } from '../utils/i18n';
+import { useTranslation } from '../i18n';
 
 const SPORT_ORDER = [
   'football', 'basketball', 'tennis', 'volleyball', 'icehockey',
@@ -14,6 +15,7 @@ export default function SportSidebar({ sportLeagueMap }) {
   const { selectedSport, selectedLeague, setSportFilter, setLeagueFilter } = useEventsStore();
   const [expanded, setExpanded] = useState({ [selectedSport]: true });
   const lang = useSettingsStore(s => s.preferences.language);
+  const { t } = useTranslation();
 
   function toggleSport(sport) {
     setExpanded(prev => ({ ...prev, [sport]: !prev[sport] }));
@@ -34,7 +36,7 @@ export default function SportSidebar({ sportLeagueMap }) {
           selectedSport === 'all' ? 'bg-primary/20 text-primary' : 'text-text-2 hover:bg-white/[0.04]'
         }`}
       >
-        🏆 <span>{lang === 'en' ? 'All Sports' : 'Tüm Sporlar'}</span>
+        🏆 <span>{t('sports.allSports')}</span>
         <span className="ml-auto text-[10px] text-text-3">
           {Object.values(sportLeagueMap).reduce((n, leagues) => n + Object.values(leagues).reduce((m, evs) => m + evs.length, 0), 0)}
         </span>
@@ -69,7 +71,7 @@ export default function SportSidebar({ sportLeagueMap }) {
                     isActiveSport && !selectedLeague ? 'text-primary' : 'text-text-3 hover:text-text-2'
                   }`}
                 >
-                  — {lang === 'en' ? 'All' : 'Tümü'}
+                  — {t('sports.all')}
                 </button>
                 {Object.entries(leagues).sort(([, a], [, b]) => b.length - a.length).map(([league, evs]) => (
                   <button

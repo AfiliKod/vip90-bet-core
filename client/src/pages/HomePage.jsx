@@ -1,68 +1,15 @@
 import { useState, useEffect, useRef } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
+import { useTranslation } from '../i18n';
 import api from '../services/api';
 import MiniEventCard from '../components/MiniEventCard';
 import BetSlip from '../components/BetSlip';
 import { BRAND_GRADIENT, BRAND_GRADIENT_H, BRAND_GLOW } from '../styles/brand';
 import { resolveSectionOrder, resolveBanners } from './home/pageContent';
-import { PROMO_SLIDES } from './home/promoSlides';
-
-const HERO_SLIDES = [
-  {
-    id: 'welcome', icon: '💎', title: 'VIP90.bet\'e Hoşgeldin', path: '/bahis', cta: 'Hemen Başla',
-    desc: 'En iyi spor bahisleri, canlı aksiyon ve casino deneyimi için hazır mısın?',
-    image: '/images/welcome-banner.png',
-    gradient: 'from-cyan-900/80 to-purple-900/60',
-    accent: '#00d4ff',
-  },
-  {
-    id: 'sports', icon: '⚽', title: 'Spor Bahisleri', path: '/bahis', cta: 'Bahis Yap',
-    desc: 'Yüzlerce maç, en iyi oranlar. Futboldan basketbola, tenisten voleybola tüm spor dallarında bahis keyfi.',
-    image: '/images/hero-sports.png',
-    gradient: 'from-blue-900/80 to-cyan-900/60',
-    accent: '#00d4ff',
-  },
-  {
-    id: 'live', icon: '🔴', title: 'Canlı Bahis', path: '/canli', cta: 'Canlı İzle',
-    desc: 'Maç anında bahis, anlık oran güncellemeleri. Kaçırmadan, anında karar ver ve kazan.',
-    image: '/images/hero-live.png',
-    gradient: 'from-rose-900/80 to-red-900/60',
-    accent: '#ef4444',
-  },
-  {
-    id: 'casino', icon: '🎰', title: 'Casino', path: '/casino', cta: 'Oyunları Keşfet',
-    desc: 'Yüzlerce slot, masa oyunu ve canlı krupiye. In-house oyunlarımızla benzersiz casino deneyimi.',
-    image: '/images/hero-casino.png',
-    gradient: 'from-purple-900/80 to-violet-900/60',
-    accent: '#a78bfa',
-  },
-];
-
-const GAMES = [
-  { name: 'Noel Baba', path: '/games/crash', accent: '#f97316', icon: '🎅', image: '/images/games/crash.png' },
-  { name: 'Mines',     path: '/games/mines', accent: '#34d399', icon: '💎', image: '/images/games/mines.png' },
-  { name: 'Plinko',    path: '/games/plinko', accent: '#a78bfa', icon: '🔵', image: '/images/games/plinko.png' },
-  { name: 'Dice',      path: '/games/dice', accent: '#22d3ee', icon: '🎲', image: '/images/games/dice.png' },
-  { name: 'Limbo',     path: '/games/limbo', accent: '#f472b6', icon: '📈', image: '/images/games/limbo.png' },
-  { name: 'Wheel',     path: '/games/wheel', accent: '#fbbf24', icon: '🎡', image: '/images/games/wheel.png' },
-  { name: 'Rulet',     path: '/games/roulette', accent: '#f87171', icon: '🎯', image: '/images/games/roulette.png' },
-  { name: 'Blackjack', path: '/games/blackjack', accent: '#4ade80', icon: '🃏', image: '/images/games/blackjack.png' },
-  { name: 'Bakara',    path: '/games/baccarat', accent: '#eab308', icon: '🏛️', image: '/images/games/baccarat.png' },
-  { name: 'Keno',      path: '/games/keno', accent: '#2dd4bf', icon: '🎱', image: '/images/games/keno.png' },
-  { name: 'Hi-Lo',     path: '/games/hilo', accent: '#818cf8', icon: '📊', image: '/images/games/hilo.png' },
-  { name: 'Dragon Tiger', path: '/games/dragontiger', accent: '#fb923c', icon: '🐉', image: '/images/games/dragontiger.png' },
-];
-
-const FEATURES = [
-  { icon: '⚡', title: 'Hızlı Ödemeler', desc: 'Kazancınızı anında çekin, bekleme yapmayın.' },
-  { icon: '🛡️', title: 'Güvenilir', desc: 'Lisanslı ve denetlenmiş platform, verileriniz güvende.' },
-  { icon: '🎁', title: 'Bonuslar', desc: 'Hoşgeldin bonusu, kayıp bonusu ve daha fazlası.' },
-  { icon: '💬', title: '7/24 Destek', desc: 'Canlı yardım ile her an yanınızdayız.' },
-];
-
-
+import { getPromoSlides } from './home/promoSlides';
 
 export default function HomePage() {
+  const { t } = useTranslation();
   const navigate = useNavigate();
   const [current, setCurrent] = useState(0);
   const timerRef = useRef(null);
@@ -78,9 +25,65 @@ export default function HomePage() {
     api.get('/pages/home').then(({ data }) => setPageContent(data?.content || null)).catch(() => {});
   }, []);
 
-  const promoSlides = resolveBanners(PROMO_SLIDES, pageContent?.banners);
+  const HERO_SLIDES = [
+    {
+      id: 'welcome', icon: '💎', title: t('home.hero.welcome'), path: '/bahis', cta: t('home.hero.getStarted'),
+      desc: t('home.hero.welcomeDesc'),
+      image: '/images/welcome-banner.png',
+      gradient: 'from-cyan-900/80 to-purple-900/60',
+      accent: '#00d4ff',
+    },
+    {
+      id: 'sports', icon: '⚽', title: t('home.hero.sports'), path: '/bahis', cta: t('home.hero.betNow'),
+      desc: t('home.hero.sportsDesc'),
+      image: '/images/hero-sports.png',
+      gradient: 'from-blue-900/80 to-cyan-900/60',
+      accent: '#00d4ff',
+    },
+    {
+      id: 'live', icon: '🔴', title: t('home.hero.live'), path: '/canli', cta: t('home.hero.watchLive'),
+      desc: t('home.hero.liveDesc'),
+      image: '/images/hero-live.png',
+      gradient: 'from-rose-900/80 to-red-900/60',
+      accent: '#ef4444',
+    },
+    {
+      id: 'casino', icon: '🎰', title: t('home.hero.casino'), path: '/casino', cta: t('home.hero.exploreGames'),
+      desc: t('home.hero.casinoDesc'),
+      image: '/images/hero-casino.png',
+      gradient: 'from-purple-900/80 to-violet-900/60',
+      accent: '#a78bfa',
+    },
+  ];
+
+  // Kampanya banner'ları — sadece üstteki döner slider'a eklenir, Quick Nav Cards
+  // grid'ine (HERO_SLIDES.slice(1)) karışmaz. A4: admin panelinden sıra/metin
+  // override edilebilir (resolveBanners), override yoksa çevrilmiş varsayılana düşer.
+  const promoSlides = resolveBanners(getPromoSlides(t), pageContent?.banners);
   const sectionOrder = resolveSectionOrder(pageContent?.sectionOrder);
   const ALL_SLIDES = [...promoSlides, ...HERO_SLIDES];
+
+  const GAMES = [
+    { name: t('games.crash.title'), path: '/games/crash', accent: '#f97316', icon: '🎅', image: '/images/games/crash.png' },
+    { name: t('games.mines.title'),     path: '/games/mines', accent: '#34d399', icon: '💎', image: '/images/games/mines.png' },
+    { name: t('games.plinko.title'),    path: '/games/plinko', accent: '#a78bfa', icon: '🔵', image: '/images/games/plinko.png' },
+    { name: t('games.dice.title'),      path: '/games/dice', accent: '#22d3ee', icon: '🎲', image: '/images/games/dice.png' },
+    { name: t('games.limbo.title'),     path: '/games/limbo', accent: '#f472b6', icon: '📈', image: '/images/games/limbo.png' },
+    { name: t('games.wheel.title'),     path: '/games/wheel', accent: '#fbbf24', icon: '🎡', image: '/images/games/wheel.png' },
+    { name: t('games.roulette.title'),  path: '/games/roulette', accent: '#f87171', icon: '🎯', image: '/images/games/roulette.png' },
+    { name: t('games.blackjack.title'), path: '/games/blackjack', accent: '#4ade80', icon: '🃏', image: '/images/games/blackjack.png' },
+    { name: t('games.baccarat.title'),  path: '/games/baccarat', accent: '#eab308', icon: '🏛️', image: '/images/games/baccarat.png' },
+    { name: t('games.keno.title'),      path: '/games/keno', accent: '#2dd4bf', icon: '🎱', image: '/images/games/keno.png' },
+    { name: t('games.hilo.title'),      path: '/games/hilo', accent: '#818cf8', icon: '📊', image: '/images/games/hilo.png' },
+    { name: t('games.dragontiger.title'), path: '/games/dragontiger', accent: '#fb923c', icon: '🐉', image: '/images/games/dragontiger.png' },
+  ];
+
+  const FEATURES = [
+    { icon: '⚡', title: t('home.features.fastPayouts'), desc: t('home.features.fastPayoutsDesc') },
+    { icon: '🛡️', title: t('home.features.trustworthy'), desc: t('home.features.trustworthyDesc') },
+    { icon: '🎁', title: t('home.features.bonuses'), desc: t('home.features.bonusesDesc') },
+    { icon: '💬', title: t('home.features.support'), desc: t('home.features.supportDesc') },
+  ];
 
   const startTimer = () => {
     clearInterval(timerRef.current);
@@ -251,8 +254,8 @@ export default function HomePage() {
       <section className="border-t border-white/[0.04]" style={{ order: sectionOrder.indexOf('inhouseGames') }}>
         <div className="max-w-6xl mx-auto px-4 py-16">
           <div className="text-center mb-8">
-            <h2 className="text-2xl sm:text-3xl font-black text-text-1 mb-2">Özel Oyunlar</h2>
-            <p className="text-sm text-text-2">VIP90.bet'e özel in-house oyunlarla farklı bir deneyim</p>
+            <h2 className="text-2xl sm:text-3xl font-black text-text-1 mb-2">{t('home.games.exclusive')}</h2>
+            <p className="text-sm text-text-2">{t('home.games.exclusiveDesc')}</p>
           </div>
           <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-6 gap-3">
             {GAMES.map(g => (
@@ -299,24 +302,23 @@ export default function HomePage() {
         <div className="max-w-6xl mx-auto px-4 py-10">
           <div className="flex items-end justify-between mb-6">
             <div>
-              <h2 className="text-2xl sm:text-3xl font-black text-text-1 flex items-center gap-2">
-                ⚽ Spor Bahisleri
+              <h2 className="text-2xl sm:text-3xl font-black text-text-1 flex items-center gap-2">{t('home.sports.title')}
               </h2>
-              <p className="text-sm text-text-2 mt-1">15+ spor dalı, yüzlerce lig ve binlerce maç</p>
+              <p className="text-sm text-text-2 mt-1">{t('home.sports.subtitle')}</p>
             </div>
             <Link
               to="/bahis"
               className="hidden sm:inline-flex items-center gap-1 text-xs font-bold px-4 py-2 rounded-lg transition-all hover:gap-2"
               style={{ background: '#00d4ff', color: '#000' }}
             >
-              Tüm Sporlar →
+              {t('home.sports.allSports')}
             </Link>
           </div>
 
           {!eventsLoading && upcomingEvents.length > 0 && (
             <div>
               <div className="flex items-center gap-2 mb-3">
-                <span className="text-xs font-bold text-cyan-400 uppercase tracking-wider">⚡ Yaklaşan Maçlar</span>
+                <span className="text-xs font-bold text-cyan-400 uppercase tracking-wider">{t('home.sports.upcoming')}</span>
               </div>
               <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-3">
                 {upcomingEvents.slice(0, 6).map(ev => (
@@ -331,7 +333,7 @@ export default function HomePage() {
             className="sm:hidden mt-4 flex items-center justify-center gap-1 text-xs font-bold px-4 py-2.5 rounded-xl transition-all"
             style={{ background: '#00d4ff', color: '#000' }}
           >
-            Tüm Sporları Keşfet →
+            {t('home.sports.exploreAll')}
           </Link>
         </div>
       </section>
@@ -343,17 +345,16 @@ export default function HomePage() {
         <div className="max-w-6xl mx-auto px-4 py-10">
           <div className="flex items-end justify-between mb-6">
             <div>
-              <h2 className="text-2xl sm:text-3xl font-black text-text-1 flex items-center gap-2">
-                🔴 Canlı Bahis
+              <h2 className="text-2xl sm:text-3xl font-black text-text-1 flex items-center gap-2">{t('home.live.title')}
               </h2>
-              <p className="text-sm text-text-2 mt-1">Anlık maçlar, gerçek zamanlı oranlar</p>
+              <p className="text-sm text-text-2 mt-1">{t('home.live.subtitle')}</p>
             </div>
             <Link
               to="/canli"
               className="hidden sm:inline-flex items-center gap-1 text-xs font-bold px-4 py-2 rounded-lg transition-all hover:gap-2"
               style={{ background: '#ef4444', color: '#fff' }}
             >
-              Tüm Canlı Maçlar →
+              {t('home.live.allLive')}
             </Link>
           </div>
 
@@ -361,7 +362,7 @@ export default function HomePage() {
             <div>
               <div className="flex items-center gap-2 mb-3">
                 <span className="w-2 h-2 rounded-full bg-red-400 animate-pulse shadow-[0_0_8px_rgba(239,68,68,0.6)]" />
-                <span className="text-xs font-bold text-red-400 uppercase tracking-wider">Şu Anda Canlı</span>
+                <span className="text-xs font-bold text-red-400 uppercase tracking-wider">{t('home.live.liveNow')}</span>
               </div>
               <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-3">
                 {liveEvents.slice(0, 6).map(ev => (
@@ -376,7 +377,7 @@ export default function HomePage() {
             className="sm:hidden mt-4 flex items-center justify-center gap-1 text-xs font-bold px-4 py-2.5 rounded-xl transition-all"
             style={{ background: '#ef4444', color: '#fff' }}
           >
-            Canlı Bahislere Katıl →
+            {t('home.live.joinLive')}
           </Link>
         </div>
       </section>
@@ -387,8 +388,8 @@ export default function HomePage() {
       <section className="border-t border-white/[0.04]" style={{ order: sectionOrder.indexOf('features') }}>
         <div className="max-w-6xl mx-auto px-4 py-16">
           <div className="text-center mb-10">
-            <h2 className="text-2xl sm:text-3xl font-black text-text-1 mb-2">Neden VIP90.bet?</h2>
-            <p className="text-sm text-text-2">En iyi deneyim için ihtiyacın olan her şey</p>
+            <h2 className="text-2xl sm:text-3xl font-black text-text-1 mb-2">{t('home.features.title')}</h2>
+            <p className="text-sm text-text-2">{t('home.features.subtitle')}</p>
           </div>
           <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-4">
             {FEATURES.map(f => (
@@ -428,21 +429,21 @@ export default function HomePage() {
           <div className="absolute inset-0 bg-gradient-to-r from-[#060d1a]/90 via-[#060d1a]/60 to-[#060d1a]/90" />
           <div className="relative">
             <span className="text-4xl block mb-4">💎</span>
-            <h2 className="text-2xl sm:text-3xl font-black text-text-1 mb-6">VIP90.bet ile Kazanmaya Başla</h2>
+            <h2 className="text-2xl sm:text-3xl font-black text-text-1 mb-6">{t('home.cta.title')}</h2>
             <div className="flex flex-wrap justify-center gap-3">
               <button
                 onClick={() => navigate('/bahis')}
                 className="px-6 py-2.5 rounded-xl text-sm font-bold text-black transition-all hover:scale-105 active:scale-95 shadow-lg"
                 style={{ background: BRAND_GRADIENT_H }}
               >
-                ⚽ Bahis Yap
+                {t('home.cta.getStarted')}
               </button>
               <button
                 onClick={() => navigate('/casino')}
                 className="px-6 py-2.5 rounded-xl text-sm font-bold text-black transition-all hover:scale-105 active:scale-95 shadow-lg"
                 style={{ background: BRAND_GRADIENT_H }}
               >
-                🎰 Casinoyu Keşfet
+                {t('home.cta.register')}
               </button>
             </div>
           </div>

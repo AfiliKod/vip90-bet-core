@@ -1,7 +1,8 @@
 import { useEffect, useState } from 'react';
 import api from '../../services/api';
 import { DEFAULT_SECTION_ORDER, SECTION_LABELS, resolveSectionOrder, resolveBanners } from '../home/pageContent';
-import { PROMO_SLIDES } from '../home/promoSlides';
+import { getPromoSlides } from '../home/promoSlides';
+import { useTranslation } from '../../i18n';
 
 function move(list, index, dir) {
   const to = index + dir;
@@ -18,6 +19,8 @@ function move(list, index, dir) {
  * her şey GET /api/pages/home üzerinden doğrudan canlı ana sayfaya yansır.
  */
 export default function AdminPages() {
+  const { t } = useTranslation();
+  const PROMO_SLIDES = getPromoSlides(t);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [notice, setNotice] = useState(null);

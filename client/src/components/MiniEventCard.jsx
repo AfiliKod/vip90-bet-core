@@ -5,6 +5,7 @@ import { sportIcon } from '../utils/sportMeta';
 import { formatOdd, pickMainLine } from '../utils/oddsUtils';
 import { BRAND_GRADIENT, BRAND_GLOW } from '../styles/brand';
 import { useOddFlash } from '../hooks/useOddFlash';
+import { useTranslation } from '../i18n';
 
 function hexToRgba(hex, alpha) {
   const r = parseInt(hex.slice(1, 3), 16);
@@ -14,9 +15,6 @@ function hexToRgba(hex, alpha) {
 }
 
 function MiniOddButton({ eventId, eventLabel, odd, label, smallLabel, marketType, accent }) {
-  // Hook çağrıları erken return'den ÖNCE — odd bazı event'lerde tanımsız olabilir
-  // (örn. handikapOdd), bu yüzden erken return hook çağrılarından sonra olursa
-  // React "Rendered fewer hooks than expected" hatası verir (Rules of Hooks).
   const oddsFormat = useSettingsStore(s => s.preferences.oddsFormat);
   const { selections, addSelection } = useBetSlipStore();
   const flash = useOddFlash(odd?.value);
@@ -51,6 +49,7 @@ export default function MiniEventCard({ event, live, onExtraClick, accent: accen
   const navigate = useNavigate();
   const lang = useSettingsStore(s => s.preferences.language);
   const locale = lang === 'en' ? 'en-GB' : 'tr-TR';
+  const { t } = useTranslation();
 
   const mainMarket = event.markets?.find(m => m.type === 'maç_sonucu') ?? event.markets?.[0];
   const ouMarket = event.markets?.find(m => m.type === 'alt_üst');
@@ -91,7 +90,7 @@ export default function MiniEventCard({ event, live, onExtraClick, accent: accen
             <>
               <span className="w-1.5 h-1.5 rounded-full bg-red-400 animate-pulse shadow-[0_0_6px_rgba(239,68,68,0.6)]" />
               <span className="text-[10px] font-bold text-red-400 uppercase tracking-wider">
-                Canlı {event.liveScore?.minute || ''}'
+                {t('sports.live')} {event.liveScore?.minute || ''}'
               </span>
             </>
           ) : (
@@ -108,7 +107,7 @@ export default function MiniEventCard({ event, live, onExtraClick, accent: accen
             {live && event.liveScore ? (
               <span className="text-[13px] font-black text-red-400 shrink-0">{event.liveScore.home}-{event.liveScore.away}</span>
             ) : (
-              <span className="text-[11px] font-bold text-text-4 shrink-0">vs</span>
+              <span className="text-[11px] font-bold text-text-4 shrink-0">{t('sports.vs')}</span>
             )}
             <span className="text-[13px] font-bold text-text-2 truncate flex-1 text-right">{event.awayTeam?.name}</span>
           </div>
@@ -127,13 +126,13 @@ export default function MiniEventCard({ event, live, onExtraClick, accent: accen
 
           {ouUnder || ouOver ? (
             <>
-              <MiniOddButton eventId={event._id} eventLabel={eventLabel} odd={ouUnder} label="Alt" smallLabel="Alt" marketType={ouMarket?.type} accent={accent} />
+              <MiniOddButton eventId={event._id} eventLabel={eventLabel} odd={ouUnder} label={t('game.under')} smallLabel={t('game.under')} marketType={ouMarket?.type} accent={accent} />
               {/* Orta hücre: bahis değil, O/U hattı (toplam gol sınırı, ör. 3.25) */}
               <div className="flex-1 min-h-[44px] flex flex-col items-center justify-center">
-                <span className="text-[9px] font-bold uppercase tracking-wide text-text-4 leading-none mb-0.5">Toplam</span>
+                <span className="text-[9px] font-bold uppercase tracking-wide text-text-4 leading-none mb-0.5">{t('game.total')}</span>
                 <span className="text-[13px] font-black" style={{ color: accent }}>{ouLine || '-'}</span>
               </div>
-              <MiniOddButton eventId={event._id} eventLabel={eventLabel} odd={ouOver} label="Üst" smallLabel="Üst" marketType={ouMarket?.type} accent={accent} />
+              <MiniOddButton eventId={event._id} eventLabel={eventLabel} odd={ouOver} label={t('game.over')} smallLabel={t('game.over')} marketType={ouMarket?.type} accent={accent} />
             </>
           ) : (
             <div className="flex-1" />

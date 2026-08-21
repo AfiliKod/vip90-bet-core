@@ -1,38 +1,9 @@
 import { useEffect, useState } from 'react';
 import api from '../../services/api';
-
-const GROUPS = [
-  {
-    title: '📨 Telegram',
-    hint: 'BotFather’dan bot oluşturup token’ı ve hedef sohbetin chat ID’sini girin.',
-    keys: [
-      { key: 'TELEGRAM_BOT_TOKEN', label: 'Bot Token', placeholder: '123456:ABC-DEF…' },
-      { key: 'TELEGRAM_CHAT_ID',   label: 'Chat ID',   placeholder: '-1001234567890' },
-    ],
-  },
-  {
-    title: '🔗 Webhook',
-    hint: 'Slack, Discord veya genel webhook adresi.',
-    keys: [
-      { key: 'ALERT_WEBHOOK_URL', label: 'Webhook URL', placeholder: 'https://hooks.slack.com/…' },
-    ],
-  },
-  {
-    title: '✉️ E-posta',
-    hint: 'Kritik alarmların düşeceği adres.',
-    keys: [
-      { key: 'ALERT_EMAIL_TO', label: 'Alıcı Adres', placeholder: 'admin@vip90.bet' },
-    ],
-  },
-];
-
-const SOURCE_BADGE = {
-  db:    { label: 'Panel', cls: 'bg-green-500/20 text-green-300 border-green-500/30' },
-  env:   { label: '.env',  cls: 'bg-blue-500/20 text-blue-300 border-blue-500/30' },
-  unset: { label: 'Tanımsız', cls: 'bg-white/5 text-text-3 border-white/10' },
-};
+import { useTranslation } from '../../i18n';
 
 export default function AdminSettings() {
+  const { t } = useTranslation();
   const [settings, setSettings] = useState([]);
   const [draft, setDraft] = useState({});
   const [loading, setLoading] = useState(true);
@@ -40,11 +11,42 @@ export default function AdminSettings() {
   const [testing, setTesting] = useState(false);
   const [notice, setNotice] = useState(null);
 
+  const GROUPS = [
+    {
+      title: `📨 ${t('admin.settings.telegram')}`,
+      hint: t('admin.settings.telegramHint'),
+      keys: [
+        { key: 'TELEGRAM_BOT_TOKEN', label: t('admin.settings.botToken'), placeholder: '123456:ABC-DEF…' },
+        { key: 'TELEGRAM_CHAT_ID',   label: t('admin.settings.chatId'),   placeholder: '-1001234567890' },
+      ],
+    },
+    {
+      title: `🔗 ${t('admin.settings.webhook')}`,
+      hint: t('admin.settings.webhookHint'),
+      keys: [
+        { key: 'ALERT_WEBHOOK_URL', label: t('admin.settings.webhookUrl'), placeholder: 'https://hooks.slack.com/…' },
+      ],
+    },
+    {
+      title: `✉️ ${t('admin.settings.email')}`,
+      hint: t('admin.settings.emailHint'),
+      keys: [
+        { key: 'ALERT_EMAIL_TO', label: t('admin.settings.recipientAddress'), placeholder: 'admin@vip90.bet' },
+      ],
+    },
+  ];
+
+  const SOURCE_BADGE = {
+    db:    { label: t('admin.settings.sourcePanel'), cls: 'bg-green-500/20 text-green-300 border-green-500/30' },
+    env:   { label: '.env',  cls: 'bg-blue-500/20 text-blue-300 border-blue-500/30' },
+    unset: { label: t('admin.settings.sourceUndefined'), cls: 'bg-white/5 text-text-3 border-white/10' },
+  };
+
   function load() {
     setLoading(true);
     api.get('/admin/settings/alerts')
       .then(r => setSettings(r.data.settings))
-      .catch(() => setNotice({ type: 'error', text: 'Ayarlar yüklenemedi' }))
+      .catch(() => setNotice({ type: 'error', text: t('admin.settings.loadFailed') }))
       .finally(() => setLoading(false));
   }
 
@@ -62,7 +64,7 @@ export default function AdminSettings() {
       setDraft({});
       setNotice({ type: 'ok', text: successText });
     } catch (e) {
-      setNotice({ type: 'error', text: e.response?.data?.error?.message || 'Kaydedilemedi' });
+      setNotice({ type: 'error', text: e.response?.data?.error?.message || t('admin.settings.saveFailed') });
     } finally {
       setSaving(false);
     }
@@ -74,9 +76,9 @@ export default function AdminSettings() {
     try {
       const r = await api.post('/admin/settings/alerts/test');
       const sent = Object.entries(r.data.sent).filter(([, v]) => v).map(([k]) => k);
-      setNotice({ type: 'ok', text: `Test alarmı gönderildi: ${sent.join(', ')}` });
+      setNotice({ type: 'ok', text: t('admin.settings.testAlertSent', { channels: sent.join(', ') }) });
     } catch (e) {
-      setNotice({ type: 'error', text: e.response?.data?.error?.message || 'Test gönderilemedi' });
+      setNotice({ type: 'error', text: e.response?.data?.error?.message || t('admin.settings.testSendFailed') });
     } finally {
       setTesting(false);
     }
@@ -87,23 +89,22 @@ export default function AdminSettings() {
   return (
     <div className="max-w-3xl mx-auto px-4 py-6">
       <div className="flex items-center justify-between mb-2">
-        <h1 className="text-2xl font-bold text-text-1">🔔 Alarm Kanalları</h1>
+        <h1 className="text-2xl font-bold text-text-1">🔔 {t('admin.settings.alertChannels')}</h1>
         <button
           onClick={runTest}
           disabled={testing || !anyConfigured}
           className="px-3 py-1.5 rounded-lg text-xs font-medium border border-white/10 text-text-2 hover:text-text-1 disabled:opacity-40 transition"
         >
-          {testing ? 'Gönderiliyor…' : 'Test gönder'}
+          {testing ? t('admin.settings.sending') : t('admin.settings.sendTest')}
         </button>
       </div>
       <p className="text-sm text-text-3 mb-6">
-        Senkronizasyon kesintisi gibi kritik olaylar bu kanallara bildirilir. Hiçbiri
-        tanımlı değilse alarmlar hiçbir yere gitmez.
+        {t('admin.settings.alertChannelsHint')}
       </p>
 
       {!loading && !anyConfigured && (
         <div className="mb-4 rounded-xl border border-yellow-500/30 bg-yellow-500/10 px-4 py-3 text-sm text-yellow-200">
-          Tanımlı alarm kanalı yok — kritik olaylar şu an sessizce geçiyor.
+          {t('admin.settings.noChannelConfigured')}
         </div>
       )}
 
@@ -148,16 +149,16 @@ export default function AdminSettings() {
                           type="text"
                           value={draft[key] ?? ''}
                           onChange={e => setDraft(d => ({ ...d, [key]: e.target.value }))}
-                          placeholder={current.source === 'unset' ? placeholder : 'Değiştirmek için yeni değer girin'}
+                          placeholder={current.source === 'unset' ? placeholder : t('admin.settings.enterNewValue')}
                           className="flex-1 bg-bg-deep border border-white/10 rounded-lg px-3 py-2 text-sm text-text-1 placeholder:text-text-3/60 focus:outline-none focus:border-white/25"
                         />
                         {current.source === 'db' && (
                           <button
-                            onClick={() => save({ [key]: '' }, `${label} temizlendi`)}
+                            onClick={() => save({ [key]: '' }, t('admin.settings.cleared', { label }))}
                             disabled={saving}
                             className="px-3 rounded-lg text-xs border border-white/10 text-text-3 hover:text-red-300 hover:border-red-500/30 disabled:opacity-40 transition"
                           >
-                            Temizle
+                            {t('admin.palace.clear')}
                           </button>
                         )}
                       </div>
@@ -172,16 +173,16 @@ export default function AdminSettings() {
             <button
               onClick={() => save(
                 Object.fromEntries(Object.entries(draft).filter(([, v]) => v?.trim())),
-                'Ayarlar kaydedildi',
+                t('admin.settings.settingsSaved'),
               )}
               disabled={saving || !dirty}
               className="px-4 py-2 rounded-lg text-sm font-medium bg-accent/20 text-accent border border-accent/30 hover:bg-accent/30 disabled:opacity-40 transition"
             >
-              {saving ? 'Kaydediliyor…' : 'Kaydet'}
+              {saving ? t('admin.settings.savingEllipsis') : t('common.save')}
             </button>
             {dirty && (
               <button onClick={() => setDraft({})} className="text-xs text-text-3 hover:text-text-2">
-                Vazgeç
+                {t('admin.settings.discard')}
               </button>
             )}
           </div>
