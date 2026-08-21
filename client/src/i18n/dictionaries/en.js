@@ -1050,4 +1050,5 @@ export default {
   'games.crash.autoRepeatEveryRound': 'Auto-bet every round',
   'games.dice.wonBang': 'WON!',
   'games.dice.target': 'Target',
+  'games.dragontiger.refunded': 'refunded',
 };

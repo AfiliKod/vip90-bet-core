@@ -1018,4 +1018,5 @@ export default {
   'games.crash.autoRepeatEveryRound': 'Her turda otomatik bahis',
   'games.dice.wonBang': 'KAZANDI!',
   'games.dice.target': 'Hedef',
+  'games.dragontiger.refunded': 'iade edildi',
 };
