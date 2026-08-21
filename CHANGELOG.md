@@ -12,6 +12,18 @@ Madde formatı ve kategoriler için `docs/CHANGELOG_GUIDE.md`'ye bakın —
 
 ## [Yayınlanmadı]
 
+### D2 — Video kütüphanesi storyboard'ları (kısmi)
+- `docs/product/07-video-storyboardlari.md`: 18 video için sahne-sahne
+  storyboard (ekran + anlatım + süre), D2'nin istediği 15-20 aralığında.
+  Yalnızca bugün var olan özellikler storyboard'landı; K2/M2/M3/O6/D5-
+  istemci'ye bağlı videolar açıkça "bekliyor" işaretlendi.
+- **Bu kart `done` değil, kasıtlı olarak.** Kabul kriteri ("her ana
+  akışın bir videosu var, ürün sayfasına gömülü") gerçek video dosyası
+  ve embed gerektiriyor — bunları üretecek yetenek (kayıt/kurgu) bu
+  oturumda yok. Storyboard'lar, geliştirme sürecinin sonunda
+  araştırılacak bir video üretim aracının üzerine kurulacağı temel.
+
+
 ### D3 — Ürüne hakim chatbot
 - `services/chatbotKnowledge.js`: docs/product/ ve CHANGELOG.md'yi
   başlıklara göre parçalayan `chunkMarkdown`, terim örtüşmesine dayalı

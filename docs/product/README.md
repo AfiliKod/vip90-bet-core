@@ -13,6 +13,8 @@ ve kod içi yorumlarda).
   house edge değerleri.
 - [05 — API Referansı](05-api-referansi.md) — uç nokta özeti.
 - [06 — Sıkça Sorulan Sorular](06-sss.md)
+- [07 — Video Kütüphanesi Storyboard'ları](07-video-storyboardlari.md) —
+  gerçek video kaydının temeli, henüz video üretilmedi.
 
 ## Durum notu (dürüstlük)
 
