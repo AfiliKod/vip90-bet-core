@@ -3,19 +3,21 @@ import { useEventsStore } from '../store/eventsStore';
 import { useBetSlipStore } from '../store/betSlipStore';
 import { groupOddsIntoLines } from '../utils/oddsUtils';
 import { fetchTeamInfo, resolveTeamColor, buildTeamGradient } from '../utils/matchHeroColors';
+import { useFormatters } from '../i18n/useFormatters.jsx';
 
-function formatDate(dateStr) {
+function formatDate(dateStr, fmt) {
   const d = new Date(dateStr);
   const today    = new Date(); today.setHours(0,0,0,0);
   const tomorrow = new Date(today); tomorrow.setDate(today.getDate()+1);
   const day = new Date(dateStr); day.setHours(0,0,0,0);
   const label = day.getTime() === today.getTime() ? 'Bugün' :
                 day.getTime() === tomorrow.getTime() ? 'Yarın' :
-                d.toLocaleDateString('tr-TR', { day:'numeric', month:'short' });
-  return `${label}, ${d.toLocaleTimeString('tr-TR', { hour:'2-digit', minute:'2-digit' })}`;
+                fmt.formatDate(d);
+  return `${label}, ${fmt.formatTime(d)}`;
 }
 
 export default function MatchSlider({ statusFilter }) {
+  const fmt = useFormatters();
   const { events } = useEventsStore();
   const { selections, addSelection } = useBetSlipStore();
   const [active, setActive] = useState(0);
@@ -105,7 +107,7 @@ export default function MatchSlider({ statusFilter }) {
         <div className="absolute bottom-5 left-5 z-10 max-w-[55%]">
           {!isLive && (
             <p className="text-[10px] text-white/60 font-medium mb-1 uppercase tracking-widest">
-              {formatDate(event.startTime)}
+              {formatDate(event.startTime, fmt)}
             </p>
           )}
           <h2 className="text-xl font-extrabold text-white leading-tight mb-1 drop-shadow">

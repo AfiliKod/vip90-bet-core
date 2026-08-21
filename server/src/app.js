@@ -28,6 +28,7 @@ import bankRoutes from './routes/bank.js';
 import analyticsRoutes from './routes/analytics.js';
 import admin2faRoutes from './routes/admin2fa.js';
 import themeRoutes from './routes/theme.js';
+import localeConfigRoutes from './routes/localeConfig.js';
 import ticketRoutes from './routes/ticket.js';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
@@ -140,6 +141,9 @@ export function createApp() {
   app.use('/api/admin/analytics', analyticsRoutes);
   app.use('/api/auth/2fa', admin2faRoutes);
   app.use('/api/theme', themeRoutes);
+
+  // U5 — operatör saat dilimi (herkese açık; istemci render'da uygular)
+  app.use('/api/locale-config', localeConfigRoutes);
   app.use('/api/tickets', ticketRoutes);
 
   // Health check — Render uptime monitoring için

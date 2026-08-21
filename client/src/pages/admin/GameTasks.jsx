@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { useFormatters } from '../../i18n/useFormatters.jsx';
 import api from '../../services/api';
 
 const STATUS_LABELS = {
@@ -8,6 +9,7 @@ const STATUS_LABELS = {
 };
 
 export default function AdminGameTasks() {
+  const fmt = useFormatters();
   const [tasks, setTasks] = useState([]);
   const [filter, setFilter] = useState('pending');
   const [loading, setLoading] = useState(true);
@@ -66,7 +68,7 @@ export default function AdminGameTasks() {
                     </div>
                     <p className="text-sm font-semibold text-text-1 truncate">{t.gameTitle || t.gameId}</p>
                     <p className="text-xs text-text-3 mt-0.5">
-                      {t.provider} · {new Date(t.detectedAt).toLocaleString('tr-TR')}
+                      {t.provider} · {fmt.formatDateTime(t.detectedAt)}
                     </p>
                     {t.notes && (
                       <p className="text-xs text-text-2 mt-1 italic">"{t.notes}"</p>

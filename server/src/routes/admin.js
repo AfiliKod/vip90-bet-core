@@ -4,6 +4,7 @@ import { auditLog } from '../middleware/audit.js';
 import { validate } from '../middleware/validate.js';
 import { createEventSchema, settleEventSchema, createUserSchema, updateBalanceSchema } from '../validators/admin.js';
 import * as ctrl from '../controllers/admin.js';
+import { timezoneStore } from '../services/timezoneLive.js';
 
 const r = Router();
 r.use(requireAuth, requireAdmin, auditLog('ADMIN_ACTION'));
@@ -52,6 +53,10 @@ r.post('/errors/clear',     ctrl.clearErrorLog);
 r.get('/settings/alerts',       ctrl.getAlertSettings);
 r.put('/settings/alerts',       ctrl.updateAlertSettings);
 r.post('/settings/alerts/test', ctrl.testAlertChannels);
+
+// U5 — operatör saat dilimi ayarı (panelden)
+r.get('/settings/timezone',      async (req,res,next) => { try { res.json({ timezone: await timezoneStore.get() }); } catch(e){ next(e); } });
+r.put('/settings/timezone',      async (req,res,next) => { try { const tz = await timezoneStore.set(String(req.body?.timezone||''), req.user?.id); res.json({ timezone: tz }); } catch(e){ next(e); } });
 
 export default r;
 

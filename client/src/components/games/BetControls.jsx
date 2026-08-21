@@ -1,4 +1,5 @@
 import { useState, useRef, useEffect } from 'react';
+import { useFormatters } from '../../i18n/useFormatters.jsx';
 
 function smartStep(n) {
   if (n < 10)   return 1;
@@ -33,6 +34,7 @@ function StopIcon() {
 //   balance              — optional number; shows balance bar at top
 //   lastResult           — optional { net: number }; shows last round result
 export default function BetControls({ value, onChange, disabled, presets, onAuto, autoActive, potWin, balance, lastResult }) {
+  const fmt = useFormatters();
   const [open, setOpen]   = useState(false);
   const inputRef          = useRef(null);
   const wrapRef           = useRef(null);
@@ -103,7 +105,7 @@ export default function BetControls({ value, onChange, disabled, presets, onAuto
           style={{ background: 'rgba(255,255,255,0.05)' }}>
           <span className="text-[11px] text-text-3 font-bold">₺</span>
           <span className="text-sm font-black text-white tabular-nums flex-1 text-center">
-            {num > 0 ? num.toLocaleString('tr-TR') : '0'}
+            {num > 0 ? fmt.formatNumber(num) : '0'}
           </span>
           <svg width="10" height="10" viewBox="0 0 10 10" fill="none" className={`text-text-3 transition-transform ${open ? 'rotate-180' : ''}`}>
             <path d="M2 3.5L5 6.5L8 3.5" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />

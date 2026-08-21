@@ -1,5 +1,6 @@
 import { useNavigate } from 'react-router-dom';
 import { useBetSlipStore } from '../store/betSlipStore';
+import { useFormatters } from '../i18n/useFormatters.jsx';
 import { useSettingsStore } from '../store/settingsStore';
 import { sportIcon } from '../utils/sportMeta';
 import { formatOdd, pickMainLine } from '../utils/oddsUtils';
@@ -50,7 +51,7 @@ function MiniOddButton({ eventId, eventLabel, odd, label, smallLabel, marketType
 export default function MiniEventCard({ event, live, onExtraClick, accent: accentProp, bgColor }) {
   const navigate = useNavigate();
   const lang = useSettingsStore(s => s.preferences.language);
-  const locale = lang === 'en' ? 'en-GB' : 'tr-TR';
+  const fmt = useFormatters();
 
   const mainMarket = event.markets?.find(m => m.type === 'maç_sonucu') ?? event.markets?.[0];
   const ouMarket = event.markets?.find(m => m.type === 'alt_üst');
@@ -73,9 +74,8 @@ export default function MiniEventCard({ event, live, onExtraClick, accent: accen
   const accent = accentProp || (live ? '#ef4444' : '#00d4ff');
   const eventLabel = `${event.homeTeam?.name} vs ${event.awayTeam?.name}`;
 
-  const date = new Date(event.startTime);
-  const dateStr = date.toLocaleDateString(locale, { day: '2-digit', month: 'short' });
-  const timeStr = date.toLocaleTimeString(locale, { hour: '2-digit', minute: '2-digit' });
+  const dateStr = fmt.formatDate(event.startTime);
+  const timeStr = fmt.formatTime(event.startTime);
 
   return (
     <div

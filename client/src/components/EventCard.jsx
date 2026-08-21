@@ -3,10 +3,11 @@ import OddButton from './OddButton';
 import { sportIcon } from '../utils/sportMeta';
 import { useSettingsStore } from '../store/settingsStore';
 import { translateTeam, translateLeague } from '../utils/i18n';
+import { useFormatters } from '../i18n/useFormatters.jsx';
 
 export default function EventCard({ event }) {
   const lang = useSettingsStore(s => s.preferences.language);
-  const locale = lang === 'en' ? 'en-GB' : 'tr-TR';
+  const fmt = useFormatters();
   const homeName = translateTeam(event.homeTeam.name, lang);
   const awayName = translateTeam(event.awayTeam.name, lang);
   const leagueName = translateLeague(event.league, lang);
@@ -30,7 +31,7 @@ export default function EventCard({ event }) {
           </span>
         ) : (
           <span className="text-sm text-text-3 font-semibold">
-            {new Date(event.startTime).toLocaleString(locale, { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' })}
+            {fmt.formatDateTime(event.startTime)}
           </span>
         )}
       </div>
