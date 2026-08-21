@@ -6,6 +6,8 @@ const schema = new mongoose.Schema({
   email:    { type: String, required: true, unique: true, lowercase: true },
   password: { type: String, required: true },
   role:     { type: String, enum: ['user','admin'], default: 'user' },
+  // ─── Role-based access (O4) ──────────────────────────────────────
+  roles: [{ type: mongoose.Schema.Types.ObjectId, ref: 'Role' }], // additional roles beyond base role
   balance:  { type: Number, default: 0, min: 0 },
   bonusBalance: { type: Number, default: 0, min: 0 },
   // ─── Model B (Kilitli Bakiye) tek seferlik migration marker ───────
@@ -25,6 +27,13 @@ const schema = new mongoose.Schema({
   },
   isActive:    { type: Boolean, default: true },
   kycVerified: { type: Boolean, default: false },
+  // ─── KYC (O5) ──────────────────────────────────────────────────────
+  kycStatus: { type: String, enum: ['not_started', 'pending', 'under_review', 'approved', 'rejected', 'expired'], default: 'not_started' },
+  kycSubmittedAt: { type: Date, default: null },
+  kycApprovedAt: { type: Date, default: null },
+  kycRejectedAt: { type: Date, default: null },
+  kycRejectionReason: { type: String, default: '' },
+  kycRequiredFor: [{ type: String }], // pages/features requiring KYC (withdrawal, high_stakes, etc.)
   referredBy:        { type: mongoose.Schema.Types.ObjectId, ref: 'User', default: null },
   totalReferralEarnings: { type: Number, default: 0, min: 0 },
   cryptoDepositIndex: { type: Number, default: null },  // HD wallet index (atandıktan sonra değişmez)
@@ -69,7 +78,32 @@ const schema = new mongoose.Schema({
   twoFactorSecret:     { type: String, default: null },
   twoFactorBackupCodes: { type: [String], default: [] },
   twoFactorVerifiedAt: { type: Date, default: null },
+  // ─── VIP / XP (O1) ────────────────────────────────────────────────
+  vipLevel: { type: mongoose.Schema.Types.ObjectId, ref: 'VipLevel', default: null },
+  vipXp: { type: Number, default: 0, min: 0 },
+  totalXpEarned: { type: Number, default: 0, min: 0 }, // lifetime XP for leaderboards
+  // ─── Agent (O3) ──────────────────────────────────────────────────
+  agentId: { type: mongoose.Schema.Types.ObjectId, ref: 'Agent', default: null }, // which agent owns this player
+  isAgent: { type: Boolean, default: false }, // is this user an agent?
+  // ─── Web3 / Wallet (P6) ──────────────────────────────────────────
+  walletAddress: { type: String }, // EVM wallet address (lowercase) - no default, undefined when not set
+  walletType: { type: String, enum: ['metamask', 'walletconnect', 'coinbase', 'injected', 'unknown'], default: null },
+  walletConnectedAt: { type: Date, default: null },
+  walletChainId: { type: Number, default: null }, // EVM chain ID (1=Ethereum, 56=BSC, 137=Polygon, etc.)
+  // ─── Social Login (P5) ───────────────────────────────────────────
+  googleId: { type: String, sparse: true, unique: true },
+  googleEmail: { type: String },
+  googleName: { type: String },
+  googlePicture: { type: String },
+  telegramId: { type: String, sparse: true, unique: true },
+  telegramUsername: { type: String },
+  telegramFirstName: { type: String },
+  telegramLastName: { type: String },
+  telegramPhoto: { type: String },
 }, { timestamps: true });
+
+// Unique index for walletAddress (only non-null values)
+schema.index({ walletAddress: 1 }, { unique: true, sparse: true });
 
 // Indexes (Phase E1)
 schema.index({ palaceUserCode: 1 }, { sparse: true });

@@ -14,6 +14,7 @@ import ToastSystem from './components/ToastSystem';
 import Navbar from './components/Navbar';
 import BottomNav from './components/BottomNav';
 import Layout from './components/Layout';
+import { PWAUpdateBanner, OnlineStatusIndicator } from './components/PWAComponents.jsx';
 
 // Phase E3: Code splitting — initial bundle'dan büyük sayfalar lazy
 const Login = lazy(() => import('./pages/Login'));
@@ -110,6 +111,8 @@ export default function App() {
     <ThemeStyleInjector />
     <BrowserRouter>
       <ToastSystem />
+      <PWAUpdateBanner />
+      <OnlineStatusIndicator />
       <Navbar />
       <BottomNav />
       <Routes>
