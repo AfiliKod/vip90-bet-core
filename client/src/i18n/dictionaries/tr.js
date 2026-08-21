@@ -1010,4 +1010,10 @@ export default {
   'games.baccarat.tieLabel': 'Berabere',
   'games.baccarat.liveGame': 'Canlı oyun',
   'games.plinko.soundOff': 'Sesi kapat',
+  'games.crash.roundInProgressHint': 'Tur devam ediyor — bir sonraki turda bahis yapabilirsiniz',
+  'games.crash.placeBet': 'Bahis Koy',
+  'games.crash.newRound': 'Yeni Tur ({seconds}s)',
+  'games.crash.roundInProgress': 'Tur devam ediyor ({mult}×)',
+  'games.crash.waiting': 'Bekleniyor...',
+  'games.crash.autoRepeatEveryRound': 'Her turda otomatik bahis',
 };

@@ -1042,4 +1042,10 @@ export default {
   'games.baccarat.tieLabel': 'Tie',
   'games.baccarat.liveGame': 'Live game',
   'games.plinko.soundOff': 'Mute sound',
+  'games.crash.roundInProgressHint': 'Round in progress — you can bet next round',
+  'games.crash.placeBet': 'Place Bet',
+  'games.crash.newRound': 'New Round ({seconds}s)',
+  'games.crash.roundInProgress': 'Round in progress ({mult}×)',
+  'games.crash.waiting': 'Waiting...',
+  'games.crash.autoRepeatEveryRound': 'Auto-bet every round',
 };
