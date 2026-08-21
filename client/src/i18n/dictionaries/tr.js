@@ -1005,4 +1005,8 @@ export default {
   'games.videopoker.holdHint': 'Tutmak istediğiniz kartlara dokunun, sonra Çek butonuna basın',
   'games.blackjack.push': 'Berabere',
   'games.blackjack.play': 'Oyna',
+  'games.baccarat.player': 'Oyuncu',
+  'games.baccarat.banker': 'Banker',
+  'games.baccarat.tieLabel': 'Berabere',
+  'games.baccarat.liveGame': 'Canlı oyun',
 };

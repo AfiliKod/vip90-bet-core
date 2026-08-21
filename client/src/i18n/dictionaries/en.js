@@ -1037,4 +1037,8 @@ export default {
   'games.videopoker.holdHint': 'Tap the cards you want to hold, then press Draw',
   'games.blackjack.push': 'Push',
   'games.blackjack.play': 'Play',
+  'games.baccarat.player': 'Player',
+  'games.baccarat.banker': 'Banker',
+  'games.baccarat.tieLabel': 'Tie',
+  'games.baccarat.liveGame': 'Live game',
 };
