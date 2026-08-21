@@ -3,8 +3,10 @@ import { Link } from 'react-router-dom';
 import api from '../services/api';
 import { useToastStore } from '../store/toastStore';
 import { useAuthStore } from '../store/authStore';
+import { useTranslation } from '../i18n';
 
 export default function Promotions() {
+  const { t } = useTranslation();
   const [promos, setPromos] = useState([]);
   const [activePromo, setActivePromo] = useState(null);
   const [acceptedTC, setAcceptedTC] = useState(false);
@@ -28,23 +30,23 @@ export default function Promotions() {
       setActivePromo(null);
       setAcceptedTC(false);
     } catch (e) {
-      addToast(e.response?.data?.error?.message || 'Kampanya kullanılamadı', 'error');
+      addToast(e.response?.data?.error?.message || t('promotions.claimFailed'), 'error');
     }
   }
 
   return (
     <div className="max-w-3xl mx-auto px-4 py-6">
-      <h1 className="text-2xl font-bold text-text-1 mb-6">🎁 Kampanyalar</h1>
+      <h1 className="text-2xl font-bold text-text-1 mb-6">🎁 {t('nav.promotions')}</h1>
       <div className="grid gap-4">
         <div className="bg-bg-card border border-accent/30 rounded-xl p-5 flex items-center justify-between gap-4" style={{ boxShadow: '0 0 16px rgba(0,212,255,0.08)' }}>
           <div className="flex-1 min-w-0">
-            <h3 className="font-bold text-text-1 mb-1">🎁 Arkadaşını Getir, %10 Kâr Payı Kazan</h3>
-            <p className="text-text-3 text-sm">Davet ettiğin arkadaşların platforma kazandırdığı kârın %10'u anında hesabına aktarılır — süresiz, sınırsız.</p>
+            <h3 className="font-bold text-text-1 mb-1">🎁 {t('promotions.referralTitle')}</h3>
+            <p className="text-text-3 text-sm">{t('promotions.referralDesc')}</p>
           </div>
           <Link to="/profile"
             className="shrink-0 px-5 py-2.5 rounded-lg text-sm font-semibold text-black transition"
             style={{ background: 'linear-gradient(90deg, #00d4ff, #7c3aed)', boxShadow: '0 0 12px #00d4ff55' }}>
-            Linkimi Al
+            {t('promotions.getMyLink')}
           </Link>
         </div>
         {promos.map(p => {
@@ -56,9 +58,9 @@ export default function Promotions() {
                 <p className="text-text-3 text-sm mb-3">{p.description}</p>
                 <div className="flex flex-wrap gap-2 text-xs text-text-3">
                   <span className="bg-bg-base px-2 py-1 rounded">💰 {p.amount}₺</span>
-                  <span className="bg-bg-base px-2 py-1 rounded">📊 Min. oran: {p.minOdds}</span>
-                  <span className="bg-bg-base px-2 py-1 rounded">🔄 {p.wageringMultiplier ?? p.wagering}x çevrim</span>
-                  {p.deadlineDays && <span className="bg-bg-base px-2 py-1 rounded">⏰ {p.deadlineDays}g</span>}
+                  <span className="bg-bg-base px-2 py-1 rounded">📊 {t('promotions.minOdds')}: {p.minOdds}</span>
+                  <span className="bg-bg-base px-2 py-1 rounded">🔄 {p.wageringMultiplier ?? p.wagering}x {t('promotions.wagering')}</span>
+                  {p.deadlineDays && <span className="bg-bg-base px-2 py-1 rounded">⏰ {p.deadlineDays}{t('promotions.daysShort')}</span>}
                 </div>
               </div>
               <button
@@ -69,12 +71,12 @@ export default function Promotions() {
                 }`}
                 style={!claimed ? { background: 'linear-gradient(90deg, #00d4ff, #7c3aed)', boxShadow: '0 0 12px #00d4ff55' } : undefined}
               >
-                {claimed ? '✓ Kullanıldı' : 'Kullan'}
+                {claimed ? `✓ ${t('promotions.used')}` : t('promotions.use')}
               </button>
             </div>
           );
         })}
-        {!promos.length && <div className="text-center text-text-3 py-12">Aktif kampanya bulunamadı</div>}
+        {!promos.length && <div className="text-center text-text-3 py-12">{t('promotions.noneFound')}</div>}
       </div>
 
       {/* T&C Modal (Phase A5) */}
@@ -90,23 +92,23 @@ export default function Promotions() {
             </div>
 
             <div className="space-y-3 mb-5">
-              <DetailRow label="Bonus Tutarı" value={`₺${activePromo.amount}`} />
-              <DetailRow label="Çevrim Şartı" value={`${activePromo.wageringMultiplier ?? activePromo.wagering}x`} />
-              <DetailRow label="Min. Oran" value={activePromo.minOdds} />
-              {activePromo.deadlineDays && <DetailRow label="Süre" value={`${activePromo.deadlineDays} gün`} />}
-              <DetailRow label="Oyun Ağırlıkları" value="Spor 1.0 · Casino 0.5 · Canlı 0.7" small />
+              <DetailRow label={t('promotions.bonusAmount')} value={`₺${activePromo.amount}`} />
+              <DetailRow label={t('promotions.wageringRequirement')} value={`${activePromo.wageringMultiplier ?? activePromo.wagering}x`} />
+              <DetailRow label={t('promotions.minOdds')} value={activePromo.minOdds} />
+              {activePromo.deadlineDays && <DetailRow label={t('promotions.duration')} value={`${activePromo.deadlineDays} ${t('promotions.daysWord')}`} />}
+              <DetailRow label={t('promotions.gameWeights')} value={t('promotions.gameWeightsValue')} small />
             </div>
 
             <div className="text-xs space-y-1.5 mb-4 p-3 rounded-lg" style={{ background: 'rgba(255,255,255,0.03)', color: '#8899bb' }}>
-              <p>• Bonus cash'e çevrilmeden çekim yapılırsa bonus iptal edilir.</p>
-              <p>• Maks. bahis: ₺50 (slot) / ₺100 (spor).</p>
-              <p>• Karşıt bahis ve risk-free oyun bonus iptaline yol açar.</p>
+              <p>• {t('promotions.ruleWithdrawCancel')}</p>
+              <p>• {t('promotions.ruleMaxBet')}</p>
+              <p>• {t('promotions.ruleHedgeCancel')}</p>
               <p>
-                Detaylı koşullar için{' '}
+                {t('promotions.detailedTermsPrefix')}{' '}
                 <Link to="/legal/bonus-terms" target="_blank" className="underline" style={{ color: '#00d4ff' }}>
-                  Bonus Kullanım Koşulları
+                  {t('promotions.bonusTermsLink')}
                 </Link>
-                'nı okuyun.
+                {t('promotions.detailedTermsSuffix')}
               </p>
             </div>
 
@@ -118,7 +120,7 @@ export default function Promotions() {
                 className="w-4 h-4 mt-0.5 rounded cursor-pointer accent-cyan-400"
               />
               <span className="text-xs leading-relaxed" style={{ color: '#c8d8f0' }}>
-                Bonus şartlarını okudum, kabul ediyorum.
+                {t('promotions.acceptTerms')}
               </span>
             </label>
 
@@ -127,7 +129,7 @@ export default function Promotions() {
                 onClick={() => { setActivePromo(null); setAcceptedTC(false); }}
                 className="flex-1 py-2.5 rounded-lg text-sm font-semibold border border-white/10 hover:border-white/20 transition"
               >
-                İptal
+                {t('common.cancel')}
               </button>
               <button
                 onClick={claim}
@@ -135,7 +137,7 @@ export default function Promotions() {
                 className="flex-1 py-2.5 rounded-lg text-sm font-bold text-black disabled:opacity-40 disabled:cursor-not-allowed"
                 style={{ background: 'linear-gradient(90deg, #00d4ff, #7c3aed)', boxShadow: '0 0 12px #00d4ff55' }}
               >
-                Bonusu Al
+                {t('promotions.getBonus')}
               </button>
             </div>
           </div>

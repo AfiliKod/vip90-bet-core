@@ -1,16 +1,18 @@
 import { useState, useEffect } from 'react';
 import api from '../../services/api';
 import { useToastStore } from '../../store/toastStore';
+import { useTranslation } from '../../i18n';
 
 export default function AdminBankRequests() {
+  const { t } = useTranslation();
   const [requests, setRequests] = useState([]);
   const [type, setType] = useState('deposit');
   const [loading, setLoading] = useState(true);
   const addToast = useToastStore(s => s.add);
 
-  const load = (t) => {
+  const load = (typ) => {
     setLoading(true);
-    api.get(`/bank/admin/pending?type=${t}`)
+    api.get(`/bank/admin/pending?type=${typ}`)
       .then(r => setRequests(r.data.requests))
       .catch(() => {})
       .finally(() => setLoading(false));
@@ -21,40 +23,42 @@ export default function AdminBankRequests() {
   const approve = async (id) => {
     try {
       await api.patch(`/bank/admin/pending/${id}/approve`);
-      addToast('Talep onaylandı', 'success');
+      addToast(t('admin.bankRequests.approved'), 'success');
       load(type);
-    } catch (e) { addToast(e.response?.data?.error || 'Hata', 'error'); }
+    } catch (e) { addToast(e.response?.data?.error || t('common.error'), 'error'); }
   };
 
   const reject = async (id) => {
-    const note = prompt('Reddetme sebebi (opsiyonel):');
+    const note = prompt(t('admin.bankRequests.rejectReasonPrompt'));
     try {
       await api.patch(`/bank/admin/pending/${id}/reject`, { note: note || '' });
-      addToast('Talep reddedildi', 'info');
+      addToast(t('admin.bankRequests.rejected'), 'info');
       load(type);
-    } catch (e) { addToast(e.response?.data?.error || 'Hata', 'error'); }
+    } catch (e) { addToast(e.response?.data?.error || t('common.error'), 'error'); }
   };
+
+  const TABS = [
+    { key: 'deposit', label: `📥 ${t('admin.bankRequests.depositRequests')}` },
+    { key: 'withdraw', label: `📤 ${t('admin.bankRequests.withdrawRequests')}` },
+  ];
 
   return (
     <div className="max-w-4xl mx-auto px-4 py-6">
-      <h1 className="text-xl font-bold text-text-1 mb-4">🏦 Banka Talep Onayı</h1>
+      <h1 className="text-xl font-bold text-text-1 mb-4">🏦 {t('admin.bankRequests.title')}</h1>
 
       <div className="flex gap-1 bg-bg-card border border-white/10 rounded-lg p-1 w-fit mb-4">
-        {[
-          { key: 'deposit', label: '📥 Yatırma Talepleri' },
-          { key: 'withdraw', label: '📤 Çekme Talepleri' },
-        ].map(t => (
-          <button key={t.key} onClick={() => setType(t.key)}
-            className={`px-4 py-2 rounded-md text-sm font-medium transition ${type === t.key ? 'bg-accent text-white' : 'text-text-3 hover:text-text-1'}`}>
-            {t.label}
+        {TABS.map(tab => (
+          <button key={tab.key} onClick={() => setType(tab.key)}
+            className={`px-4 py-2 rounded-md text-sm font-medium transition ${type === tab.key ? 'bg-accent text-white' : 'text-text-3 hover:text-text-1'}`}>
+            {tab.label}
           </button>
         ))}
       </div>
 
       {loading ? (
-        <div className="text-center text-text-3 py-8 text-sm">Yükleniyor...</div>
+        <div className="text-center text-text-3 py-8 text-sm">{t('common.loading')}</div>
       ) : requests.length === 0 ? (
-        <div className="text-center text-text-3 py-8 text-sm">Bekleyen talep yok</div>
+        <div className="text-center text-text-3 py-8 text-sm">{t('admin.bankRequests.noneWaiting')}</div>
       ) : (
         <div className="space-y-3">
           {requests.map(r => (
@@ -76,11 +80,11 @@ export default function AdminBankRequests() {
               <div className="flex gap-2 shrink-0">
                 <button onClick={() => reject(r._id)}
                   className="px-4 py-2 border border-danger/40 text-danger rounded-lg text-sm font-medium hover:bg-danger/10 transition">
-                  Reddet
+                  {t('admin.bankRequests.reject')}
                 </button>
                 <button onClick={() => approve(r._id)}
                   className="px-4 py-2 bg-success text-white rounded-lg text-sm font-semibold hover:opacity-90 transition">
-                  Onayla
+                  {t('admin.bankRequests.approve')}
                 </button>
               </div>
             </div>

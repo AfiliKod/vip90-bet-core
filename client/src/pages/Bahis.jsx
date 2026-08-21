@@ -6,8 +6,10 @@ import LazyLeagueGroup from '../components/LazyLeagueGroup';
 import BetSlip from '../components/BetSlip';
 import HeroSlider from '../components/HeroSlider';
 import { BRAND_GRADIENT_H } from '../styles/brand';
+import { useTranslation } from '../i18n';
 
-function SearchInput({ value, onChange, placeholder = 'Takım veya lig ara...' }) {
+function SearchInput({ value, onChange, placeholder }) {
+  const { t } = useTranslation();
   return (
     <div className="relative group w-full sm:w-64">
       <div
@@ -22,7 +24,7 @@ function SearchInput({ value, onChange, placeholder = 'Takım veya lig ara...' }
       <input
         value={value}
         onChange={onChange}
-        placeholder={placeholder}
+        placeholder={placeholder ?? t('bahis.searchPlaceholder')}
         className="relative w-full rounded-xl pl-10 pr-9 py-2.5 text-sm outline-none transition-all backdrop-blur-sm font-medium"
         style={{ background: '#0c1220aa', border: '1px solid #ffffff14', color: '#f0f4ff' }}
         onFocus={e => {
@@ -48,6 +50,7 @@ function SearchInput({ value, onChange, placeholder = 'Takım veya lig ara...' }
 }
 
 export default function Bahis() {
+  const { t } = useTranslation();
   const {
     initSocket, cleanup,
     summary, summaryLoading, summaryError, fetchSummary,
@@ -64,8 +67,8 @@ export default function Bahis() {
   // Debounced backend arama
   useEffect(() => {
     const q = search.trim();
-    const t = setTimeout(() => { q.length >= 2 ? searchEvents(q, STATUS) : clearSearch(); }, 300);
-    return () => clearTimeout(t);
+    const tm = setTimeout(() => { q.length >= 2 ? searchEvents(q, STATUS) : clearSearch(); }, 300);
+    return () => clearTimeout(tm);
   }, [search]);
 
   // Sidebar'dan lig tıklanınca: sporu aç, ligi aç (forceOpen sinyali) ve scroll et.
@@ -75,12 +78,12 @@ export default function Bahis() {
     const key = leagueKey(sport, country, league);
     setCollapsedSports(prev => ({ ...prev, [sport]: false }));
     setForceOpenKey(`${key}:${Date.now()}`);
-    const t = setTimeout(() => {
+    const tm = setTimeout(() => {
       document.getElementById(`league-${key}`)?.scrollIntoView({ behavior: 'smooth', block: 'start' });
       setForceOpenKey(null);   // remount auto-open'u önle (lig kendi open state'ini korur)
       setFocusLeague(null);    // scroll'dan SONRA temizle → timer erken iptal olmaz
     }, 300);
-    return () => clearTimeout(t);
+    return () => clearTimeout(tm);
   }, [focusLeague]);
 
   // Futbol → Türkiye ligleri açılışta otomatik açık.
@@ -99,11 +102,10 @@ export default function Bahis() {
       <div className="max-w-full px-4 py-4 flex gap-4">
         <main className="flex-1 min-w-0">
           <div className="flex gap-2 mb-4 items-center flex-wrap">
-            <span className="px-4 py-2 rounded-lg text-sm font-bold text-black" style={{ background: 'linear-gradient(135deg, #00d4ff 0%, #7c3aed 100%)', boxShadow: '0 0 16px #00d4ff55, 0 0 24px #7c3aed33' }}>Yaklaşan Etkinlikler</span>
+            <span className="px-4 py-2 rounded-lg text-sm font-bold text-black" style={{ background: 'linear-gradient(135deg, #00d4ff 0%, #7c3aed 100%)', boxShadow: '0 0 16px #00d4ff55, 0 0 24px #7c3aed33' }}>{t('bahis.upcomingEvents')}</span>
             <SearchInput
               value={search}
               onChange={e => setSearch(e.target.value)}
-              placeholder="Takım veya lig ara..."
             />
           </div>
 
@@ -114,7 +116,7 @@ export default function Bahis() {
               className="shrink-0 flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-bold transition-all text-text-2 bg-white/5 border border-white/10"
             >
               <span>🏆</span>
-              <span>Tümü</span>
+              <span>{t('common.all')}</span>
             </button>
             {(summary?.sports || []).map(s => {
               const meta = SPORT_META[s.sport] ?? { icon: '🏆', label: s.sport };
@@ -134,9 +136,9 @@ export default function Bahis() {
 
           {search.trim().length >= 2 ? (
             searchLoading ? (
-              <div className="text-center text-text-3 py-16">Aranıyor...</div>
+              <div className="text-center text-text-3 py-16">{t('bahis.searching')}</div>
             ) : !searchResults || searchResults.length === 0 ? (
-              <div className="text-center text-text-3 py-16">Sonuç bulunamadı</div>
+              <div className="text-center text-text-3 py-16">{t('bahis.noResults')}</div>
             ) : (
               <div className="flex flex-col gap-2">
                 {searchResults.map(ev => (
@@ -145,13 +147,13 @@ export default function Bahis() {
               </div>
             )
           ) : summaryLoading && !summary ? (
-            <div className="text-center text-text-3 py-16">Yükleniyor...</div>
+            <div className="text-center text-text-3 py-16">{t('common.loading')}</div>
           ) : summaryError ? (
             <div className="text-center text-text-3 py-16">
-              Yüklenemedi. <button className="underline" onClick={() => fetchSummary(STATUS)}>Tekrar dene</button>
+              {t('bahis.loadFailed')} <button className="underline" onClick={() => fetchSummary(STATUS)}>{t('common.retry')}</button>
             </div>
           ) : !summary || summary.sports.length === 0 ? (
-            <div className="text-center text-text-3 py-16">Etkinlik bulunamadı</div>
+            <div className="text-center text-text-3 py-16">{t('bahis.noEventsFound')}</div>
           ) : (
             <div>
               {summary.sports.map(s => {
@@ -165,7 +167,7 @@ export default function Bahis() {
                     >
                       <span>{meta.icon}</span>
                       <span className="flex-1 text-left">{meta.label}</span>
-                      <span className="text-xs text-text-3 font-normal">{s.count} etkinlik</span>
+                      <span className="text-xs text-text-3 font-normal">{t('bahis.eventCount', { count: s.count })}</span>
                       <span className="text-xs text-text-3">{isCollapsed ? '▸' : '▾'}</span>
                     </button>
                     {!isCollapsed && (
