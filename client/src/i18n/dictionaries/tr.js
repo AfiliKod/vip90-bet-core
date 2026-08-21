@@ -1023,4 +1023,7 @@ export default {
   'games.limbo.minTarget': 'Hedef en az 1.01×',
   'games.limbo.playing': 'Oynuyor...',
   'games.limbo.targetMultiplier': 'Hedef Çarpan (×)',
+  'toast.wonPrefix': 'Kazandınız!',
+  'toast.refundedPrefix': 'İade edildi!',
+  'toast.lostPrefix': 'Kaybedildi:',
 };

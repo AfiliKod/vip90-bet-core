@@ -1055,4 +1055,7 @@ export default {
   'games.limbo.minTarget': 'Target must be at least 1.01×',
   'games.limbo.playing': 'Playing...',
   'games.limbo.targetMultiplier': 'Target Multiplier (×)',
+  'toast.wonPrefix': 'You won!',
+  'toast.refundedPrefix': 'Refunded!',
+  'toast.lostPrefix': 'Lost:',
 };
