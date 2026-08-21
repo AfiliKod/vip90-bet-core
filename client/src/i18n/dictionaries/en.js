@@ -955,7 +955,7 @@ export default {
   'status.component.palace.label': 'Casino Provider',
   'status.component.palace.desc': 'Palace Casino API — slots and live casino',
   'status.component.oddsSource.label': 'Sports Data',
-  'status.component.oddsSource.desc': 'oddsSource — live odds and match data',
+  'status.component.oddsSource.desc': 'Live odds and match data',
   'status.component.payment.label': 'Payment Providers',
   'status.component.payment.desc': 'Bank transfer, crypto, Papara',
   'status.up': 'Operational',

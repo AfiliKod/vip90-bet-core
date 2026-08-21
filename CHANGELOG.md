@@ -12,6 +12,34 @@ Madde formatı ve kategoriler için `docs/CHANGELOG_GUIDE.md`'ye bakın —
 
 ## [Yayınlanmadı]
 
+### T4/T5 — Takip: kullanıcıya görünen marka izi ve ölü betikler (kısmi)
+Dev server önizlemesi sırasında `server/src/data/oddsSource-domain.json`'ın
+(oddsSource'in Türkiye'de engellenen ayna domain'lerini DNS/HTTP ile keşfeden
+canlı bir mekanizmanın önbelleği olduğu) sorgulanmasıyla ortaya çıktı: T4'ün
+orijinal kabul kriteri ("hiçbir üçüncü taraf marka adı geçmiyor") yalnızca
+kısmen karşılanmıştı — bu maddeyle şu güvenli/kullanıcıya-görünen kısım
+kapatıldı:
+- `/status` sayfasındaki `status.component.oddsSource.desc` sözlük değerinden
+  ("oddsSource — canlı oran ve maç verisi") marka adı çıkarıldı, jenerik hâle
+  getirildi (`tr.js`, `en.js`). Anahtar adı (`oddsSource`) dahili tanımlayıcı
+  olduğu için kullanıcıya görünmüyor, değiştirilmedi.
+- `server/scripts/oddsSource.har` (30 MB ölü HAR yakalaması) ve
+  `server/scripts/fetch-oddsSource-games.js` (hedefi zaten T4'te silinmiş ölü
+  betik) kaldırıldı.
+
+**Bu kart hâlâ `done` değil, kasıtlı olarak.** İnceleme sırasında yeni bir
+bulgu ortaya çıktı: `ODDS_PROVIDER` ayarı canlı/fikstür senkronizasyon
+job'larının hangisinin çalışacağını seçmiyor — `server.js`,
+`startoddsSourceLiveSync`/`startoddsSourceUpcomingSync`'i bu ayardan bağımsız,
+koşulsuz başlatıyor; bu job'lar her zaman oddsSource'in ayna domain'ini
+keşfedip WebSocket'le bağlanıyor. `ODDS_PROVIDER=theoddsapi` yapmak yalnızca
+ayrıştırma mantığını etkiliyor, bu trafiği durdurmuyor. Gerçek bir sağlayıcı
+değişimi (theoddsapi için yeni bir senkronizasyon job'ı + `server.js`'te
+provider'a göre gate) canlı bahis motorunun kalbine dokunan ayrı, büyük ve
+riskli bir mühendislik kartı gerektiriyor — bilinçli olarak bu oturumun
+kapsamı dışında bırakıldı (bkz. `server/.env.example` ve
+`docs/product/02-yapilandirma.md`'deki yeni uyarı notları).
+
 ## [0.3.0] — 2026-08-21
 
 Faz 1'in dört paralel akışı (K, M, U, ve büyük ölçüde V) bu sürümde

@@ -954,7 +954,7 @@ export default {
   'status.component.palace.label': 'Casino Sağlayıcısı',
   'status.component.palace.desc': 'Palace Casino API — slot ve canlı casino',
   'status.component.oddsSource.label': 'Spor Veri',
-  'status.component.oddsSource.desc': 'oddsSource — canlı oran ve maç verisi',
+  'status.component.oddsSource.desc': 'Canlı oran ve maç verisi',
   'status.component.payment.label': 'Ödeme Sağlayıcıları',
   'status.component.payment.desc': 'Banka transferi, kripto, Papara',
   'status.up': 'Çalışıyor',

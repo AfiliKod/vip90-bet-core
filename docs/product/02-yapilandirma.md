@@ -32,6 +32,16 @@ operatörün günlük işi).
 > bir kalıntı olarak işaretlemişti — o zaman doğruydu, artık değil.
 > T2 kartıyla birlikte gerçek bir sağlayıcıya (The Odds API) bağlandı.
 
+> **Bilinen sınır:** `ODDS_PROVIDER` yukarıdaki tablonun ima ettiğinin
+> aksine canlı/fikstür senkronizasyon job'larının HANGİSİNİN çalışacağını
+> seçmiyor — `server.js`, `startoddsSourceLiveSync`/`startoddsSourceUpcomingSync`'i
+> bu ayardan bağımsız, koşulsuz başlatıyor. Bu job'lar her zaman oddsSource'in
+> ayna domain'ini keşfedip WebSocket'le bağlanır; `ODDS_PROVIDER=theoddsapi`
+> yapmak yalnızca ayrıştırma mantığını etkiler, bu trafiği durdurmaz. Tam
+> sağlayıcı değişimi — theoddsapi için yeni bir senkronizasyon job'ı yazmak
+> ve `server.js`'i aktif sağlayıcıya göre doğru job'ı başlatacak şekilde
+> güncellemek — ayrı, henüz yapılmamış bir mühendislik kartı gerektiriyor.
+
 ## Panelden yönetilen ayarlar
 
 Bu ayarlar `.env`'de değil, veritabanında (`Setting` koleksiyonu) tutulur
