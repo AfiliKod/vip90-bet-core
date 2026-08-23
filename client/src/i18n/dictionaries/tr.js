@@ -1054,6 +1054,15 @@ export default {
   'admin.settings.savingEllipsis': 'Kaydediliyor…',
   'admin.settings.discard': 'Vazgeç',
 
+  'admin.settings.region.title': 'Bölge ve Para Birimi',
+  'admin.settings.region.hint': 'Sitenin genelinde kullanılan para birimi ve operatör saat dilimi.',
+  'admin.settings.region.currencyLabel': 'Para Birimi',
+  'admin.settings.region.currencyHelp': 'Yalnızca görüntüleme biçimini değiştirir — sembol ve binlik/ondalık ayracı güncellenir. Hiçbir kur dönüşümü yapılmaz; bakiyeler ve tutarlar aynı ham sayı olarak kalır.',
+  'admin.settings.region.currencySaved': 'Para birimi güncellendi',
+  'admin.settings.region.timezoneLabel': 'Saat Dilimi',
+  'admin.settings.region.timezoneHelp': 'IANA bölge adı (ör. Europe/Istanbul, Europe/London). Sunucu tarihleri UTC saklar; bu ayar yalnızca ekranda gösterilirken hangi bölgeye çevrileceğini belirler.',
+  'admin.settings.region.timezoneSaved': 'Saat dilimi güncellendi',
+
   // Status sayfası
   'status.component.api.label': 'API Sunucusu',
   'status.component.api.desc': 'Render üzerinde çalışan ana uygulama',

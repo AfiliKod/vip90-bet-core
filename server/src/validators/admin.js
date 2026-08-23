@@ -3,6 +3,7 @@ import { THEME_TOKEN_DEFINITIONS } from '../theme/registry.js';
 import { THEME_PRESET_IDS } from '../theme/presets.js';
 import { BRANDING_FIELD_DEFINITIONS } from '../branding/registry.js';
 import { HOME_SECTION_IDS, HOME_BANNER_IDS } from '../pages/registry.js';
+import { CURRENCY_DEFINITIONS } from '../currency/registry.js';
 
 const MAX_FEATURED_GAMES = 60;
 
@@ -171,4 +172,15 @@ export const updateHomeContentSchema = z.object({
 
 export const updateFeaturedGamesSchema = z.object({
   codes: z.array(z.string().min(1).max(60)).max(MAX_FEATURED_GAMES),
+});
+
+// U4 — para birimi (yalnızca CURRENCY_DEFINITIONS'ta tanımlı kodlar kabul edilir)
+export const updateCurrencySchema = z.object({
+  code: z.enum(CURRENCY_DEFINITIONS.map(c => c.code)),
+});
+
+// U5 — saat dilimi (IANA doğrulaması services/timezone.js'te yapılıyor;
+// burada yalnızca boş olmadığından emin olunuyor)
+export const updateTimezoneSchema = z.object({
+  timezone: z.string().min(1).max(100),
 });

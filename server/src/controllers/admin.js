@@ -19,6 +19,7 @@ import { THEME_PRESETS } from '../theme/presets.js';
 import { setBrandingField as setBrandingFieldImpl, listBranding } from '../branding/index.js';
 import { setHomeContent as setHomeContentImpl, getHomeContent } from '../pages/index.js';
 import { getAllGameSettings, updateGameSettings as updateGameSettingsImpl } from '../services/gameSettings.js';
+import { getActiveCurrency, listCurrencies, setActiveCurrency } from '../currency/index.js';
 import { invalidateCrashSettingsCache } from '../services/inhouse/crashGame.js';
 import { invalidateRouletteSettingsCache } from '../services/inhouse/rouletteGame.js';
 import {
@@ -1053,6 +1054,29 @@ export async function simulateGameRtp(req, res, next) {
     const { hands, ...candidateSettings } = req.validated;
     const result = simulator(candidateSettings, hands);
     res.json(result);
+  } catch (e) {
+    next(e);
+  }
+}
+
+// ─── U4 — Para birimi ───────────────────────────────────────────────
+// Servis katmanı (currency/index.js) zaten yazılmıştı — burada eksik olan
+// yalnızca admin HTTP ucuydu.
+export async function getCurrencySettings(req, res, next) {
+  try {
+    const active = await getActiveCurrency();
+    res.json({ active, supported: listCurrencies() });
+  } catch (e) {
+    next(e);
+  }
+}
+
+export async function updateCurrencySettings(req, res, next) {
+  try {
+    const { code } = req.validated;
+    await setActiveCurrency(code, req.user.id);
+    const active = await getActiveCurrency();
+    res.json({ active });
   } catch (e) {
     next(e);
   }

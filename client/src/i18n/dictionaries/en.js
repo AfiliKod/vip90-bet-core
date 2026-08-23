@@ -1055,6 +1055,15 @@ export default {
   'admin.settings.savingEllipsis': 'Saving…',
   'admin.settings.discard': 'Discard',
 
+  'admin.settings.region.title': 'Region & Currency',
+  'admin.settings.region.hint': 'The site-wide currency and the operator timezone.',
+  'admin.settings.region.currencyLabel': 'Currency',
+  'admin.settings.region.currencyHelp': 'Changes the display format only — the symbol and thousands/decimal separators update. No exchange-rate conversion happens; balances and amounts stay the same raw number.',
+  'admin.settings.region.currencySaved': 'Currency updated',
+  'admin.settings.region.timezoneLabel': 'Timezone',
+  'admin.settings.region.timezoneHelp': 'IANA region name (e.g. Europe/Istanbul, Europe/London). The server stores dates in UTC; this setting only controls which region they are converted to when displayed.',
+  'admin.settings.region.timezoneSaved': 'Timezone updated',
+
   // Status page
   'status.component.api.label': 'API Server',
   'status.component.api.desc': 'Main application running on Render',

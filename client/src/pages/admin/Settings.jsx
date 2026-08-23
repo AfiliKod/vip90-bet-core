@@ -2,6 +2,135 @@ import { useEffect, useState } from 'react';
 import api from '../../services/api';
 import { useTranslation } from '../../i18n';
 
+/**
+ * U4/U5 — Bölge ve para birimi kartı.
+ *
+ * U4: currency/index.js'teki servis katmanı (setActiveCurrency) zaten
+ * vardı, yalnızca admin HTTP ucu eksikti (bkz. controllers/admin.js).
+ * U5: services/timezone.js + timezoneLive.js tam bağlıydı, yalnızca bu
+ * arayüz eksikti (RAPOR.md'de "U4 paralelinde... bilerek dokunulmadı"
+ * notuyla kapsam dışı bırakılmıştı).
+ *
+ * Para birimi değişikliği yalnızca GÖRÜNTÜLEME biçimini değiştirir —
+ * client/src/utils/money.js'in formatMoney'i hiçbir kur dönüşümü
+ * yapmıyor, aynı ham sayıyı farklı sembol/locale ile gösteriyor. Bu,
+ * operatörün yanlış anlamaması için bilgi kutusunda açıkça belirtiliyor.
+ */
+function RegionCurrencyCard({ t }) {
+  const [currency, setCurrency] = useState(null);
+  const [timezone, setTimezone] = useState('');
+  const [tzInput, setTzInput] = useState('');
+  const [loading, setLoading] = useState(true);
+  const [savingCurrency, setSavingCurrency] = useState(false);
+  const [savingTimezone, setSavingTimezone] = useState(false);
+  const [notice, setNotice] = useState(null);
+
+  useEffect(() => {
+    Promise.all([
+      api.get('/admin/currency'),
+      api.get('/admin/settings/timezone'),
+    ])
+      .then(([currencyRes, tzRes]) => {
+        setCurrency(currencyRes.data);
+        setTimezone(tzRes.data.timezone);
+        setTzInput(tzRes.data.timezone);
+      })
+      .catch(() => setNotice({ type: 'error', text: t('admin.settings.loadFailed') }))
+      .finally(() => setLoading(false));
+  }, [t]);
+
+  async function saveCurrency(code) {
+    setSavingCurrency(true);
+    setNotice(null);
+    try {
+      const r = await api.put('/admin/currency', { code });
+      setCurrency(prev => ({ ...prev, active: r.data.active }));
+      setNotice({ type: 'ok', text: t('admin.settings.region.currencySaved') });
+    } catch (e) {
+      setNotice({ type: 'error', text: e.response?.data?.error?.message || t('admin.settings.saveFailed') });
+    } finally {
+      setSavingCurrency(false);
+    }
+  }
+
+  async function saveTimezone() {
+    setSavingTimezone(true);
+    setNotice(null);
+    try {
+      const r = await api.put('/admin/settings/timezone', { timezone: tzInput.trim() });
+      setTimezone(r.data.timezone);
+      setNotice({ type: 'ok', text: t('admin.settings.region.timezoneSaved') });
+    } catch (e) {
+      setNotice({ type: 'error', text: e.response?.data?.error?.message || t('admin.settings.saveFailed') });
+    } finally {
+      setSavingTimezone(false);
+    }
+  }
+
+  if (loading) {
+    return <div className="h-40 bg-bg-card rounded-xl animate-pulse mb-4" />;
+  }
+
+  return (
+    <div className="bg-bg-card border border-white/10 rounded-xl p-4 mb-4">
+      <h2 className="font-semibold text-text-1">🌍 {t('admin.settings.region.title')}</h2>
+      <p className="text-xs text-text-3 mt-0.5 mb-4">{t('admin.settings.region.hint')}</p>
+
+      {notice && (
+        <div className={`mb-4 rounded-lg px-3 py-2 text-xs border ${
+          notice.type === 'ok'
+            ? 'border-green-500/30 bg-green-500/10 text-green-200'
+            : 'border-red-500/30 bg-red-500/10 text-red-200'
+        }`}>
+          {notice.text}
+        </div>
+      )}
+
+      <div className="mb-5">
+        <div className="text-xs font-medium text-text-2 mb-1">{t('admin.settings.region.currencyLabel')}</div>
+        <div className="text-[11px] text-text-3/70 leading-snug mb-2">{t('admin.settings.region.currencyHelp')}</div>
+        <div className="flex flex-wrap gap-2">
+          {currency?.supported.map(c => (
+            <button
+              key={c.code}
+              onClick={() => saveCurrency(c.code)}
+              disabled={savingCurrency || c.code === currency.active.code}
+              className={`px-3 py-1.5 rounded-lg text-xs font-medium border transition disabled:opacity-100 ${
+                c.code === currency.active.code
+                  ? 'bg-accent/20 text-accent border-accent/30'
+                  : 'border-white/10 text-text-3 hover:text-text-1 hover:border-white/25'
+              }`}
+            >
+              {c.symbol} {c.code}
+            </button>
+          ))}
+        </div>
+      </div>
+
+      <div>
+        <div className="text-xs font-medium text-text-2 mb-1">{t('admin.settings.region.timezoneLabel')}</div>
+        <div className="text-[11px] text-text-3/70 leading-snug mb-2">{t('admin.settings.region.timezoneHelp')}</div>
+        <div className="flex gap-2">
+          <input
+            type="text"
+            value={tzInput}
+            onChange={e => setTzInput(e.target.value)}
+            placeholder="Europe/Istanbul"
+            className="flex-1 bg-bg-deep border border-white/10 rounded-lg px-3 py-2 text-sm text-text-1 placeholder:text-text-3/60 focus:outline-none focus:border-white/25"
+          />
+          <button
+            onClick={saveTimezone}
+            disabled={savingTimezone || tzInput.trim() === timezone}
+            className="px-4 py-2 rounded-lg text-xs font-medium bg-accent/20 text-accent border border-accent/30 hover:bg-accent/30 disabled:opacity-40 transition"
+          >
+            {savingTimezone ? t('admin.settings.savingEllipsis') : t('common.save')}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 export default function AdminSettings() {
   const { t } = useTranslation();
   const [settings, setSettings] = useState([]);
@@ -88,6 +217,8 @@ export default function AdminSettings() {
 
   return (
     <div className="max-w-3xl mx-auto px-4 py-6">
+      <RegionCurrencyCard t={t} />
+
       <div className="flex items-center justify-between mb-2">
         <h1 className="text-2xl font-bold text-text-1">🔔 {t('admin.settings.alertChannels')}</h1>
         <button

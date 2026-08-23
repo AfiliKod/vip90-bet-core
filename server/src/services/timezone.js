@@ -53,6 +53,7 @@ export function createTimezoneStore(backend, { now = Date.now, ttlMs = TTL_MS } 
       if (!isValidTimezone(value)) {
         const err = new Error(`[VALIDATION] Geçersiz IANA saat dilimi: ${value}`);
         err.code = 'VALIDATION';
+        err.status = 400;
         throw err;
       }
       await backend.saveSetting(TIMEZONE_KEY, value, updatedBy);
