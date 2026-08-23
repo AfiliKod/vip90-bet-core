@@ -6,7 +6,15 @@ import CasinoRound from '../models/CasinoRound.js';
 import {
   getMinesSettings, getDiceSettings, getLimboSettings,
   getHiloSettings, getDragonTigerSettings,
+  getPlinkoSettings, getWheelSettings, getKenoSettings,
+  getBaccaratSettings, getBlackjackSettings, getVideoPokerSettings,
 } from '../services/gameSettings.js';
+import {
+  buildShoe, cardValue, handTotal, dealerPlay,
+} from '../services/inhouse/blackjackMath.js';
+import {
+  buildDeck52, evaluatePokerHand,
+} from '../services/inhouse/videoPokerMath.js';
 
 const router = Router();
 router.use(requireAuth);
@@ -31,12 +39,24 @@ const diceSettingsCache = createSettingsCache(getDiceSettings);
 const limboSettingsCache = createSettingsCache(getLimboSettings);
 const hiloSettingsCache = createSettingsCache(getHiloSettings);
 const dragonTigerSettingsCache = createSettingsCache(getDragonTigerSettings);
+const plinkoSettingsCache = createSettingsCache(getPlinkoSettings);
+const wheelSettingsCache = createSettingsCache(getWheelSettings);
+const kenoSettingsCache = createSettingsCache(getKenoSettings);
+const baccaratSettingsCache = createSettingsCache(getBaccaratSettings);
+const blackjackSettingsCache = createSettingsCache(getBlackjackSettings);
+const videoPokerSettingsCache = createSettingsCache(getVideoPokerSettings);
 
 export function invalidateMinesSettingsCache() { minesSettingsCache.invalidate(); }
 export function invalidateDiceSettingsCache() { diceSettingsCache.invalidate(); }
 export function invalidateLimboSettingsCache() { limboSettingsCache.invalidate(); }
 export function invalidateHiloSettingsCache() { hiloSettingsCache.invalidate(); }
 export function invalidateDragonTigerSettingsCache() { dragonTigerSettingsCache.invalidate(); }
+export function invalidatePlinkoSettingsCache() { plinkoSettingsCache.invalidate(); }
+export function invalidateWheelSettingsCache() { wheelSettingsCache.invalidate(); }
+export function invalidateKenoSettingsCache() { kenoSettingsCache.invalidate(); }
+export function invalidateBaccaratSettingsCache() { baccaratSettingsCache.invalidate(); }
+export function invalidateBlackjackSettingsCache() { blackjackSettingsCache.invalidate(); }
+export function invalidateVideoPokerSettingsCache() { videoPokerSettingsCache.invalidate(); }
 
 /** Bahis limiti + aktiflik kontrolü — 5 oyunun tamamında ortak. */
 function checkBetAllowed(res, settings, betAmount, minKey, maxKey) {
@@ -229,11 +249,20 @@ router.post('/mines/cashout', async (req, res, next) => {
 // ── PLINKO ───────────────────────────────────────────────────────────────────
 
 // Multiplier tables by risk and rows
+//
+// DÜZELTME (Faz 2 sırasında keşfedildi): low.12 ve low.16 orijinalde 2'şer
+// eksik değerle tanımlıydı (11/15 uzunluk, olması gereken 13/17 — N satır
+// için N+1 slot var). Eksik uç slotlar undefined döndürüyordu →
+// mult=undefined → payout=NaN → $inc:{balance:NaN} ile oyuncu bakiyesi
+// kalıcı olarak bozulabiliyordu (low/12: ~%0.32, low/16: ~%0.026 olasılıkla).
+// Eksik uç değerler, tablonun kendi simetrik/azalan geometrik oranı
+// kullanılarak (7×(7/2.4)≈20.4, 12.6×(12.6/7.1)≈22.4) tamamlandı — diğer
+// risk seviyeleriyle orantılı, düşük risk karakterini koruyor.
 const PLINKO_MULT = {
   low: {
     8:  [4.4, 1.7, 0.9, 0.8, 0.4, 0.8, 0.9, 1.7, 4.4],
-    12: [7, 2.4, 1.1, 0.9, 0.8, 0.4, 0.8, 0.9, 1.1, 2.4, 7],
-    16: [12.6, 7.1, 1.6, 1.1, 0.9, 0.8, 0.4, 0.2, 0.4, 0.8, 0.9, 1.1, 1.6, 7.1, 12.6],
+    12: [20.4, 7, 2.4, 1.1, 0.9, 0.8, 0.4, 0.8, 0.9, 1.1, 2.4, 7, 20.4],
+    16: [22.4, 12.6, 7.1, 1.6, 1.1, 0.9, 0.8, 0.4, 0.2, 0.4, 0.8, 0.9, 1.1, 1.6, 7.1, 12.6, 22.4],
   },
   medium: {
     8:  [10.3, 2.4, 1.0, 0.6, 0.3, 0.6, 1.0, 2.4, 10.3],
@@ -271,12 +300,15 @@ router.post('/plinko/drop', async (req, res, next) => {
 
     if (isNaN(betAmount) || betAmount < 1) return res.status(400).json({ error: 'Geçersiz miktar' });
 
+    const plinkoSettings = await plinkoSettingsCache.get();
+    if (!checkBetAllowed(res, plinkoSettings, betAmount, 'plinkoMinBet', 'plinkoMaxBet')) return;
+
     const serverSeed = randomBytes(16).toString('hex');
     const clientSeed = randomBytes(8).toString('hex');
     const { slot, path } = dropBall(serverSeed, clientSeed, actualRows);
 
     const multTable = PLINKO_MULT[riskLevel][actualRows];
-    const mult = multTable[slot];
+    const mult = multTable[slot] * plinkoSettings.plinkoPayoutScale;
     const payout = parseFloat((betAmount * mult).toFixed(2));
 
     const netChange = parseFloat((payout - betAmount).toFixed(2));
@@ -443,8 +475,12 @@ router.post('/wheel/spin', async (req, res, next) => {
 
     if (isNaN(betAmount) || betAmount < 1) return res.status(400).json({ error: 'Geçersiz miktar' });
 
+    const wheelSettings = await wheelSettingsCache.get();
+    if (!checkBetAllowed(res, wheelSettings, betAmount, 'wheelMinBet', 'wheelMaxBet')) return;
+
     const serverSeed = randomBytes(16).toString('hex');
-    const { segIndex, mult } = wheelSpin(serverSeed, riskLevel);
+    const { segIndex, mult: baseMult } = wheelSpin(serverSeed, riskLevel);
+    const mult = baseMult * wheelSettings.wheelPayoutScale;
     const payout = parseFloat((betAmount * mult).toFixed(2));
     const netChange = parseFloat((payout - betAmount).toFixed(2));
     const user = await User.findOneAndUpdate(
@@ -655,11 +691,14 @@ router.post('/keno/play', async (req, res, next) => {
     if (isNaN(betAmount) || betAmount < 1) return res.status(400).json({ error: 'Geçersiz miktar' });
     if (picksArr.length < 1 || picksArr.length > 10) return res.status(400).json({ error: '1-10 arası sayı seçin' });
 
+    const kenoSettings = await kenoSettingsCache.get();
+    if (!checkBetAllowed(res, kenoSettings, betAmount, 'kenoMinBet', 'kenoMaxBet')) return;
+
     const serverSeed = randomBytes(16).toString('hex');
     const drawn = kenoDrawn(serverSeed);
     const hits = picksArr.filter(p => drawn.includes(p)).length;
     const payoutTable = KENO_PAYOUTS[picksArr.length];
-    const mult = payoutTable[hits] ?? 0;
+    const mult = (payoutTable[hits] ?? 0) * kenoSettings.kenoPayoutScale;
     const payout = parseFloat((betAmount * mult).toFixed(2));
     const netChange = parseFloat((payout - betAmount).toFixed(2));
     const user = await User.findOneAndUpdate(
@@ -683,63 +722,11 @@ router.post('/keno/play', async (req, res, next) => {
 });
 
 // ── BLACKJACK ─────────────────────────────────────────────────────────────────
-// Standard 6-deck blackjack. Dealer stands on soft 17. Blackjack pays 3:2.
+// Standart 6 desteli blackjack (split desteklenmiyor). Dealer'ın soft
+// 17'de durup durmayacağı ve ödeme çarpanları admin ayarlarından okunur
+// (blackjackMath.js — routes ve rtpSimulator.js aynı fonksiyonları paylaşır).
 
-const BJ_SUITS = ['♠', '♥', '♦', '♣'];
-const BJ_RANKS = ['2','3','4','5','6','7','8','9','10','J','Q','K','A'];
 const bjSessions = new Map(); // userId → session
-
-function buildShoe(serverSeed) {
-  const deck = [];
-  for (let d = 0; d < 6; d++)
-    for (const suit of BJ_SUITS)
-      for (const rank of BJ_RANKS)
-        deck.push({ suit, rank });
-  // Fisher-Yates with seeded hash
-  const hash = createHmac('sha256', serverSeed).update('blackjack-shoe').digest('hex');
-  for (let i = deck.length - 1; i > 0; i--) {
-    const h = parseInt(hash.slice((i * 2) % 60, (i * 2) % 60 + 4), 16);
-    const j = h % (i + 1);
-    [deck[i], deck[j]] = [deck[j], deck[i]];
-  }
-  return deck;
-}
-
-function cardValue(rank) {
-  if (['J','Q','K'].includes(rank)) return 10;
-  if (rank === 'A') return 11;
-  return parseInt(rank);
-}
-
-function handTotal(cards) {
-  let total = 0;
-  let aces = 0;
-  for (const c of cards) {
-    const v = cardValue(c.rank);
-    total += v;
-    if (c.rank === 'A') aces++;
-  }
-  while (total > 21 && aces > 0) { total -= 10; aces--; }
-  return total;
-}
-
-function isSoft(cards) {
-  let total = 0;
-  let aces = 0;
-  for (const c of cards) {
-    total += cardValue(c.rank);
-    if (c.rank === 'A') aces++;
-  }
-  return aces > 0 && total !== handTotal(cards);
-}
-
-function dealerPlay(shoe, dealerCards, shoePos) {
-  let pos = shoePos;
-  while (handTotal(dealerCards) < 17 || (handTotal(dealerCards) === 17 && isSoft(dealerCards))) {
-    dealerCards.push(shoe[pos++]);
-  }
-  return { dealerCards, shoePos: pos };
-}
 
 // POST /inhouse/blackjack/deal
 router.post('/blackjack/deal', async (req, res, next) => {
@@ -747,6 +734,9 @@ router.post('/blackjack/deal', async (req, res, next) => {
     const { amount } = req.body;
     const betAmount = parseFloat(amount);
     if (isNaN(betAmount) || betAmount < 1) return res.status(400).json({ error: 'Geçersiz miktar' });
+
+    const bjSettings = await blackjackSettingsCache.get();
+    if (!checkBetAllowed(res, bjSettings, betAmount, 'blackjackMinBet', 'blackjackMaxBet')) return;
 
     const user = await User.findOneAndUpdate(
       { _id: req.user.id, balance: { $gte: betAmount } },
@@ -767,6 +757,11 @@ router.post('/blackjack/deal', async (req, res, next) => {
       playerCards, dealerCards,
       bet: betAmount, balanceBefore: user.balance + betAmount,
       done: false,
+      // Tur boyunca sabit tutulur — admin ayarı ortasında değiştirse bile
+      // bu turun matematiği tutarlı kalır (Mines/HiLo'daki desenle aynı).
+      payoutMult: bjSettings.blackjackPayoutMult,
+      winMult: bjSettings.blackjackWinMult,
+      hitsSoft17: bjSettings.dealerHitsSoft17,
     };
     bjSessions.set(req.user.id.toString(), session);
 
@@ -783,7 +778,7 @@ router.post('/blackjack/deal', async (req, res, next) => {
       if (dealerBJ) {
         payout = betAmount; outcome = 'push';
       } else {
-        payout = parseFloat((betAmount * 2.0).toFixed(2)); outcome = 'blackjack';
+        payout = parseFloat((betAmount * session.payoutMult).toFixed(2)); outcome = 'blackjack';
       }
       const updated = await User.findByIdAndUpdate(
         req.user.id,
@@ -886,7 +881,7 @@ router.post('/blackjack/double', async (req, res, next) => {
 
 async function resolveStand(session, userId, res, isDouble = false) {
   const { dealerCards: dc, shoePos, shoe } = session;
-  const result = dealerPlay(shoe, dc, shoePos);
+  const result = dealerPlay(shoe, dc, shoePos, session.hitsSoft17);
   session.dealerCards = result.dealerCards;
 
   const playerTotal = handTotal(session.playerCards);
@@ -895,7 +890,7 @@ async function resolveStand(session, userId, res, isDouble = false) {
 
   let outcome, payout;
   if (dealerBust || playerTotal > dealerTotal) {
-    outcome = 'win'; payout = parseFloat((session.bet * 1.4).toFixed(2));
+    outcome = 'win'; payout = parseFloat((session.bet * session.winMult).toFixed(2));
   } else if (playerTotal === dealerTotal) {
     outcome = 'push'; payout = session.bet;
   } else {
@@ -1096,6 +1091,9 @@ router.post('/baccarat/deal', async (req, res, next) => {
     if (isNaN(betAmount) || betAmount < 1) return res.status(400).json({ error: 'Geçersiz miktar' });
     if (!['player','banker','tie'].includes(betSide)) return res.status(400).json({ error: 'player, banker veya tie seçin' });
 
+    const baccaratSettings = await baccaratSettingsCache.get();
+    if (!checkBetAllowed(res, baccaratSettings, betAmount, 'baccaratMinBet', 'baccaratMaxBet')) return;
+
     const serverSeed = randomBytes(16).toString('hex');
     const { player, banker, playerTotal, bankerTotal } = baccaratDeal(serverSeed);
 
@@ -1105,9 +1103,9 @@ router.post('/baccarat/deal', async (req, res, next) => {
     else outcome = 'tie';
 
     if (outcome === betSide) {
-      if (betSide === 'tie') mult = 8;
-      else if (betSide === 'banker') mult = 1.7;
-      else mult = 1.75;
+      if (betSide === 'tie') mult = baccaratSettings.baccaratTieMultiplier;
+      else if (betSide === 'banker') mult = baccaratSettings.baccaratBankerMultiplier;
+      else mult = baccaratSettings.baccaratPlayerMultiplier;
     } else {
       mult = 0;
     }
@@ -1140,66 +1138,24 @@ router.post('/baccarat/deal', async (req, res, next) => {
 });
 
 // ── VIDEO POKER (Jacks or Better) ─────────────────────────────────────────────
-// Standard 52-card single deck. Player gets 5 cards, holds some, draws replacements.
-// Payout table: Jacks or Better standard.
-
-const VP_PAYOUTS = {
-  'Royal Flush': 656,
-  'Straight Flush': 41,
-  'Four of a Kind': 21,
-  'Full House': 7,
-  'Flush': 5,
-  'Straight': 3,
-  'Three of a Kind': 2.5,
-  'Two Pair': 1.5,
-  'Jacks or Better': 0.8,
-  'Nothing': 0,
-};
+// Standart 52 kartlık tek deste. Ödeme tablosu admin ayarlarından okunur
+// (videoPokerMath.js — routes ve rtpSimulator.js aynı fonksiyonları paylaşır).
 
 const vpSessions = new Map();
 
-function buildDeck52(serverSeed, nonce = 'vp') {
-  const deck = [];
-  for (const suit of BJ_SUITS)
-    for (const rank of BJ_RANKS)
-      deck.push({ suit, rank, value: BJ_RANKS.indexOf(rank) });
-  const hash = createHmac('sha256', serverSeed).update(nonce).digest('hex');
-  for (let i = deck.length - 1; i > 0; i--) {
-    const h = parseInt(hash.slice((i * 2) % 60, (i * 2) % 60 + 4), 16);
-    const j = h % (i + 1);
-    [deck[i], deck[j]] = [deck[j], deck[i]];
-  }
-  return deck;
-}
-
-function evaluatePokerHand(cards) {
-  const values = cards.map(c => c.value).sort((a,b) => a-b);
-  const suits = cards.map(c => c.suit);
-  const rankCounts = {};
-  values.forEach(v => { rankCounts[v] = (rankCounts[v] || 0) + 1; });
-  const counts = Object.values(rankCounts).sort((a,b) => b-a);
-  const isFlush = suits.every(s => s === suits[0]);
-  const isStr = (values[4] - values[0] === 4 && counts[0] === 1) ||
-                (values.join(',') === '0,9,10,11,12'); // A-2-3-4-5 low straight not needed; A high: 8,9,10,11,12
-
-  // Royal flush
-  if (isFlush && values.join(',') === '8,9,10,11,12') return 'Royal Flush';
-  if (isFlush && isStr) return 'Straight Flush';
-  if (counts[0] === 4) return 'Four of a Kind';
-  if (counts[0] === 3 && counts[1] === 2) return 'Full House';
-  if (isFlush) return 'Flush';
-  if (isStr) return 'Straight';
-  if (counts[0] === 3) return 'Three of a Kind';
-  if (counts[0] === 2 && counts[1] === 2) {
-    // Two pair - check if either pair is J or better (value >= 9)
-    return 'Two Pair';
-  }
-  if (counts[0] === 2) {
-    const pairValue = parseInt(Object.keys(rankCounts).find(k => rankCounts[k] === 2));
-    if (pairValue >= 9) return 'Jacks or Better'; // J=9, Q=10, K=11, A=12
-    return 'Nothing';
-  }
-  return 'Nothing';
+function vpPayoutTable(settings) {
+  return {
+    'Royal Flush': settings.vpRoyalFlushMult,
+    'Straight Flush': settings.vpStraightFlushMult,
+    'Four of a Kind': settings.vpFourKindMult,
+    'Full House': settings.vpFullHouseMult,
+    'Flush': settings.vpFlushMult,
+    'Straight': settings.vpStraightMult,
+    'Three of a Kind': settings.vpThreeKindMult,
+    'Two Pair': settings.vpTwoPairMult,
+    'Jacks or Better': settings.vpJacksOrBetterMult,
+    'Nothing': 0,
+  };
 }
 
 // POST /inhouse/videopoker/deal
@@ -1208,6 +1164,9 @@ router.post('/videopoker/deal', async (req, res, next) => {
     const { amount } = req.body;
     const betAmount = parseFloat(amount);
     if (isNaN(betAmount) || betAmount < 1) return res.status(400).json({ error: 'Geçersiz miktar' });
+
+    const vpSettings = await videoPokerSettingsCache.get();
+    if (!checkBetAllowed(res, vpSettings, betAmount, 'vpMinBet', 'vpMaxBet')) return;
 
     const user = await User.findOneAndUpdate(
       { _id: req.user.id, balance: { $gte: betAmount } },
@@ -1225,6 +1184,8 @@ router.post('/videopoker/deal', async (req, res, next) => {
     vpSessions.set(req.user.id.toString(), {
       serverSeed, hand, remaining,
       bet: betAmount, balanceBefore: user.balance + betAmount, done: false,
+      // Tur boyunca sabit tutulur (Mines/HiLo/Blackjack'teki desenle aynı).
+      payoutTable: vpPayoutTable(vpSettings),
     });
 
     res.json({ hand, balance: newBalance });
@@ -1245,7 +1206,7 @@ router.post('/videopoker/draw', async (req, res, next) => {
     vpSessions.delete(req.user.id.toString());
 
     const handName = evaluatePokerHand(newHand);
-    const mult = VP_PAYOUTS[handName] ?? 0;
+    const mult = session.payoutTable[handName] ?? 0;
     const payout = parseFloat((session.bet * mult).toFixed(2));
     const user = await User.findByIdAndUpdate(
       req.user.id,
@@ -1264,7 +1225,7 @@ router.post('/videopoker/draw', async (req, res, next) => {
       hand: newHand, handName, mult, payout,
       win: payout > 0, balance: newBalance,
       serverSeed: session.serverSeed,
-      payoutTable: VP_PAYOUTS,
+      payoutTable: session.payoutTable,
     });
   } catch (err) { next(err); }
 });

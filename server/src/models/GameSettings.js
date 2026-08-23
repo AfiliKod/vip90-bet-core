@@ -49,6 +49,50 @@ const schema = new mongoose.Schema({
   dragonTigerMinBet: { type: Number, default: 1, min: 0.01 },
   dragonTigerMaxBet: { type: Number, default: 50000, min: 1 },
 
+  // Plinko settings — payoutScale, gerçek çarpan tablosuna (routes/inhouse.js
+  // PLINKO_MULT) doğrudan uygulanan çarpan (mult = tabloDeğeri × scale)
+  plinkoPayoutScale: { type: Number, default: 1.0, min: 0.5, max: 1.3 },
+  plinkoMinBet: { type: Number, default: 1, min: 0.01 },
+  plinkoMaxBet: { type: Number, default: 50000, min: 1 },
+
+  // Wheel settings — payoutScale, WHEEL_SEGMENTS'teki m değerlerine uygulanır
+  wheelPayoutScale: { type: Number, default: 1.0, min: 0.5, max: 1.3 },
+  wheelMinBet: { type: Number, default: 1, min: 0.01 },
+  wheelMaxBet: { type: Number, default: 50000, min: 1 },
+
+  // Keno settings — payoutScale, KENO_PAYOUTS tablosuna uygulanır
+  kenoPayoutScale: { type: Number, default: 1.0, min: 0.5, max: 1.3 },
+  kenoMinBet: { type: Number, default: 1, min: 0.01 },
+  kenoMaxBet: { type: Number, default: 50000, min: 1 },
+
+  // Baccarat settings — 3 bağımsız ödeme çarpanı, mekanik sabit (oyuncu kararı yok)
+  baccaratBankerMultiplier: { type: Number, default: 1.7, min: 1.5, max: 2.0 },
+  baccaratPlayerMultiplier: { type: Number, default: 1.75, min: 1.5, max: 2.0 },
+  baccaratTieMultiplier: { type: Number, default: 8, min: 4, max: 15 },
+  baccaratMinBet: { type: Number, default: 1, min: 0.01 },
+  baccaratMaxBet: { type: Number, default: 50000, min: 1 },
+
+  // Blackjack settings — RTP oyuncu kararına bağlı (Monte Carlo tahmini)
+  blackjackPayoutMult: { type: Number, default: 2.0, min: 1.5, max: 2.5 }, // "blackjack" eli
+  blackjackWinMult: { type: Number, default: 1.4, min: 1.0, max: 2.0 }, // normal kazanç
+  dealerHitsSoft17: { type: Boolean, default: true }, // mevcut canlı davranış
+  blackjackMinBet: { type: Number, default: 1, min: 0.01 },
+  blackjackMaxBet: { type: Number, default: 50000, min: 1 },
+
+  // Video Poker (Jacks or Better) settings — el tipi başına ödeme çarpanı,
+  // RTP oyuncunun tutma kararına bağlı (Monte Carlo tahmini)
+  vpRoyalFlushMult: { type: Number, default: 656, min: 100, max: 1000 },
+  vpStraightFlushMult: { type: Number, default: 41, min: 10, max: 100 },
+  vpFourKindMult: { type: Number, default: 21, min: 5, max: 50 },
+  vpFullHouseMult: { type: Number, default: 7, min: 1, max: 15 },
+  vpFlushMult: { type: Number, default: 5, min: 1, max: 15 },
+  vpStraightMult: { type: Number, default: 3, min: 1, max: 10 },
+  vpThreeKindMult: { type: Number, default: 2.5, min: 0.5, max: 5 },
+  vpTwoPairMult: { type: Number, default: 1.5, min: 0.5, max: 5 },
+  vpJacksOrBetterMult: { type: Number, default: 0.8, min: 0.5, max: 3 },
+  vpMinBet: { type: Number, default: 1, min: 0.01 },
+  vpMaxBet: { type: Number, default: 50000, min: 1 },
+
   // Common
   isActive: { type: Boolean, default: true },
   

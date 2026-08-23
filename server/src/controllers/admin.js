@@ -24,7 +24,10 @@ import { invalidateRouletteSettingsCache } from '../services/inhouse/rouletteGam
 import {
   invalidateMinesSettingsCache, invalidateDiceSettingsCache, invalidateLimboSettingsCache,
   invalidateHiloSettingsCache, invalidateDragonTigerSettingsCache,
+  invalidatePlinkoSettingsCache, invalidateWheelSettingsCache, invalidateKenoSettingsCache,
+  invalidateBaccaratSettingsCache, invalidateBlackjackSettingsCache, invalidateVideoPokerSettingsCache,
 } from '../routes/inhouse.js';
+import { simulateBlackjackRtp, simulateVideoPokerRtp } from '../services/inhouse/rtpSimulator.js';
 import { setFeaturedGameCodes as setFeaturedGameCodesImpl, getFeaturedGameCodes } from '../games/index.js';
 
 // Phase B13 — ReDoS protection
@@ -1009,6 +1012,12 @@ const GAME_CACHE_INVALIDATORS = {
   'inhouse-limbo': invalidateLimboSettingsCache,
   'inhouse-hilo': invalidateHiloSettingsCache,
   'inhouse-dragontiger': invalidateDragonTigerSettingsCache,
+  'inhouse-plinko': invalidatePlinkoSettingsCache,
+  'inhouse-wheel': invalidateWheelSettingsCache,
+  'inhouse-keno': invalidateKenoSettingsCache,
+  'inhouse-baccarat': invalidateBaccaratSettingsCache,
+  'inhouse-blackjack': invalidateBlackjackSettingsCache,
+  'inhouse-videopoker': invalidateVideoPokerSettingsCache,
 };
 
 export async function updateGameSettings(req, res, next) {
@@ -1021,6 +1030,29 @@ export async function updateGameSettings(req, res, next) {
     const { settings, changes } = await updateGameSettingsImpl(gameId, updates, req.user.id, { reason });
     GAME_CACHE_INVALIDATORS[gameId]();
     res.json({ settings, changes });
+  } catch (e) {
+    next(e);
+  }
+}
+
+const RTP_SIMULATORS = {
+  'inhouse-blackjack': simulateBlackjackRtp,
+  'inhouse-videopoker': simulateVideoPokerRtp,
+};
+
+// RTP'si oyuncu kararına bağlı oyunlar (Blackjack/Video Poker) için Monte
+// Carlo tahmini — kaydedilmemiş aday ayarlarla, admin kaydetmeden önce
+// "bu ayarlarla RTP ne olur" görebilsin diye. Yan etkisi yok, DB'ye yazmaz.
+export async function simulateGameRtp(req, res, next) {
+  try {
+    const { gameId } = req.params;
+    const simulator = RTP_SIMULATORS[gameId];
+    if (!simulator) {
+      return res.status(400).json({ error: { code: 'UNKNOWN_GAME', message: `Bu oyun için simülasyon desteklenmiyor: ${gameId}` } });
+    }
+    const { hands, ...candidateSettings } = req.validated;
+    const result = simulator(candidateSettings, hands);
+    res.json(result);
   } catch (e) {
     next(e);
   }

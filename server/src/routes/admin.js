@@ -2,7 +2,7 @@ import { Router } from 'express';
 import { requireAuth, requireAdmin } from '../middleware/auth.js';
 import { auditLog } from '../middleware/audit.js';
 import { validate } from '../middleware/validate.js';
-import { createEventSchema, settleEventSchema, createUserSchema, updateBalanceSchema, updateThemeSchema, updateBrandingSchema, updateHomeContentSchema, updateFeaturedGamesSchema, applyThemePresetSchema, updateGameSettingsSchema } from '../validators/admin.js';
+import { createEventSchema, settleEventSchema, createUserSchema, updateBalanceSchema, updateThemeSchema, updateBrandingSchema, updateHomeContentSchema, updateFeaturedGamesSchema, applyThemePresetSchema, updateGameSettingsSchema, simulateRtpSchema } from '../validators/admin.js';
 import * as ctrl from '../controllers/admin.js';
 import modulesAdminRouter from '../controllers/modules.js';
 import { timezoneStore } from '../services/timezoneLive.js';
@@ -83,6 +83,7 @@ r.patch('/games/featured', validate(updateFeaturedGamesSchema), ctrl.updateFeatu
 // Oyun limitleri, RTP ve house edge ayarları (O6)
 r.get('/game-settings',              ctrl.getGameSettings);
 r.patch('/game-settings/:gameId',    blockDemoAdmin, validate(updateGameSettingsSchema), ctrl.updateGameSettings);
+r.post('/game-settings/:gameId/simulate-rtp', validate(simulateRtpSchema), ctrl.simulateGameRtp);
 
 // Alarm kanalı ayarları
 r.get('/settings/alerts',       ctrl.getAlertSettings);

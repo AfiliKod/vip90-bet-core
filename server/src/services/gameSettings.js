@@ -65,6 +65,60 @@ export async function initDefaultGameSettings() {
       dragonTigerMinBet: 1,
       dragonTigerMaxBet: 50000,
     },
+    {
+      gameId: 'inhouse-plinko',
+      gameTitle: 'Plinko',
+      plinkoPayoutScale: 1.0,
+      plinkoMinBet: 1,
+      plinkoMaxBet: 50000,
+    },
+    {
+      gameId: 'inhouse-wheel',
+      gameTitle: 'Wheel',
+      wheelPayoutScale: 1.0,
+      wheelMinBet: 1,
+      wheelMaxBet: 50000,
+    },
+    {
+      gameId: 'inhouse-keno',
+      gameTitle: 'Keno',
+      kenoPayoutScale: 1.0,
+      kenoMinBet: 1,
+      kenoMaxBet: 50000,
+    },
+    {
+      gameId: 'inhouse-baccarat',
+      gameTitle: 'Baccarat',
+      baccaratBankerMultiplier: 1.7,
+      baccaratPlayerMultiplier: 1.75,
+      baccaratTieMultiplier: 8,
+      baccaratMinBet: 1,
+      baccaratMaxBet: 50000,
+    },
+    {
+      gameId: 'inhouse-blackjack',
+      gameTitle: 'Blackjack',
+      blackjackPayoutMult: 2.0,
+      blackjackWinMult: 1.4,
+      dealerHitsSoft17: true,
+      blackjackMinBet: 1,
+      blackjackMaxBet: 50000,
+    },
+    {
+      gameId: 'inhouse-videopoker',
+      gameTitle: 'Video Poker',
+      vpRoyalFlushMult: 656,
+      vpStraightFlushMult: 41,
+      vpFourKindMult: 21,
+      vpFullHouseMult: 7,
+      vpFlushMult: 5,
+      vpStraightMult: 3,
+      vpThreeKindMult: 2.5,
+      vpTwoPairMult: 1.5,
+      vpJacksOrBetterMult: 0.8,
+      vpMinBet: 1,
+      vpMaxBet: 50000,
+    },
   ];
 
   // find+create yerine atomik upsert: eşzamanlı çağrılar (crashGame.js ve
@@ -129,6 +183,22 @@ export async function updateGameSettings(gameId, updates, adminId, options = {})
     // Dragon Tiger
     'dragonTigerWinMultiplier', 'dragonTigerTieMultiplier', 'dragonTigerTiePushMultiplier',
     'dragonTigerMinBet', 'dragonTigerMaxBet',
+    // Plinko
+    'plinkoPayoutScale', 'plinkoMinBet', 'plinkoMaxBet',
+    // Wheel
+    'wheelPayoutScale', 'wheelMinBet', 'wheelMaxBet',
+    // Keno
+    'kenoPayoutScale', 'kenoMinBet', 'kenoMaxBet',
+    // Baccarat
+    'baccaratBankerMultiplier', 'baccaratPlayerMultiplier', 'baccaratTieMultiplier',
+    'baccaratMinBet', 'baccaratMaxBet',
+    // Blackjack
+    'blackjackPayoutMult', 'blackjackWinMult', 'dealerHitsSoft17',
+    'blackjackMinBet', 'blackjackMaxBet',
+    // Video Poker
+    'vpRoyalFlushMult', 'vpStraightFlushMult', 'vpFourKindMult', 'vpFullHouseMult',
+    'vpFlushMult', 'vpStraightMult', 'vpThreeKindMult', 'vpTwoPairMult', 'vpJacksOrBetterMult',
+    'vpMinBet', 'vpMaxBet',
     // Common
     'isActive',
   ];
@@ -163,7 +233,7 @@ export async function updateGameSettings(gameId, updates, adminId, options = {})
   // Tekil alan aralıkları (ör. payoutFactor 0.5-0.99) zaten şema seviyesinde
   // (models/GameSettings.js) min/max ile korunuyor; burada yalnızca
   // şemanın ifade edemediği çapraz alan kısıtı (max >= min) kontrol ediliyor.
-  for (const prefix of ['mines', 'dice', 'limbo', 'hilo', 'dragonTiger']) {
+  for (const prefix of ['mines', 'dice', 'limbo', 'hilo', 'dragonTiger', 'plinko', 'wheel', 'keno', 'baccarat', 'blackjack', 'vp']) {
     const minKey = `${prefix}MinBet`;
     const maxKey = `${prefix}MaxBet`;
     if (updateData[minKey] !== undefined && updateData[minKey] <= 0) {
@@ -234,4 +304,28 @@ export async function getHiloSettings() {
 
 export async function getDragonTigerSettings() {
   return getGameSettings('inhouse-dragontiger');
+}
+
+export async function getPlinkoSettings() {
+  return getGameSettings('inhouse-plinko');
+}
+
+export async function getWheelSettings() {
+  return getGameSettings('inhouse-wheel');
+}
+
+export async function getKenoSettings() {
+  return getGameSettings('inhouse-keno');
+}
+
+export async function getBaccaratSettings() {
+  return getGameSettings('inhouse-baccarat');
+}
+
+export async function getBlackjackSettings() {
+  return getGameSettings('inhouse-blackjack');
+}
+
+export async function getVideoPokerSettings() {
+  return getGameSettings('inhouse-videopoker');
 }

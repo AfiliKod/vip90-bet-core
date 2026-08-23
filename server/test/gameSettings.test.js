@@ -24,7 +24,7 @@ describe('Game Settings', () => {
       await initDefaultGameSettings();
 
       const count = await GameSettings.countDocuments();
-      assert.equal(count, 7);
+      assert.equal(count, 13);
 
       const crash = await GameSettings.findOne({ gameId: 'inhouse-crash' });
       assert.ok(crash);
@@ -72,6 +72,39 @@ describe('Game Settings', () => {
       assert.equal(dragonTiger.dragonTigerWinMultiplier, 1.6);
       assert.equal(dragonTiger.dragonTigerTieMultiplier, 13);
       assert.equal(dragonTiger.dragonTigerTiePushMultiplier, 0.5);
+    });
+
+    it('should create default settings for the 6 Faz-2 games', async () => {
+      await initDefaultGameSettings();
+
+      const plinko = await GameSettings.findOne({ gameId: 'inhouse-plinko' });
+      assert.ok(plinko);
+      assert.equal(plinko.plinkoPayoutScale, 1.0);
+
+      const wheel = await GameSettings.findOne({ gameId: 'inhouse-wheel' });
+      assert.ok(wheel);
+      assert.equal(wheel.wheelPayoutScale, 1.0);
+
+      const keno = await GameSettings.findOne({ gameId: 'inhouse-keno' });
+      assert.ok(keno);
+      assert.equal(keno.kenoPayoutScale, 1.0);
+
+      const baccarat = await GameSettings.findOne({ gameId: 'inhouse-baccarat' });
+      assert.ok(baccarat);
+      assert.equal(baccarat.baccaratBankerMultiplier, 1.7);
+      assert.equal(baccarat.baccaratPlayerMultiplier, 1.75);
+      assert.equal(baccarat.baccaratTieMultiplier, 8);
+
+      const blackjack = await GameSettings.findOne({ gameId: 'inhouse-blackjack' });
+      assert.ok(blackjack);
+      assert.equal(blackjack.blackjackPayoutMult, 2.0);
+      assert.equal(blackjack.blackjackWinMult, 1.4);
+      assert.equal(blackjack.dealerHitsSoft17, true);
+
+      const vp = await GameSettings.findOne({ gameId: 'inhouse-videopoker' });
+      assert.ok(vp);
+      assert.equal(vp.vpJacksOrBetterMult, 0.8);
+      assert.equal(vp.vpRoyalFlushMult, 656);
     });
 
     it('should not create duplicates on second call', async () => {
@@ -126,10 +159,12 @@ describe('Game Settings', () => {
       await initDefaultGameSettings();
       
       const settings = await getAllGameSettings();
-      assert.equal(settings.length, 7);
+      assert.equal(settings.length, 13);
       assert.deepEqual(settings.map(s => s.gameId), [
-        'inhouse-crash', 'inhouse-dice', 'inhouse-dragontiger',
-        'inhouse-hilo', 'inhouse-limbo', 'inhouse-mines', 'inhouse-roulette',
+        'inhouse-baccarat', 'inhouse-blackjack', 'inhouse-crash', 'inhouse-dice',
+        'inhouse-dragontiger', 'inhouse-hilo', 'inhouse-keno', 'inhouse-limbo',
+        'inhouse-mines', 'inhouse-plinko', 'inhouse-roulette', 'inhouse-videopoker',
+        'inhouse-wheel',
       ]);
     });
   });
@@ -227,6 +262,71 @@ describe('Game Settings', () => {
       assert.equal(result.settings.minesMinBet, 5);
       assert.equal(result.settings.minesMaxBet, 10000);
       assert.equal(result.changes.length, 3);
+    });
+
+    it('should update baccarat multipliers with change log', async () => {
+      await initDefaultGameSettings();
+
+      const admin = await User.create({
+        username: 'admin',
+        email: 'admin@example.com',
+        password: 'password123',
+        role: 'admin',
+      });
+
+      const result = await updateGameSettings('inhouse-baccarat', {
+        baccaratBankerMultiplier: 1.95,
+        baccaratPlayerMultiplier: 2.0,
+        baccaratTieMultiplier: 9,
+      }, admin._id, { reason: 'Standart bakara oranlarına yaklaştırma' });
+
+      assert.equal(result.settings.baccaratBankerMultiplier, 1.95);
+      assert.equal(result.settings.baccaratPlayerMultiplier, 2.0);
+      assert.equal(result.settings.baccaratTieMultiplier, 9);
+      assert.equal(result.changes.length, 3);
+    });
+
+    it('should toggle blackjack dealerHitsSoft17 and payout multipliers', async () => {
+      await initDefaultGameSettings();
+
+      const admin = await User.create({
+        username: 'admin',
+        email: 'admin@example.com',
+        password: 'password123',
+        role: 'admin',
+      });
+
+      const result = await updateGameSettings('inhouse-blackjack', {
+        dealerHitsSoft17: false,
+        blackjackPayoutMult: 2.5,
+        blackjackWinMult: 2.0,
+      }, admin._id, { reason: 'Standart 3:2 + S17 kuralına dönüş' });
+
+      assert.equal(result.settings.dealerHitsSoft17, false);
+      assert.equal(result.settings.blackjackPayoutMult, 2.5);
+      assert.equal(result.settings.blackjackWinMult, 2.0);
+      assert.equal(result.changes.length, 3);
+    });
+
+    it('should reject plinko max bet below min bet', async () => {
+      await initDefaultGameSettings();
+
+      const admin = await User.create({
+        username: 'admin',
+        email: 'admin@example.com',
+        password: 'password123',
+        role: 'admin',
+      });
+
+      try {
+        await updateGameSettings('inhouse-plinko', {
+          plinkoMinBet: 100,
+          plinkoMaxBet: 10,
+        }, admin._id);
+        assert.fail('Should have thrown error');
+      } catch (err) {
+        assert.ok(err.message.includes('Max bet min betten büyük olmalı'));
+      }
     });
 
     it('should reject dragon tiger max bet below min bet', async () => {

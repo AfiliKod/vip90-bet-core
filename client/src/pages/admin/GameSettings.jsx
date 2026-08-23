@@ -51,6 +51,78 @@ function dragonTigerRtp(form) {
   };
 }
 
+/**
+ * Plinko/Wheel/Keno: gerçek ödeme tablosuna (routes/inhouse.js —
+ * PLINKO_MULT/WHEEL_SEGMENTS/KENO_PAYOUTS) doğrudan uygulanan tek bir
+ * `payoutScale` çarpanı düzenlenebilir (bkz. Faz 2 planı — hücre bazlı
+ * tam tablo editörü yerine tercih edilen tasarım). Aşağıdaki tablolar
+ * yalnızca CANLI RTP ÖNİZLEMESİ için client'a kopyalandı — routes/
+ * inhouse.js'teki gerçek tablolarla senkron tutulmalı.
+ */
+const PLINKO_MULT = {
+  // low.16: routes/inhouse.js'teki NaN-bakiye hatası düzeltmesiyle senkron
+  // (eksik uç değerler tablonun kendi geometrik oranıyla tamamlandı).
+  low: { 16: [22.4, 12.6, 7.1, 1.6, 1.1, 0.9, 0.8, 0.4, 0.2, 0.4, 0.8, 0.9, 1.1, 1.6, 7.1, 12.6, 22.4] },
+  medium: { 16: [87, 32, 7.9, 4, 2.4, 1.2, 0.8, 0.4, 0.2, 0.4, 0.8, 1.2, 2.4, 4, 7.9, 32, 87] },
+  high: { 16: [789, 102, 20.5, 7.1, 3.2, 1.6, 0.6, 0.2, 0.1, 0.2, 0.6, 1.6, 3.2, 7.1, 20.5, 102, 789] },
+};
+
+const WHEEL_SEGMENTS = {
+  low: [{ m: 0, w: 45 }, { m: 0.75, w: 30 }, { m: 1.5, w: 15 }, { m: 2.5, w: 7 }, { m: 4, w: 2 }, { m: 8, w: 1 }],
+  medium: [{ m: 0, w: 62 }, { m: 0.5, w: 20 }, { m: 1.5, w: 10 }, { m: 4, w: 6 }, { m: 10, w: 1 }, { m: 18, w: 1 }],
+  high: [{ m: 0, w: 87 }, { m: 0.5, w: 6 }, { m: 2, w: 4 }, { m: 8, w: 2 }, { m: 50, w: 1 }],
+};
+
+const KENO_PAYOUTS = {
+  1: [0, 3.0], 2: [0, 0, 5.5], 3: [0, 0, 2.0, 11.8], 4: [0, 0, 1.2, 4.0, 23.7],
+  5: [0, 0, 0.9, 1.6, 7.9, 63], 10: [0, 0, 0, 0.8, 0.9, 1.6, 4.0, 15.8, 79, 790, 7900],
+};
+
+function binomCoeff(n, k) {
+  let res = 1;
+  for (let i = 0; i < k; i++) res = res * (n - i) / (i + 1);
+  return res;
+}
+
+function plinkoBaseRtp(risk) {
+  const table = PLINKO_MULT[risk][16];
+  const n = 16;
+  let rtp = 0;
+  for (let k = 0; k <= n; k++) rtp += (binomCoeff(n, k) / 2 ** n) * table[k];
+  return rtp * 100;
+}
+
+function wheelBaseRtp(risk) {
+  const segs = WHEEL_SEGMENTS[risk];
+  const total = segs.reduce((a, s) => a + s.w, 0);
+  return (segs.reduce((a, s) => a + s.w * s.m, 0) / total) * 100;
+}
+
+function kenoBaseRtpRange() {
+  const N = 40, K = 10;
+  let min = Infinity, max = -Infinity;
+  for (const picks of Object.keys(KENO_PAYOUTS).map(Number)) {
+    const table = KENO_PAYOUTS[picks];
+    let rtp = 0;
+    for (let k = 0; k <= picks; k++) rtp += (binomCoeff(K, k) * binomCoeff(N - K, picks - k) / binomCoeff(N, picks)) * (table[k] ?? 0);
+    min = Math.min(min, rtp * 100);
+    max = Math.max(max, rtp * 100);
+  }
+  return { min, max };
+}
+
+// Bakara: mekanik sabit (oyuncu kararı yok), standart 6 desteli bakara
+// için yayınlanmış olasılıklar (Dragon Tiger'daki gibi kapalı-form).
+const BACCARAT_PROB = { banker: 0.4586, player: 0.4462, tie: 0.0952 };
+
+function baccaratRtp(form) {
+  return {
+    banker: BACCARAT_PROB.banker * (Number(form.baccaratBankerMultiplier) || 0) * 100,
+    player: BACCARAT_PROB.player * (Number(form.baccaratPlayerMultiplier) || 0) * 100,
+    tie: BACCARAT_PROB.tie * (Number(form.baccaratTieMultiplier) || 0) * 100,
+  };
+}
+
 const CRASH_FIELDS = [
   { key: 'crashHouseEdgePercent', type: 'number', step: '0.1', transform: 'houseEdgeToRtp', min: 50, max: 100 },
   { key: 'crashMinBet', type: 'number', step: '0.01' },
@@ -101,6 +173,54 @@ const DRAGONTIGER_FIELDS = [
   { key: 'dragonTigerMaxBet', type: 'number', step: '1' },
 ];
 
+const PLINKO_FIELDS = [
+  { key: 'plinkoPayoutScale', type: 'number', step: '0.01', min: 0.5, max: 1.3 },
+  { key: 'plinkoMinBet', type: 'number', step: '0.01' },
+  { key: 'plinkoMaxBet', type: 'number', step: '1' },
+];
+
+const WHEEL_FIELDS = [
+  { key: 'wheelPayoutScale', type: 'number', step: '0.01', min: 0.5, max: 1.3 },
+  { key: 'wheelMinBet', type: 'number', step: '0.01' },
+  { key: 'wheelMaxBet', type: 'number', step: '1' },
+];
+
+const KENO_FIELDS = [
+  { key: 'kenoPayoutScale', type: 'number', step: '0.01', min: 0.5, max: 1.3 },
+  { key: 'kenoMinBet', type: 'number', step: '0.01' },
+  { key: 'kenoMaxBet', type: 'number', step: '1' },
+];
+
+const BACCARAT_FIELDS = [
+  { key: 'baccaratBankerMultiplier', type: 'number', step: '0.01', min: 1.5, max: 2.0 },
+  { key: 'baccaratPlayerMultiplier', type: 'number', step: '0.01', min: 1.5, max: 2.0 },
+  { key: 'baccaratTieMultiplier', type: 'number', step: '0.5', min: 4, max: 15 },
+  { key: 'baccaratMinBet', type: 'number', step: '0.01' },
+  { key: 'baccaratMaxBet', type: 'number', step: '1' },
+];
+
+const BLACKJACK_FIELDS = [
+  { key: 'blackjackPayoutMult', type: 'number', step: '0.05', min: 1.5, max: 2.5 },
+  { key: 'blackjackWinMult', type: 'number', step: '0.05', min: 1.0, max: 2.0 },
+  { key: 'blackjackMinBet', type: 'number', step: '0.01' },
+  { key: 'blackjackMaxBet', type: 'number', step: '1' },
+];
+const BLACKJACK_BOOL_FIELDS = [{ key: 'dealerHitsSoft17' }];
+
+const VIDEOPOKER_FIELDS = [
+  { key: 'vpRoyalFlushMult', type: 'number', step: '1', min: 100, max: 1000 },
+  { key: 'vpStraightFlushMult', type: 'number', step: '1', min: 10, max: 100 },
+  { key: 'vpFourKindMult', type: 'number', step: '1', min: 5, max: 50 },
+  { key: 'vpFullHouseMult', type: 'number', step: '0.5', min: 1, max: 15 },
+  { key: 'vpFlushMult', type: 'number', step: '0.5', min: 1, max: 15 },
+  { key: 'vpStraightMult', type: 'number', step: '0.5', min: 1, max: 10 },
+  { key: 'vpThreeKindMult', type: 'number', step: '0.5', min: 0.5, max: 5 },
+  { key: 'vpTwoPairMult', type: 'number', step: '0.5', min: 0.5, max: 5 },
+  { key: 'vpJacksOrBetterMult', type: 'number', step: '0.1', min: 0.5, max: 3 },
+  { key: 'vpMinBet', type: 'number', step: '0.01' },
+  { key: 'vpMaxBet', type: 'number', step: '1' },
+];
+
 const FIELDS_BY_GAME = {
   'inhouse-crash': CRASH_FIELDS,
   'inhouse-roulette': ROULETTE_FIELDS,
@@ -109,6 +229,28 @@ const FIELDS_BY_GAME = {
   'inhouse-limbo': LIMBO_FIELDS,
   'inhouse-hilo': HILO_FIELDS,
   'inhouse-dragontiger': DRAGONTIGER_FIELDS,
+  'inhouse-plinko': PLINKO_FIELDS,
+  'inhouse-wheel': WHEEL_FIELDS,
+  'inhouse-keno': KENO_FIELDS,
+  'inhouse-baccarat': BACCARAT_FIELDS,
+  'inhouse-blackjack': BLACKJACK_FIELDS,
+  'inhouse-videopoker': VIDEOPOKER_FIELDS,
+};
+
+const BOOL_FIELDS_BY_GAME = {
+  'inhouse-blackjack': BLACKJACK_BOOL_FIELDS,
+};
+
+// Blackjack/Video Poker RTP'si oyuncu kararına bağlı — sunucuda Monte Carlo
+// simülasyonuyla tahmin edilir ("Hesapla" butonu). Bu liste, hangi alanların
+// simülasyona gönderileceğini belirtir (bahis limitleri RTP'yi etkilemediği
+// için dahil edilmez).
+const SIM_FIELDS_BY_GAME = {
+  'inhouse-blackjack': ['blackjackPayoutMult', 'blackjackWinMult', 'dealerHitsSoft17'],
+  'inhouse-videopoker': [
+    'vpRoyalFlushMult', 'vpStraightFlushMult', 'vpFourKindMult', 'vpFullHouseMult',
+    'vpFlushMult', 'vpStraightMult', 'vpThreeKindMult', 'vpTwoPairMult', 'vpJacksOrBetterMult',
+  ],
 };
 
 // Tek bir RTP alanı yerine birden çok değişkenin RTP'yi birlikte belirlediği
@@ -122,12 +264,48 @@ const RTP_CALC_BY_GAME = {
       { label: t('admin.gameSettings.dragonTiger.rtpTie'), value: r.tie },
     ];
   },
+  'inhouse-plinko': (t, form) => {
+    const scale = Number(form.plinkoPayoutScale) || 0;
+    return ['low', 'medium', 'high'].map(risk => ({
+      label: t(`admin.gameSettings.risk.${risk}`),
+      value: plinkoBaseRtp(risk) * scale,
+    }));
+  },
+  'inhouse-wheel': (t, form) => {
+    const scale = Number(form.wheelPayoutScale) || 0;
+    return ['low', 'medium', 'high'].map(risk => ({
+      label: t(`admin.gameSettings.risk.${risk}`),
+      value: wheelBaseRtp(risk) * scale,
+    }));
+  },
+  'inhouse-keno': (t, form) => {
+    const scale = Number(form.kenoPayoutScale) || 0;
+    const { min, max } = kenoBaseRtpRange();
+    return [
+      { label: t('admin.gameSettings.keno.rtpMin'), value: min * scale },
+      { label: t('admin.gameSettings.keno.rtpMax'), value: max * scale },
+    ];
+  },
+  'inhouse-baccarat': (t, form) => {
+    const r = baccaratRtp(form);
+    return [
+      { label: t('admin.gameSettings.baccarat.rtpBanker'), value: r.banker },
+      { label: t('admin.gameSettings.baccarat.rtpPlayer'), value: r.player },
+      { label: t('admin.gameSettings.baccarat.rtpTie'), value: r.tie },
+    ];
+  },
 };
 
 // Tek bir RTP alanına indirgenemeyen oyunlar için: alanların ne olduğunu ve
 // RTP'yi nasıl etkilediğini anlatan bilgi kutusu (i18n anahtarı).
 const INFO_NOTE_BY_GAME = {
   'inhouse-dragontiger': 'admin.gameSettings.dragonTiger.info',
+  'inhouse-plinko': 'admin.gameSettings.payoutScale.info',
+  'inhouse-wheel': 'admin.gameSettings.payoutScale.info',
+  'inhouse-keno': 'admin.gameSettings.payoutScale.info',
+  'inhouse-baccarat': 'admin.gameSettings.baccarat.info',
+  'inhouse-blackjack': 'admin.gameSettings.simulate.info',
+  'inhouse-videopoker': 'admin.gameSettings.simulate.info',
 };
 
 function toDisplay(f, raw) {
@@ -144,7 +322,56 @@ function fromDisplay(f, display) {
   return Number(display);
 }
 
-function GameCard({ t, settings, fields, onSave, busy, staticRtpNote, rtpCalc, infoNoteKey }) {
+/** Blackjack/Video Poker: RTP oyuncu kararına bağlı, kapalı formda hesaplanamaz.
+ * Sunucuda gerçek oyun mantığıyla (kaydedilmemiş form değerleriyle) Monte
+ * Carlo simülasyonu çalıştırır — tam kombinatorik/kesin RTP DEĞİL, ±güven
+ * aralığıyla bir tahmin.
+ */
+function SimulateRtpButton({ t, gameId, form, simFields }) {
+  const [result, setResult] = useState(null);
+  const [loading, setLoading] = useState(false);
+  const [err, setErr] = useState(false);
+
+  async function run() {
+    setLoading(true);
+    setErr(false);
+    setResult(null);
+    try {
+      const payload = Object.fromEntries(simFields.map(key => [key, form[key]]));
+      const r = await api.post(`/admin/game-settings/${gameId}/simulate-rtp`, payload);
+      setResult(r.data);
+    } catch {
+      setErr(true);
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  return (
+    <div className="mb-4 px-3 py-2 rounded-lg bg-white/5 border border-white/10 text-xs">
+      <div className="flex items-center justify-between gap-2">
+        <span className="text-text-3">{t('admin.gameSettings.simulate.label')}</span>
+        <button
+          onClick={run}
+          disabled={loading}
+          type="button"
+          className="px-3 py-1.5 rounded-lg bg-white/10 hover:bg-white/15 text-text-1 text-xs font-medium disabled:opacity-40 transition"
+        >
+          {loading ? t('admin.gameSettings.simulate.running') : t('admin.gameSettings.simulate.button')}
+        </button>
+      </div>
+      {result && (
+        <div className="mt-2 text-text-1 font-medium">
+          RTP: {result.rtp.toFixed(2)}% ± {result.marginOfError.toFixed(2)}%
+          <span className="text-text-3 font-normal"> ({result.hands.toLocaleString()} {t('admin.gameSettings.simulate.hands')})</span>
+        </div>
+      )}
+      {err && <div className="mt-2 text-red-300">{t('admin.gameSettings.saveError')}</div>}
+    </div>
+  );
+}
+
+function GameCard({ t, settings, fields, boolFields = [], onSave, busy, staticRtpNote, rtpCalc, infoNoteKey, simFields }) {
   const [form, setForm] = useState(settings);
 
   useEffect(() => { setForm(settings); }, [settings]);
@@ -154,6 +381,7 @@ function GameCard({ t, settings, fields, onSave, busy, staticRtpNote, rtpCalc, i
   }
 
   const changed = fields.some(f => Number(form[f.key]) !== Number(settings[f.key]))
+    || boolFields.some(f => form[f.key] !== settings[f.key])
     || form.isActive !== settings.isActive;
 
   return (
@@ -196,6 +424,30 @@ function GameCard({ t, settings, fields, onSave, busy, staticRtpNote, rtpCalc, i
           ))}
         </div>
       )}
+
+      {simFields && <SimulateRtpButton t={t} gameId={settings.gameId} form={form} simFields={simFields} />}
+
+      {boolFields.map(f => {
+        const helpKey = `admin.gameSettings.field.${f.key}.help`;
+        const help = t(helpKey);
+        return (
+          <div key={f.key} className="mb-3 px-3 py-2 rounded-lg bg-white/5 border border-white/10">
+            <div className="flex items-center justify-between gap-2">
+              <span className="text-xs text-text-3">{t(`admin.gameSettings.field.${f.key}`)}</span>
+              <button
+                onClick={() => setField(f.key, !form[f.key])}
+                role="switch"
+                aria-checked={!!form[f.key]}
+                type="button"
+                className={`relative w-10 h-5 rounded-full transition shrink-0 ${form[f.key] ? 'bg-green-500/80' : 'bg-white/10'}`}
+              >
+                <span className={`absolute top-0.5 left-0.5 w-4 h-4 rounded-full bg-white transition-transform ${form[f.key] ? 'translate-x-5' : ''}`} />
+              </button>
+            </div>
+            {help !== helpKey && <div className="mt-1 text-[11px] text-text-3/70 leading-snug">{help}</div>}
+          </div>
+        );
+      })}
 
       <div className="grid grid-cols-2 gap-3 mb-4">
         {fields.map(f => {
@@ -291,6 +543,8 @@ export default function AdminGameSettings() {
               staticRtpNote={s.gameId === 'inhouse-roulette' ? ROULETTE_RTP_FIXED.toFixed(1) : null}
               rtpCalc={RTP_CALC_BY_GAME[s.gameId]}
               infoNoteKey={INFO_NOTE_BY_GAME[s.gameId]}
+              boolFields={BOOL_FIELDS_BY_GAME[s.gameId] ?? []}
+              simFields={SIM_FIELDS_BY_GAME[s.gameId]}
             />
           ))}
         </div>
