@@ -3,16 +3,31 @@ import api from '../../services/api';
 import { useTranslation } from '../../i18n';
 
 /**
- * O6 — Oyun limitleri, RTP ve house edge ayarları.
+ * O6 — Oyun limitleri, RTP ve bahis limitleri.
  *
  * Backend (services/gameSettings.js) zaten crashGame.js/rouletteGame.js
  * tarafından okunuyordu; buradan yapılan her kaydetme
  * invalidateCrashSettingsCache()/invalidateRouletteSettingsCache() ile
  * çalışan oyunu anında etkiler.
+ *
+ * Terminoloji: DB'de/kodda hâlâ "houseEdgePercent" olarak saklanıyor
+ * (crashGame.js'in calcCrashPoint'i bu değeri doğrudan kullanıyor,
+ * oyun mantığına dokunulmadı) ama operatörün asıl bildiği/aradığı terim
+ * RTP olduğu için burada yalnızca SUNUM katmanında RTP = 100 − houseEdge
+ * olarak gösterilip düzenleniyor; kaydederken tekrar houseEdge'e çevrilip
+ * gönderiliyor. `rtp: true` işaretli alanlar bu dönüşümden geçiyor.
+ *
+ * Roulette'in "house edge"i DÜZENLENEBİLİR DEĞİL: rouletteGame.js sayı
+ * üretimini `hash % 37` ile yapıyor (gerçek Avrupa ruleti, tek sıfır) —
+ * rouletteHouseEdgePercent alanı kodun hiçbir yerinden okunmuyor, yani
+ * eskiden burada düzenlenebilir bir alan olarak göstermek yanıltıcıydı.
+ * Artık sabit/bilgilendirici bir satır olarak gösteriliyor.
  */
 
+const ROULETTE_RTP_FIXED = 100 - (100 / 37); // ≈ %97,3 — 37 cepli tekerleğin matematiği
+
 const CRASH_FIELDS = [
-  { key: 'crashHouseEdgePercent', type: 'number', step: '0.1' },
+  { key: 'crashHouseEdgePercent', type: 'number', step: '0.1', rtp: true, min: 50, max: 100 },
   { key: 'crashMinBet', type: 'number', step: '0.01' },
   { key: 'crashMaxBet', type: 'number', step: '1' },
   { key: 'crashTickMs', type: 'number', step: '1' },
@@ -21,7 +36,6 @@ const CRASH_FIELDS = [
 ];
 
 const ROULETTE_FIELDS = [
-  { key: 'rouletteHouseEdgePercent', type: 'number', step: '0.1' },
   { key: 'rouletteMinBet', type: 'number', step: '0.01' },
   { key: 'rouletteMaxBet', type: 'number', step: '1' },
   { key: 'rouletteMaxPayout', type: 'number', step: '1' },
@@ -30,7 +44,17 @@ const ROULETTE_FIELDS = [
   { key: 'rouletteResultMs', type: 'number', step: '1' },
 ];
 
-function GameCard({ t, settings, fields, onSave, busy }) {
+function toDisplay(f, raw) {
+  if (!f.rtp) return raw;
+  return raw === '' || raw == null ? '' : Math.round((100 - Number(raw)) * 10) / 10;
+}
+
+function fromDisplay(f, display) {
+  if (!f.rtp) return display;
+  return display === '' ? '' : Math.round((100 - Number(display)) * 10) / 10;
+}
+
+function GameCard({ t, settings, fields, onSave, busy, staticRtpNote }) {
   const [form, setForm] = useState(settings);
 
   useEffect(() => { setForm(settings); }, [settings]);
@@ -57,6 +81,13 @@ function GameCard({ t, settings, fields, onSave, busy }) {
         </button>
       </div>
 
+      {staticRtpNote && (
+        <div className="mb-4 px-3 py-2 rounded-lg bg-white/5 border border-white/10 text-xs text-text-3">
+          <span className="text-text-1 font-medium">{t('admin.gameSettings.rtpFixedLabel')}: {staticRtpNote}%</span>
+          <div className="mt-0.5">{t('admin.gameSettings.rtpFixedNote')}</div>
+        </div>
+      )}
+
       <div className="grid grid-cols-2 gap-3 mb-4">
         {fields.map(f => (
           <label key={f.key} className="text-xs text-text-3">
@@ -64,8 +95,10 @@ function GameCard({ t, settings, fields, onSave, busy }) {
             <input
               type={f.type}
               step={f.step}
-              value={form[f.key] ?? ''}
-              onChange={e => setField(f.key, e.target.value === '' ? '' : Number(e.target.value))}
+              min={f.min}
+              max={f.max}
+              value={toDisplay(f, form[f.key]) ?? ''}
+              onChange={e => setField(f.key, e.target.value === '' ? '' : fromDisplay(f, e.target.value))}
               className="mt-1 w-full h-9 rounded-lg bg-bg-base border border-white/10 px-3 text-sm text-text-1 focus:outline-none focus:border-primary/50"
             />
           </label>
@@ -141,6 +174,7 @@ export default function AdminGameSettings() {
               fields={s.gameId === 'inhouse-crash' ? CRASH_FIELDS : ROULETTE_FIELDS}
               onSave={form => save(s.gameId, form)}
               busy={busyId === s.gameId}
+              staticRtpNote={s.gameId === 'inhouse-roulette' ? ROULETTE_RTP_FIXED.toFixed(1) : null}
             />
           ))}
         </div>
