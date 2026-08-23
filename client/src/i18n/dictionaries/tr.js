@@ -565,10 +565,16 @@ export default {
   'admin.gameSettings.field.hiloMinBet': 'Min. Bahis',
   'admin.gameSettings.field.hiloMaxBet': 'Maks. Bahis',
   'admin.gameSettings.field.dragonTigerWinMultiplier': 'Kazanç Çarpanı',
+  'admin.gameSettings.field.dragonTigerWinMultiplier.help': 'Dragon veya Tiger bahsi kazanınca bahsin kaç katı ödenir (2.0 = kayıpsız eşit ödeme).',
   'admin.gameSettings.field.dragonTigerTieMultiplier': 'Berabere Çarpanı',
+  'admin.gameSettings.field.dragonTigerTieMultiplier.help': 'Berabere bahsi tutunca ödenen kat. Gerçek olasılığı ~%5,9 — düşük olasılık yüksek çarpanla dengelenir.',
   'admin.gameSettings.field.dragonTigerTiePushMultiplier': 'Berabere İade Çarpanı',
+  'admin.gameSettings.field.dragonTigerTiePushMultiplier.help': 'Dragon/Tiger bahsi varken sonuç berabere çıkarsa bahsin ne kadarı iade edilir (0.5 = yarısı, 0 = tamamı yanar).',
   'admin.gameSettings.field.dragonTigerMinBet': 'Min. Bahis',
   'admin.gameSettings.field.dragonTigerMaxBet': 'Maks. Bahis',
+  'admin.gameSettings.dragonTiger.rtpMain': 'Dragon/Tiger Bahsi RTP',
+  'admin.gameSettings.dragonTiger.rtpTie': 'Berabere Bahsi RTP',
+  'admin.gameSettings.dragonTiger.info': 'Dragon Tiger\'da tek bir RTP alanı yok — üç çarpan birlikte RTP\'yi belirliyor. Tek 52\'lik deste her turda yeniden karılıyor: berabere olasılığı sabit ve matematiksel olarak ~%5,9 (3/51), kazanma olasılığı ~%47,1. Aşağıdaki RTP değerleri girdiğiniz çarpanlara göre canlı hesaplanır — kaydetmeden önce sonucu görebilirsiniz.',
 
   // Admin Analytics
   'admin.analytics.title': 'Analitik & İstatistik',

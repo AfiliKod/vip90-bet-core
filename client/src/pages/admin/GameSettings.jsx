@@ -30,6 +30,27 @@ import { useTranslation } from '../../i18n';
 
 const ROULETTE_RTP_FIXED = 100 - (100 / 37); // ≈ %97,3 — 37 cepli tekerleğin matematiği
 
+/**
+ * Dragon Tiger: tek 52'lik deste, her turda yeniden karılıyor
+ * (routes/inhouse.js — buildDeck52 + dragonTigerDeal). Kartlardan biri
+ * çekildikten sonra kalan 51 kartın 3'ü aynı ranktadır → P(berabere) = 3/51.
+ * Kazanma/kaybetme olasılığı simetrik: (1 − 3/51) / 2.
+ * Tek bir RTP alanı yok (3 farklı çarpan RTP'yi birlikte belirliyor),
+ * bu yüzden admin'e canlı hesaplanan RTP önizlemesi gösteriliyor.
+ */
+const DRAGONTIGER_TIE_PROB = 3 / 51;
+const DRAGONTIGER_WIN_PROB = (1 - DRAGONTIGER_TIE_PROB) / 2;
+
+function dragonTigerRtp(form) {
+  const win = Number(form.dragonTigerWinMultiplier) || 0;
+  const tie = Number(form.dragonTigerTieMultiplier) || 0;
+  const tiePush = Number(form.dragonTigerTiePushMultiplier) || 0;
+  return {
+    main: (DRAGONTIGER_WIN_PROB * win + DRAGONTIGER_TIE_PROB * tiePush) * 100,
+    tie: DRAGONTIGER_TIE_PROB * tie * 100,
+  };
+}
+
 const CRASH_FIELDS = [
   { key: 'crashHouseEdgePercent', type: 'number', step: '0.1', transform: 'houseEdgeToRtp', min: 50, max: 100 },
   { key: 'crashMinBet', type: 'number', step: '0.01' },
@@ -90,6 +111,25 @@ const FIELDS_BY_GAME = {
   'inhouse-dragontiger': DRAGONTIGER_FIELDS,
 };
 
+// Tek bir RTP alanı yerine birden çok değişkenin RTP'yi birlikte belirlediği
+// oyunlar için: canlı hesaplanan RTP önizlemesi. Her giriş { label, value }
+// döndürür (value: 0-100 arası yüzde).
+const RTP_CALC_BY_GAME = {
+  'inhouse-dragontiger': (t, form) => {
+    const r = dragonTigerRtp(form);
+    return [
+      { label: t('admin.gameSettings.dragonTiger.rtpMain'), value: r.main },
+      { label: t('admin.gameSettings.dragonTiger.rtpTie'), value: r.tie },
+    ];
+  },
+};
+
+// Tek bir RTP alanına indirgenemeyen oyunlar için: alanların ne olduğunu ve
+// RTP'yi nasıl etkilediğini anlatan bilgi kutusu (i18n anahtarı).
+const INFO_NOTE_BY_GAME = {
+  'inhouse-dragontiger': 'admin.gameSettings.dragonTiger.info',
+};
+
 function toDisplay(f, raw) {
   if (raw === '' || raw == null) return '';
   if (f.transform === 'houseEdgeToRtp') return Math.round((100 - Number(raw)) * 10) / 10;
@@ -104,7 +144,7 @@ function fromDisplay(f, display) {
   return Number(display);
 }
 
-function GameCard({ t, settings, fields, onSave, busy, staticRtpNote }) {
+function GameCard({ t, settings, fields, onSave, busy, staticRtpNote, rtpCalc, infoNoteKey }) {
   const [form, setForm] = useState(settings);
 
   useEffect(() => { setForm(settings); }, [settings]);
@@ -138,21 +178,45 @@ function GameCard({ t, settings, fields, onSave, busy, staticRtpNote }) {
         </div>
       )}
 
+      {infoNoteKey && t(infoNoteKey) !== infoNoteKey && (
+        <div className="mb-4 px-3 py-2 rounded-lg bg-amber-500/10 border border-amber-500/20 text-xs text-text-3 whitespace-pre-line">
+          {t(infoNoteKey)}
+        </div>
+      )}
+
+      {rtpCalc && (
+        <div className="mb-4 flex flex-wrap gap-2">
+          {rtpCalc(t, form).map(({ label, value }) => (
+            <div key={label} className="px-3 py-2 rounded-lg bg-white/5 border border-white/10 text-xs">
+              <span className="text-text-3">{label}: </span>
+              <span className={`font-medium ${value < 90 ? 'text-amber-400' : 'text-text-1'}`}>
+                {value.toFixed(2)}%
+              </span>
+            </div>
+          ))}
+        </div>
+      )}
+
       <div className="grid grid-cols-2 gap-3 mb-4">
-        {fields.map(f => (
-          <label key={f.key} className="text-xs text-text-3">
-            {t(`admin.gameSettings.field.${f.key}`)}
-            <input
-              type={f.type}
-              step={f.step}
-              min={f.min}
-              max={f.max}
-              value={toDisplay(f, form[f.key]) ?? ''}
-              onChange={e => setField(f.key, e.target.value === '' ? '' : fromDisplay(f, e.target.value))}
-              className="mt-1 w-full h-9 rounded-lg bg-bg-base border border-white/10 px-3 text-sm text-text-1 focus:outline-none focus:border-primary/50"
-            />
-          </label>
-        ))}
+        {fields.map(f => {
+          const helpKey = `admin.gameSettings.field.${f.key}.help`;
+          const help = t(helpKey);
+          return (
+            <label key={f.key} className="text-xs text-text-3">
+              {t(`admin.gameSettings.field.${f.key}`)}
+              <input
+                type={f.type}
+                step={f.step}
+                min={f.min}
+                max={f.max}
+                value={toDisplay(f, form[f.key]) ?? ''}
+                onChange={e => setField(f.key, e.target.value === '' ? '' : fromDisplay(f, e.target.value))}
+                className="mt-1 w-full h-9 rounded-lg bg-bg-base border border-white/10 px-3 text-sm text-text-1 focus:outline-none focus:border-primary/50"
+              />
+              {help !== helpKey && <div className="mt-1 text-[11px] text-text-3/70 leading-snug">{help}</div>}
+            </label>
+          );
+        })}
       </div>
 
       <button
@@ -225,6 +289,8 @@ export default function AdminGameSettings() {
               onSave={form => save(s.gameId, form)}
               busy={busyId === s.gameId}
               staticRtpNote={s.gameId === 'inhouse-roulette' ? ROULETTE_RTP_FIXED.toFixed(1) : null}
+              rtpCalc={RTP_CALC_BY_GAME[s.gameId]}
+              infoNoteKey={INFO_NOTE_BY_GAME[s.gameId]}
             />
           ))}
         </div>

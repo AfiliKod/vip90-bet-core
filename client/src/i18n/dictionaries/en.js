@@ -566,10 +566,16 @@ export default {
   'admin.gameSettings.field.hiloMinBet': 'Min. Bet',
   'admin.gameSettings.field.hiloMaxBet': 'Max. Bet',
   'admin.gameSettings.field.dragonTigerWinMultiplier': 'Win Multiplier',
+  'admin.gameSettings.field.dragonTigerWinMultiplier.help': 'Total return when a Dragon or Tiger bet wins (2.0 = fair even-money payout).',
   'admin.gameSettings.field.dragonTigerTieMultiplier': 'Tie Multiplier',
+  'admin.gameSettings.field.dragonTigerTieMultiplier.help': 'Total return when a Tie bet wins. Real probability is ~5.9% — low odds are offset by a high multiplier.',
   'admin.gameSettings.field.dragonTigerTiePushMultiplier': 'Tie Push-Back Multiplier',
+  'admin.gameSettings.field.dragonTigerTiePushMultiplier.help': 'Fraction of a Dragon/Tiger bet refunded when the result is a tie (0.5 = half back, 0 = full loss).',
   'admin.gameSettings.field.dragonTigerMinBet': 'Min. Bet',
   'admin.gameSettings.field.dragonTigerMaxBet': 'Max. Bet',
+  'admin.gameSettings.dragonTiger.rtpMain': 'Dragon/Tiger Bet RTP',
+  'admin.gameSettings.dragonTiger.rtpTie': 'Tie Bet RTP',
+  'admin.gameSettings.dragonTiger.info': "Dragon Tiger has no single RTP field — three multipliers together determine it. A single 52-card deck is reshuffled every round: the tie probability is fixed at ~5.9% (3/51), win probability ~47.1%. The RTP values below are computed live from the multipliers you enter, so you can see the result before saving.",
 
   // Admin Analytics
   'admin.analytics.title': 'Analytics & Statistics',
