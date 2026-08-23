@@ -73,7 +73,7 @@ function RegionCurrencyCard({ t }) {
 
   return (
     <div className="bg-bg-card border border-white/10 rounded-xl p-4 mb-4">
-      <h2 className="font-semibold text-text-1">🌍 {t('admin.settings.region.title')}</h2>
+      <h2 className="text-lg font-semibold text-text-1">🌍 {t('admin.settings.region.title')}</h2>
       <p className="text-xs text-text-3 mt-0.5 mb-4">{t('admin.settings.region.hint')}</p>
 
       {notice && (
@@ -217,10 +217,12 @@ export default function AdminSettings() {
 
   return (
     <div className="max-w-3xl mx-auto px-4 py-6">
+      <h1 className="text-2xl font-bold text-text-1 mb-6">⚙️ {t('admin.settings.pageTitle')}</h1>
+
       <RegionCurrencyCard t={t} />
 
       <div className="flex items-center justify-between mb-2">
-        <h1 className="text-2xl font-bold text-text-1">🔔 {t('admin.settings.alertChannels')}</h1>
+        <h2 className="text-lg font-semibold text-text-1">🔔 {t('admin.settings.alertChannels')}</h2>
         <button
           onClick={runTest}
           disabled={testing || !anyConfigured}

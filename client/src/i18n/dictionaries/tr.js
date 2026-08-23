@@ -1054,6 +1054,7 @@ export default {
   'admin.settings.savingEllipsis': 'Kaydediliyor…',
   'admin.settings.discard': 'Vazgeç',
 
+  'admin.settings.pageTitle': 'Sistem Ayarları',
   'admin.settings.region.title': 'Bölge ve Para Birimi',
   'admin.settings.region.hint': 'Sitenin genelinde kullanılan para birimi ve operatör saat dilimi.',
   'admin.settings.region.currencyLabel': 'Para Birimi',

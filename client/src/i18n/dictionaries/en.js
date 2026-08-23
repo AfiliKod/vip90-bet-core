@@ -1055,6 +1055,7 @@ export default {
   'admin.settings.savingEllipsis': 'Saving…',
   'admin.settings.discard': 'Discard',
 
+  'admin.settings.pageTitle': 'System Settings',
   'admin.settings.region.title': 'Region & Currency',
   'admin.settings.region.hint': 'The site-wide currency and the operator timezone.',
   'admin.settings.region.currencyLabel': 'Currency',

@@ -80,9 +80,9 @@ export default function AdminDashboard() {
           <div className="text-text-3 text-sm mt-1">Detaylı istatistik ve grafikler</div>
         </Link>
         <Link to="/admin/settings" className="bg-bg-card border border-white/10 rounded-xl p-5 hover:border-accent/30 transition text-center">
-          <div className="text-3xl mb-2">🔔</div>
-          <div className="font-semibold text-text-1">Alarm Kanalları</div>
-          <div className="text-text-3 text-sm mt-1">Telegram, webhook, e-posta bildirimleri</div>
+          <div className="text-3xl mb-2">⚙️</div>
+          <div className="font-semibold text-text-1">Sistem Ayarları</div>
+          <div className="text-text-3 text-sm mt-1">Para birimi, saat dilimi, alarm kanalları</div>
         </Link>
         <Link to="/admin/modules" className="bg-bg-card border border-white/10 rounded-xl p-5 hover:border-primary/30 transition text-center">
           <div className="text-3xl mb-2">🧩</div>
