@@ -28,6 +28,43 @@ export async function initDefaultGameSettings() {
       rouletteSpinMs: 4800,
       rouletteResultMs: 3000,
     },
+    {
+      gameId: 'inhouse-mines',
+      gameTitle: 'Mines',
+      minesPayoutFactor: 0.78,
+      minesMinBet: 1,
+      minesMaxBet: 50000,
+    },
+    {
+      gameId: 'inhouse-dice',
+      gameTitle: 'Dice',
+      dicePayoutFactor: 78,
+      diceMinBet: 1,
+      diceMaxBet: 50000,
+    },
+    {
+      gameId: 'inhouse-limbo',
+      gameTitle: 'Limbo',
+      limboHouseEdgePercent: 20,
+      limboMinBet: 1,
+      limboMaxBet: 50000,
+    },
+    {
+      gameId: 'inhouse-hilo',
+      gameTitle: 'Hi-Lo',
+      hiloPayoutFactor: 0.78,
+      hiloMinBet: 1,
+      hiloMaxBet: 50000,
+    },
+    {
+      gameId: 'inhouse-dragontiger',
+      gameTitle: 'Dragon Tiger',
+      dragonTigerWinMultiplier: 1.6,
+      dragonTigerTieMultiplier: 13,
+      dragonTigerTiePushMultiplier: 0.5,
+      dragonTigerMinBet: 1,
+      dragonTigerMaxBet: 50000,
+    },
   ];
 
   // find+create yerine atomik upsert: eşzamanlı çağrılar (crashGame.js ve
@@ -57,8 +94,14 @@ export async function getGameSettings(gameId) {
 
 /**
  * Get all game settings (admin)
+ *
+ * initDefaultGameSettings() idempotent/atomik upsert olduğu için burada
+ * her çağrıda tekrar tetiklemek güvenli — aksi halde admin paneli, henüz
+ * hiç oynanmamış bir oyunun (dolayısıyla lazy-seed ile hiç DB kaydı
+ * oluşmamış) ayarlarını hiç göstermezdi.
  */
 export async function getAllGameSettings() {
+  await initDefaultGameSettings();
   return GameSettings.find({}).sort({ gameId: 1 });
 }
 
@@ -70,11 +113,22 @@ export async function updateGameSettings(gameId, updates, adminId, options = {})
 
   const allowedFields = [
     // Crash
-    'crashHouseEdgePercent', 'crashMinBet', 'crashMaxBet', 
+    'crashHouseEdgePercent', 'crashMinBet', 'crashMaxBet',
     'crashAutoCashoutEnabled', 'crashTickMs', 'crashWaitMs', 'crashShowMs',
     // Roulette
     'rouletteHouseEdgePercent', 'rouletteMinBet', 'rouletteMaxBet',
     'rouletteMaxPayout', 'rouletteWaitMs', 'rouletteSpinMs', 'rouletteResultMs',
+    // Mines
+    'minesPayoutFactor', 'minesMinBet', 'minesMaxBet',
+    // Dice
+    'dicePayoutFactor', 'diceMinBet', 'diceMaxBet',
+    // Limbo
+    'limboHouseEdgePercent', 'limboMinBet', 'limboMaxBet',
+    // HiLo
+    'hiloPayoutFactor', 'hiloMinBet', 'hiloMaxBet',
+    // Dragon Tiger
+    'dragonTigerWinMultiplier', 'dragonTigerTieMultiplier', 'dragonTigerTiePushMultiplier',
+    'dragonTigerMinBet', 'dragonTigerMaxBet',
     // Common
     'isActive',
   ];
@@ -103,6 +157,21 @@ export async function updateGameSettings(gameId, updates, adminId, options = {})
   }
   if (updateData.crashMaxBet !== undefined && updateData.crashMaxBet < (updateData.crashMinBet || 0)) {
     throw createError(400, 'INVALID_RANGE', 'Max bet min betten büyük olmalı');
+  }
+
+  // Mines/Dice/Limbo/HiLo/Dragon Tiger — minBet/maxBet çapraz kontrolü.
+  // Tekil alan aralıkları (ör. payoutFactor 0.5-0.99) zaten şema seviyesinde
+  // (models/GameSettings.js) min/max ile korunuyor; burada yalnızca
+  // şemanın ifade edemediği çapraz alan kısıtı (max >= min) kontrol ediliyor.
+  for (const prefix of ['mines', 'dice', 'limbo', 'hilo', 'dragonTiger']) {
+    const minKey = `${prefix}MinBet`;
+    const maxKey = `${prefix}MaxBet`;
+    if (updateData[minKey] !== undefined && updateData[minKey] <= 0) {
+      throw createError(400, 'INVALID_RANGE', 'Min bet pozitif olmalı');
+    }
+    if (updateData[maxKey] !== undefined && updateData[maxKey] < (updateData[minKey] || 0)) {
+      throw createError(400, 'INVALID_RANGE', 'Max bet min betten büyük olmalı');
+    }
   }
 
   const settings = await GameSettings.findOne({ gameId }).session(session);
@@ -145,4 +214,24 @@ export async function getCrashSettings() {
  */
 export async function getRouletteSettings() {
   return getGameSettings('inhouse-roulette');
+}
+
+export async function getMinesSettings() {
+  return getGameSettings('inhouse-mines');
+}
+
+export async function getDiceSettings() {
+  return getGameSettings('inhouse-dice');
+}
+
+export async function getLimboSettings() {
+  return getGameSettings('inhouse-limbo');
+}
+
+export async function getHiloSettings() {
+  return getGameSettings('inhouse-hilo');
+}
+
+export async function getDragonTigerSettings() {
+  return getGameSettings('inhouse-dragontiger');
 }

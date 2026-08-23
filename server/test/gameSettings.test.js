@@ -22,23 +22,56 @@ describe('Game Settings', () => {
   describe('initDefaultGameSettings', () => {
     it('should create default settings for Crash and Roulette', async () => {
       await initDefaultGameSettings();
-      
+
       const count = await GameSettings.countDocuments();
-      assert.equal(count, 2);
-      
+      assert.equal(count, 7);
+
       const crash = await GameSettings.findOne({ gameId: 'inhouse-crash' });
       assert.ok(crash);
       assert.equal(crash.gameTitle, 'Crash');
       assert.equal(crash.crashHouseEdgePercent, 20);
       assert.equal(crash.crashMinBet, 1);
       assert.equal(crash.crashMaxBet, 50000);
-      
+
       const roulette = await GameSettings.findOne({ gameId: 'inhouse-roulette' });
       assert.ok(roulette);
       assert.equal(roulette.gameTitle, 'European Roulette');
       assert.equal(roulette.rouletteHouseEdgePercent, 2.7);
       assert.equal(roulette.rouletteMinBet, 1);
       assert.equal(roulette.rouletteMaxBet, 50000);
+    });
+
+    it('should create default settings for the 5 newly wired games', async () => {
+      await initDefaultGameSettings();
+
+      const mines = await GameSettings.findOne({ gameId: 'inhouse-mines' });
+      assert.ok(mines);
+      assert.equal(mines.gameTitle, 'Mines');
+      assert.equal(mines.minesPayoutFactor, 0.78);
+      assert.equal(mines.minesMinBet, 1);
+      assert.equal(mines.minesMaxBet, 50000);
+
+      const dice = await GameSettings.findOne({ gameId: 'inhouse-dice' });
+      assert.ok(dice);
+      assert.equal(dice.gameTitle, 'Dice');
+      assert.equal(dice.dicePayoutFactor, 78);
+
+      const limbo = await GameSettings.findOne({ gameId: 'inhouse-limbo' });
+      assert.ok(limbo);
+      assert.equal(limbo.gameTitle, 'Limbo');
+      assert.equal(limbo.limboHouseEdgePercent, 20);
+
+      const hilo = await GameSettings.findOne({ gameId: 'inhouse-hilo' });
+      assert.ok(hilo);
+      assert.equal(hilo.gameTitle, 'Hi-Lo');
+      assert.equal(hilo.hiloPayoutFactor, 0.78);
+
+      const dragonTiger = await GameSettings.findOne({ gameId: 'inhouse-dragontiger' });
+      assert.ok(dragonTiger);
+      assert.equal(dragonTiger.gameTitle, 'Dragon Tiger');
+      assert.equal(dragonTiger.dragonTigerWinMultiplier, 1.6);
+      assert.equal(dragonTiger.dragonTigerTieMultiplier, 13);
+      assert.equal(dragonTiger.dragonTigerTiePushMultiplier, 0.5);
     });
 
     it('should not create duplicates on second call', async () => {
@@ -93,9 +126,11 @@ describe('Game Settings', () => {
       await initDefaultGameSettings();
       
       const settings = await getAllGameSettings();
-      assert.equal(settings.length, 2);
-      assert.equal(settings[0].gameId, 'inhouse-crash');
-      assert.equal(settings[1].gameId, 'inhouse-roulette');
+      assert.equal(settings.length, 7);
+      assert.deepEqual(settings.map(s => s.gameId), [
+        'inhouse-crash', 'inhouse-dice', 'inhouse-dragontiger',
+        'inhouse-hilo', 'inhouse-limbo', 'inhouse-mines', 'inhouse-roulette',
+      ]);
     });
   });
 
@@ -170,6 +205,49 @@ describe('Game Settings', () => {
       assert.equal(result.settings.rouletteMaxBet, 25000);
       assert.equal(result.settings.rouletteMaxPayout, 35);
       assert.equal(result.changes.length, 4);
+    });
+
+    it('should update mines settings with change log', async () => {
+      await initDefaultGameSettings();
+
+      const admin = await User.create({
+        username: 'admin',
+        email: 'admin@example.com',
+        password: 'password123',
+        role: 'admin',
+      });
+
+      const result = await updateGameSettings('inhouse-mines', {
+        minesPayoutFactor: 0.9,
+        minesMinBet: 5,
+        minesMaxBet: 10000,
+      }, admin._id, { reason: 'RTP artışı' });
+
+      assert.equal(result.settings.minesPayoutFactor, 0.9);
+      assert.equal(result.settings.minesMinBet, 5);
+      assert.equal(result.settings.minesMaxBet, 10000);
+      assert.equal(result.changes.length, 3);
+    });
+
+    it('should reject dragon tiger max bet below min bet', async () => {
+      await initDefaultGameSettings();
+
+      const admin = await User.create({
+        username: 'admin',
+        email: 'admin@example.com',
+        password: 'password123',
+        role: 'admin',
+      });
+
+      try {
+        await updateGameSettings('inhouse-dragontiger', {
+          dragonTigerMinBet: 100,
+          dragonTigerMaxBet: 10,
+        }, admin._id);
+        assert.fail('Should have thrown error');
+      } catch (err) {
+        assert.ok(err.message.includes('Max bet min betten büyük olmalı'));
+      }
     });
 
     it('should validate crash house edge range', async () => {

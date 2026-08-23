@@ -3,23 +3,67 @@ import { createHmac, randomBytes } from 'crypto';
 import { requireAuth } from '../middleware/auth.js';
 import User from '../models/User.js';
 import CasinoRound from '../models/CasinoRound.js';
+import {
+  getMinesSettings, getDiceSettings, getLimboSettings,
+  getHiloSettings, getDragonTigerSettings,
+} from '../services/gameSettings.js';
 
 const router = Router();
 router.use(requireAuth);
 
+// ── Ayarlanabilir oyunlar için ortak DB-ayar önbelleği ──────────────────────
+// crashGame.js/rouletteGame.js'teki modül-düzeyi cache deseninin bu
+// dosyadaki 5 oyun için tekrarı. Admin bir ayarı kaydettiğinde ilgili
+// invalidate<Oyun>SettingsCache() çağrılır (bkz. controllers/admin.js).
+function createSettingsCache(fetcher) {
+  let cached = null;
+  return {
+    async get() {
+      if (!cached) cached = await fetcher();
+      return cached;
+    },
+    invalidate() { cached = null; },
+  };
+}
+
+const minesSettingsCache = createSettingsCache(getMinesSettings);
+const diceSettingsCache = createSettingsCache(getDiceSettings);
+const limboSettingsCache = createSettingsCache(getLimboSettings);
+const hiloSettingsCache = createSettingsCache(getHiloSettings);
+const dragonTigerSettingsCache = createSettingsCache(getDragonTigerSettings);
+
+export function invalidateMinesSettingsCache() { minesSettingsCache.invalidate(); }
+export function invalidateDiceSettingsCache() { diceSettingsCache.invalidate(); }
+export function invalidateLimboSettingsCache() { limboSettingsCache.invalidate(); }
+export function invalidateHiloSettingsCache() { hiloSettingsCache.invalidate(); }
+export function invalidateDragonTigerSettingsCache() { dragonTigerSettingsCache.invalidate(); }
+
+/** Bahis limiti + aktiflik kontrolü — 5 oyunun tamamında ortak. */
+function checkBetAllowed(res, settings, betAmount, minKey, maxKey) {
+  if (!settings.isActive) {
+    res.status(503).json({ error: { code: 'GAME_DISABLED', message: 'Bu oyun şu anda kullanılamıyor.' } });
+    return false;
+  }
+  if (betAmount < settings[minKey] || betAmount > settings[maxKey]) {
+    res.status(400).json({ error: `Bahis ${settings[minKey]}-${settings[maxKey]} aralığında olmalı` });
+    return false;
+  }
+  return true;
+}
+
 // ── MINES ────────────────────────────────────────────────────────────────────
 
 // Mines multiplier table: mines count → payout per reveal step
-// Formula: (25-revealed) / (25-mines-revealed) accumulated, house edge 4%
-function minesMultiplier(mines, revealed) {
+// Formula: (25-revealed) / (25-mines-revealed) accumulated, payoutFactor = RTP
+function minesMultiplier(mines, revealed, payoutFactor = 0.78) {
   if (revealed === 0) return 1;
   let m = 1;
   for (let i = 0; i < revealed; i++) {
     m *= (25 - mines - i) / (25 - i);
   }
-  // Invert & apply house edge
+  // Invert & apply RTP
   const raw = 1 / m;
-  return Math.floor(raw * 0.78 * 100) / 100;
+  return Math.floor(raw * payoutFactor * 100) / 100;
 }
 
 function generateMinePositions(serverSeed, clientSeed, mines) {
@@ -54,6 +98,9 @@ router.post('/mines/start', async (req, res, next) => {
     if (isNaN(betAmount) || betAmount < 1) return res.status(400).json({ error: 'Geçersiz miktar' });
     if (isNaN(minesCount) || minesCount < 1 || minesCount > 24) return res.status(400).json({ error: 'Geçersiz mayın sayısı (1-24)' });
 
+    const settings = await minesSettingsCache.get();
+    if (!checkBetAllowed(res, settings, betAmount, 'minesMinBet', 'minesMaxBet')) return;
+
     const user = await User.findOneAndUpdate(
       { _id: req.user.id, balance: { $gte: betAmount } },
       { $inc: { balance: -betAmount } },
@@ -73,6 +120,10 @@ router.post('/mines/start', async (req, res, next) => {
       minePos,
       mines: minesCount,
       bet: betAmount,
+      // Tur boyunca sabit tutulur — admin ayarı ortasında değiştirse bile
+      // bu turun matematiği tutarlı kalır (crashGame.js'in this.settings
+      // deseniyle aynı mantık).
+      payoutFactor: settings.minesPayoutFactor,
       balanceBefore: user.balance + betAmount,
       revealed: [],
       cashedOut: false,
@@ -124,13 +175,13 @@ router.post('/mines/reveal', async (req, res, next) => {
     }
 
     const safeRevealed = session.revealed.length;
-    const mult = minesMultiplier(session.mines, safeRevealed);
+    const mult = minesMultiplier(session.mines, safeRevealed, session.payoutFactor);
 
     res.json({
       result: 'safe',
       revealed: safeRevealed,
       multiplier: mult,
-      nextMultiplier: minesMultiplier(session.mines, safeRevealed + 1),
+      nextMultiplier: minesMultiplier(session.mines, safeRevealed + 1, session.payoutFactor),
       canCashout: true,
     });
   } catch (err) { next(err); }
@@ -147,7 +198,7 @@ router.post('/mines/cashout', async (req, res, next) => {
     session.cashedOut = true;
     mineSessions.delete(req.user.id.toString());
 
-    const mult = minesMultiplier(session.mines, session.revealed.length);
+    const mult = minesMultiplier(session.mines, session.revealed.length, session.payoutFactor);
     const payout = parseFloat((session.bet * mult).toFixed(2));
 
     const user = await User.findByIdAndUpdate(
@@ -279,8 +330,11 @@ router.post('/dice/roll', async (req, res, next) => {
     if (isNaN(betAmount) || betAmount < 1) return res.status(400).json({ error: 'Geçersiz miktar' });
     if (isNaN(targetNum) || targetNum < 2 || targetNum > 98) return res.status(400).json({ error: 'Hedef 2-98 arasında olmalı' });
 
+    const diceSettings = await diceSettingsCache.get();
+    if (!checkBetAllowed(res, diceSettings, betAmount, 'diceMinBet', 'diceMaxBet')) return;
+
     const winChance = isOver ? (100 - targetNum) : targetNum;
-    const mult = parseFloat(((78 / winChance)).toFixed(4));
+    const mult = parseFloat(((diceSettings.dicePayoutFactor / winChance)).toFixed(4));
 
     const serverSeed = randomBytes(16).toString('hex');
     const clientSeed = randomBytes(8).toString('hex');
@@ -312,11 +366,13 @@ router.post('/dice/roll', async (req, res, next) => {
 // ── LIMBO ─────────────────────────────────────────────────────────────────────
 // Set a target multiplier. Win if generated crash point >= target.
 
-function limboCrash(serverSeed) {
+// crashGame.js'teki calcCrashPoint ile birebir aynı formül/imza.
+function limboCrash(serverSeed, houseEdgePercent = 20) {
   const hash = createHmac('sha256', 'limbo-v1').update(serverSeed).digest('hex');
   const h = parseInt(hash.slice(0, 8), 16);
   const e = 2 ** 32;
-  if (h % 5 === 0) return 1.00; // ~20% house edge
+  const edgeDivisor = Math.max(1, Math.floor(100 / (houseEdgePercent || 20)));
+  if (h % edgeDivisor === 0) return 1.00;
   return Math.max(1.01, Math.floor((100 * e) / (e - h)) / 100);
 }
 
@@ -330,8 +386,11 @@ router.post('/limbo/play', async (req, res, next) => {
     if (isNaN(betAmount) || betAmount < 1) return res.status(400).json({ error: 'Geçersiz miktar' });
     if (isNaN(targetMult) || targetMult < 1.01 || targetMult > 1000000) return res.status(400).json({ error: 'Geçersiz çarpan (1.01-1000000)' });
 
+    const limboSettings = await limboSettingsCache.get();
+    if (!checkBetAllowed(res, limboSettings, betAmount, 'limboMinBet', 'limboMaxBet')) return;
+
     const serverSeed = randomBytes(16).toString('hex');
-    const result = limboCrash(serverSeed);
+    const result = limboCrash(serverSeed, limboSettings.limboHouseEdgePercent);
     const win = result >= targetMult;
     const payout = win ? parseFloat((betAmount * targetMult).toFixed(2)) : 0;
     const netChange = parseFloat((payout - betAmount).toFixed(2));
@@ -428,13 +487,13 @@ function shuffleDeck(serverSeed) {
   return deck;
 }
 
-function hiloMultiplier(currentValue, guess, deck, pos) {
+function hiloMultiplier(currentValue, guess, deck, pos, payoutFactor = 0.78) {
   // Count remaining cards that satisfy guess
   const remaining = deck.slice(pos + 1);
   const wins = remaining.filter(c => guess === 'higher' ? c.value > currentValue : c.value < currentValue).length;
   if (wins === 0) return null; // impossible
   const winChance = wins / remaining.length;
-  return parseFloat((0.78 / winChance).toFixed(3));
+  return parseFloat((payoutFactor / winChance).toFixed(3));
 }
 
 // POST /inhouse/hilo/start
@@ -443,6 +502,9 @@ router.post('/hilo/start', async (req, res, next) => {
     const { amount } = req.body;
     const betAmount = parseFloat(amount);
     if (isNaN(betAmount) || betAmount < 1) return res.status(400).json({ error: 'Geçersiz miktar' });
+
+    const hiloSettingsSnap = await hiloSettingsCache.get();
+    if (!checkBetAllowed(res, hiloSettingsSnap, betAmount, 'hiloMinBet', 'hiloMaxBet')) return;
 
     const user = await User.findOneAndUpdate(
       { _id: req.user.id, balance: { $gte: betAmount } },
@@ -457,12 +519,13 @@ router.post('/hilo/start', async (req, res, next) => {
 
     hiloSessions.set(req.user.id.toString(), {
       deck, pos: 0, serverSeed,
+      payoutFactor: hiloSettingsSnap.hiloPayoutFactor,
       mult: 1, bet: betAmount, balanceBefore: user.balance + betAmount, cashedOut: false,
     });
 
     const firstCard = deck[0];
-    const higherMult = hiloMultiplier(firstCard.value, 'higher', deck, 0);
-    const lowerMult = hiloMultiplier(firstCard.value, 'lower', deck, 0);
+    const higherMult = hiloMultiplier(firstCard.value, 'higher', deck, 0, hiloSettingsSnap.hiloPayoutFactor);
+    const lowerMult = hiloMultiplier(firstCard.value, 'lower', deck, 0, hiloSettingsSnap.hiloPayoutFactor);
 
     res.json({
       card: firstCard,
@@ -489,7 +552,7 @@ router.post('/hilo/guess', async (req, res, next) => {
     if (!nextCard) return res.status(400).json({ error: 'Deste bitti' });
 
     const win = guess === 'higher' ? nextCard.value > currentCard.value : nextCard.value < currentCard.value;
-    const roundMult = hiloMultiplier(currentCard.value, guess, deck, pos) ?? 1;
+    const roundMult = hiloMultiplier(currentCard.value, guess, deck, pos, session.payoutFactor) ?? 1;
 
     session.pos += 1;
     session.mult = parseFloat((session.mult * roundMult).toFixed(4));
@@ -509,8 +572,8 @@ router.post('/hilo/guess', async (req, res, next) => {
 
     const newPos = session.pos;
     const nextForGuess = deck[newPos + 1] ? deck[newPos] : null;
-    const higherMult = nextForGuess ? hiloMultiplier(nextCard.value, 'higher', deck, newPos) : null;
-    const lowerMult = nextForGuess ? hiloMultiplier(nextCard.value, 'lower', deck, newPos) : null;
+    const higherMult = nextForGuess ? hiloMultiplier(nextCard.value, 'higher', deck, newPos, session.payoutFactor) : null;
+    const lowerMult = nextForGuess ? hiloMultiplier(nextCard.value, 'lower', deck, newPos, session.payoutFactor) : null;
 
     res.json({
       result: 'win',
@@ -1222,6 +1285,9 @@ router.post('/dragontiger/deal', async (req, res, next) => {
     if (isNaN(betAmount) || betAmount < 1) return res.status(400).json({ error: 'Geçersiz miktar' });
     if (!['dragon','tiger','tie'].includes(betSide)) return res.status(400).json({ error: 'dragon, tiger veya tie seçin' });
 
+    const dtSettings = await dragonTigerSettingsCache.get();
+    if (!checkBetAllowed(res, dtSettings, betAmount, 'dragonTigerMinBet', 'dragonTigerMaxBet')) return;
+
     const serverSeed = randomBytes(16).toString('hex');
     const { dragon, tiger } = dragonTigerDeal(serverSeed);
 
@@ -1235,10 +1301,10 @@ router.post('/dragontiger/deal', async (req, res, next) => {
 
     let mult = 0;
     if (outcome === betSide) {
-      if (betSide === 'tie') mult = 13;
-      else mult = 1.6;
+      if (betSide === 'tie') mult = dtSettings.dragonTigerTieMultiplier;
+      else mult = dtSettings.dragonTigerWinMultiplier;
     } else if (outcome === 'tie' && betSide !== 'tie') {
-      mult = 0.5;
+      mult = dtSettings.dragonTigerTiePushMultiplier;
     }
 
     const payout = parseFloat((betAmount * mult).toFixed(2));

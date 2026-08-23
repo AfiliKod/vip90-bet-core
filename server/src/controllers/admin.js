@@ -21,6 +21,10 @@ import { setHomeContent as setHomeContentImpl, getHomeContent } from '../pages/i
 import { getAllGameSettings, updateGameSettings as updateGameSettingsImpl } from '../services/gameSettings.js';
 import { invalidateCrashSettingsCache } from '../services/inhouse/crashGame.js';
 import { invalidateRouletteSettingsCache } from '../services/inhouse/rouletteGame.js';
+import {
+  invalidateMinesSettingsCache, invalidateDiceSettingsCache, invalidateLimboSettingsCache,
+  invalidateHiloSettingsCache, invalidateDragonTigerSettingsCache,
+} from '../routes/inhouse.js';
 import { setFeaturedGameCodes as setFeaturedGameCodesImpl, getFeaturedGameCodes } from '../games/index.js';
 
 // Phase B13 — ReDoS protection
@@ -1000,6 +1004,11 @@ export async function getGameSettings(req, res, next) {
 const GAME_CACHE_INVALIDATORS = {
   'inhouse-crash': invalidateCrashSettingsCache,
   'inhouse-roulette': invalidateRouletteSettingsCache,
+  'inhouse-mines': invalidateMinesSettingsCache,
+  'inhouse-dice': invalidateDiceSettingsCache,
+  'inhouse-limbo': invalidateLimboSettingsCache,
+  'inhouse-hilo': invalidateHiloSettingsCache,
+  'inhouse-dragontiger': invalidateDragonTigerSettingsCache,
 };
 
 export async function updateGameSettings(req, res, next) {

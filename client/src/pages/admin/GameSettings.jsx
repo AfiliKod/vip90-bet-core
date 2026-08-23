@@ -10,12 +10,16 @@ import { useTranslation } from '../../i18n';
  * invalidateCrashSettingsCache()/invalidateRouletteSettingsCache() ile
  * çalışan oyunu anında etkiler.
  *
- * Terminoloji: DB'de/kodda hâlâ "houseEdgePercent" olarak saklanıyor
- * (crashGame.js'in calcCrashPoint'i bu değeri doğrudan kullanıyor,
- * oyun mantığına dokunulmadı) ama operatörün asıl bildiği/aradığı terim
- * RTP olduğu için burada yalnızca SUNUM katmanında RTP = 100 − houseEdge
- * olarak gösterilip düzenleniyor; kaydederken tekrar houseEdge'e çevrilip
- * gönderiliyor. `rtp: true` işaretli alanlar bu dönüşümden geçiyor.
+ * Terminoloji: DB'de/kodda hâlâ "houseEdgePercent"/"payoutFactor" olarak
+ * saklanıyor (oyun mantığına dokunulmadı — crashGame.js/inhouse.js bu
+ * alanları doğrudan kullanıyor) ama operatörün asıl bildiği/aradığı terim
+ * RTP olduğu için burada yalnızca SUNUM katmanında dönüştürülüp
+ * gösteriliyor/düzenleniyor; kaydederken ham forma çevrilip gönderiliyor.
+ * `transform` alanı hangi dönüşümün uygulanacağını belirtir:
+ *   - 'houseEdgeToRtp': RTP = 100 − houseEdge (Crash, Limbo)
+ *   - 'fractionToPercent': RTP% = kesir × 100 (Mines, HiLo — DB'de 0-1 arası tutuluyor)
+ *   - (yok): Dice'ın payoutFactor'ü zaten 0-100 ölçeğinde RTP'nin ta kendisi,
+ *     dönüşüm gerekmez, doğrudan "RTP (%)" etiketiyle gösterilir.
  *
  * Roulette'in "house edge"i DÜZENLENEBİLİR DEĞİL: rouletteGame.js sayı
  * üretimini `hash % 37` ile yapıyor (gerçek Avrupa ruleti, tek sıfır) —
@@ -27,7 +31,7 @@ import { useTranslation } from '../../i18n';
 const ROULETTE_RTP_FIXED = 100 - (100 / 37); // ≈ %97,3 — 37 cepli tekerleğin matematiği
 
 const CRASH_FIELDS = [
-  { key: 'crashHouseEdgePercent', type: 'number', step: '0.1', rtp: true, min: 50, max: 100 },
+  { key: 'crashHouseEdgePercent', type: 'number', step: '0.1', transform: 'houseEdgeToRtp', min: 50, max: 100 },
   { key: 'crashMinBet', type: 'number', step: '0.01' },
   { key: 'crashMaxBet', type: 'number', step: '1' },
   { key: 'crashTickMs', type: 'number', step: '1' },
@@ -44,14 +48,60 @@ const ROULETTE_FIELDS = [
   { key: 'rouletteResultMs', type: 'number', step: '1' },
 ];
 
+const MINES_FIELDS = [
+  { key: 'minesPayoutFactor', type: 'number', step: '0.1', transform: 'fractionToPercent', min: 50, max: 99 },
+  { key: 'minesMinBet', type: 'number', step: '0.01' },
+  { key: 'minesMaxBet', type: 'number', step: '1' },
+];
+
+const DICE_FIELDS = [
+  { key: 'dicePayoutFactor', type: 'number', step: '0.1', min: 50, max: 99 },
+  { key: 'diceMinBet', type: 'number', step: '0.01' },
+  { key: 'diceMaxBet', type: 'number', step: '1' },
+];
+
+const LIMBO_FIELDS = [
+  { key: 'limboHouseEdgePercent', type: 'number', step: '0.1', transform: 'houseEdgeToRtp', min: 50, max: 100 },
+  { key: 'limboMinBet', type: 'number', step: '0.01' },
+  { key: 'limboMaxBet', type: 'number', step: '1' },
+];
+
+const HILO_FIELDS = [
+  { key: 'hiloPayoutFactor', type: 'number', step: '0.1', transform: 'fractionToPercent', min: 50, max: 99 },
+  { key: 'hiloMinBet', type: 'number', step: '0.01' },
+  { key: 'hiloMaxBet', type: 'number', step: '1' },
+];
+
+const DRAGONTIGER_FIELDS = [
+  { key: 'dragonTigerWinMultiplier', type: 'number', step: '0.01', min: 1.0, max: 2.0 },
+  { key: 'dragonTigerTieMultiplier', type: 'number', step: '0.1', min: 5, max: 15 },
+  { key: 'dragonTigerTiePushMultiplier', type: 'number', step: '0.05', min: 0, max: 1 },
+  { key: 'dragonTigerMinBet', type: 'number', step: '0.01' },
+  { key: 'dragonTigerMaxBet', type: 'number', step: '1' },
+];
+
+const FIELDS_BY_GAME = {
+  'inhouse-crash': CRASH_FIELDS,
+  'inhouse-roulette': ROULETTE_FIELDS,
+  'inhouse-mines': MINES_FIELDS,
+  'inhouse-dice': DICE_FIELDS,
+  'inhouse-limbo': LIMBO_FIELDS,
+  'inhouse-hilo': HILO_FIELDS,
+  'inhouse-dragontiger': DRAGONTIGER_FIELDS,
+};
+
 function toDisplay(f, raw) {
-  if (!f.rtp) return raw;
-  return raw === '' || raw == null ? '' : Math.round((100 - Number(raw)) * 10) / 10;
+  if (raw === '' || raw == null) return '';
+  if (f.transform === 'houseEdgeToRtp') return Math.round((100 - Number(raw)) * 10) / 10;
+  if (f.transform === 'fractionToPercent') return Math.round(Number(raw) * 1000) / 10;
+  return raw;
 }
 
 function fromDisplay(f, display) {
-  if (!f.rtp) return display;
-  return display === '' ? '' : Math.round((100 - Number(display)) * 10) / 10;
+  if (display === '') return '';
+  if (f.transform === 'houseEdgeToRtp') return Math.round((100 - Number(display)) * 10) / 10;
+  if (f.transform === 'fractionToPercent') return Math.round(Number(display) * 10) / 1000;
+  return Number(display);
 }
 
 function GameCard({ t, settings, fields, onSave, busy, staticRtpNote }) {
@@ -171,7 +221,7 @@ export default function AdminGameSettings() {
               key={s.gameId}
               t={t}
               settings={s}
-              fields={s.gameId === 'inhouse-crash' ? CRASH_FIELDS : ROULETTE_FIELDS}
+              fields={FIELDS_BY_GAME[s.gameId] ?? []}
               onSave={form => save(s.gameId, form)}
               busy={busyId === s.gameId}
               staticRtpNote={s.gameId === 'inhouse-roulette' ? ROULETTE_RTP_FIXED.toFixed(1) : null}
