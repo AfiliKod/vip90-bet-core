@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import { usePWA } from '../hooks/usePWA.js';
+import api from '../services/api';
 
 export function PWAUpdateBanner() {
   const { updateAvailable, applyUpdate, isOnline } = usePWA();
@@ -47,16 +48,19 @@ export function OnlineStatusIndicator() {
   const [onlineCount, setOnlineCount] = useState(0);
 
   useEffect(() => {
-    // Mock online player count - in production this would come from socket
-    const count = Math.floor(Math.random() * 500) + 100;
-    setOnlineCount(count);
-    
-    const interval = setInterval(() => {
-      // Simulate small fluctuations
-      setOnlineCount(prev => Math.max(50, prev + Math.floor(Math.random() * 10) - 5));
-    }, 10000);
-    
-    return () => clearInterval(interval);
+    let cancelled = false;
+    async function poll() {
+      try {
+        const { data } = await api.get('/health/status');
+        if (!cancelled && typeof data.onlineCount === 'number') setOnlineCount(data.onlineCount);
+      } catch {
+        // sunucu erişilemezse mevcut değeri koru
+      }
+    }
+    poll();
+    const interval = setInterval(poll, 10000);
+
+    return () => { cancelled = true; clearInterval(interval); };
   }, []);
 
   return (

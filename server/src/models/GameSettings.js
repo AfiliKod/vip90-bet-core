@@ -38,6 +38,4 @@ const schema = new mongoose.Schema({
   }],
 }, { timestamps: true });
 
-schema.index({ gameId: 1 }, { unique: true });
-
 export default mongoose.model('GameSettings', schema);

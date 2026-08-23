@@ -18,6 +18,9 @@ import { setThemeToken as setThemeTokenImpl, listThemeTokens } from '../theme/in
 import { THEME_PRESETS } from '../theme/presets.js';
 import { setBrandingField as setBrandingFieldImpl, listBranding } from '../branding/index.js';
 import { setHomeContent as setHomeContentImpl, getHomeContent } from '../pages/index.js';
+import { getAllGameSettings, updateGameSettings as updateGameSettingsImpl } from '../services/gameSettings.js';
+import { invalidateCrashSettingsCache } from '../services/inhouse/crashGame.js';
+import { invalidateRouletteSettingsCache } from '../services/inhouse/rouletteGame.js';
 import { setFeaturedGameCodes as setFeaturedGameCodesImpl, getFeaturedGameCodes } from '../games/index.js';
 
 // Phase B13 — ReDoS protection
@@ -982,4 +985,34 @@ export async function testAlertChannels(req, res, next) {
     });
     res.json({ sent: channels });
   } catch(e) { next(e); }
+}
+
+// ─── O6 — Oyun limitleri, RTP ve house edge ayarları ───────────────
+export async function getGameSettings(req, res, next) {
+  try {
+    const settings = await getAllGameSettings();
+    res.json({ settings });
+  } catch (e) {
+    next(e);
+  }
+}
+
+const GAME_CACHE_INVALIDATORS = {
+  'inhouse-crash': invalidateCrashSettingsCache,
+  'inhouse-roulette': invalidateRouletteSettingsCache,
+};
+
+export async function updateGameSettings(req, res, next) {
+  try {
+    const { gameId } = req.params;
+    if (!GAME_CACHE_INVALIDATORS[gameId]) {
+      return res.status(400).json({ error: { code: 'UNKNOWN_GAME', message: `Bilinmeyen oyun: ${gameId}` } });
+    }
+    const { reason, ...updates } = req.validated;
+    const { settings, changes } = await updateGameSettingsImpl(gameId, updates, req.user.id, { reason });
+    GAME_CACHE_INVALIDATORS[gameId]();
+    res.json({ settings, changes });
+  } catch (e) {
+    next(e);
+  }
 }

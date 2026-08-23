@@ -30,11 +30,16 @@ export async function initDefaultGameSettings() {
     },
   ];
 
+  // find+create yerine atomik upsert: eşzamanlı çağrılar (crashGame.js ve
+  // rouletteGame.js her ikisi de ilk turda bu fonksiyonu tetikleyebilir)
+  // yarış durumunda çift kayıt oluşturmasın.
   for (const game of games) {
-    const existing = await GameSettings.findOne({ gameId: game.gameId });
-    if (!existing) {
-      await GameSettings.create(game);
-    }
+    const { gameId, ...defaults } = game;
+    await GameSettings.updateOne(
+      { gameId },
+      { $setOnInsert: { gameId, ...defaults } },
+      { upsert: true }
+    );
   }
 }
 

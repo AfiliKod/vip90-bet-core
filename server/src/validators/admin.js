@@ -48,6 +48,28 @@ export const applyThemePresetSchema = z.object({
   id: z.enum(THEME_PRESET_IDS),
 });
 
+// O6 — Oyun limitleri/RTP/house edge. Kesin aralık kontrolü (ör. house edge
+// 0-50) services/gameSettings.js'te zaten yapılıyor; burası yalnızca tip
+// güvenliği sağlar.
+export const updateGameSettingsSchema = z.object({
+  crashHouseEdgePercent: z.number().optional(),
+  crashMinBet: z.number().positive().optional(),
+  crashMaxBet: z.number().positive().optional(),
+  crashAutoCashoutEnabled: z.boolean().optional(),
+  crashTickMs: z.number().int().positive().optional(),
+  crashWaitMs: z.number().int().positive().optional(),
+  crashShowMs: z.number().int().positive().optional(),
+  rouletteHouseEdgePercent: z.number().optional(),
+  rouletteMinBet: z.number().positive().optional(),
+  rouletteMaxBet: z.number().positive().optional(),
+  rouletteMaxPayout: z.number().positive().optional(),
+  rouletteWaitMs: z.number().int().positive().optional(),
+  rouletteSpinMs: z.number().int().positive().optional(),
+  rouletteResultMs: z.number().int().positive().optional(),
+  isActive: z.boolean().optional(),
+  reason: z.string().max(300).optional(),
+});
+
 const BRANDING_FIELD_IDS = BRANDING_FIELD_DEFINITIONS.map(f => f.id);
 const BRANDING_FIELD_BY_ID = Object.fromEntries(BRANDING_FIELD_DEFINITIONS.map(f => [f.id, f]));
 

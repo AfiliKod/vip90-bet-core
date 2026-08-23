@@ -39,6 +39,7 @@ import installRoutes from './routes/install.js';
 import brandingRoutes from './routes/branding.js';
 import pagesRoutes from './routes/pages.js';
 import gamesRoutes from './routes/games.js';
+import { getIO } from './services/socketEmitter.js';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const isProd = process.env.NODE_ENV === 'production';
@@ -183,7 +184,7 @@ export function createApp() {
 
   // Derin health/status — Status Page için (public, cache-friendly)
   app.get('/api/health/status', async (req, res) => {
-    const result = { api: 'up', db: 'unknown', palace: 'unknown', oddsSource: 'unknown', payment: 'up' };
+    const result = { api: 'up', db: 'unknown', palace: 'unknown', oddsSource: 'unknown', payment: 'up', onlineCount: getIO()?.engine.clientsCount ?? 0 };
     try {
       const mongoose = (await import('mongoose')).default;
       result.db = mongoose.connection.readyState === 1 ? 'up' : 'down';

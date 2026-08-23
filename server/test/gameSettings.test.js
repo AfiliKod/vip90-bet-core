@@ -48,6 +48,25 @@ describe('Game Settings', () => {
       const count2 = await GameSettings.countDocuments();
       assert.equal(count1, count2);
     });
+
+    // Regresyon: crashGame.js ve rouletteGame.js her ikisi de sunucu
+    // açılışında ilk turda bu fonksiyonu tetikleyebilir — eşzamanlı
+    // çağrılar find+create yarışında tekilliği bozup gameId başına iki
+    // kayıt oluşturabiliyordu (unique index sessizce etkisizdi, çünkü
+    // şemada aynı alan için hem `unique: true` hem ayrı bir
+    // `schema.index()` tanımlıydı — Mongoose ikisini çakışan indeks
+    // olarak görüp index'i düzgün kurmuyordu).
+    it('should not create duplicates when called concurrently', async () => {
+      await Promise.all([
+        initDefaultGameSettings(),
+        initDefaultGameSettings(),
+        initDefaultGameSettings(),
+      ]);
+      const crashCount = await GameSettings.countDocuments({ gameId: 'inhouse-crash' });
+      const rouletteCount = await GameSettings.countDocuments({ gameId: 'inhouse-roulette' });
+      assert.equal(crashCount, 1);
+      assert.equal(rouletteCount, 1);
+    });
   });
 
   describe('getGameSettings', () => {
