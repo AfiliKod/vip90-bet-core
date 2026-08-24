@@ -1025,6 +1025,8 @@ export default {
   'admin.userSlideOver.referredBy': 'Referred By',
   'admin.userSlideOver.referredUsers': 'Referred Users',
   'admin.userSlideOver.noReferralsYet': 'Has not referred anyone yet',
+  'admin.userSlideOver.referralTree3': '3-Level Affiliate Tree',
+  'admin.userSlideOver.referralTreeHelp': 'Read-only view — commission payout still runs on level 1 only, at a fixed 10% rate. This tree is for monitoring only.',
   'admin.userSlideOver.noTransactionHistory': 'No transaction history',
   'admin.userSlideOver.bonusWageringContribution': 'Bonus Wagering Contribution',
   'admin.userSlideOver.pureRealBalance': 'Pure Real Balance',

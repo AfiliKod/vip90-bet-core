@@ -11,6 +11,7 @@ export default function UserSlideOver({ user, onClose, onUpdated }) {
   const fmt = useFormatters();
   const [tab, setTab] = useState('general');
   const [referrals, setReferrals] = useState(null);
+  const [referralTree, setReferralTree] = useState(null);
   const [transactions, setTransactions] = useState(null);
   const [casinoRounds, setCasinoRounds] = useState(null);
   const [casinoSummary, setCasinoSummary] = useState(null);
@@ -38,6 +39,7 @@ export default function UserSlideOver({ user, onClose, onUpdated }) {
     setTab('general');
     setDeleteConfirm(false);
     setReferrals(null);
+    setReferralTree(null);
     setTransactions(null);
     setCasinoRounds(null);
     setCasinoSummary(null);
@@ -61,6 +63,8 @@ export default function UserSlideOver({ user, onClose, onUpdated }) {
     if (!user) return;
     if (tab === 'referrals' && referrals === null)
       api.get(`/admin/users/${user._id}/referrals`).then(r => setReferrals(r.data.referrals)).catch(() => setReferrals([]));
+    if (tab === 'referrals' && referralTree === null)
+      api.get(`/admin/users/${user._id}/referral-tree`).then(r => setReferralTree(r.data.tree)).catch(() => setReferralTree([]));
     if (tab === 'history' && transactions === null)
       api.get(`/admin/users/${user._id}/transactions`).then(r => setTransactions(r.data.transactions)).catch(() => setTransactions([]));
     if (tab === 'casino' && casinoRounds === null)
@@ -304,6 +308,21 @@ export default function UserSlideOver({ user, onClose, onUpdated }) {
                   </div>
                 )}
               </div>
+              <div>
+                <div className="text-xs text-text-3 mb-2 uppercase tracking-wide">{t('admin.userSlideOver.referralTree3')}</div>
+                <div className="text-[11px] text-text-3/70 mb-2 leading-snug">{t('admin.userSlideOver.referralTreeHelp')}</div>
+                {referralTree === null ? (
+                  <div className="text-center text-text-3 text-sm py-4">{t('common.loading')}</div>
+                ) : referralTree.length === 0 ? (
+                  <div className="text-center text-text-3 text-sm py-4">{t('admin.userSlideOver.noReferralsYet')}</div>
+                ) : (
+                  <div className="space-y-1">
+                    {referralTree.map(node => (
+                      <ReferralTreeNode key={node._id} node={node} depth={0} />
+                    ))}
+                  </div>
+                )}
+              </div>
             </div>
           )}
 
@@ -395,5 +414,20 @@ export default function UserSlideOver({ user, onClose, onUpdated }) {
         </div>
       </div>
     </>
+  );
+}
+
+/** O2 — 3 seviyeye kadar salt-okunur affiliate ağacı düğümü. */
+function ReferralTreeNode({ node, depth }) {
+  return (
+    <div style={{ marginLeft: depth * 16 }}>
+      <div className="flex items-center justify-between bg-bg-hover rounded-lg px-3 py-1.5 text-xs">
+        <span className="text-text-1 font-medium">{'└ '.repeat(depth > 0 ? 1 : 0)}{node.username}</span>
+        <span className={node.isActive ? 'text-text-3' : 'text-danger'}>{node.isActive ? '' : '⏸'}</span>
+      </div>
+      {node.children?.map(child => (
+        <ReferralTreeNode key={child._id} node={child} depth={depth + 1} />
+      ))}
+    </div>
   );
 }

@@ -25,6 +25,7 @@ import {
   assignRoleToUser, removeRoleFromUser,
 } from '../services/permissions.js';
 import { getAllVipLevels, upsertVipLevel, deleteVipLevel } from '../services/vip.js';
+import { getReferralTreeView } from '../services/referralTreeView.js';
 import { invalidateCrashSettingsCache } from '../services/inhouse/crashGame.js';
 import { invalidateRouletteSettingsCache } from '../services/inhouse/rouletteGame.js';
 import {
@@ -1168,5 +1169,14 @@ export async function removeVipLevel(req, res, next) {
   try {
     await deleteVipLevel(Number(req.params.level));
     res.json({ ok: true });
+  } catch (e) { next(e); }
+}
+
+// ─── O2 — Affiliate: 3 seviye ağaç görünürlüğü (salt-okunur) ────────
+// Ödeme mekanizmasına dokunmuyor — bkz. services/referralTreeView.js.
+export async function getReferralTree(req, res, next) {
+  try {
+    const tree = await getReferralTreeView(req.params.id);
+    res.json({ tree });
   } catch (e) { next(e); }
 }

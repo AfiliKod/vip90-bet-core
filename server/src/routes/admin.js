@@ -26,6 +26,7 @@ r.patch('/users/:id',            ctrl.updateUser);
 r.delete('/users/:id',           blockDemoAdmin, ctrl.deleteUser);
 r.patch('/users/:id/balance',    blockDemoAdmin, validate(updateBalanceSchema), ctrl.updateBalance);
 r.get('/users/:id/referrals',    ctrl.getReferrals);
+r.get('/users/:id/referral-tree', ctrl.getReferralTree); // O2 — 3 seviye salt-okunur ağaç
 r.get('/users/:id/transactions', ctrl.getUserTransactions);
 
 r.get('/events/archived',    ctrl.getArchivedEvents);

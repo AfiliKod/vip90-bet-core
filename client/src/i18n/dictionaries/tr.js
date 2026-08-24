@@ -1024,6 +1024,8 @@ export default {
   'admin.userSlideOver.referredBy': 'Kim Davet Etti',
   'admin.userSlideOver.referredUsers': 'Davet Ettikleri',
   'admin.userSlideOver.noReferralsYet': 'Henüz kimseyi davet etmemiş',
+  'admin.userSlideOver.referralTree3': '3 Seviye Affiliate Ağacı',
+  'admin.userSlideOver.referralTreeHelp': 'Salt-okunur görünüm — komisyon ödemesi hâlâ yalnızca 1. seviye üzerinden, sabit %10 oranla çalışıyor. Bu ağaç yalnızca izleme içindir.',
   'admin.userSlideOver.noTransactionHistory': 'İşlem geçmişi yok',
   'admin.userSlideOver.bonusWageringContribution': 'Bonus Çevrimine Katkı',
   'admin.userSlideOver.pureRealBalance': 'Salt Gerçek Bakiye',
