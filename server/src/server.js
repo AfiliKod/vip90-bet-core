@@ -28,6 +28,7 @@ import { initDefaultPermissions, initDefaultRoles } from './services/permissions
 import { initDefaultVipLevels } from './services/vip.js';
 import { startBotScheduler } from './jobs/botScheduler.js';
 import { seedDefaultPages } from './services/staticPages.js';
+import { initDefaultChatRoom } from './services/chat.js';
 
 const app = createApp();
 
@@ -102,6 +103,8 @@ connectDB()
     initDefaultVipLevels().catch(err => console.error('initDefaultVipLevels hatası:', err.message));
     // Footer/statik sayfalar: yasal metinler + kurumsal sayfa placeholder'ları
     seedDefaultPages().catch(err => console.error('seedDefaultPages hatası:', err.message));
+    // P1 — sohbet: hiç oda yoksa "Genel Sohbet" odasını oluşturur
+    initDefaultChatRoom().catch(err => console.error('initDefaultChatRoom hatası:', err.message));
     initSocket(io);
     initCrashGame(io);
     initRouletteGame(io);

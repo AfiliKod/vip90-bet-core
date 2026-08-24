@@ -1,3 +1,4 @@
+import jwt from 'jsonwebtoken';
 import ChatRoom from '../models/ChatRoom.js';
 import ChatMessage from '../models/ChatMessage.js';
 import ChatRain from '../models/ChatRain.js';
@@ -328,8 +329,11 @@ export async function createRain(roomId, createdBy, options = {}) {
     throw createError(400, 'INVALID_AMOUNT', 'Dağıtım miktarı sınırlar dışında');
   }
   
-  // Create rain record
-  const rain = await ChatRain.create([{
+  // Create rain record — Model.create([{...}], {session}) İLK ARGÜMANI ARRAY
+  // olduğunda Mongoose HER ZAMAN array döner (session olsun olmasın); bu
+  // oturumda tekrar tekrar bulunan bir bug deseni (web3Auth.js/socialAuth.js'de
+  // de aynısı vardı). Array destructure ile tekil dokümana indirgenir.
+  const [rain] = await ChatRain.create([{
     roomId,
     createdBy,
     totalAmount,
@@ -343,15 +347,18 @@ export async function createRain(roomId, createdBy, options = {}) {
   const shuffled = activeUsers.sort(() => 0.5 - Math.random());
   const recipients = shuffled.slice(0, recipientCount);
   
-  // Distribute
+  // Distribute — atomic $inc (routes/inhouse.js deseni): read-modify-write
+  // yerine tek operasyonda güncellenir, eşzamanlı bir işlemin kaybolmasını önler.
   for (const userId of recipients) {
-    const user = await User.findById(userId).session(session);
+    const user = await User.findOneAndUpdate(
+      { _id: userId },
+      { $inc: { balance: amountPerUser } },
+      { session, new: true },
+    );
     if (!user) continue;
-    
-    const balanceBefore = user.balance;
-    user.balance = parseFloat((user.balance + amountPerUser).toFixed(2));
-    await user.save({ session });
-    
+
+    const balanceBefore = parseFloat((user.balance - amountPerUser).toFixed(2));
+
     const transaction = await Transaction.create([{
       userId,
       type: 'rain',
@@ -398,22 +405,30 @@ export async function createRain(roomId, createdBy, options = {}) {
 export async function sendTip(fromUserId, toUserId, roomId, amount, message, options = {}) {
   const { session = null } = options;
   
-  if (fromUserId.equals(toUserId)) throw createError(400, 'SELF_TIP', 'Kendinize bahşiş gönderemezsiniz');
+  // String karşılaştırması: fromUserId socket üzerinden JWT'den (düz string)
+  // gelebilir, ObjectId.equals() gibi bir metodu olmayabilir — toUserId ise
+  // her iki kaynaktan da (string veya ObjectId) gelebilir, String() ile normalize edilir.
+  if (String(fromUserId) === String(toUserId)) throw createError(400, 'SELF_TIP', 'Kendinize bahşiş gönderemezsiniz');
   
   const room = await ChatRoom.findById(roomId).session(session);
   if (!room) throw createError(404, 'NOT_FOUND', 'Oda bulunamadı');
   
-  const fromUser = await User.findById(fromUserId).session(session);
-  if (!fromUser || fromUser.balance < amount) throw createError(400, 'INSUFFICIENT_BALANCE', 'Yetersiz bakiye');
-  
+  // Atomic $gte+$inc (routes/inhouse.js deseni): bakiye kontrolü ve düşüş
+  // tek operasyonda — iki eşzamanlı bahşişin ikisinin de yetersiz bakiyeyi
+  // "yeterli" görme riskini (read-modify-write race condition) ortadan kaldırır.
+  const fromUser = await User.findOneAndUpdate(
+    { _id: fromUserId, balance: { $gte: amount } },
+    { $inc: { balance: -amount } },
+    { session, new: true },
+  );
+  if (!fromUser) throw createError(400, 'INSUFFICIENT_BALANCE', 'Yetersiz bakiye');
+
   const toUser = await User.findById(toUserId).session(session);
   if (!toUser) throw createError(404, 'RECIPIENT_NOT_FOUND', 'Alıcı bulunamadı');
-  
+
   // Create from transaction (outgoing)
-  const fromBalanceBefore = fromUser.balance;
-  fromUser.balance = parseFloat((fromUser.balance - amount).toFixed(2));
-  await fromUser.save({ session });
-  
+  const fromBalanceBefore = parseFloat((fromUser.balance + amount).toFixed(2));
+
   const fromTransaction = await Transaction.create([{
     userId: fromUserId,
     type: 'tip_sent',
@@ -424,11 +439,15 @@ export async function sendTip(fromUserId, toUserId, roomId, amount, message, opt
     referenceId: toUser._id,
   }], { session });
   
-  // Create to transaction (incoming)
-  const toBalanceBefore = toUser.balance;
-  toUser.balance = parseFloat((toUser.balance + amount).toFixed(2));
-  await toUser.save({ session });
-  
+  // Create to transaction (incoming) — atomic $inc, tutarlılık için aynı desen.
+  const updatedToUser = await User.findOneAndUpdate(
+    { _id: toUserId },
+    { $inc: { balance: amount } },
+    { session, new: true },
+  );
+  const toBalanceBefore = parseFloat((updatedToUser.balance - amount).toFixed(2));
+  toUser.balance = updatedToUser.balance;
+
   const toTransaction = await Transaction.create([{
     userId: toUserId,
     type: 'tip_received',
@@ -469,6 +488,21 @@ export async function sendTip(fromUserId, toUserId, roomId, amount, message, opt
   await sendMessage(fromUserId, roomId, `💸 ${toUser.username} kullanıcısına ${amount} bahşiş gönderdi${message ? ': ' + message : ''}`, 'tip', { metadata: { tipId: tip[0]._id } });
   
   return tip[0];
+}
+
+/** Server açılışında bir kez çağrılır (idempotent) — hiç oda yoksa "Genel Sohbet" odasını oluşturur. */
+export async function initDefaultChatRoom() {
+  const count = await ChatRoom.countDocuments();
+  if (count > 0) return;
+  await ChatRoom.create({
+    name: 'Genel Sohbet',
+    slug: 'genel-sohbet',
+    description: 'Tüm oyuncular için genel sohbet odası',
+    icon: '💬',
+    color: '#7c3aed',
+    isPublic: true,
+    isActive: true,
+  });
 }
 
 export async function getUserTips(userId, options = {}) {
@@ -519,7 +553,6 @@ export function initChatSocket(io) {
     const token = socket.handshake.auth?.token;
     if (!token) return next(new Error('auth'));
     try {
-      const jwt = require('jsonwebtoken');
       socket.user = jwt.verify(token, process.env.JWT_SECRET);
       next();
     } catch {

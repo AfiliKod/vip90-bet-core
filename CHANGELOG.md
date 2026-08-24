@@ -12,6 +12,60 @@ Madde formatı ve kategoriler için `docs/CHANGELOG_GUIDE.md`'ye bakın —
 
 ## [Yayınlanmadı]
 
+### P1/P2 — Sohbet + bahşiş aktif edildi
+`services/chat.js` (oda/mesaj/moderasyon/bahşiş/yağmur iş mantığı) büyük
+ölçüde daha önceki bir fazda yazılmıştı ama hiçbir route/controller katmanı
+mount edilmemişti, hiç sohbet odası oluşturulmamıştı ve client'ta hiçbir
+arayüz yoktu — yani kod tamamen orphan durumdaydı. Entegrasyon sırasında bu
+kodun **hiç çalışır durumda olmadığı** ortaya çıktı; TDD ile (önce test,
+sonra düzeltme) art arda 4 gerçek hata bulundu.
+
+**Eklendi:**
+- `GET /api/chat/rooms`, `GET /api/chat/rooms/:slug/messages` (herkese
+  açık) + admin uçları (oda oluştur/güncelle/sil, kullanıcı yasakla/
+  sustur, mesaj sil) — hepsi `auditLog` ile denetleniyor.
+- `client/src/services/chatSocket.js` — `/chat` namespace'ine JWT-token
+  auth ile bağlanan, `connect_error` üzerinde token yenileme deneyen
+  socket istemcisi (`games/Crash.jsx`'teki `/crash` deseni takip edilerek).
+- Global sohbet widget'ı (mesajlaşma paneli, kullanıcı rozetleri, bahşiş
+  butonu), bahşiş modalı ve yağmur bildirimi — arayüz markup'ı `opencode`
+  (model: `opencode/x-preview-f-free`) ile üretildi, socket/state/API
+  entegrasyonu elle yazıldı.
+- Sunucu açılışında "Genel Sohbet" odası idempotent olarak tohumlanıyor
+  (`initDefaultChatRoom`).
+- `server/test/chatService.test.js` — 13 test (regresyon + mutlu yol),
+  aşağıdaki 4 hatayı da kanıtlayan/doğrulayan testler içeriyor.
+
+**Düzeltildi:**
+- `/chat` namespace auth middleware'i `const jwt = require('jsonwebtoken')`
+  kullanıyordu — proje ESM (`"type":"module"`) olduğu için bu satır HER
+  bağlantıda `ReferenceError` fırlatıyordu, yani sohbete kimse hiçbir
+  zaman bağlanamıyordu. ESM `import`'a çevrildi.
+- `sendTip` ve `createRain`'deki bakiye güncellemeleri oku-değiştir-yaz
+  (`findById` + `.save()`) deseni kullanıyordu, eşzamanlı isteklerde çifte
+  düşüş/artış riski taşıyordu. Atomic `findOneAndUpdate` (`$gte`+`$inc`)
+  desenine çevrildi.
+- `createRain`, `ChatRain.create([{...}], {session})` çağrısının
+  Mongoose'da HER ZAMAN array döndürdüğü gerçeğini gözden kaçırmıştı
+  (`rain.recipients.push(...)`, `rain.save()` gibi tekil-obje kullanımları
+  `Cannot read properties of undefined` ile patlıyordu) — array destructure
+  edilerek düzeltildi.
+- `sendTip`, `fromUserId.equals(toUserId)` çağırıyordu; `fromUserId` JWT'den
+  gelen düz bir string olduğu için (Mongoose ObjectId değil) bu her zaman
+  `TypeError` fırlatıyordu. `String(fromUserId) === String(toUserId)`
+  karşılaştırmasına çevrildi.
+- `Transaction.type` enum'ında `tip_sent`, `tip_received`, `rain`
+  değerleri hiç yoktu — bu üç düzeltme yapılmadan önce bahşiş/yağmur
+  işlemleri `Transaction.create()` çağrısında her zaman `ValidationError`
+  ile patlıyordu (yukarıdaki bug'lardan bağımsız, ayrı bir kırık nokta).
+  Enum'a eklendi.
+
+**Bilinen sınır:** Navbar'daki bakiye, bahşiş/yağmur sonrası anlık olarak
+(canlı `balance:update` push'uyla) güncellenmiyor — sayfa yenilenince veya
+yeniden login olunca doğru bakiye görünüyor, DB her zaman doğru. Kök neden
+`authStore.js`'in mevcut (bu fazda dokunulmayan) `subscribe:user` socket
+akışında; ayrı bir iş kalemi olarak bırakıldı.
+
 ### D5 — Yardım Merkezi (ticket) sistemi aktif edildi
 Backend zaten tam yazılmıştı (`models/Ticket.js`, `services/ticket.js`,
 `routes/ticket.js`, `/api/tickets` mount edilmişti) ama hiçbir client

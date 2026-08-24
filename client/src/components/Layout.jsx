@@ -3,6 +3,7 @@ import { useLocation } from 'react-router-dom';
 import Sidebar from './Sidebar';
 import Footer from './Footer';
 import LiveHelp from './LiveHelp';
+import ChatWidgetContainer from './chat/ChatWidgetContainer';
 import CookieConsent from './CookieConsent';
 import ScrollToTop from './ScrollToTop';
 import { useTranslation } from '../i18n';
@@ -34,6 +35,7 @@ export default function Layout({ children }) {
         </button>
 
         <LiveHelp open={helpOpen} onClose={() => setHelpOpen(false)} />
+        <ChatWidgetContainer />
         <ScrollToTop />
         <CookieConsent />
       </div>

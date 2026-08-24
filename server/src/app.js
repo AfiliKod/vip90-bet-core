@@ -38,6 +38,7 @@ import vipRoutes from './routes/vip.js';
 import localeConfigRoutes from './routes/localeConfig.js';
 import demoRoutes from './demo/showcase.js';
 import ticketRoutes from './routes/ticket.js';
+import chatRoutes from './routes/chat.js';
 import installRoutes from './routes/install.js';
 import brandingRoutes from './routes/branding.js';
 import pagesRoutes from './routes/pages.js';
@@ -186,6 +187,7 @@ export function createApp() {
   app.use('/api/bets', requireBetting, betsRoutes);
   app.use('/api/casino', requireCasinoContent, casinoRoutes);
   app.use('/api/tickets', ticketRoutes);
+  app.use('/api/chat', chatRoutes);
 
   // Health check — Render uptime monitoring için
   app.get('/api/health', (req, res) => res.json({ ok: true, env: process.env.NODE_ENV }));
