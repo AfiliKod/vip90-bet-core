@@ -1,11 +1,16 @@
 import { describe, it, before, after, beforeEach } from 'node:test';
 import assert from 'node:assert/strict';
 import mongoose from 'mongoose';
+import { ethers } from 'ethers';
 import User from '../src/models/User.js';
 import { generateAuthMessage, setAuthNonce, getAuthNonce, consumeAuthNonce, recoverAddress, authenticateWithWallet, linkWalletToUser, unlinkWallet, getUserByWallet, isWalletLinked } from '../src/services/web3Auth.js';
 
 describe('Web3 Auth Service', () => {
   before(async () => {
+    // signAccess/signRefresh (controllers/auth.js) bu değişkenleri gerektiriyor —
+    // yalnızca .env yüklenmemiş bir ortamda test-özel bir yedek değer atanır.
+    process.env.JWT_SECRET ||= 'test-jwt-secret';
+    process.env.JWT_REFRESH_SECRET ||= 'test-jwt-refresh-secret';
     await mongoose.connect(process.env.MONGODB_URI || 'mongodb://localhost:27017/betzone_test_web3auth');
   });
 
@@ -118,12 +123,38 @@ describe('Web3 Auth Service', () => {
         assert.fail('Should have thrown error');
       } catch (err) {
         console.log('DEBUG ERROR 2:', err.message);
-        assert.ok(err.message.includes('invalid v') || 
-                  err.message.includes('invalid signature') || 
+        assert.ok(err.message.includes('invalid v') ||
+                  err.message.includes('invalid signature') ||
                   err.message.includes('Signature verification failed') ||
                   err.message.includes('İmza doğrulanamadı') ||
                   err.message.includes('Geçersiz'));
       }
+    });
+
+    // P6 — daha önce yalnızca hata yolları test ediliyordu, gerçek imzalı
+    // mutlu-yol hiç doğrulanmamıştı. Ayrıca P6'nın düzelttiği eksik burada
+    // doğrulanıyor: authenticateWithWallet önceden yalnızca accessToken
+    // döndürüyordu, refreshToken hiç üretilmiyordu.
+    it('should authenticate with a real signed message, create a new user, and return both tokens', async () => {
+      const wallet = ethers.Wallet.createRandom();
+      const address = wallet.address.toLowerCase();
+      const nonce = setAuthNonce(address);
+      const message = generateAuthMessage(nonce);
+      const signature = await wallet.signMessage(message);
+
+      const result = await authenticateWithWallet({ address, signature, message, options: { walletType: 'metamask', chainId: 1 } });
+
+      assert.equal(result.isNewUser, true);
+      assert.equal(result.user.walletAddress, address);
+      assert.equal(result.user.walletType, 'metamask');
+      assert.ok(typeof result.accessToken === 'string' && result.accessToken.length > 0);
+      assert.ok(typeof result.refreshToken === 'string' && result.refreshToken.length > 0);
+
+      // Nonce tek kullanımlık — aynı mesajla ikinci deneme reddedilmeli
+      await assert.rejects(
+        () => authenticateWithWallet({ address, signature, message }),
+        /Geçersiz|nonce/i
+      );
     });
   });
 

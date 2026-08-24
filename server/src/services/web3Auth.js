@@ -2,7 +2,7 @@ import crypto from 'crypto';
 import { ethers } from 'ethers';
 import User from '../models/User.js';
 import { createError } from '../middleware/error.js';
-import { signAccess } from '../controllers/auth.js';
+import { signAccess, signRefresh } from '../controllers/auth.js';
 
 /**
  * EVM wallet signature verification and authentication service
@@ -107,7 +107,12 @@ export async function authenticateWithWallet({ address, signature, message, opti
   if (!user) {
     // Create new user with wallet
     const username = `web3_${normalizedAddress.slice(2, 10)}`;
-    user = await User.create([{
+    // DÜZELTME: User.create(docs, options) docs bir array verildiğinde HER ZAMAN
+    // bir array döner (session null olsa bile) — önceden `user` bu array'in
+    // kendisiydi, `.toSafeObject()`/`.walletAddress` vb. hep undefined dönerdi.
+    // Bu, hiçbir route bu fonksiyonu çağırmadığı için (izole kod) fark
+    // edilmemişti; P6'nın gerçek mutlu-yol testiyle ortaya çıktı.
+    const [created] = await User.create([{
       username,
       email: `${normalizedAddress}@web3.betzone.local`, // Synthetic email
       password: crypto.randomBytes(32).toString('hex'), // Random password, wallet auth only
@@ -117,6 +122,7 @@ export async function authenticateWithWallet({ address, signature, message, opti
       walletChainId: chainId,
       emailVerified: true, // Wallet auth bypasses email verification
     }], { session });
+    user = created;
     isNewUser = true;
   } else {
     // Update wallet info if changed
@@ -126,10 +132,14 @@ export async function authenticateWithWallet({ address, signature, message, opti
     await user.save({ session });
   }
   
-  // Generate tokens
+  // Generate tokens — P6 düzeltmesi: önceden yalnızca accessToken
+  // dönüyordu, refreshToken hiç üretilmiyordu (normal login/sosyal giriş
+  // ile tutarsızlık — cüzdanla giren kullanıcı access token süresi (15dk)
+  // dolunca sessizce çıkışa düşerdi).
   const accessToken = signAccess(user);
-  
-  return { user, accessToken, isNewUser };
+  const refreshToken = signRefresh(user);
+
+  return { user, accessToken, refreshToken, isNewUser };
 }
 
 /**

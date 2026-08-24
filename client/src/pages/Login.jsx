@@ -20,7 +20,8 @@ export default function Login() {
   const [unverifiedEmail, setUnverifiedEmail] = useState(null);
   const [resendStatus, setResendStatus] = useState('idle'); // idle | sending | sent
   const [devVerifyUrl, setDevVerifyUrl] = useState(null); // sadece dev: local'de SMTP yokken mail linkini göster
-  const { login, register: registerFn } = useAuthStore();
+  const { login, register: registerFn, loginWithWallet } = useAuthStore();
+  const [walletLoading, setWalletLoading] = useState(false);
   const addToast = useToastStore(s => s.add);
   const navigate = useNavigate();
   const { register, handleSubmit, formState: { isSubmitting } } = useForm();
@@ -99,6 +100,24 @@ export default function Login() {
       }
     }
   };
+
+  async function handleWalletLogin() {
+    setWalletLoading(true);
+    try {
+      const user = await loginWithWallet();
+      navigate(user.role === 'admin' ? '/admin' : '/');
+    } catch (e) {
+      if (e.code === 'WALLET_NOT_FOUND') {
+        addToast(t('auth.walletNotFound'), 'error');
+      } else if (e.code === 4001) {
+        // Kullanıcı MetaMask'ta isteği reddetti — sessizce geç.
+      } else {
+        addToast(e.response?.data?.error?.message || t('auth.walletLoginFailed'), 'error');
+      }
+    } finally {
+      setWalletLoading(false);
+    }
+  }
 
   async function handleResendVerification() {
     setResendStatus('sending');
@@ -258,6 +277,21 @@ export default function Login() {
                               {isSubmitting ? t('common.wait') : (tab === 'login' ? t('auth.login') : t('auth.register'))}
                             </button>
                           </form>
+
+                          {/* Cüzdanla giriş (P6) */}
+                          <div className="mt-4 flex items-center gap-3">
+                            <div className="flex-1 h-px bg-white/10" />
+                            <span className="text-[11px] text-text-3">{t('common.or')}</span>
+                            <div className="flex-1 h-px bg-white/10" />
+                          </div>
+                          <button
+                            type="button"
+                            onClick={handleWalletLogin}
+                            disabled={walletLoading}
+                            className="w-full mt-4 flex items-center justify-center gap-2 border border-white/10 rounded-lg py-3 text-sm font-medium text-text-1 hover:border-primary/40 transition disabled:opacity-50"
+                          >
+                            🦊 {walletLoading ? t('common.wait') : t('auth.connectWallet')}
+                          </button>
 
                           {/* Footer linkler */}
                           <div className="mt-6 pt-4 border-t border-white/[0.06] text-[10px] text-center" style={{ color: '#4a5a78' }}>

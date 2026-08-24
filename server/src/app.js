@@ -13,6 +13,7 @@ import { expandOrigins, canonicalHostRedirect } from './utils/origins.js';
 import { errorHandler, notFound } from './middleware/error.js';
 import { globalLimiter } from './middleware/rateLimit.js';
 import authRoutes from './routes/auth.js';
+import web3AuthRoutes from './routes/web3Auth.js';
 import eventsRoutes from './routes/events.js';
 import betsRoutes from './routes/bets.js';
 import usersRoutes from './routes/users.js';
@@ -146,6 +147,7 @@ export function createApp() {
   app.use('/install', installRoutes);
 
   app.use('/api/auth', authRoutes);
+  app.use('/api/auth/wallet', web3AuthRoutes);
   app.use('/api/users', usersRoutes);
   app.use('/api/transactions', transactionsRoutes);
   app.use('/api/promotions', promotionsRoutes);

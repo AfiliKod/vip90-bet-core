@@ -55,3 +55,16 @@ export const accountDeletionRequestSchema = z.object({
   password:   z.string().min(1),
   confirm:    z.literal(true),
 });
+
+// P6 — Web3 cüzdan girişi
+export const walletNonceSchema = z.object({
+  address: z.string().regex(/^0x[a-fA-F0-9]{40}$/, 'Geçersiz Ethereum adresi'),
+});
+
+export const walletAuthSchema = z.object({
+  address:   z.string().regex(/^0x[a-fA-F0-9]{40}$/, 'Geçersiz Ethereum adresi'),
+  signature: z.string().min(1),
+  message:   z.string().min(1),
+  walletType: z.enum(['metamask', 'walletconnect', 'coinbase', 'injected', 'unknown']).optional(),
+  chainId:   z.number().int().optional(),
+});

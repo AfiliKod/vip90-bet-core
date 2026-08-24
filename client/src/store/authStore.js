@@ -35,6 +35,29 @@ export const useAuthStore = create((set) => ({
     connectUserSocket(data.user._id || data.user.id);
     return data.user;
   },
+  // P6 — cüzdanla giriş. window.ethereum (MetaMask vb.) üzerinden adres alır,
+  // sunucudan tek kullanımlık nonce ister, mesajı imzalatır, imzayı doğrular.
+  loginWithWallet: async () => {
+    if (!window.ethereum) {
+      const err = new Error('WALLET_NOT_FOUND');
+      err.code = 'WALLET_NOT_FOUND';
+      throw err;
+    }
+    const [address] = await window.ethereum.request({ method: 'eth_requestAccounts' });
+    const { data: nonceData } = await api.post('/auth/wallet/nonce', { address });
+    const message = nonceData.message;
+    const signature = await window.ethereum.request({
+      method: 'personal_sign',
+      params: [message, address],
+    });
+    const { data } = await api.post('/auth/wallet/login', {
+      address, signature, message, walletType: 'metamask',
+    });
+    localStorage.setItem('accessToken', data.accessToken);
+    set({ user: data.user, token: data.accessToken });
+    connectUserSocket(data.user._id || data.user.id);
+    return data.user;
+  },
   register: async (username, email, password, consents = {}, referredBy) => {
     const { data } = await api.post('/auth/register', {
       username, email, password,

@@ -38,7 +38,7 @@ function signAccess(user) {
   );
 }
 
-export { signAccess };
+export { signAccess, enrichWithPalaceBalance, enrichWithLockedBalance };
 
 function signRefresh(user) {
   return jwt.sign(
@@ -57,6 +57,10 @@ function setRefreshCookie(res, token) {
     maxAge: 7 * 24 * 60 * 60 * 1000,
   });
 }
+
+// P5/P6 — sosyal/web3 giriş route'ları da normal login'le aynı token
+// çiftini (access + refresh cookie) üretmeli.
+export { signRefresh, setRefreshCookie };
 
 const EMAIL_VERIFY_TTL_HOURS = 24;
 const PASSWORD_RESET_TTL_HOURS = 1;
