@@ -21,6 +21,7 @@ import { PWAUpdateBanner, OnlineStatusIndicator } from './components/PWAComponen
 
 // Phase E3: Code splitting — initial bundle'dan büyük sayfalar lazy
 const Login = lazy(() => import('./pages/Login'));
+const AuthCallback = lazy(() => import('./pages/AuthCallback'));
 const Bahis = lazy(() => import('./pages/Bahis'));
 const Live = lazy(() => import('./pages/Live'));
 const EventDetail = lazy(() => import('./pages/EventDetail'));
@@ -130,6 +131,7 @@ export default function App() {
       <BottomNav />
       <Routes>
         <Route path="/login" element={<GuestRoute><Suspense fallback={<PageLoader />}><Login /></Suspense></GuestRoute>} />
+        <Route path="/auth/callback" element={<Suspense fallback={<PageLoader />}><AuthCallback /></Suspense>} />
         <Route path="/" element={<Layout><Suspense fallback={<PageLoader />}><HomePage /></Suspense></Layout>} />
         <Route path="/bahis" element={<Layout><ModuleGate module="betting"><Suspense fallback={<PageLoader />}><Bahis /></Suspense></ModuleGate></Layout>} />
         <Route path="/canli" element={<Layout><ModuleGate module="betting"><Suspense fallback={<PageLoader />}><Live /></Suspense></ModuleGate></Layout>} />

@@ -1,8 +1,7 @@
 import crypto from 'crypto';
 import User from '../models/User.js';
 import { createError } from '../middleware/error.js';
-import { signAccess, signRefresh, setRefreshCookie } from '../controllers/auth.js';
-import { authenticateWithWallet } from './web3Auth.js';
+import { signAccess, signRefresh } from '../controllers/auth.js';
 
 /**
  * Google OAuth configuration
@@ -12,9 +11,12 @@ const GOOGLE_CLIENT_SECRET = process.env.GOOGLE_CLIENT_SECRET;
 const GOOGLE_REDIRECT_URI = process.env.GOOGLE_REDIRECT_URI || 'http://localhost:3001/api/auth/google/callback';
 
 /**
- * Telegram OAuth configuration
+ * Telegram OAuth configuration — DÜZELTME: önceden aynı TELEGRAM_BOT_TOKEN
+ * env değişkeni admin bildirim botuyla (services/alert.js) çakışıyordu; bu
+ * ikisi farklı Telegram botları olmalı (Login Widget bir domain'e kayıtlı
+ * olmak zorunda, bildirim botu değil) — ayrı bir isim kullanılıyor.
  */
-const TELEGRAM_BOT_TOKEN = process.env.TELEGRAM_BOT_TOKEN;
+const TELEGRAM_LOGIN_BOT_TOKEN = process.env.TELEGRAM_LOGIN_BOT_TOKEN;
 const TELEGRAM_BOT_USERNAME = process.env.TELEGRAM_BOT_USERNAME;
 
 /**
@@ -119,8 +121,10 @@ export async function getGoogleUserInfo(accessToken) {
 export function getTelegramAuthUrl(userId = null) {
   const state = setOAuthState('telegram', userId);
   const params = new URLSearchParams({
-    origin: process.env.CLIENT_URL || 'http://localhost:5173',
-    bot_id: TELEGRAM_BOT_TOKEN?.split(':')[0] || '',
+    // DÜZELTME: CLIENT_URL virgülle ayrılmış çoklu CORS origin'i taşıyabilir
+    // (bkz. utils/origins.js) — Telegram'a tek bir origin gönderilmeli.
+    origin: (process.env.CLIENT_URL || 'http://localhost:5173').split(',')[0].trim(),
+    bot_id: TELEGRAM_LOGIN_BOT_TOKEN?.split(':')[0] || '',
     request_access: 'write',
     state,
   });
@@ -176,8 +180,11 @@ export async function findOrCreateGoogleUser(profile, options = {}) {
   
   if (!user) {
     // Create new user
+    // DÜZELTME: User.create(docs, options) docs bir array verildiğinde HER
+    // ZAMAN array döner (session null olsa bile) — web3Auth.js'teki aynı bug
+    // (bkz. P6 commit'i), aynı sebeple burada da fark edilmemişti.
     const username = `google_${profile.sub.slice(0, 10)}`;
-    user = await User.create([{
+    const [created] = await User.create([{
       username,
       email,
       password: crypto.randomBytes(32).toString('hex'),
@@ -187,6 +194,7 @@ export async function findOrCreateGoogleUser(profile, options = {}) {
       googlePicture: profile.picture,
       emailVerified: true, // Google verified
     }], { session });
+    user = created;
   } else {
     // Update Google info if not set
     if (!user.googleId) {
@@ -220,9 +228,9 @@ export async function findOrCreateTelegramUser(profile, options = {}) {
     }
     
     if (!user) {
-      // Create new user
+      // Create new user (bkz. findOrCreateGoogleUser'daki aynı array-dönüş notu)
       const username = profile.username ? `tg_${profile.username}` : `tg_${telegramId.slice(0, 10)}`;
-      user = await User.create([{
+      const [created] = await User.create([{
         username,
         email: `${telegramId}@telegram.betzone.local`,
         password: crypto.randomBytes(32).toString('hex'),
@@ -233,6 +241,7 @@ export async function findOrCreateTelegramUser(profile, options = {}) {
         telegramPhoto: profile.photo_url,
         emailVerified: true, // Telegram verified
       }], { session });
+      user = created;
     } else {
       // Link telegram to existing user
       user.telegramId = telegramId;
@@ -296,7 +305,7 @@ export async function handleTelegramCallback(queryParams, state, options = {}) {
   }
   
   // Verify Telegram widget data
-  if (!verifyTelegramWidgetData(queryParams, TELEGRAM_BOT_TOKEN)) {
+  if (!verifyTelegramWidgetData(queryParams, TELEGRAM_LOGIN_BOT_TOKEN)) {
     throw createError(400, 'INVALID_TELEGRAM_DATA', 'Telegram verisi doğrulanamadı');
   }
   
@@ -366,7 +375,7 @@ export async function linkTelegramAccount(userId, queryParams, state, options = 
     throw createError(400, 'INVALID_STATE', 'Geçersiz OAuth state');
   }
   
-  if (!verifyTelegramWidgetData(queryParams, TELEGRAM_BOT_TOKEN)) {
+  if (!verifyTelegramWidgetData(queryParams, TELEGRAM_LOGIN_BOT_TOKEN)) {
     throw createError(400, 'INVALID_TELEGRAM_DATA', 'Telegram verisi doğrulanamadı');
   }
   

@@ -61,6 +61,24 @@ export const walletNonceSchema = z.object({
   address: z.string().regex(/^0x[a-fA-F0-9]{40}$/, 'Geçersiz Ethereum adresi'),
 });
 
+// P5 — Sosyal giriş: hesaba bağlama gövdesi (OAuth callback'leri GET
+// query-param tabanlı olduğu için ayrı bir "link" şeması yeterli)
+export const linkGoogleSchema = z.object({
+  code: z.string().min(1),
+  state: z.string().min(1),
+});
+
+export const linkTelegramSchema = z.object({
+  id: z.string().min(1),
+  first_name: z.string().optional(),
+  last_name: z.string().optional(),
+  username: z.string().optional(),
+  photo_url: z.string().optional(),
+  auth_date: z.string().min(1),
+  hash: z.string().min(1),
+  state: z.string().min(1),
+});
+
 export const walletAuthSchema = z.object({
   address:   z.string().regex(/^0x[a-fA-F0-9]{40}$/, 'Geçersiz Ethereum adresi'),
   signature: z.string().min(1),

@@ -11,6 +11,7 @@ export default {
   'auth.logout': 'Çıkış Yap',
   'auth.forgotPassword': 'Şifremi Unuttum',
   'auth.connectWallet': 'Cüzdanla Bağlan',
+  'auth.continueWithGoogle': 'Google ile devam et',
   'auth.walletNotFound': 'Tarayıcınızda bir Web3 cüzdanı (MetaMask vb.) bulunamadı',
   'auth.walletLoginFailed': 'Cüzdanla giriş başarısız',
   'auth.resetPassword': 'Şifre Sıfırla',

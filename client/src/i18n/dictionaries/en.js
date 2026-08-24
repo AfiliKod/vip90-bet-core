@@ -11,6 +11,7 @@ export default {
   'auth.logout': 'Logout',
   'auth.forgotPassword': 'Forgot Password',
   'auth.connectWallet': 'Connect Wallet',
+  'auth.continueWithGoogle': 'Continue with Google',
   'auth.walletNotFound': 'No Web3 wallet (MetaMask, etc.) found in your browser',
   'auth.walletLoginFailed': 'Wallet login failed',
   'auth.resetPassword': 'Reset Password',
