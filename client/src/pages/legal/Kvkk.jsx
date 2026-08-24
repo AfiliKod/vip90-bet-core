@@ -1,6 +1,6 @@
 import LegalLayout from './LegalLayout';
-import { KVKK } from '../../data/legalContent';
+import StaticPageGate from '../../components/StaticPageGate';
 
 export default function Kvkk() {
-  return <LegalLayout {...KVKK} />;
+  return <StaticPageGate slug="legal-kvkk" render={page => <LegalLayout {...page} />} />;
 }

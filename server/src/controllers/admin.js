@@ -27,6 +27,7 @@ import {
 import { getAllVipLevels, upsertVipLevel, deleteVipLevel } from '../services/vip.js';
 import { getReferralTreeView } from '../services/referralTreeView.js';
 import { createBot, getAllBots, getBotById, updateBot, deleteBot, getBotStats, startAllBots, stopAllBots } from '../services/bot.js';
+import { listAllForAdmin as listAllStaticPagesForAdmin, upsertPage as upsertStaticPageSvc, togglePage as toggleStaticPageSvc } from '../services/staticPages.js';
 import { invalidateCrashSettingsCache } from '../services/inhouse/crashGame.js';
 import { invalidateRouletteSettingsCache } from '../services/inhouse/rouletteGame.js';
 import {
@@ -1231,5 +1232,27 @@ export async function stopAllBotsHandler(req, res, next) {
   try {
     const count = await stopAllBots();
     res.json({ stopped: count });
+  } catch (e) { next(e); }
+}
+
+// ─── Statik sayfa yönetimi (Footer/Hakkımızda/Yasal vb.) ───────────
+export async function listStaticPages(req, res, next) {
+  try {
+    const pages = await listAllStaticPagesForAdmin();
+    res.json({ pages });
+  } catch (e) { next(e); }
+}
+
+export async function upsertStaticPage(req, res, next) {
+  try {
+    const page = await upsertStaticPageSvc(req.params.slug, req.validated, req.user.id);
+    res.json({ page });
+  } catch (e) { next(e); }
+}
+
+export async function toggleStaticPage(req, res, next) {
+  try {
+    const page = await toggleStaticPageSvc(req.params.slug, req.validated.isEnabled, req.user.id);
+    res.json({ page });
   } catch (e) { next(e); }
 }

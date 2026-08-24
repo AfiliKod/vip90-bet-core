@@ -41,6 +41,7 @@ import ticketRoutes from './routes/ticket.js';
 import installRoutes from './routes/install.js';
 import brandingRoutes from './routes/branding.js';
 import pagesRoutes from './routes/pages.js';
+import staticPagesRoutes from './routes/staticPages.js';
 import gamesRoutes from './routes/games.js';
 import { getIO } from './services/socketEmitter.js';
 
@@ -164,6 +165,7 @@ export function createApp() {
   app.use('/api/theme', themeRoutes);
   app.use('/api/branding', brandingRoutes);
   app.use('/api/pages', pagesRoutes);
+  app.use('/api/static-pages', staticPagesRoutes);
   app.use('/api/games', gamesRoutes);
   app.use('/api/currency', currencyRoutes);
   app.use('/api/vip', vipRoutes);

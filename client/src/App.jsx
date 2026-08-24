@@ -47,6 +47,7 @@ const AdminGameSettings = lazy(() => import('./pages/admin/GameSettings'));
 const AdminRoles = lazy(() => import('./pages/admin/Roles'));
 const AdminVip = lazy(() => import('./pages/admin/Vip'));
 const AdminBots = lazy(() => import('./pages/admin/Bots'));
+const AdminStaticPages = lazy(() => import('./pages/admin/StaticPages'));
 const CasinoRedesign = lazy(() => import('./pages/CasinoRedesign'));
 const PalaceGame = lazy(() => import('./pages/PalaceGame'));
 const Crash = lazy(() => import('./pages/games/Crash'));
@@ -70,6 +71,10 @@ const Cookies = lazy(() => import('./pages/legal/Cookies'));
 const BonusTerms = lazy(() => import('./pages/legal/BonusTerms'));
 const ResponsibleGaming = lazy(() => import('./pages/legal/ResponsibleGaming'));
 const UserAgreement = lazy(() => import('./pages/legal/UserAgreement'));
+const About = lazy(() => import('./pages/company/About'));
+const Career = lazy(() => import('./pages/company/Career'));
+const Press = lazy(() => import('./pages/company/Press'));
+const Contact = lazy(() => import('./pages/company/Contact'));
 const Status = lazy(() => import('./pages/Status'));
 const ForgotPassword = lazy(() => import('./pages/ForgotPassword'));
 const ResetPassword = lazy(() => import('./pages/ResetPassword'));
@@ -174,6 +179,7 @@ export default function App() {
         <Route path="/admin/roles" element={<ProtectedRoute adminOnly><Suspense fallback={<PageLoader />}><AdminRoles /></Suspense></ProtectedRoute>} />
         <Route path="/admin/vip" element={<ProtectedRoute adminOnly><Suspense fallback={<PageLoader />}><AdminVip /></Suspense></ProtectedRoute>} />
         <Route path="/admin/bots" element={<ProtectedRoute adminOnly><Suspense fallback={<PageLoader />}><AdminBots /></Suspense></ProtectedRoute>} />
+        <Route path="/admin/static-pages" element={<ProtectedRoute adminOnly><Suspense fallback={<PageLoader />}><AdminStaticPages /></Suspense></ProtectedRoute>} />
         {/* Legal pages (public) */}
         <Route path="/legal/terms" element={<Suspense fallback={<PageLoader />}><Terms /></Suspense>} />
         <Route path="/legal/privacy" element={<Suspense fallback={<PageLoader />}><Privacy /></Suspense>} />
@@ -182,6 +188,11 @@ export default function App() {
         <Route path="/legal/bonus-terms" element={<Suspense fallback={<PageLoader />}><BonusTerms /></Suspense>} />
         <Route path="/legal/responsible-gaming" element={<Suspense fallback={<PageLoader />}><ResponsibleGaming /></Suspense>} />
         <Route path="/legal/user-agreement" element={<Suspense fallback={<PageLoader />}><UserAgreement /></Suspense>} />
+        {/* Company pages (public, statik sayfa yönetimi) */}
+        <Route path="/about" element={<Suspense fallback={<PageLoader />}><About /></Suspense>} />
+        <Route path="/career" element={<Suspense fallback={<PageLoader />}><Career /></Suspense>} />
+        <Route path="/press" element={<Suspense fallback={<PageLoader />}><Press /></Suspense>} />
+        <Route path="/contact" element={<Suspense fallback={<PageLoader />}><Contact /></Suspense>} />
         <Route path="/status" element={<Suspense fallback={<PageLoader />}><Status /></Suspense>} />
         <Route path="/forgot-password" element={<GuestRoute><Suspense fallback={<PageLoader />}><ForgotPassword /></Suspense></GuestRoute>} />
         <Route path="/reset-password" element={<GuestRoute endSession><Suspense fallback={<PageLoader />}><ResetPassword /></Suspense></GuestRoute>} />

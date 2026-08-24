@@ -1,6 +1,6 @@
 import LegalLayout from './LegalLayout';
-import { RESPONSIBLE } from '../../data/legalContent';
+import StaticPageGate from '../../components/StaticPageGate';
 
 export default function ResponsibleGaming() {
-  return <LegalLayout {...RESPONSIBLE} />;
+  return <StaticPageGate slug="legal-responsible-gaming" render={page => <LegalLayout {...page} />} />;
 }

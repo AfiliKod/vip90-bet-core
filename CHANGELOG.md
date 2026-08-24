@@ -12,6 +12,45 @@ Madde formatı ve kategoriler için `docs/CHANGELOG_GUIDE.md`'ye bakın —
 
 ## [Yayınlanmadı]
 
+### SF — Footer/statik sayfa yönetimi (Hakkımızda, Kariyer, Basın, İletişim, Yasal, Sorumlu Oyun)
+Hakkımızda/Kariyer/Basın/İletişim footer linkleri daha önce tamamen ölüydü
+(`href:'#'`, hiçbir sayfa yoktu); Yasal ve Sorumlu Oyun sayfalarının içeriği
+ise `client/src/data/legalContent.js`'e sabit kodlanmıştı, değiştirmek kod
+değişikliği gerektiriyordu.
+
+**Eklendi:**
+- Yeni `StaticPage` modeli + admin CRUD (`GET/PUT /admin/static-pages/:slug`,
+  `PATCH .../toggle`) — 11 sayfa (4 yeni kurumsal + 7 mevcut yasal/sorumlu
+  oyun) artık admin panelinden ("Statik Sayfalar") başlık/giriş/bölüm
+  metinleriyle düzenlenebiliyor ve tek tıkla açılıp kapatılabiliyor. Kapalı
+  bir sayfa footer'dan gizlenir, doğrudan URL'e gidilirse boş-durum
+  gösterilir.
+- Yeni herkese açık `GET /api/static-pages` (footer listesi) ve
+  `GET /api/static-pages/:slug` uçları.
+- 4 yeni kurumsal sayfa: `/about`, `/career`, `/press`, `/contact`
+  (placeholder içerikle, admin panelinden doldurulur).
+- Footer'daki marka adı artık admin panelindeki Marka Kimliği (A3)
+  ayarından geliyor — site adı değiştirildiğinde footer'daki isim ve
+  copyright metni otomatik güncelleniyor.
+
+**Değişti:**
+- 7 yasal sayfa (`/legal/terms`, `/legal/privacy`, `/legal/kvkk`,
+  `/legal/cookies`, `/legal/bonus-terms`, `/legal/responsible-gaming`,
+  `/legal/user-agreement`) artık içeriğini `legalContent.js`'teki sabit
+  metin yerine yeni `StaticPage` koleksiyonundan çekiyor. **URL'ler
+  değişmedi**, mevcut linkler/SEO etkilenmiyor. "Kullanıcı Sözleşmesi"
+  daha önce footer'a hiç eklenmemişti (yalnızca sidebar'da vardı) — artık
+  footer'da da görünüyor.
+
+**Kırılan Değişiklikler:**
+- Bonus/kullanım koşulları metnindeki iki madde (`legalContent.js`'teki
+  `formatMoney()` çağrıları) artık aktif para birimine göre otomatik
+  hesaplanmıyor — Mongo'da fonksiyon saklanamadığı için migrasyonda o anki
+  TRY değeriyle ("₺50,00", "₺100,00") düz metne dönüştürüldü. Admin
+  panelinden düzenlenebilir ama para birimi değişince kendiliğinden
+  güncellenmez; operatör para birimini değiştirirse bu iki metni elle
+  düzeltmesi gerekir.
+
 ### T4/T5 — Takip: kullanıcıya görünen marka izi ve ölü betikler (kısmi)
 Dev server önizlemesi sırasında `server/src/data/oddsSource-domain.json`'ın
 (oddsSource'in Türkiye'de engellenen ayna domain'lerini DNS/HTTP ile keşfeden

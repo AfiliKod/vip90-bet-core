@@ -1,6 +1,6 @@
 import LegalLayout from './LegalLayout';
-import { COOKIES } from '../../data/legalContent';
+import StaticPageGate from '../../components/StaticPageGate';
 
 export default function Cookies() {
-  return <LegalLayout {...COOKIES} />;
+  return <StaticPageGate slug="legal-cookies" render={page => <LegalLayout {...page} />} />;
 }

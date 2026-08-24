@@ -240,6 +240,20 @@ export const createBotSchema = z.object({
   notes: z.string().max(300).optional(),
 });
 
+// Footer/statik sayfa yönetimi
+export const upsertStaticPageSchema = z.object({
+  title: z.string().min(1).max(120),
+  intro: z.string().max(500).optional(),
+  sections: z.array(z.object({
+    title: z.string().min(1).max(120),
+    content: z.array(z.string().min(1).max(2000)).max(50),
+  })).max(30),
+});
+
+export const toggleStaticPageSchema = z.object({
+  isEnabled: z.boolean(),
+});
+
 export const updateBotSchema = z.object({
   isActive: z.boolean().optional(),
   botType: z.enum(['casual', 'aggressive', 'conservative', 'high_roller', 'bonus_hunter']).optional(),

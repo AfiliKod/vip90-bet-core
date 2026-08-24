@@ -27,6 +27,7 @@ import { errorLogger } from './services/errorLogger.js';
 import { initDefaultPermissions, initDefaultRoles } from './services/permissions.js';
 import { initDefaultVipLevels } from './services/vip.js';
 import { startBotScheduler } from './jobs/botScheduler.js';
+import { seedDefaultPages } from './services/staticPages.js';
 
 const app = createApp();
 
@@ -99,6 +100,8 @@ connectDB()
       .catch(err => console.error('initDefaultPermissions/Roles hatası:', err.message));
     // O1 — VIP/seviye programı: varsayılan Bronze..Diamond seviyeleri
     initDefaultVipLevels().catch(err => console.error('initDefaultVipLevels hatası:', err.message));
+    // Footer/statik sayfalar: yasal metinler + kurumsal sayfa placeholder'ları
+    seedDefaultPages().catch(err => console.error('seedDefaultPages hatası:', err.message));
     initSocket(io);
     initCrashGame(io);
     initRouletteGame(io);

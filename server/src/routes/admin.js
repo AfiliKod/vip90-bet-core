@@ -2,7 +2,7 @@ import { Router } from 'express';
 import { requireAuth, requireAdmin } from '../middleware/auth.js';
 import { auditLog } from '../middleware/audit.js';
 import { validate } from '../middleware/validate.js';
-import { createEventSchema, settleEventSchema, createUserSchema, updateBalanceSchema, updateThemeSchema, updateBrandingSchema, updateHomeContentSchema, updateFeaturedGamesSchema, applyThemePresetSchema, updateGameSettingsSchema, simulateRtpSchema, updateCurrencySchema, updateTimezoneSchema, createRoleSchema, updateRoleSchema, assignRoleSchema, upsertVipLevelSchema, createBotSchema, updateBotSchema } from '../validators/admin.js';
+import { createEventSchema, settleEventSchema, createUserSchema, updateBalanceSchema, updateThemeSchema, updateBrandingSchema, updateHomeContentSchema, updateFeaturedGamesSchema, applyThemePresetSchema, updateGameSettingsSchema, simulateRtpSchema, updateCurrencySchema, updateTimezoneSchema, createRoleSchema, updateRoleSchema, assignRoleSchema, upsertVipLevelSchema, createBotSchema, updateBotSchema, upsertStaticPageSchema, toggleStaticPageSchema } from '../validators/admin.js';
 import * as ctrl from '../controllers/admin.js';
 import modulesAdminRouter from '../controllers/modules.js';
 import { timezoneStore } from '../services/timezoneLive.js';
@@ -121,6 +121,11 @@ r.patch('/bots/:id',         blockDemoAdmin, validate(updateBotSchema), ctrl.upd
 r.delete('/bots/:id',        blockDemoAdmin, ctrl.deleteBotHandler);
 r.post('/bots/start-all',    blockDemoAdmin, ctrl.startAllBotsHandler);
 r.post('/bots/stop-all',     blockDemoAdmin, ctrl.stopAllBotsHandler);
+
+// Footer/statik sayfa yönetimi (Hakkımızda/Kariyer/Basın/İletişim/Yasal/Sorumlu Oyun)
+r.get('/static-pages',              ctrl.listStaticPages);
+r.put('/static-pages/:slug',        blockDemoAdmin, validate(upsertStaticPageSchema), ctrl.upsertStaticPage);
+r.patch('/static-pages/:slug/toggle', blockDemoAdmin, validate(toggleStaticPageSchema), ctrl.toggleStaticPage);
 
 export default r;
 

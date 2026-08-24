@@ -1,6 +1,6 @@
 import LegalLayout from './LegalLayout';
-import { TERMS } from '../../data/legalContent';
+import StaticPageGate from '../../components/StaticPageGate';
 
 export default function Terms() {
-  return <LegalLayout {...TERMS} />;
+  return <StaticPageGate slug="legal-terms" render={page => <LegalLayout {...page} />} />;
 }

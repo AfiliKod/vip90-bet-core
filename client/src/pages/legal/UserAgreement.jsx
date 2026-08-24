@@ -1,6 +1,6 @@
 import LegalLayout from './LegalLayout';
-import { USER_AGREEMENT } from '../../data/legalContent';
+import StaticPageGate from '../../components/StaticPageGate';
 
 export default function UserAgreement() {
-  return <LegalLayout {...USER_AGREEMENT} />;
+  return <StaticPageGate slug="legal-user-agreement" render={page => <LegalLayout {...page} />} />;
 }

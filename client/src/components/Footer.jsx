@@ -1,19 +1,41 @@
+import { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { useTranslation } from '../i18n';
+import { useBrandingStore } from '../store/brandingStore';
+import api from '../services/api';
+
+// API'ye ulaşılamazsa (network hatası) footer'ın tamamen boş kalmaması için
+// sabit bir yedek — yalnızca hep var olan sayfaları içerir, marka sütunu boş kalır.
+const FALLBACK_LEGAL_ITEMS = [
+  { label: 'Kullanım Koşulları', to: '/legal/terms' },
+  { label: 'Gizlilik Politikası', to: '/legal/privacy' },
+  { label: 'KVKK Aydınlatma', to: '/legal/kvkk' },
+];
 
 function Footer({ onOpenHelp }) {
   const { t } = useTranslation();
   const year = new Date().getFullYear();
+  const siteName = useBrandingStore(s => s.siteName) || 'VIP90.bet';
+
+  const [staticPages, setStaticPages] = useState(null); // null = henüz yüklenmedi
+  const [loadFailed, setLoadFailed] = useState(false);
+
+  useEffect(() => {
+    let cancelled = false;
+    api.get('/static-pages')
+      .then(({ data }) => { if (!cancelled) setStaticPages(data.pages || []); })
+      .catch(() => { if (!cancelled) setLoadFailed(true); });
+    return () => { cancelled = true; };
+  }, []);
+
+  const brandPages = (staticPages || []).filter(p => p.footerColumn === 'brand');
+  const supportPages = (staticPages || []).filter(p => p.footerColumn === 'support');
+  const legalPages = (staticPages || []).filter(p => p.footerColumn === 'legal');
 
   const LINKS = [
     {
       heading: t('footer.brand'),
-      items: [
-        { label: t('footer.about'), href: '#' },
-        { label: t('footer.career'), href: '#' },
-        { label: t('footer.press'), href: '#' },
-        { label: t('footer.contact'), href: '#' },
-      ],
+      items: brandPages.map(p => ({ label: p.title, to: p.route })),
     },
     {
       heading: t('nav.sports'),
@@ -27,22 +49,20 @@ function Footer({ onOpenHelp }) {
     {
       heading: t('footer.support'),
       items: [
-        { label: t('footer.helpCenter'), to: '/status' },
+        { label: t('footer.helpCenter'), to: '/help' },
         { label: t('footer.depositWithdraw'), to: '/profile' },
         { label: t('footer.liveHelp'), action: 'livehelp' },
-        { label: t('footer.responsibleGaming'), to: '/legal/responsible-gaming' },
+        ...supportPages.map(p => ({ label: p.title, to: p.route })),
       ],
     },
     {
       heading: t('footer.legal'),
-      items: [
-        { label: t('footer.terms'), to: '/legal/terms' },
-        { label: t('footer.privacy'), to: '/legal/privacy' },
-        { label: t('footer.kvkk'), to: '/legal/kvkk' },
-        { label: t('footer.cookies'), to: '/legal/cookies' },
-        { label: t('footer.bonusTerms'), to: '/legal/bonus-terms' },
-        { label: t('footer.status'), to: '/status' },
-      ],
+      items: loadFailed
+        ? FALLBACK_LEGAL_ITEMS
+        : [
+            ...legalPages.map(p => ({ label: p.title, to: p.route })),
+            { label: t('footer.status'), to: '/status' },
+          ],
     },
   ];
 
@@ -86,8 +106,8 @@ function Footer({ onOpenHelp }) {
           <div className="flex items-center gap-3">
             <span className="text-xl select-none">💎</span>
             <div>
-              <p className="text-sm font-bold text-text-1">VIP90.bet</p>
-              <p className="text-[11px] text-text-3">{t('footer.copyright', { year })}</p>
+              <p className="text-sm font-bold text-text-1">{siteName}</p>
+              <p className="text-[11px] text-text-3">{t('footer.copyright', { year, siteName })}</p>
             </div>
           </div>
 
