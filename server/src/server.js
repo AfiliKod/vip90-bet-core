@@ -26,6 +26,7 @@ import { initSentry } from './services/sentry.js';
 import { errorLogger } from './services/errorLogger.js';
 import { initDefaultPermissions, initDefaultRoles } from './services/permissions.js';
 import { initDefaultVipLevels } from './services/vip.js';
+import { startBotScheduler } from './jobs/botScheduler.js';
 
 const app = createApp();
 
@@ -105,6 +106,8 @@ connectDB()
     startStatusTransition(io);
     startoddsSourceLiveSync(io);
     startoddsSourceUpcomingSync(io);
+    // P3 — bot oyuncular: aksiyonu hazır botları periyodik tetikler
+    startBotScheduler();
     // Job'lar tamamen asılıp hiç rapor vermediğinde de bayatlığı yakala
     startMonitor();
     startReconciliation();

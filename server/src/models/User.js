@@ -103,7 +103,43 @@ const schema = new mongoose.Schema({
   telegramFirstName: { type: String },
   telegramLastName: { type: String },
   telegramPhoto: { type: String },
+  // ─── Bot oyuncular (P3) ────────────────────────────────────────────
+  // Botlar gerçek User kayıtlarıdır (isBot:true) — mevcut TÜM oyun
+  // route'larını (Mines/Dice/...) hiçbir değişiklik yapmadan, kendi
+  // gerçek matematikleriyle kullanabilsinler diye. Ayrı bir Bot
+  // koleksiyonu (önceki tasarım) User'dan kopuktu, gerçek oyun mantığını
+  // ikinci kez (ve bozuk şekilde) simüle ediyordu.
+  isBot: { type: Boolean, default: false, index: true },
+  botProfile: {
+    botType: { type: String, enum: ['casual', 'aggressive', 'conservative', 'high_roller', 'bonus_hunter'], default: 'casual' },
+    behavior: {
+      betIntervalMinMs: { type: Number, default: 30000 },
+      betIntervalMaxMs: { type: Number, default: 120000 },
+      minBetPercent: { type: Number, default: 1 },
+      maxBetPercent: { type: Number, default: 5 },
+      riskLevel: { type: Number, default: 50, min: 0, max: 100 },
+    },
+    limits: {
+      maxDailyLoss: { type: Number, default: 1000 },
+      maxDailyBets: { type: Number, default: 100 },
+      minBalanceToPlay: { type: Number, default: 10 },
+    },
+    stats: {
+      totalBets: { type: Number, default: 0 },
+      totalWagered: { type: Number, default: 0 },
+      totalWon: { type: Number, default: 0 },
+      lastActiveAt: { type: Date, default: null },
+      dailyBetsSince: { type: Date, default: null }, // günlük limit sayacının başlangıcı
+    },
+    currentState: { type: String, enum: ['idle', 'playing', 'on_break', 'stopped'], default: 'idle' },
+    nextActionAt: { type: Date, default: null },
+    createdBy: { type: mongoose.Schema.Types.ObjectId, ref: 'User', default: null }, // botu oluşturan admin
+    notes: { type: String, default: '' },
+  },
 }, { timestamps: true });
+
+schema.index({ isBot: 1, 'botProfile.currentState': 1 });
+schema.index({ isBot: 1, 'botProfile.nextActionAt': 1 });
 
 // Unique index for walletAddress (only non-null values)
 schema.index({ walletAddress: 1 }, { unique: true, sparse: true });

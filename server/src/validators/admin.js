@@ -218,3 +218,42 @@ export const upsertVipLevelSchema = z.object({
   icon: z.string().max(10).optional(),
   isActive: z.boolean().optional(),
 });
+
+// P3 — bot oyuncular (User koleksiyonunda isBot:true)
+export const createBotSchema = z.object({
+  username: z.string().min(3).max(30),
+  email: z.string().email(),
+  password: z.string().min(6).max(100).optional(),
+  botType: z.enum(['casual', 'aggressive', 'conservative', 'high_roller', 'bonus_hunter']).optional(),
+  behavior: z.object({
+    betIntervalMinMs: z.number().int().min(1000).optional(),
+    betIntervalMaxMs: z.number().int().min(1000).optional(),
+    minBetPercent: z.number().min(0.1).max(100).optional(),
+    maxBetPercent: z.number().min(0.1).max(100).optional(),
+    riskLevel: z.number().min(0).max(100).optional(),
+  }).optional(),
+  limits: z.object({
+    maxDailyLoss: z.number().min(0).optional(),
+    maxDailyBets: z.number().int().min(1).optional(),
+    minBalanceToPlay: z.number().min(0).optional(),
+  }).optional(),
+  notes: z.string().max(300).optional(),
+});
+
+export const updateBotSchema = z.object({
+  isActive: z.boolean().optional(),
+  botType: z.enum(['casual', 'aggressive', 'conservative', 'high_roller', 'bonus_hunter']).optional(),
+  behavior: z.object({
+    betIntervalMinMs: z.number().int().min(1000).optional(),
+    betIntervalMaxMs: z.number().int().min(1000).optional(),
+    minBetPercent: z.number().min(0.1).max(100).optional(),
+    maxBetPercent: z.number().min(0.1).max(100).optional(),
+    riskLevel: z.number().min(0).max(100).optional(),
+  }).optional(),
+  limits: z.object({
+    maxDailyLoss: z.number().min(0).optional(),
+    maxDailyBets: z.number().int().min(1).optional(),
+    minBalanceToPlay: z.number().min(0).optional(),
+  }).optional(),
+  notes: z.string().max(300).optional(),
+});

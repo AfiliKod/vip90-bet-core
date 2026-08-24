@@ -26,6 +26,7 @@ import {
 } from '../services/permissions.js';
 import { getAllVipLevels, upsertVipLevel, deleteVipLevel } from '../services/vip.js';
 import { getReferralTreeView } from '../services/referralTreeView.js';
+import { createBot, getAllBots, getBotById, updateBot, deleteBot, getBotStats, startAllBots, stopAllBots } from '../services/bot.js';
 import { invalidateCrashSettingsCache } from '../services/inhouse/crashGame.js';
 import { invalidateRouletteSettingsCache } from '../services/inhouse/rouletteGame.js';
 import {
@@ -1178,5 +1179,57 @@ export async function getReferralTree(req, res, next) {
   try {
     const tree = await getReferralTreeView(req.params.id);
     res.json({ tree });
+  } catch (e) { next(e); }
+}
+
+// ─── P3 — bot oyuncular (User koleksiyonunda isBot:true) ────────────
+export async function listBots(req, res, next) {
+  try {
+    const result = await getAllBots(req.query);
+    res.json(result);
+  } catch (e) { next(e); }
+}
+
+export async function createBotHandler(req, res, next) {
+  try {
+    const bot = await createBot(req.validated, req.user.id);
+    res.status(201).json({ bot });
+  } catch (e) { next(e); }
+}
+
+export async function getBotHandler(req, res, next) {
+  try {
+    const bot = await getBotById(req.params.id);
+    if (!bot) return res.status(404).json({ error: { message: 'Bot bulunamadı' } });
+    const stats = await getBotStats(req.params.id);
+    res.json({ bot, stats });
+  } catch (e) { next(e); }
+}
+
+export async function updateBotHandler(req, res, next) {
+  try {
+    const bot = await updateBot(req.params.id, req.validated);
+    res.json({ bot });
+  } catch (e) { next(e); }
+}
+
+export async function deleteBotHandler(req, res, next) {
+  try {
+    await deleteBot(req.params.id);
+    res.json({ ok: true });
+  } catch (e) { next(e); }
+}
+
+export async function startAllBotsHandler(req, res, next) {
+  try {
+    const count = await startAllBots();
+    res.json({ started: count });
+  } catch (e) { next(e); }
+}
+
+export async function stopAllBotsHandler(req, res, next) {
+  try {
+    const count = await stopAllBots();
+    res.json({ stopped: count });
   } catch (e) { next(e); }
 }
