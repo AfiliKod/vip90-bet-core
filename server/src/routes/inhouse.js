@@ -15,9 +15,16 @@ import {
 import {
   buildDeck52, evaluatePokerHand,
 } from '../services/inhouse/videoPokerMath.js';
+import { addRecentWinner, getRecentWinners } from '../services/liveGameStream.js';
 
 const router = Router();
 router.use(requireAuth);
+
+// GET /inhouse/recent-winners — "son kazananlar" şeridinin ilk yükleme verisi.
+// Canlı güncellemeler soket üzerinden 'winners:new' event'iyle gelir (P4).
+router.get('/recent-winners', (req, res) => {
+  res.json({ winners: getRecentWinners() });
+});
 
 // ── Ayarlanabilir oyunlar için ortak DB-ayar önbelleği ──────────────────────
 // crashGame.js/rouletteGame.js'teki modül-düzeyi cache deseninin bu
@@ -69,6 +76,19 @@ function checkBetAllowed(res, settings, betAmount, minKey, maxKey) {
     return false;
   }
   return true;
+}
+
+/** Net kazançta "son kazananlar" şeridine ekler — kayıp/berabere/push'ta hiçbir şey yapmaz. */
+function notifyIfWin(gameId, gameTitle, user, betAmount, payout) {
+  if (user && payout > betAmount) {
+    addRecentWinner({
+      userId: user._id,
+      username: user.username,
+      gameId,
+      gameTitle,
+      amount: payout - betAmount,
+    });
+  }
 }
 
 // ── MINES ────────────────────────────────────────────────────────────────────
@@ -235,6 +255,7 @@ router.post('/mines/cashout', async (req, res, next) => {
       balanceBefore: session.balanceBefore,
       balanceAfter: newBalance,
     });
+    notifyIfWin('inhouse-mines', 'Mines', user, session.bet, payout);
 
     res.json({
       mult,
@@ -328,6 +349,7 @@ router.post('/plinko/drop', async (req, res, next) => {
       balanceBefore,
       balanceAfter: Math.max(0, newBalance),
     });
+    notifyIfWin('inhouse-plinko', 'Plinko', user, betAmount, payout);
 
     res.json({
       slot,
@@ -390,6 +412,7 @@ router.post('/dice/roll', async (req, res, next) => {
       net: payout - betAmount, balanceBefore,
       balanceAfter: Math.max(0, newBalance),
     });
+    notifyIfWin('inhouse-dice', 'Dice', user, betAmount, payout);
 
     res.json({ roll, win, mult, payout, balance: Math.max(0, newBalance), winChance, serverSeed, clientSeed });
   } catch (err) { next(err); }
@@ -440,6 +463,7 @@ router.post('/limbo/play', async (req, res, next) => {
       net: payout - betAmount, balanceBefore,
       balanceAfter: Math.max(0, newBalance),
     });
+    notifyIfWin('inhouse-limbo', 'Limbo', user, betAmount, payout);
 
     res.json({ result, win, payout, balance: Math.max(0, newBalance), serverSeed });
   } catch (err) { next(err); }
@@ -498,6 +522,7 @@ router.post('/wheel/spin', async (req, res, next) => {
       net: payout - betAmount, balanceBefore,
       balanceAfter: Math.max(0, newBalance),
     });
+    notifyIfWin('inhouse-wheel', 'Wheel', user, betAmount, payout);
 
     res.json({ segIndex, mult, payout, balance: Math.max(0, newBalance), segments: WHEEL_SEGMENTS[riskLevel], serverSeed });
   } catch (err) { next(err); }
@@ -645,6 +670,7 @@ router.post('/hilo/cashout', async (req, res, next) => {
       net: payout - session.bet, balanceBefore: session.balanceBefore,
       balanceAfter: newBalance,
     });
+    notifyIfWin('inhouse-hilo', 'HiLo', user, session.bet, payout);
 
     res.json({ mult: session.mult, payout, balance: newBalance, serverSeed: session.serverSeed });
   } catch (err) { next(err); }
@@ -716,6 +742,7 @@ router.post('/keno/play', async (req, res, next) => {
       net: payout - betAmount, balanceBefore,
       balanceAfter: Math.max(0, newBalance),
     });
+    notifyIfWin('inhouse-keno', 'Keno', user, betAmount, payout);
 
     res.json({ drawn, hits, mult, payout, balance: Math.max(0, newBalance), serverSeed });
   } catch (err) { next(err); }
@@ -791,6 +818,7 @@ router.post('/blackjack/deal', async (req, res, next) => {
         provider: 'inhouse', bet: betAmount, payout,
         net: payout - betAmount, balanceBefore: user.balance + betAmount, balanceAfter: finalBalance,
       });
+      notifyIfWin('inhouse-blackjack', 'Blackjack', user, betAmount, payout);
       return res.json({
         playerCards, dealerCards, playerTotal, dealerTotal,
         outcome, payout, balance: finalBalance,
@@ -912,6 +940,7 @@ async function resolveStand(session, userId, res, isDouble = false) {
     provider: 'inhouse', bet: session.bet, payout,
     net: payout - session.bet, balanceBefore: session.balanceBefore, balanceAfter: newBalance,
   });
+  notifyIfWin('inhouse-blackjack', 'Blackjack', user, session.bet, payout);
 
   res.json({
     playerCards: session.playerCards, playerTotal,
@@ -1013,6 +1042,7 @@ router.post('/roulette/spin', async (req, res, next) => {
       net: payout - totalBet, balanceBefore,
       balanceAfter: Math.max(0, newBalance),
     });
+    notifyIfWin('inhouse-roulette', 'European Roulette', user, totalBet, payout);
 
     res.json({
       number: num,
@@ -1127,6 +1157,7 @@ router.post('/baccarat/deal', async (req, res, next) => {
       net: payout - betAmount, balanceBefore,
       balanceAfter: Math.max(0, newBalance),
     });
+    notifyIfWin('inhouse-baccarat', 'Baccarat', user, betAmount, payout);
 
     res.json({
       player, banker, playerTotal, bankerTotal,
@@ -1220,6 +1251,7 @@ router.post('/videopoker/draw', async (req, res, next) => {
       provider: 'inhouse', bet: session.bet, payout,
       net: payout - session.bet, balanceBefore: session.balanceBefore, balanceAfter: newBalance,
     });
+    notifyIfWin('inhouse-videopoker', 'Video Poker', user, session.bet, payout);
 
     res.json({
       hand: newHand, handName, mult, payout,
@@ -1285,6 +1317,7 @@ router.post('/dragontiger/deal', async (req, res, next) => {
       net: payout - betAmount, balanceBefore,
       balanceAfter: Math.max(0, newBalance),
     });
+    notifyIfWin('inhouse-dragontiger', 'Dragon Tiger', user, betAmount, payout);
 
     res.json({
       dragon, tiger, dragonValue: dv, tigerValue: tv,

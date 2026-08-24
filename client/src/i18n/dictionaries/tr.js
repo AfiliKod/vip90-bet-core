@@ -335,6 +335,7 @@ export default {
   'layout.liveHelp': 'Canlı Yardım',
 
   // Home
+  'home.recentWinners': 'Son Kazananlar',
   'home.hero.welcome': 'VIP90.bet\'e Hoşgeldin',
   'home.hero.sports': 'Spor Bahisleri',
   'home.hero.live': 'Canlı Bahis',

@@ -43,7 +43,10 @@ export function emitGameUpdate(gameId, update) {
   if (stream && stream.subscribers.size > 0) {
     const io = getIO();
     if (io) {
-      io.of('/stream').to(`game:${gameId}`).emit('game:update', update);
+      // DÜZELTME: socket/handler.js ve client'ın bağlandığı namespace '/live'
+      // — burası önceden '/stream' idi (hiç kimsenin bağlı olmadığı, ölü bir
+      // namespace), bu yüzden bu event hiçbir zaman kimseye ulaşmıyordu.
+      io.of('/live').to(`game:${gameId}`).emit('game:update', update);
       stream.lastUpdate = Date.now();
     }
   }
@@ -55,7 +58,7 @@ export function emitGameUpdate(gameId, update) {
 export function emitSpinResult(gameId, result) {
   const io = getIO();
   if (io) {
-    io.of('/stream').to(`game:${gameId}`).emit('game:spinResult', result);
+    io.of('/live').to(`game:${gameId}`).emit('game:spinResult', result);
   }
 }
 
@@ -129,5 +132,8 @@ export function cleanupInactiveStreams(maxAgeMs = 30 * 60 * 1000) { // 30 minute
   }
 }
 
-// Periodic cleanup
-setInterval(cleanupInactiveStreams, 5 * 60 * 1000); // Every 5 minutes
+// Periodic cleanup — .unref() ile process'in kapanmasını engellemiyor
+// (bu satır önceden unref'siz kaydedilmişti; bu modül hiç import edilmediği
+// için o zamana dek fark edilmemişti — routes/inhouse.js'in artık onu
+// import etmesiyle test process'lerinin hiç sonlanmaması sorununa yol açtı).
+setInterval(cleanupInactiveStreams, 5 * 60 * 1000).unref(); // Every 5 minutes

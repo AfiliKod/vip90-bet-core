@@ -336,6 +336,7 @@ export default {
   'layout.liveHelp': 'Live Help',
 
   // Home
+  'home.recentWinners': 'Recent Winners',
   'home.hero.welcome': 'Welcome to VIP90.bet',
   'home.hero.sports': 'Sports Betting',
   'home.hero.live': 'Live Betting',

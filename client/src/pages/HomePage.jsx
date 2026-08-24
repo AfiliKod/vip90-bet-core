@@ -4,6 +4,7 @@ import { useTranslation } from '../i18n';
 import api from '../services/api';
 import MiniEventCard from '../components/MiniEventCard';
 import BetSlip from '../components/BetSlip';
+import RecentWinnersTicker from '../components/RecentWinnersTicker';
 import { BRAND_GRADIENT, BRAND_GRADIENT_H, BRAND_GLOW } from '../styles/brand';
 import { resolveSectionOrder, resolveBanners } from './home/pageContent';
 import { getPromoSlides } from './home/promoSlides';
@@ -119,6 +120,7 @@ export default function HomePage() {
 
   return (
     <div className="min-h-full flex flex-col">
+      <RecentWinnersTicker />
       {/* ── Hero Slider ──────────────────────────────────────── */}
       {sectionOrder.includes('hero') && (
       <section className="relative w-full h-[360px] sm:h-[480px] overflow-hidden" style={{ order: sectionOrder.indexOf('hero') }}>
