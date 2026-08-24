@@ -24,6 +24,7 @@ import {
   getAllRoles, getAllPermissions, createRole, updateRole, deleteRole,
   assignRoleToUser, removeRoleFromUser,
 } from '../services/permissions.js';
+import { getAllVipLevels, upsertVipLevel, deleteVipLevel } from '../services/vip.js';
 import { invalidateCrashSettingsCache } from '../services/inhouse/crashGame.js';
 import { invalidateRouletteSettingsCache } from '../services/inhouse/rouletteGame.js';
 import {
@@ -1143,5 +1144,29 @@ export async function removeUserRole(req, res, next) {
   try {
     const user = await removeRoleFromUser(req.params.id, req.params.roleId);
     res.json({ roles: user.roles });
+  } catch (e) { next(e); }
+}
+
+// ─── O1 — VIP/seviye programı ───────────────────────────────────────
+// services/vip.js zaten yazılmıştı (awardXp artık CasinoRound/settlement'a
+// bağlı — bkz. modellerdeki not) — burada yalnızca admin CRUD ucu eklendi.
+export async function listVipLevels(req, res, next) {
+  try {
+    const levels = await getAllVipLevels();
+    res.json({ levels });
+  } catch (e) { next(e); }
+}
+
+export async function saveVipLevel(req, res, next) {
+  try {
+    const level = await upsertVipLevel(req.validated);
+    res.json({ level });
+  } catch (e) { next(e); }
+}
+
+export async function removeVipLevel(req, res, next) {
+  try {
+    await deleteVipLevel(Number(req.params.level));
+    res.json({ ok: true });
   } catch (e) { next(e); }
 }

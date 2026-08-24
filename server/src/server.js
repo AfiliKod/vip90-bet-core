@@ -25,6 +25,7 @@ import { startReconciliation } from './scripts/reconcilePalace.js';
 import { initSentry } from './services/sentry.js';
 import { errorLogger } from './services/errorLogger.js';
 import { initDefaultPermissions, initDefaultRoles } from './services/permissions.js';
+import { initDefaultVipLevels } from './services/vip.js';
 
 const app = createApp();
 
@@ -95,6 +96,8 @@ connectDB()
     initDefaultPermissions()
       .then(() => initDefaultRoles()) // roller izinlere referans verir, sırayla çalışmalı
       .catch(err => console.error('initDefaultPermissions/Roles hatası:', err.message));
+    // O1 — VIP/seviye programı: varsayılan Bronze..Diamond seviyeleri
+    initDefaultVipLevels().catch(err => console.error('initDefaultVipLevels hatası:', err.message));
     initSocket(io);
     initCrashGame(io);
     initRouletteGame(io);

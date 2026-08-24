@@ -2,7 +2,7 @@ import { Router } from 'express';
 import { requireAuth, requireAdmin } from '../middleware/auth.js';
 import { auditLog } from '../middleware/audit.js';
 import { validate } from '../middleware/validate.js';
-import { createEventSchema, settleEventSchema, createUserSchema, updateBalanceSchema, updateThemeSchema, updateBrandingSchema, updateHomeContentSchema, updateFeaturedGamesSchema, applyThemePresetSchema, updateGameSettingsSchema, simulateRtpSchema, updateCurrencySchema, updateTimezoneSchema, createRoleSchema, updateRoleSchema, assignRoleSchema } from '../validators/admin.js';
+import { createEventSchema, settleEventSchema, createUserSchema, updateBalanceSchema, updateThemeSchema, updateBrandingSchema, updateHomeContentSchema, updateFeaturedGamesSchema, applyThemePresetSchema, updateGameSettingsSchema, simulateRtpSchema, updateCurrencySchema, updateTimezoneSchema, createRoleSchema, updateRoleSchema, assignRoleSchema, upsertVipLevelSchema } from '../validators/admin.js';
 import * as ctrl from '../controllers/admin.js';
 import modulesAdminRouter from '../controllers/modules.js';
 import { timezoneStore } from '../services/timezoneLive.js';
@@ -106,6 +106,11 @@ r.delete('/roles/:id',             blockDemoAdmin, ctrl.deleteRoleHandler);
 r.get('/permissions',              ctrl.listPermissions);
 r.post('/users/:id/roles',         blockDemoAdmin, validate(assignRoleSchema), ctrl.assignUserRole);
 r.delete('/users/:id/roles/:roleId', blockDemoAdmin, ctrl.removeUserRole);
+
+// O1 — VIP/seviye programı
+r.get('/vip-levels',        ctrl.listVipLevels);
+r.post('/vip-levels',       blockDemoAdmin, validate(upsertVipLevelSchema), ctrl.saveVipLevel);
+r.delete('/vip-levels/:level', blockDemoAdmin, ctrl.removeVipLevel);
 
 export default r;
 

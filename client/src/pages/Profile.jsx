@@ -167,6 +167,7 @@ export default function Profile() {
   const [submitting, setSubmitting]         = useState(false);
   const [successRequest, setSuccessRequest] = useState(null);
   const [wagerings, setWagerings]           = useState([]);
+  const [vipStatus, setVipStatus]           = useState(null);
   const [showPrivacyModal, setShowPrivacyModal] = useState(false);
   const [privacyPassword, setPrivacyPassword] = useState('');
   const [privacyError, setPrivacyError] = useState('');
@@ -184,6 +185,10 @@ export default function Profile() {
   }, []);
 
   useEffect(() => { fetchTx(); fetchWagerings(); }, [fetchTx, fetchWagerings]);
+
+  useEffect(() => {
+    api.get('/vip/status').then(r => setVipStatus(r.data)).catch(() => {});
+  }, []);
 
   useEffect(() => {
     if (method === 'bank') {
@@ -451,6 +456,37 @@ const handleBankSubmit = async (confirmForfeit = false) => {
                 </button>
               </div>
             ))}
+          </div>
+        )}
+
+        {/* ── VIP Seviyesi (O1) ── */}
+        {vipStatus?.currentLevel && (
+          <div className="mb-5 bg-bg-base/40 border border-accent/20 rounded-xl p-4">
+            <div className="flex items-center justify-between mb-2">
+              <div className="text-[10px] uppercase tracking-widest font-bold" style={{ color: '#8899bb' }}>
+                {vipStatus.currentLevel.icon} {t('profile.vipTitle')}
+              </div>
+              <span
+                className="text-xs font-bold px-2 py-0.5 rounded-full"
+                style={{ color: vipStatus.currentLevel.color, border: `1px solid ${vipStatus.currentLevel.color}55` }}
+              >
+                {vipStatus.currentLevel.name}
+              </span>
+            </div>
+            <div className="text-xs text-text-3 mb-2">
+              {t('profile.vipXp', { xp: vipStatus.vipXp.toLocaleString() })}
+              {vipStatus.nextLevel && (
+                <> · {t('profile.vipNextLevel', { level: vipStatus.nextLevel.name, xp: vipStatus.nextLevel.xpRequired.toLocaleString() })}</>
+              )}
+            </div>
+            {vipStatus.nextLevel && (
+              <div className="h-1.5 rounded-full bg-white/5 overflow-hidden">
+                <div
+                  className="h-full rounded-full"
+                  style={{ width: `${vipStatus.progressPercent}%`, background: 'linear-gradient(90deg, #00d4ff, #7c3aed)' }}
+                />
+              </div>
+            )}
           </div>
         )}
 

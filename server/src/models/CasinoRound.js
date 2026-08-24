@@ -29,6 +29,14 @@ CasinoRoundSchema.post('save', async function() {
   } catch (e) {
     console.error('[wagering] CasinoRound post-save error:', e.message);
   }
+  // O1 — VIP/seviye programı: her casino turunda XP kazanılır (services/vip.js
+  // zaten yazılmıştı, hiçbir yerden çağrılmıyordu — bkz. XP_RATES.casino).
+  try {
+    const { awardXp } = await import('../services/vip.js');
+    await awardXp(this.userId, this.bet, 'casino');
+  } catch (e) {
+    console.error('[vip] CasinoRound post-save error:', e.message);
+  }
   // Palace bir spin'i iki ayrı round'a (bahis/kazanç) böldüğü için per-round komisyon
   // brüt ciro üzerinden öderdi — Palace komisyonu closePalaceSession'da (Task 4b) net GGR
   // üzerinden ödeniyor. inhouse tek birleşik round yazdığı için per-round burada doğru.

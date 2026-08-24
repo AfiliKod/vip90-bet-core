@@ -32,6 +32,7 @@ import modulesRoutes from './routes/modules.js';
 import { createModuleGate } from './middleware/moduleGate.js';
 import { isModuleUsable } from './services/licensing/index.js';
 import currencyRoutes from './routes/currency.js';
+import vipRoutes from './routes/vip.js';
 import localeConfigRoutes from './routes/localeConfig.js';
 import demoRoutes from './demo/showcase.js';
 import ticketRoutes from './routes/ticket.js';
@@ -161,6 +162,7 @@ export function createApp() {
   app.use('/api/pages', pagesRoutes);
   app.use('/api/games', gamesRoutes);
   app.use('/api/currency', currencyRoutes);
+  app.use('/api/vip', vipRoutes);
 
   // U5 — operatör saat dilimi (herkese açık; istemci render'da uygular)
   app.use('/api/locale-config', localeConfigRoutes);

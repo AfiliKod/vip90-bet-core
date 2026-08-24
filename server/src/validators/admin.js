@@ -204,3 +204,17 @@ export const updateRoleSchema = z.object({
 export const assignRoleSchema = z.object({
   roleId: z.string().min(1),
 });
+
+// O1 — VIP/seviye programı
+export const upsertVipLevelSchema = z.object({
+  level: z.number().int().min(1).max(20),
+  name: z.string().min(1).max(40),
+  xpRequired: z.number().min(0),
+  cashbackPercent: z.number().min(0).max(100).optional(),
+  rewardAmount: z.number().min(0).optional(),
+  rewardType: z.enum(['balance', 'bonus']).optional(),
+  benefits: z.array(z.string().max(120)).max(20).optional(),
+  color: z.string().max(20).optional(),
+  icon: z.string().max(10).optional(),
+  isActive: z.boolean().optional(),
+});
