@@ -184,3 +184,23 @@ export const updateCurrencySchema = z.object({
 export const updateTimezoneSchema = z.object({
   timezone: z.string().min(1).max(100),
 });
+
+// O4 — kademeli yönetici yetkileri
+export const createRoleSchema = z.object({
+  name: z.string().min(2).max(50).regex(/^[a-z0-9_]+$/, 'Yalnızca küçük harf, rakam, alt çizgi'),
+  displayName: z.string().min(1).max(80),
+  description: z.string().max(300).optional(),
+  permissions: z.array(z.string()).max(100).optional(),
+  priority: z.number().int().min(0).max(99).optional(), // sistem rolleri 100/90'ı ayrılmış tutar
+});
+
+export const updateRoleSchema = z.object({
+  displayName: z.string().min(1).max(80).optional(),
+  description: z.string().max(300).optional(),
+  permissions: z.array(z.string()).max(100).optional(),
+  priority: z.number().int().min(0).max(99).optional(),
+});
+
+export const assignRoleSchema = z.object({
+  roleId: z.string().min(1),
+});

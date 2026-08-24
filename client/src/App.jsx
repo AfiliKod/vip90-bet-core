@@ -43,6 +43,7 @@ const AdminBranding = lazy(() => import('./pages/admin/Branding'));
 const AdminPages = lazy(() => import('./pages/admin/Pages'));
 const AdminGamesShowcase = lazy(() => import('./pages/admin/GamesShowcase'));
 const AdminGameSettings = lazy(() => import('./pages/admin/GameSettings'));
+const AdminRoles = lazy(() => import('./pages/admin/Roles'));
 const CasinoRedesign = lazy(() => import('./pages/CasinoRedesign'));
 const PalaceGame = lazy(() => import('./pages/PalaceGame'));
 const Crash = lazy(() => import('./pages/games/Crash'));
@@ -166,6 +167,7 @@ export default function App() {
         <Route path="/admin/pages" element={<ProtectedRoute adminOnly><Suspense fallback={<PageLoader />}><AdminPages /></Suspense></ProtectedRoute>} />
         <Route path="/admin/games-showcase" element={<ProtectedRoute adminOnly><Suspense fallback={<PageLoader />}><AdminGamesShowcase /></Suspense></ProtectedRoute>} />
         <Route path="/admin/game-settings" element={<ProtectedRoute adminOnly><Suspense fallback={<PageLoader />}><AdminGameSettings /></Suspense></ProtectedRoute>} />
+        <Route path="/admin/roles" element={<ProtectedRoute adminOnly><Suspense fallback={<PageLoader />}><AdminRoles /></Suspense></ProtectedRoute>} />
         {/* Legal pages (public) */}
         <Route path="/legal/terms" element={<Suspense fallback={<PageLoader />}><Terms /></Suspense>} />
         <Route path="/legal/privacy" element={<Suspense fallback={<PageLoader />}><Privacy /></Suspense>} />

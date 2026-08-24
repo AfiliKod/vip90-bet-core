@@ -15,6 +15,7 @@ export default function UserSlideOver({ user, onClose, onUpdated }) {
   const [casinoRounds, setCasinoRounds] = useState(null);
   const [casinoSummary, setCasinoSummary] = useState(null);
   const [deleteConfirm, setDeleteConfirm] = useState(false);
+  const [rolesList, setRolesList] = useState(null);
   const addToast = useToastStore(s => s.add);
 
   const { register, handleSubmit, reset, formState: { isSubmitting } } = useForm();
@@ -41,6 +42,20 @@ export default function UserSlideOver({ user, onClose, onUpdated }) {
     setCasinoRounds(null);
     setCasinoSummary(null);
   }, [user?._id]);
+
+  useEffect(() => {
+    if (rolesList === null) {
+      api.get('/admin/roles').then(r => setRolesList(r.data.roles)).catch(() => setRolesList([]));
+    }
+  }, [rolesList]);
+
+  const toggleRole = async (roleId, assigned) => {
+    try {
+      if (assigned) await api.delete(`/admin/users/${user._id}/roles/${roleId}`);
+      else await api.post(`/admin/users/${user._id}/roles`, { roleId });
+      onUpdated();
+    } catch { addToast(t('common.error'), 'error'); }
+  };
 
   useEffect(() => {
     if (!user) return;
@@ -140,6 +155,32 @@ export default function UserSlideOver({ user, onClose, onUpdated }) {
                     <option value="admin">{t('admin.userSlideOver.roleAdmin')}</option>
                   </select>
                 </div>
+                {rolesList && rolesList.length > 0 && (
+                  <div className="p-3 bg-bg-hover rounded-xl">
+                    <div className="text-sm text-text-2 mb-2">{t('admin.userSlideOver.extraRoles')}</div>
+                    <div className="flex flex-wrap gap-2">
+                      {rolesList.map(role => {
+                        const assigned = (user.roles || []).some(r => (r._id || r) === role._id);
+                        return (
+                          <button
+                            key={role._id}
+                            onClick={() => toggleRole(role._id, assigned)}
+                            className={`px-2.5 py-1 rounded-lg text-xs font-medium border transition ${
+                              assigned
+                                ? 'bg-primary/20 text-primary border-primary/30'
+                                : 'border-white/10 text-text-3 hover:text-text-1 hover:border-white/25'
+                            }`}
+                          >
+                            {role.displayName}
+                          </button>
+                        );
+                      })}
+                    </div>
+                    <div className="text-[11px] text-text-3/70 mt-2 leading-snug">
+                      {t('admin.userSlideOver.extraRolesHelp')}
+                    </div>
+                  </div>
+                )}
                 <div className="flex items-center justify-between p-3 bg-bg-hover rounded-xl">
                   <span className="text-sm text-text-2">{t('admin.userSlideOver.kycVerified')}</span>
                   <input type="checkbox" defaultChecked={user.kycVerified}

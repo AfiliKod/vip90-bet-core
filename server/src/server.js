@@ -24,6 +24,7 @@ import { startCleanupJob } from './jobs/cleanup.js';
 import { startReconciliation } from './scripts/reconcilePalace.js';
 import { initSentry } from './services/sentry.js';
 import { errorLogger } from './services/errorLogger.js';
+import { initDefaultPermissions, initDefaultRoles } from './services/permissions.js';
 
 const app = createApp();
 
@@ -88,6 +89,12 @@ process.on('SIGINT', () => shutdown('SIGINT'));
 connectDB()
   .then(async () => {
     httpServer.listen(PORT, () => console.log(`Server :${PORT} üzerinde çalışıyor`));
+    // O4 — kademeli yönetici yetkileri: varsayılan izin/rol setini oluşturur
+    // (idempotent, koleksiyon boşsa doldurur). Daha önce hiçbir yerden
+    // çağrılmadığı için Permission/Role koleksiyonları hep boştu.
+    initDefaultPermissions()
+      .then(() => initDefaultRoles()) // roller izinlere referans verir, sırayla çalışmalı
+      .catch(err => console.error('initDefaultPermissions/Roles hatası:', err.message));
     initSocket(io);
     initCrashGame(io);
     initRouletteGame(io);

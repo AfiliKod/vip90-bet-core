@@ -20,6 +20,10 @@ import { setBrandingField as setBrandingFieldImpl, listBranding } from '../brand
 import { setHomeContent as setHomeContentImpl, getHomeContent } from '../pages/index.js';
 import { getAllGameSettings, updateGameSettings as updateGameSettingsImpl } from '../services/gameSettings.js';
 import { getActiveCurrency, listCurrencies, setActiveCurrency } from '../currency/index.js';
+import {
+  getAllRoles, getAllPermissions, createRole, updateRole, deleteRole,
+  assignRoleToUser, removeRoleFromUser,
+} from '../services/permissions.js';
 import { invalidateCrashSettingsCache } from '../services/inhouse/crashGame.js';
 import { invalidateRouletteSettingsCache } from '../services/inhouse/rouletteGame.js';
 import {
@@ -58,6 +62,7 @@ export async function getUsers(req, res, next) {
       User.find(filter)
         .select('-password')
         .populate('referredBy', 'username')
+        .populate('roles', 'name displayName')
         .sort({ createdAt: -1 })
         .skip(skip)
         .limit(Number(limit)),
@@ -1080,4 +1085,63 @@ export async function updateCurrencySettings(req, res, next) {
   } catch (e) {
     next(e);
   }
+}
+
+// ─── O4 — Kademeli yönetici yetkileri ───────────────────────────────
+// services/permissions.js (349 satır, 12 fonksiyon) zaten yazılmıştı —
+// eksik olan yalnızca bu admin HTTP ucuydu. Not: sub-admin'lerin (role
+// !== 'admin', yalnızca roles[] atanmış kullanıcılar) bu uçlara erişimi
+// ŞU AN YOK — routes/admin.js'teki router-seviyesi requireAdmin hâlâ
+// yalnızca role==='admin' geçiriyor (bilerek dokunulmadı, mevcut
+// adminlerin kilitlenme riski almamak için). Bu tur, rol/izin YÖNETİMİNİ
+// (tanımlama + atama) bağlıyor; her mevcut route'a requirePermission
+// eklemek — sub-admin'lerin gerçekten kısıtlı erişebilmesi için gereken
+// asıl adım — çok daha büyük, ayrı bir denetim/retrofit turu gerektiriyor.
+export async function listRoles(req, res, next) {
+  try {
+    const roles = await getAllRoles();
+    res.json({ roles });
+  } catch (e) { next(e); }
+}
+
+export async function listPermissions(req, res, next) {
+  try {
+    const permissions = await getAllPermissions();
+    res.json({ permissions });
+  } catch (e) { next(e); }
+}
+
+export async function createRoleHandler(req, res, next) {
+  try {
+    const role = await createRole(req.validated);
+    res.json({ role });
+  } catch (e) { next(e); }
+}
+
+export async function updateRoleHandler(req, res, next) {
+  try {
+    const role = await updateRole(req.params.id, req.validated);
+    res.json({ role });
+  } catch (e) { next(e); }
+}
+
+export async function deleteRoleHandler(req, res, next) {
+  try {
+    await deleteRole(req.params.id);
+    res.json({ ok: true });
+  } catch (e) { next(e); }
+}
+
+export async function assignUserRole(req, res, next) {
+  try {
+    const user = await assignRoleToUser(req.params.id, req.validated.roleId, req.user.id);
+    res.json({ roles: user.roles });
+  } catch (e) { next(e); }
+}
+
+export async function removeUserRole(req, res, next) {
+  try {
+    const user = await removeRoleFromUser(req.params.id, req.params.roleId);
+    res.json({ roles: user.roles });
+  } catch (e) { next(e); }
 }

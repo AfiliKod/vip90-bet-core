@@ -2,7 +2,7 @@ import { Router } from 'express';
 import { requireAuth, requireAdmin } from '../middleware/auth.js';
 import { auditLog } from '../middleware/audit.js';
 import { validate } from '../middleware/validate.js';
-import { createEventSchema, settleEventSchema, createUserSchema, updateBalanceSchema, updateThemeSchema, updateBrandingSchema, updateHomeContentSchema, updateFeaturedGamesSchema, applyThemePresetSchema, updateGameSettingsSchema, simulateRtpSchema, updateCurrencySchema, updateTimezoneSchema } from '../validators/admin.js';
+import { createEventSchema, settleEventSchema, createUserSchema, updateBalanceSchema, updateThemeSchema, updateBrandingSchema, updateHomeContentSchema, updateFeaturedGamesSchema, applyThemePresetSchema, updateGameSettingsSchema, simulateRtpSchema, updateCurrencySchema, updateTimezoneSchema, createRoleSchema, updateRoleSchema, assignRoleSchema } from '../validators/admin.js';
 import * as ctrl from '../controllers/admin.js';
 import modulesAdminRouter from '../controllers/modules.js';
 import { timezoneStore } from '../services/timezoneLive.js';
@@ -97,6 +97,15 @@ r.put('/settings/timezone',      validate(updateTimezoneSchema), async (req,res,
 // U4 — para birimi (servis katmanı zaten vardı, yalnızca admin ucu ekleniyor)
 r.get('/currency',  ctrl.getCurrencySettings);
 r.put('/currency',  blockDemoAdmin, validate(updateCurrencySchema), ctrl.updateCurrencySettings);
+
+// O4 — kademeli yönetici yetkileri (rol/izin yönetimi — bkz. controllers/admin.js'teki not)
+r.get('/roles',                    ctrl.listRoles);
+r.post('/roles',                   blockDemoAdmin, validate(createRoleSchema), ctrl.createRoleHandler);
+r.put('/roles/:id',                blockDemoAdmin, validate(updateRoleSchema), ctrl.updateRoleHandler);
+r.delete('/roles/:id',             blockDemoAdmin, ctrl.deleteRoleHandler);
+r.get('/permissions',              ctrl.listPermissions);
+r.post('/users/:id/roles',         blockDemoAdmin, validate(assignRoleSchema), ctrl.assignUserRole);
+r.delete('/users/:id/roles/:roleId', blockDemoAdmin, ctrl.removeUserRole);
 
 export default r;
 
