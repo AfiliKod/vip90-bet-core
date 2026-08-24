@@ -447,6 +447,11 @@ export default {
   'home.cta.title': 'Start Winning with VIP90.bet',
   'home.cta.getStarted': 'Get Started',
   'home.cta.register': 'Register',
+  'home.trust.licensed': 'Licensed & Secure',
+  'home.trust.provablyFair': 'Provably Fair',
+  'home.trust.instantPayout': 'Instant Payouts',
+  'home.trust.support': '24/7 Support',
+  'home.games.provablyFairBadge': 'Provably Fair',
 
   // Legal
   'legal.terms.title': 'Terms of Use',

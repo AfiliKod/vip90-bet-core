@@ -12,6 +12,52 @@ Madde formatı ve kategoriler için `docs/CHANGELOG_GUIDE.md`'ye bakın —
 
 ## [Yayınlanmadı]
 
+### Anasayfa görsel yenileme (pilot)
+Anasayfanın görsel dili baştan ele alındı — amaç, endüstri genelinde
+tanınan casino/betting görsel diline (koyu zemin + altın vurgu, gerçek
+fotoğraf, provably-fair rozetleri) geçmek ve mevcut "AI-jenerik" izlenimi
+(emoji ikon, düz gradient kart, tek tip Inter tipografi) kırmak. Kapsam
+bilinçli olarak yalnızca `HomePage.jsx` ile sınırlı tutuldu — diğer
+sayfalar bu turun dışında; beğenilirse aynı dil yayılacak.
+
+**Eklendi:**
+- `Anton` (başlık) + `Manrope` (rozet/etiket) Google Fonts — mevcut
+  gövde fontu (Inter) değişmedi, yalnızca yeni bölümlerde kullanıldı.
+- Material Symbols Outlined ikon seti aktif edildi — `index.html`'de
+  önceden bağlıydı ama hiç kullanılmıyordu (`.material-symbols-outlined`
+  CSS sınıfı hiç tanımlanmamıştı, ligature glifleri düz metin olarak
+  render oluyordu); `index.css`'e eksik sınıf eklenip emoji ikonlar
+  (⚽🔴🎰💎 vb.) bu setle değiştirildi.
+- Güven rozeti şeridi (Lisanslı & Güvenli / Provably Fair / Anlık Çekim /
+  7/24 Destek) hero altına eklendi — endüstri standardı bir kalıp.
+- İki yeni görsel `image-gen` skill'i ile (Cloudflare Workers AI,
+  FLUX.1-schnell) üretildi: `cta-bg-v2.png` (VIP elmas kupa sahnesi,
+  alt çağrı bandı) ve `features-texture.png` (altın damarlı mermer
+  doku, "Neden Biz?" bölümü arka planı).
+- `tailwind.config.js`'e `gold` renk paleti ve `font-display`/`font-ui`
+  aileleri eklendi.
+
+**Değişti:**
+- Hero slider ve Quick Nav kartlarındaki fotoğraflar artık **görünür**:
+  önceki üç kat üst üste karartma gradyanı (+ Quick Nav kartlarında
+  %6-%12 opaklık) fotoğrafları neredeyse tamamen gizliyordu — mevcut
+  görsellerin (hero-sports/live/casino, 13 oyun görseli) kalitesi zaten
+  yüksekti, sorun sadece CSS katmanlamasıydı. Tek yönlü, daha ince bir
+  karartma ile değiştirildi.
+- `cta-bg.png` yerine `cta-bg-v2.png` kullanılıyor — eskisinde arka
+  plandaki tabelalarda AI görsellerinin klasik hatası olan anlamsız
+  sahte yazılar vardı ("CARACAR", "CALSIN"), yenisinde okunaklı/sahte
+  metin yok.
+- Oyun grid'i mobilde `grid-cols-3`'ten `grid-cols-2`'ye düşürüldü —
+  12 oyun 3 sütunda dar ekranlarda aşırı sıkışıyordu.
+
+**Bilinen sınır:** Bu turda mobil görünüm tarayıcı otomasyonuyla
+piksel-piksel doğrulanamadı (bu oturumdaki `resize_window` aracı
+viewport'u değiştirmedi, `window.innerWidth` sabit kaldı) — responsive
+sınıflar mevcut, test edilmiş breakpoint kalıpları (`sm:`/`md:`)
+birebir korunarak eklendi, ama gerçek cihaz/DevTools ile görsel teyit
+öneriliyor.
+
 ### P1/P2 — Sohbet + bahşiş aktif edildi
 `services/chat.js` (oda/mesaj/moderasyon/bahşiş/yağmur iş mantığı) büyük
 ölçüde daha önceki bir fazda yazılmıştı ama hiçbir route/controller katmanı

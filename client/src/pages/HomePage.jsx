@@ -5,9 +5,25 @@ import api from '../services/api';
 import MiniEventCard from '../components/MiniEventCard';
 import BetSlip from '../components/BetSlip';
 import RecentWinnersTicker from '../components/RecentWinnersTicker';
-import { BRAND_GRADIENT, BRAND_GRADIENT_H, BRAND_GLOW } from '../styles/brand';
+import { BRAND_GRADIENT_H, BRAND_GLOW } from '../styles/brand';
 import { resolveSectionOrder, resolveBanners } from './home/pageContent';
 import { getPromoSlides } from './home/promoSlides';
+
+// Slide id -> Material Symbols glyph. Salt görsel eşleme; pageContent/A4
+// override sözleşmesine dokunmaz (bkz. promoSlides.js, resolveBanners()).
+const SLIDE_ICONS = {
+  welcome: 'diamond',
+  sports: 'sports_soccer',
+  live: 'sensors',
+  casino: 'casino',
+  'deneme-bonusu': 'redeem',
+  'hosgeldin-bonusu': 'savings',
+  'arkadasini-getir': 'diversity_3',
+};
+
+function Icon({ name, className = '', style }) {
+  return <span className={`material-symbols-outlined ${className}`} style={style} aria-hidden="true">{name}</span>;
+}
 
 export default function HomePage() {
   const { t } = useTranslation();
@@ -28,31 +44,27 @@ export default function HomePage() {
 
   const HERO_SLIDES = [
     {
-      id: 'welcome', icon: '💎', title: t('home.hero.welcome'), path: '/bahis', cta: t('home.hero.getStarted'),
+      id: 'welcome', title: t('home.hero.welcome'), path: '/bahis', cta: t('home.hero.getStarted'),
       desc: t('home.hero.welcomeDesc'),
       image: '/images/welcome-banner.png',
-      gradient: 'from-cyan-900/80 to-purple-900/60',
-      accent: '#00d4ff',
+      accent: '#f0b429',
     },
     {
-      id: 'sports', icon: '⚽', title: t('home.hero.sports'), path: '/bahis', cta: t('home.hero.betNow'),
+      id: 'sports', title: t('home.hero.sports'), path: '/bahis', cta: t('home.hero.betNow'),
       desc: t('home.hero.sportsDesc'),
       image: '/images/hero-sports.png',
-      gradient: 'from-blue-900/80 to-cyan-900/60',
       accent: '#00d4ff',
     },
     {
-      id: 'live', icon: '🔴', title: t('home.hero.live'), path: '/canli', cta: t('home.hero.watchLive'),
+      id: 'live', title: t('home.hero.live'), path: '/canli', cta: t('home.hero.watchLive'),
       desc: t('home.hero.liveDesc'),
       image: '/images/hero-live.png',
-      gradient: 'from-rose-900/80 to-red-900/60',
       accent: '#ef4444',
     },
     {
-      id: 'casino', icon: '🎰', title: t('home.hero.casino'), path: '/casino', cta: t('home.hero.exploreGames'),
+      id: 'casino', title: t('home.hero.casino'), path: '/casino', cta: t('home.hero.exploreGames'),
       desc: t('home.hero.casinoDesc'),
       image: '/images/hero-casino.png',
-      gradient: 'from-purple-900/80 to-violet-900/60',
       accent: '#a78bfa',
     },
   ];
@@ -65,25 +77,32 @@ export default function HomePage() {
   const ALL_SLIDES = [...promoSlides, ...HERO_SLIDES];
 
   const GAMES = [
-    { name: t('games.crash.title'), path: '/games/crash', accent: '#f97316', icon: '🎅', image: '/images/games/crash.png' },
-    { name: t('games.mines.title'),     path: '/games/mines', accent: '#34d399', icon: '💎', image: '/images/games/mines.png' },
-    { name: t('games.plinko.title'),    path: '/games/plinko', accent: '#a78bfa', icon: '🔵', image: '/images/games/plinko.png' },
-    { name: t('games.dice.title'),      path: '/games/dice', accent: '#22d3ee', icon: '🎲', image: '/images/games/dice.png' },
-    { name: t('games.limbo.title'),     path: '/games/limbo', accent: '#f472b6', icon: '📈', image: '/images/games/limbo.png' },
-    { name: t('games.wheel.title'),     path: '/games/wheel', accent: '#fbbf24', icon: '🎡', image: '/images/games/wheel.png' },
-    { name: t('games.roulette.title'),  path: '/games/roulette', accent: '#f87171', icon: '🎯', image: '/images/games/roulette.png' },
-    { name: t('games.blackjack.title'), path: '/games/blackjack', accent: '#4ade80', icon: '🃏', image: '/images/games/blackjack.png' },
-    { name: t('games.baccarat.title'),  path: '/games/baccarat', accent: '#eab308', icon: '🏛️', image: '/images/games/baccarat.png' },
-    { name: t('games.keno.title'),      path: '/games/keno', accent: '#2dd4bf', icon: '🎱', image: '/images/games/keno.png' },
-    { name: t('games.hilo.title'),      path: '/games/hilo', accent: '#818cf8', icon: '📊', image: '/images/games/hilo.png' },
-    { name: t('games.dragontiger.title'), path: '/games/dragontiger', accent: '#fb923c', icon: '🐉', image: '/images/games/dragontiger.png' },
+    { name: t('games.crash.title'), path: '/games/crash', accent: '#f97316', image: '/images/games/crash.png' },
+    { name: t('games.mines.title'),     path: '/games/mines', accent: '#34d399', image: '/images/games/mines.png' },
+    { name: t('games.plinko.title'),    path: '/games/plinko', accent: '#a78bfa', image: '/images/games/plinko.png' },
+    { name: t('games.dice.title'),      path: '/games/dice', accent: '#22d3ee', image: '/images/games/dice.png' },
+    { name: t('games.limbo.title'),     path: '/games/limbo', accent: '#f472b6', image: '/images/games/limbo.png' },
+    { name: t('games.wheel.title'),     path: '/games/wheel', accent: '#fbbf24', image: '/images/games/wheel.png' },
+    { name: t('games.roulette.title'),  path: '/games/roulette', accent: '#f87171', image: '/images/games/roulette.png' },
+    { name: t('games.blackjack.title'), path: '/games/blackjack', accent: '#4ade80', image: '/images/games/blackjack.png' },
+    { name: t('games.baccarat.title'),  path: '/games/baccarat', accent: '#eab308', image: '/images/games/baccarat.png' },
+    { name: t('games.keno.title'),      path: '/games/keno', accent: '#2dd4bf', image: '/images/games/keno.png' },
+    { name: t('games.hilo.title'),      path: '/games/hilo', accent: '#818cf8', image: '/images/games/hilo.png' },
+    { name: t('games.dragontiger.title'), path: '/games/dragontiger', accent: '#fb923c', image: '/images/games/dragontiger.png' },
   ];
 
   const FEATURES = [
-    { icon: '⚡', title: t('home.features.fastPayouts'), desc: t('home.features.fastPayoutsDesc') },
-    { icon: '🛡️', title: t('home.features.trustworthy'), desc: t('home.features.trustworthyDesc') },
-    { icon: '🎁', title: t('home.features.bonuses'), desc: t('home.features.bonusesDesc') },
-    { icon: '💬', title: t('home.features.support'), desc: t('home.features.supportDesc') },
+    { icon: 'bolt', title: t('home.features.fastPayouts'), desc: t('home.features.fastPayoutsDesc') },
+    { icon: 'shield', title: t('home.features.trustworthy'), desc: t('home.features.trustworthyDesc') },
+    { icon: 'redeem', title: t('home.features.bonuses'), desc: t('home.features.bonusesDesc') },
+    { icon: 'support_agent', title: t('home.features.support'), desc: t('home.features.supportDesc') },
+  ];
+
+  const TRUST_BADGES = [
+    { icon: 'shield', label: t('home.trust.licensed') },
+    { icon: 'verified', label: t('home.trust.provablyFair') },
+    { icon: 'bolt', label: t('home.trust.instantPayout') },
+    { icon: 'support_agent', label: t('home.trust.support') },
   ];
 
   const startTimer = () => {
@@ -117,13 +136,14 @@ export default function HomePage() {
   }
 
   const slide = ALL_SLIDES[current];
+  const slideIcon = SLIDE_ICONS[slide.id] || 'stars';
 
   return (
     <div className="min-h-full flex flex-col">
       <RecentWinnersTicker />
       {/* ── Hero Slider ──────────────────────────────────────── */}
       {sectionOrder.includes('hero') && (
-      <section className="relative w-full h-[360px] sm:h-[480px] overflow-hidden" style={{ order: sectionOrder.indexOf('hero') }}>
+      <section className="relative w-full h-[440px] sm:h-[560px] overflow-hidden" style={{ order: sectionOrder.indexOf('hero') }}>
         {ALL_SLIDES.map((s, i) => (
           <img
             key={s.id}
@@ -136,44 +156,56 @@ export default function HomePage() {
           />
         ))}
 
-        <div className={`absolute inset-0 bg-gradient-to-r ${slide.gradient} transition-all duration-700`} />
-        <div className="absolute inset-0 bg-gradient-to-t from-[#060d1a] via-transparent to-black/30" />
-        <div className="absolute inset-0 bg-gradient-to-r from-[#060d1a] via-transparent to-[#060d1a]/60" />
+        {/* Tek yönlü karartma — fotoğraf sağda net kalır, metin solda okunur */}
+        <div className="absolute inset-0 bg-gradient-to-r from-[#060d1a] via-[#060d1a]/75 to-[#060d1a]/10 sm:to-transparent" />
+        <div className="absolute inset-0 bg-gradient-to-t from-[#060d1a] via-transparent to-transparent" />
 
         <div
-          className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[600px] h-[600px] rounded-full opacity-[0.12] pointer-events-none"
+          className="absolute top-1/2 left-[15%] -translate-y-1/2 w-[520px] h-[520px] rounded-full opacity-[0.16] pointer-events-none transition-all duration-700"
           style={{ background: `radial-gradient(circle, ${slide.accent} 0%, transparent 70%)` }}
         />
 
-        <div className="relative h-full max-w-6xl mx-auto px-4 flex items-center">
+        <div className="relative h-full max-w-6xl mx-auto px-4 flex flex-col justify-center">
           <div className="max-w-xl">
             <span
-              className="inline-flex items-center gap-2 text-[11px] font-bold uppercase tracking-[0.2em] mb-3 px-3 py-1 rounded-full border"
+              className="inline-flex items-center gap-1.5 text-[11px] font-bold uppercase tracking-[0.2em] mb-4 px-3 py-1.5 rounded-full border font-ui"
               style={{
                 color: slide.accent,
                 borderColor: `${slide.accent}44`,
-                background: `${slide.accent}11`,
+                background: `${slide.accent}14`,
               }}
             >
-              <span className="text-base">{slide.icon}</span>
+              <Icon name={slideIcon} className="!text-[15px]" />
               {slide.title}
             </span>
             <h1
-              className="text-3xl sm:text-5xl lg:text-6xl font-black text-white mb-3 drop-shadow-2xl"
-              style={{ textShadow: '0 2px 20px rgba(0,0,0,0.5)' }}
+              className="font-display text-4xl sm:text-6xl lg:text-7xl uppercase tracking-tight text-white mb-3 leading-[0.95]"
+              style={{ textShadow: '0 4px 32px rgba(0,0,0,0.6)' }}
             >
               {slide.title}
             </h1>
-            <p className="text-sm sm:text-lg text-white/70 mb-6 max-w-lg drop-shadow-lg font-medium">
+            <p className="text-sm sm:text-lg text-white/75 mb-7 max-w-lg font-medium">
               {typeof slide.desc === 'function' ? slide.desc() : slide.desc}
             </p>
-            <button
-              onClick={() => navigate(slide.path)}
-              className="px-6 py-3 rounded-xl text-sm font-bold transition-all hover:scale-105 active:scale-95 shadow-lg inline-flex items-center gap-2"
-              style={{ background: slide.accent, color: slide.accent === '#ef4444' ? 'white' : 'black' }}
-            >
-              {slide.cta} <span className="text-lg">→</span>
-            </button>
+            <div className="flex flex-wrap items-center gap-4">
+              <button
+                onClick={() => navigate(slide.path)}
+                className="px-7 py-3 rounded-lg text-sm font-extrabold uppercase tracking-wide transition-all hover:scale-105 active:scale-95 shadow-lg inline-flex items-center gap-2 font-ui"
+                style={{ background: slide.accent, color: slide.accent === '#ef4444' ? 'white' : '#0a0f1a' }}
+              >
+                {slide.cta} <Icon name="arrow_forward" className="!text-[18px]" />
+              </button>
+            </div>
+
+            {/* Güven rozetleri — endüstri standardı: lisans/fairness/ödeme/destek */}
+            <div className="hidden sm:flex items-center gap-5 mt-8 flex-wrap">
+              {TRUST_BADGES.map(b => (
+                <span key={b.label} className="inline-flex items-center gap-1.5 text-xs font-bold text-white/60 font-ui">
+                  <Icon name={b.icon} className="!text-[16px] text-gold" />
+                  {b.label}
+                </span>
+              ))}
+            </div>
           </div>
         </div>
 
@@ -182,6 +214,7 @@ export default function HomePage() {
             <button
               key={i}
               onClick={() => goTo(i)}
+              aria-label={`slide-${i}`}
               className="h-1.5 rounded-full transition-all duration-300"
               style={{
                 width: i === current ? '28px' : '8px',
@@ -194,17 +227,19 @@ export default function HomePage() {
 
         <button
           onClick={() => goTo((current - 1 + ALL_SLIDES.length) % ALL_SLIDES.length)}
-          className="absolute left-4 top-1/2 -translate-y-1/2 w-10 h-10 rounded-full bg-black/40 text-white flex items-center justify-center opacity-0 hover:opacity-100 transition hover:bg-black/60 text-xl backdrop-blur-sm"
+          aria-label="prev"
+          className="absolute left-4 top-1/2 -translate-y-1/2 w-10 h-10 rounded-full bg-black/40 text-white flex items-center justify-center opacity-0 hover:opacity-100 transition hover:bg-black/60 backdrop-blur-sm"
           style={{ border: '1px solid rgba(255,255,255,0.1)' }}
         >
-          ‹
+          <Icon name="chevron_left" />
         </button>
         <button
           onClick={() => goTo((current + 1) % ALL_SLIDES.length)}
-          className="absolute right-4 top-1/2 -translate-y-1/2 w-10 h-10 rounded-full bg-black/40 text-white flex items-center justify-center opacity-0 hover:opacity-100 transition hover:bg-black/60 text-xl backdrop-blur-sm"
+          aria-label="next"
+          className="absolute right-4 top-1/2 -translate-y-1/2 w-10 h-10 rounded-full bg-black/40 text-white flex items-center justify-center opacity-0 hover:opacity-100 transition hover:bg-black/60 backdrop-blur-sm"
           style={{ border: '1px solid rgba(255,255,255,0.1)' }}
         >
-          ›
+          <Icon name="chevron_right" />
         </button>
       </section>
       )}
@@ -217,32 +252,37 @@ export default function HomePage() {
             <Link
               key={s.path}
               to={s.path}
-              className="group relative block rounded-2xl overflow-hidden transition-all duration-300 hover:scale-[1.02] min-h-[200px]"
+              className="group relative block rounded-2xl overflow-hidden transition-all duration-300 hover:-translate-y-1 min-h-[220px]"
               style={{
-                background: `linear-gradient(135deg, ${s.accent}20 0%, ${s.accent}08 100%)`,
-                border: '1px solid #ffffff0f',
-                boxShadow: '0 4px 24px rgba(0,0,0,0.3)',
+                border: '1px solid #ffffff14',
+                boxShadow: '0 4px 24px rgba(0,0,0,0.4)',
               }}
             >
-              <div
-                className="absolute inset-0 opacity-[0.06] group-hover:opacity-[0.12] transition-opacity duration-500"
-                style={{
-                  backgroundImage: `url(${s.image})`,
-                  backgroundSize: 'cover',
-                  backgroundPosition: 'center',
-                }}
+              <img
+                src={s.image}
+                alt=""
+                loading="lazy"
+                className="absolute inset-0 w-full h-full object-cover transition-transform duration-500 group-hover:scale-110"
               />
-              <div className={`absolute inset-0 bg-gradient-to-br ${s.gradient} opacity-0 group-hover:opacity-60 transition-opacity duration-300`} />
-              <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent" />
-              <div className="relative p-6 sm:p-8 h-full flex flex-col justify-end">
-                <span className="text-3xl mb-2 block">{s.icon}</span>
-                <h3 className="text-lg font-bold text-text-1 mb-1">{s.title}</h3>
-                <p className="text-xs text-text-2/80 mb-4 line-clamp-2">{typeof s.desc === 'function' ? s.desc() : s.desc}</p>
+              <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-black/40 to-black/10 group-hover:from-black/95 transition-all duration-300" />
+              <div
+                className="absolute inset-0 opacity-0 group-hover:opacity-100 transition-opacity duration-300"
+                style={{ boxShadow: `inset 0 0 0 1px ${s.accent}66, inset 0 0 40px ${s.accent}22` }}
+              />
+              <div className="relative p-6 sm:p-7 h-full flex flex-col justify-end">
                 <span
-                  className="inline-flex items-center gap-1 text-xs font-bold transition-all group-hover:gap-2"
+                  className="inline-flex items-center justify-center w-9 h-9 rounded-lg mb-3"
+                  style={{ background: `${s.accent}22`, border: `1px solid ${s.accent}55` }}
+                >
+                  <Icon name={SLIDE_ICONS[s.id]} className="!text-[18px]" style={{ color: s.accent }} />
+                </span>
+                <h3 className="font-display text-xl uppercase tracking-wide text-text-1 mb-1">{s.title}</h3>
+                <p className="text-xs text-text-2/80 mb-4 line-clamp-2 font-ui">{typeof s.desc === 'function' ? s.desc() : s.desc}</p>
+                <span
+                  className="inline-flex items-center gap-1 text-xs font-extrabold uppercase tracking-wide transition-all group-hover:gap-2 font-ui"
                   style={{ color: s.accent }}
                 >
-                  {s.cta} →
+                  {s.cta} <Icon name="arrow_forward" className="!text-[16px]" />
                 </span>
               </div>
             </Link>
@@ -255,11 +295,17 @@ export default function HomePage() {
       {sectionOrder.includes('inhouseGames') && (
       <section className="border-t border-white/[0.04]" style={{ order: sectionOrder.indexOf('inhouseGames') }}>
         <div className="max-w-6xl mx-auto px-4 py-16">
-          <div className="text-center mb-8">
-            <h2 className="text-2xl sm:text-3xl font-black text-text-1 mb-2">{t('home.games.exclusive')}</h2>
-            <p className="text-sm text-text-2">{t('home.games.exclusiveDesc')}</p>
+          <div className="flex items-end justify-between mb-8 flex-wrap gap-3">
+            <div>
+              <h2 className="font-display text-3xl sm:text-4xl uppercase tracking-wide text-text-1 mb-1">{t('home.games.exclusive')}</h2>
+              <p className="text-sm text-text-2 font-ui">{t('home.games.exclusiveDesc')}</p>
+            </div>
+            <span className="inline-flex items-center gap-1.5 text-[11px] font-bold uppercase tracking-wider text-gold border border-gold/30 bg-gold-soft rounded-full px-3 py-1.5 font-ui">
+              <Icon name="verified" className="!text-[14px]" />
+              {t('home.games.provablyFairBadge')}
+            </span>
           </div>
-          <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-6 gap-3">
+          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-6 gap-3 sm:gap-4">
             {GAMES.map(g => (
               <Link
                 key={g.path}
@@ -270,8 +316,8 @@ export default function HomePage() {
                   border: '1px solid #ffffff0a',
                 }}
                 onMouseEnter={e => {
-                  e.currentTarget.style.borderColor = `${g.accent}44`;
-                  e.currentTarget.style.boxShadow = `0 0 16px ${g.accent}22`;
+                  e.currentTarget.style.borderColor = `${g.accent}55`;
+                  e.currentTarget.style.boxShadow = `0 0 20px ${g.accent}2a`;
                 }}
                 onMouseLeave={e => {
                   e.currentTarget.style.borderColor = '#ffffff0a';
@@ -286,9 +332,9 @@ export default function HomePage() {
                     className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-110"
                     onError={e => { e.currentTarget.style.display = 'none'; }}
                   />
-                  <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-transparent to-transparent" />
-                  <div className="absolute bottom-0 left-0 right-0 p-2">
-                    <span className="text-xs font-bold block" style={{ color: g.accent }}>{g.name}</span>
+                  <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/10 to-transparent" />
+                  <div className="absolute bottom-0 left-0 right-0 p-2.5">
+                    <span className="text-xs font-extrabold block font-ui" style={{ color: g.accent }}>{g.name}</span>
                   </div>
                 </div>
               </Link>
@@ -304,13 +350,15 @@ export default function HomePage() {
         <div className="max-w-6xl mx-auto px-4 py-10">
           <div className="flex items-end justify-between mb-6">
             <div>
-              <h2 className="text-2xl sm:text-3xl font-black text-text-1 flex items-center gap-2">{t('home.sports.title')}
+              <h2 className="font-display text-3xl sm:text-4xl uppercase tracking-wide text-text-1 flex items-center gap-2.5">
+                <Icon name="sports_soccer" className="!text-[26px] text-cyan-400" />
+                {t('home.sports.title')}
               </h2>
-              <p className="text-sm text-text-2 mt-1">{t('home.sports.subtitle')}</p>
+              <p className="text-sm text-text-2 mt-1 font-ui">{t('home.sports.subtitle')}</p>
             </div>
             <Link
               to="/bahis"
-              className="hidden sm:inline-flex items-center gap-1 text-xs font-bold px-4 py-2 rounded-lg transition-all hover:gap-2"
+              className="hidden sm:inline-flex items-center gap-1 text-xs font-extrabold uppercase tracking-wide px-4 py-2 rounded-lg transition-all hover:gap-2 font-ui"
               style={{ background: '#00d4ff', color: '#000' }}
             >
               {t('home.sports.allSports')}
@@ -320,7 +368,7 @@ export default function HomePage() {
           {!eventsLoading && upcomingEvents.length > 0 && (
             <div>
               <div className="flex items-center gap-2 mb-3">
-                <span className="text-xs font-bold text-cyan-400 uppercase tracking-wider">{t('home.sports.upcoming')}</span>
+                <span className="text-xs font-bold text-cyan-400 uppercase tracking-wider font-ui">{t('home.sports.upcoming')}</span>
               </div>
               <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-3">
                 {upcomingEvents.slice(0, 6).map(ev => (
@@ -332,7 +380,7 @@ export default function HomePage() {
 
           <Link
             to="/bahis"
-            className="sm:hidden mt-4 flex items-center justify-center gap-1 text-xs font-bold px-4 py-2.5 rounded-xl transition-all"
+            className="sm:hidden mt-4 flex items-center justify-center gap-1 text-xs font-extrabold uppercase px-4 py-2.5 rounded-xl transition-all font-ui"
             style={{ background: '#00d4ff', color: '#000' }}
           >
             {t('home.sports.exploreAll')}
@@ -347,13 +395,15 @@ export default function HomePage() {
         <div className="max-w-6xl mx-auto px-4 py-10">
           <div className="flex items-end justify-between mb-6">
             <div>
-              <h2 className="text-2xl sm:text-3xl font-black text-text-1 flex items-center gap-2">{t('home.live.title')}
+              <h2 className="font-display text-3xl sm:text-4xl uppercase tracking-wide text-text-1 flex items-center gap-2.5">
+                <Icon name="sensors" className="!text-[26px] text-red-400" />
+                {t('home.live.title')}
               </h2>
-              <p className="text-sm text-text-2 mt-1">{t('home.live.subtitle')}</p>
+              <p className="text-sm text-text-2 mt-1 font-ui">{t('home.live.subtitle')}</p>
             </div>
             <Link
               to="/canli"
-              className="hidden sm:inline-flex items-center gap-1 text-xs font-bold px-4 py-2 rounded-lg transition-all hover:gap-2"
+              className="hidden sm:inline-flex items-center gap-1 text-xs font-extrabold uppercase tracking-wide px-4 py-2 rounded-lg transition-all hover:gap-2 font-ui"
               style={{ background: '#ef4444', color: '#fff' }}
             >
               {t('home.live.allLive')}
@@ -364,7 +414,7 @@ export default function HomePage() {
             <div>
               <div className="flex items-center gap-2 mb-3">
                 <span className="w-2 h-2 rounded-full bg-red-400 animate-pulse shadow-[0_0_8px_rgba(239,68,68,0.6)]" />
-                <span className="text-xs font-bold text-red-400 uppercase tracking-wider">{t('home.live.liveNow')}</span>
+                <span className="text-xs font-bold text-red-400 uppercase tracking-wider font-ui">{t('home.live.liveNow')}</span>
               </div>
               <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-3">
                 {liveEvents.slice(0, 6).map(ev => (
@@ -376,7 +426,7 @@ export default function HomePage() {
 
           <Link
             to="/canli"
-            className="sm:hidden mt-4 flex items-center justify-center gap-1 text-xs font-bold px-4 py-2.5 rounded-xl transition-all"
+            className="sm:hidden mt-4 flex items-center justify-center gap-1 text-xs font-extrabold uppercase px-4 py-2.5 rounded-xl transition-all font-ui"
             style={{ background: '#ef4444', color: '#fff' }}
           >
             {t('home.live.joinLive')}
@@ -387,25 +437,35 @@ export default function HomePage() {
 
       {/* ── Features ────────────────────────────────────────── */}
       {sectionOrder.includes('features') && (
-      <section className="border-t border-white/[0.04]" style={{ order: sectionOrder.indexOf('features') }}>
-        <div className="max-w-6xl mx-auto px-4 py-16">
+      <section className="relative border-t border-white/[0.04] overflow-hidden" style={{ order: sectionOrder.indexOf('features') }}>
+        <div
+          className="absolute inset-0 opacity-40"
+          style={{ backgroundImage: "url(/images/features-texture.png)", backgroundSize: 'cover', backgroundPosition: 'center' }}
+        />
+        <div className="absolute inset-0 bg-gradient-to-b from-[#060d1a] via-[#060d1a]/85 to-[#060d1a]" />
+        <div className="relative max-w-6xl mx-auto px-4 py-16">
           <div className="text-center mb-10">
-            <h2 className="text-2xl sm:text-3xl font-black text-text-1 mb-2">{t('home.features.title')}</h2>
-            <p className="text-sm text-text-2">{t('home.features.subtitle')}</p>
+            <h2 className="font-display text-3xl sm:text-4xl uppercase tracking-wide text-text-1 mb-2">{t('home.features.title')}</h2>
+            <p className="text-sm text-text-2 font-ui">{t('home.features.subtitle')}</p>
           </div>
           <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-4">
             {FEATURES.map(f => (
               <div
                 key={f.title}
-                className="rounded-2xl p-6 text-center transition-all duration-200 hover:scale-[1.02]"
+                className="rounded-2xl p-6 text-center transition-all duration-200 hover:-translate-y-1"
                 style={{
-                  background: 'linear-gradient(135deg, rgba(17,29,48,0.8) 0%, rgba(13,21,38,0.8) 100%)',
-                  border: '1px solid #ffffff0a',
+                  background: 'linear-gradient(135deg, rgba(17,29,48,0.85) 0%, rgba(13,21,38,0.85) 100%)',
+                  border: '1px solid #ffffff0f',
                 }}
               >
-                <span className="text-3xl block mb-3">{f.icon}</span>
-                <h4 className="text-sm font-bold text-text-1 mb-1">{f.title}</h4>
-                <p className="text-xs text-text-3">{f.desc}</p>
+                <span
+                  className="inline-flex items-center justify-center w-12 h-12 rounded-full mb-3"
+                  style={{ background: 'rgba(240,180,41,0.12)', border: '1px solid rgba(240,180,41,0.3)' }}
+                >
+                  <Icon name={f.icon} className="!text-[22px] text-gold" />
+                </span>
+                <h4 className="text-sm font-bold text-text-1 mb-1 font-ui">{f.title}</h4>
+                <p className="text-xs text-text-3 font-ui">{f.desc}</p>
               </div>
             ))}
           </div>
@@ -417,33 +477,38 @@ export default function HomePage() {
       {sectionOrder.includes('bottomCta') && (
       <section className="max-w-6xl mx-auto px-4 pb-20" style={{ order: sectionOrder.indexOf('bottomCta') }}>
         <div
-          className="relative rounded-2xl overflow-hidden p-8 sm:p-12 text-center"
+          className="relative rounded-2xl overflow-hidden p-8 sm:p-14 text-center"
           style={{
             border: '1px solid #ffffff14',
             boxShadow: BRAND_GLOW,
           }}
         >
           <img
-            src="/images/cta-bg.png"
+            src="/images/cta-bg-v2.png"
             alt=""
             className="absolute inset-0 w-full h-full object-cover"
           />
-          <div className="absolute inset-0 bg-gradient-to-r from-[#060d1a]/90 via-[#060d1a]/60 to-[#060d1a]/90" />
+          <div className="absolute inset-0 bg-gradient-to-t from-[#060d1a]/95 via-[#060d1a]/55 to-[#060d1a]/70" />
           <div className="relative">
-            <span className="text-4xl block mb-4">💎</span>
-            <h2 className="text-2xl sm:text-3xl font-black text-text-1 mb-6">{t('home.cta.title')}</h2>
+            <span
+              className="inline-flex items-center justify-center w-14 h-14 rounded-full mb-5"
+              style={{ background: 'rgba(240,180,41,0.15)', border: '1px solid rgba(240,180,41,0.4)' }}
+            >
+              <Icon name="workspace_premium" className="!text-[28px] text-gold" />
+            </span>
+            <h2 className="font-display text-3xl sm:text-5xl uppercase tracking-wide text-text-1 mb-7">{t('home.cta.title')}</h2>
             <div className="flex flex-wrap justify-center gap-3">
               <button
                 onClick={() => navigate('/bahis')}
-                className="px-6 py-2.5 rounded-xl text-sm font-bold text-black transition-all hover:scale-105 active:scale-95 shadow-lg"
+                className="px-7 py-3 rounded-lg text-sm font-extrabold uppercase tracking-wide text-black transition-all hover:scale-105 active:scale-95 shadow-lg font-ui"
                 style={{ background: BRAND_GRADIENT_H }}
               >
                 {t('home.cta.getStarted')}
               </button>
               <button
                 onClick={() => navigate('/casino')}
-                className="px-6 py-2.5 rounded-xl text-sm font-bold text-black transition-all hover:scale-105 active:scale-95 shadow-lg"
-                style={{ background: BRAND_GRADIENT_H }}
+                className="px-7 py-3 rounded-lg text-sm font-extrabold uppercase tracking-wide text-black transition-all hover:scale-105 active:scale-95 shadow-lg font-ui"
+                style={{ background: 'linear-gradient(90deg, #f0b429 0%, #ffd66b 100%)' }}
               >
                 {t('home.cta.register')}
               </button>

@@ -446,6 +446,11 @@ export default {
   'home.cta.title': 'VIP90.bet ile Kazanmaya Başla',
   'home.cta.getStarted': 'Hemen Başla',
   'home.cta.register': 'Kayıt Ol',
+  'home.trust.licensed': 'Lisanslı & Güvenli',
+  'home.trust.provablyFair': 'Provably Fair',
+  'home.trust.instantPayout': 'Anlık Çekim',
+  'home.trust.support': '7/24 Destek',
+  'home.games.provablyFairBadge': 'Provably Fair',
 
   // Legal
   'legal.terms.title': 'Kullanım Koşulları',

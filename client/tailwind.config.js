@@ -19,6 +19,16 @@ export default {
         },
         'bg-void': '#05080f',
         'bg-cell': '#0c1220',
+        gold: {
+          DEFAULT: '#f0b429',
+          light: '#ffd66b',
+          dark: '#a86e0a',
+          soft: 'rgba(240,180,41,0.12)',
+        },
+      },
+      fontFamily: {
+        display: ['Anton', 'Impact', 'sans-serif'],
+        ui: ['Manrope', 'Inter', 'system-ui', 'sans-serif'],
       },
       animation: {
         'marquee':       'marquee 30s linear infinite',
