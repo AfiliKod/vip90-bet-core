@@ -58,6 +58,7 @@ export default {
   'common.optional': 'Optional',
 
   // Navigation
+  'nav.home': 'Home',
   'nav.sports': 'Sports',
   'nav.live': 'Live',
   'nav.casino': 'Casino',
@@ -453,6 +454,15 @@ export default {
   'home.trust.support': '24/7 Support',
   'home.games.provablyFairBadge': 'Provably Fair',
   'home.games.originalBadge': 'VIP90.bet Original',
+  'home.sidebar.categories': 'Categories',
+  'home.sidebar.account': 'Account',
+  'home.rail.winners': 'Winners',
+  'home.rail.promotions': 'Promotions',
+  'home.rail.all': 'View all',
+  'home.stats.games': 'Original Games',
+  'home.stats.sports': 'Sports',
+  'home.stats.support': 'Live Support',
+  'home.stats.provablyFair': 'Provably Fair',
 
   // Legal
   'legal.terms.title': 'Terms of Use',

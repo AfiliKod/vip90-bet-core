@@ -58,6 +58,7 @@ export default {
   'common.optional': 'İsteğe bağlı',
 
   // Navigation
+  'nav.home': 'Ana Sayfa',
   'nav.sports': 'Bahis',
   'nav.live': 'Canlı',
   'nav.casino': 'Casino',
@@ -452,6 +453,15 @@ export default {
   'home.trust.support': '7/24 Destek',
   'home.games.provablyFairBadge': 'Provably Fair',
   'home.games.originalBadge': 'VIP90.bet Original',
+  'home.sidebar.categories': 'Kategoriler',
+  'home.sidebar.account': 'Hesap',
+  'home.rail.winners': 'Kazananlar',
+  'home.rail.promotions': 'Promosyonlar',
+  'home.rail.all': 'Tümü',
+  'home.stats.games': 'Özel Oyun',
+  'home.stats.sports': 'Spor Dalı',
+  'home.stats.support': 'Canlı Destek',
+  'home.stats.provablyFair': 'Provably Fair',
 
   // Legal
   'legal.terms.title': 'Kullanım Koşulları',

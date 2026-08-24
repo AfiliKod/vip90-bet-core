@@ -47,6 +47,22 @@ sayfalar bu turun dışında; beğenilirse aynı dil yayılacak.
   kartları 4:3 yatay yerine **3:4 dikey (box-art) formata** çevrildi,
   köşeye "VIP90.bet Original" rozeti eklendi (3. parti sağlayıcı logosu
   yerine).
+- **Üçüncü iterasyon** — kullanıcının verdiği somut bir referans tasarıma
+  (üç sütunlu casino dashboard mizanpajı) göre pixel-seviyesinde yeniden
+  yapıldı: sol kategori/hesap navigasyonu (`HomeSidebar.jsx`, yalnızca
+  anasayfada — yalnızca gerçekten var olan route'lara bağlı, referanstaki
+  "Favoriler/Jackpot/Turnuvalar/Sadakat Programı" gibi bizde karşılığı
+  olmayan sayfalar eklenmedi) ve sağ rayda `WinnersPanel`/`PromoPanel`
+  (aynı gerçek veriyi paylaşan yeni `useRecentWinners` hook'u) eklendi.
+  Renk paleti referansa uyacak şekilde yeşil/koyu-antrasite bir homepage-
+  özel palete (`pages/home/homeTheme.js`) çevrildi — sitenin geri kalanının
+  cyan/purple marka rengine dokunulmadı. Başlıklar `Anton` yerine
+  `Manrope` kalın ağırlık kullanıyor (referans tipografisi condensed değil,
+  standart kalın sans). Referansta olup bizde karşılığı olmayan "Canlı
+  Casino" (masa/krupiye) satırı ve "10.000+ Oyun/50.000+ Kullanıcı/%98
+  Memnuniyet" gibi doğrulanamayan rakamlar bilerek kopyalanmadı; ödeme
+  logoları da yalnızca gerçekten desteklenenlerle (Havale/EFT, Kripto/USDT)
+  sınırlı tutuldu.
 
 **Değişti:**
 - Hero slider ve Quick Nav kartlarındaki fotoğraflar artık **görünür**:
@@ -66,13 +82,17 @@ sayfalar bu turun dışında; beğenilirse aynı dil yayılacak.
   yerine düz İngilizce ligature metni ("sports_soccer", "shield" vb.)
   bir an görünüyordu; `block` bu aralıkta ikonu boş bırakıyor, metni
   hiç göstermiyor.
+- Hero altındaki ikon-öncelikli hızlı kategori şeridi (Bahis/Canlı/
+  Casino/Kampanyalar/Yardım Merkezi) kaldırıldı — bu bilgi artık sol
+  sidebar'da zaten var, anasayfada tekrar oluyordu.
 
-**Bilinen sınır:** Bu turda mobil görünüm tarayıcı otomasyonuyla
-piksel-piksel doğrulanamadı (bu oturumdaki `resize_window` aracı
-viewport'u değiştirmedi, `window.innerWidth` sabit kaldı) — responsive
-sınıflar mevcut, test edilmiş breakpoint kalıpları (`sm:`/`md:`)
-birebir korunarak eklendi, ama gerçek cihaz/DevTools ile görsel teyit
-öneriliyor.
+**Bilinen sınır:** `resize_window` aracı bu tarayıcı otomasyonu ortamında
+gerçek viewport'u değiştirmiyor (`window.innerWidth` sabit kalıyor) —
+mobil doğrulama bu yüzden sayfa içine 390px'lik bir `<iframe>` enjekte
+edilerek yapıldı (iframe'in kendi rendering viewport'u var, media query'ler
+doğru tetikleniyor). Bu yöntemle hero/istatistik şeridi/oyun kartları/
+sidebar-gizleme davranışı görsel olarak doğrulandı; yine de gerçek
+cihaz/DevTools ile bir kontrol faydalı olur.
 
 ### P1/P2 — Sohbet + bahşiş aktif edildi
 `services/chat.js` (oda/mesaj/moderasyon/bahşiş/yağmur iş mantığı) büyük
