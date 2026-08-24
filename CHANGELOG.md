@@ -36,6 +36,17 @@ sayfalar bu turun dışında; beğenilirse aynı dil yayılacak.
   doku, "Neden Biz?" bölümü arka planı).
 - `tailwind.config.js`'e `gold` renk paleti ve `font-display`/`font-ui`
   aileleri eklendi.
+- **İkinci iterasyon** — gerçek rakip sitelerinde (oddsSource7502, Exonbet291;
+  1xbet güvenlik kısıtlamasıyla engellendi) yapılan tarayıcı incelemesi
+  sonrası üç endüstri-standardı kalıp eklendi: (1) `RecentWinnersTicker`
+  ince metin şeridinden yatay kaydırılan **kazanan kartlarına** çevrildi
+  (oyun görseli + maskelenmiş kullanıcı adı — "ad***n" kalıbı, salt
+  görüntü amaçlı; backend hâlâ gerçek username yayınlıyor + tutar), (2)
+  fotoğraflı Quick Nav kartları yerine **ikon-öncelikli kategori şeridi**
+  (Bahis/Canlı/Casino/Kampanyalar/Yardım Merkezi) eklendi, (3) oyun
+  kartları 4:3 yatay yerine **3:4 dikey (box-art) formata** çevrildi,
+  köşeye "VIP90.bet Original" rozeti eklendi (3. parti sağlayıcı logosu
+  yerine).
 
 **Değişti:**
 - Hero slider ve Quick Nav kartlarındaki fotoğraflar artık **görünür**:
@@ -50,6 +61,11 @@ sayfalar bu turun dışında; beğenilirse aynı dil yayılacak.
   metin yok.
 - Oyun grid'i mobilde `grid-cols-3`'ten `grid-cols-2`'ye düşürüldü —
   12 oyun 3 sütunda dar ekranlarda aşırı sıkışıyordu.
+- Material Symbols Google Fonts bağlantısına `&display=block` eklendi —
+  önceki (varsayılan `swap`) davranışta, font yüklenene kadar ikon
+  yerine düz İngilizce ligature metni ("sports_soccer", "shield" vb.)
+  bir an görünüyordu; `block` bu aralıkta ikonu boş bırakıyor, metni
+  hiç göstermiyor.
 
 **Bilinen sınır:** Bu turda mobil görünüm tarayıcı otomasyonuyla
 piksel-piksel doğrulanamadı (bu oturumdaki `resize_window` aracı

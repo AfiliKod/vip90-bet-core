@@ -98,6 +98,14 @@ export default function HomePage() {
     { icon: 'support_agent', title: t('home.features.support'), desc: t('home.features.supportDesc') },
   ];
 
+  const QUICK_CATEGORIES = [
+    { label: t('nav.sports'), path: '/bahis', icon: 'sports_soccer', accent: '#00d4ff' },
+    { label: t('nav.live'), path: '/canli', icon: 'sensors', accent: '#ef4444' },
+    { label: t('nav.casino'), path: '/casino', icon: 'casino', accent: '#a78bfa' },
+    { label: t('nav.promotions'), path: '/promotions', icon: 'redeem', accent: '#f0b429' },
+    { label: t('nav.helpCenter'), path: '/help', icon: 'support_agent', accent: '#34d399' },
+  ];
+
   const TRUST_BADGES = [
     { icon: 'shield', label: t('home.trust.licensed') },
     { icon: 'verified', label: t('home.trust.provablyFair') },
@@ -244,47 +252,31 @@ export default function HomePage() {
       </section>
       )}
 
-      {/* ── Quick Nav Cards ──────────────────────────────────── */}
+      {/* ── Hızlı Kategori Şeridi ────────────────────────────── */}
+      {/* İkon + döşeme deseni — oddsSource/Exonbet gibi büyük sitelerde hero'nun
+          hemen altında standart olan, taranabilir kategori girişi. Önceki
+          sürüm burada 3 büyük fotoğraflı kart kullanıyordu; fotoğraflar zaten
+          hero'da gösterildiği için tekrar oluyordu, bu daha yoğun/tanıdık
+          şerit onun yerini alıyor. */}
       {sectionOrder.includes('quickNav') && (
-      <section className="max-w-6xl mx-auto px-4 mt-6 sm:mt-8 pb-16" style={{ order: sectionOrder.indexOf('quickNav') }}>
-        <div className="grid md:grid-cols-3 gap-4 sm:gap-6">
-          {HERO_SLIDES.slice(1).map(s => (
+      <section className="max-w-6xl mx-auto px-4 mt-6 sm:mt-8 pb-14" style={{ order: sectionOrder.indexOf('quickNav') }}>
+        <div className="flex gap-3 sm:gap-4 overflow-x-auto no-scrollbar sm:grid sm:grid-cols-5">
+          {QUICK_CATEGORIES.map(c => (
             <Link
-              key={s.path}
-              to={s.path}
-              className="group relative block rounded-2xl overflow-hidden transition-all duration-300 hover:-translate-y-1 min-h-[220px]"
-              style={{
-                border: '1px solid #ffffff14',
-                boxShadow: '0 4px 24px rgba(0,0,0,0.4)',
-              }}
+              key={c.path}
+              to={c.path}
+              className="group flex flex-col items-center gap-2.5 rounded-2xl px-4 py-5 shrink-0 w-[104px] sm:w-auto transition-all duration-200 hover:-translate-y-0.5"
+              style={{ background: '#0d1526', border: '1px solid #ffffff0f' }}
+              onMouseEnter={e => { e.currentTarget.style.borderColor = `${c.accent}55`; e.currentTarget.style.boxShadow = `0 0 20px ${c.accent}22`; }}
+              onMouseLeave={e => { e.currentTarget.style.borderColor = '#ffffff0f'; e.currentTarget.style.boxShadow = 'none'; }}
             >
-              <img
-                src={s.image}
-                alt=""
-                loading="lazy"
-                className="absolute inset-0 w-full h-full object-cover transition-transform duration-500 group-hover:scale-110"
-              />
-              <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-black/40 to-black/10 group-hover:from-black/95 transition-all duration-300" />
-              <div
-                className="absolute inset-0 opacity-0 group-hover:opacity-100 transition-opacity duration-300"
-                style={{ boxShadow: `inset 0 0 0 1px ${s.accent}66, inset 0 0 40px ${s.accent}22` }}
-              />
-              <div className="relative p-6 sm:p-7 h-full flex flex-col justify-end">
-                <span
-                  className="inline-flex items-center justify-center w-9 h-9 rounded-lg mb-3"
-                  style={{ background: `${s.accent}22`, border: `1px solid ${s.accent}55` }}
-                >
-                  <Icon name={SLIDE_ICONS[s.id]} className="!text-[18px]" style={{ color: s.accent }} />
-                </span>
-                <h3 className="font-display text-xl uppercase tracking-wide text-text-1 mb-1">{s.title}</h3>
-                <p className="text-xs text-text-2/80 mb-4 line-clamp-2 font-ui">{typeof s.desc === 'function' ? s.desc() : s.desc}</p>
-                <span
-                  className="inline-flex items-center gap-1 text-xs font-extrabold uppercase tracking-wide transition-all group-hover:gap-2 font-ui"
-                  style={{ color: s.accent }}
-                >
-                  {s.cta} <Icon name="arrow_forward" className="!text-[16px]" />
-                </span>
-              </div>
+              <span
+                className="inline-flex items-center justify-center w-12 h-12 rounded-full transition-transform duration-200 group-hover:scale-110"
+                style={{ background: `${c.accent}1c`, border: `1px solid ${c.accent}44` }}
+              >
+                <Icon name={c.icon} className="!text-[22px]" style={{ color: c.accent }} />
+              </span>
+              <span className="text-xs font-bold text-text-1 text-center font-ui">{c.label}</span>
             </Link>
           ))}
         </div>
@@ -324,7 +316,7 @@ export default function HomePage() {
                   e.currentTarget.style.boxShadow = 'none';
                 }}
               >
-                <div className="aspect-[4/3] relative overflow-hidden">
+                <div className="aspect-[3/4] relative overflow-hidden">
                   <img
                     src={g.image}
                     alt={g.name}
@@ -332,9 +324,16 @@ export default function HomePage() {
                     className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-110"
                     onError={e => { e.currentTarget.style.display = 'none'; }}
                   />
-                  <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/10 to-transparent" />
+                  <div className="absolute inset-0 bg-gradient-to-t from-black/85 via-black/5 to-black/10" />
+                  <span
+                    className="absolute top-2 left-2 inline-flex items-center gap-1 text-[9px] font-bold uppercase tracking-wide px-1.5 py-0.5 rounded font-ui"
+                    style={{ background: 'rgba(6,13,26,0.75)', color: '#f0b429', border: '1px solid rgba(240,180,41,0.35)' }}
+                  >
+                    <Icon name="diamond" className="!text-[10px]" />
+                    {t('home.games.originalBadge')}
+                  </span>
                   <div className="absolute bottom-0 left-0 right-0 p-2.5">
-                    <span className="text-xs font-extrabold block font-ui" style={{ color: g.accent }}>{g.name}</span>
+                    <span className="text-sm font-extrabold block font-ui" style={{ color: g.accent }}>{g.name}</span>
                   </div>
                 </div>
               </Link>

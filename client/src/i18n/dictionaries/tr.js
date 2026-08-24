@@ -451,6 +451,7 @@ export default {
   'home.trust.instantPayout': 'Anlık Çekim',
   'home.trust.support': '7/24 Destek',
   'home.games.provablyFairBadge': 'Provably Fair',
+  'home.games.originalBadge': 'VIP90.bet Original',
 
   // Legal
   'legal.terms.title': 'Kullanım Koşulları',

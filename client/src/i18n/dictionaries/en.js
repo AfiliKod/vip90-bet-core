@@ -452,6 +452,7 @@ export default {
   'home.trust.instantPayout': 'Instant Payouts',
   'home.trust.support': '24/7 Support',
   'home.games.provablyFairBadge': 'Provably Fair',
+  'home.games.originalBadge': 'VIP90.bet Original',
 
   // Legal
   'legal.terms.title': 'Terms of Use',
