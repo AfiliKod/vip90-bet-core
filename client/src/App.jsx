@@ -48,6 +48,7 @@ const AdminRoles = lazy(() => import('./pages/admin/Roles'));
 const AdminVip = lazy(() => import('./pages/admin/Vip'));
 const AdminBots = lazy(() => import('./pages/admin/Bots'));
 const AdminStaticPages = lazy(() => import('./pages/admin/StaticPages'));
+const AdminTickets = lazy(() => import('./pages/admin/Tickets'));
 const CasinoRedesign = lazy(() => import('./pages/CasinoRedesign'));
 const PalaceGame = lazy(() => import('./pages/PalaceGame'));
 const Crash = lazy(() => import('./pages/games/Crash'));
@@ -71,6 +72,7 @@ const Cookies = lazy(() => import('./pages/legal/Cookies'));
 const BonusTerms = lazy(() => import('./pages/legal/BonusTerms'));
 const ResponsibleGaming = lazy(() => import('./pages/legal/ResponsibleGaming'));
 const UserAgreement = lazy(() => import('./pages/legal/UserAgreement'));
+const Tickets = lazy(() => import('./pages/Tickets'));
 const About = lazy(() => import('./pages/company/About'));
 const Career = lazy(() => import('./pages/company/Career'));
 const Press = lazy(() => import('./pages/company/Press'));
@@ -118,9 +120,16 @@ export default function App() {
       }
     }
     socket.on('bet:settled', onBetSettled);
+
+    function onTicketReply() {
+      addToast(t('ticket.newReply'), 'info');
+    }
+    socket.on('ticket:reply', onTicketReply);
+
     return () => {
       socket.off('balance:update', onBalanceUpdate);
       socket.off('bet:settled', onBetSettled);
+      socket.off('ticket:reply', onTicketReply);
     };
   }, []);
 
@@ -180,6 +189,7 @@ export default function App() {
         <Route path="/admin/vip" element={<ProtectedRoute adminOnly><Suspense fallback={<PageLoader />}><AdminVip /></Suspense></ProtectedRoute>} />
         <Route path="/admin/bots" element={<ProtectedRoute adminOnly><Suspense fallback={<PageLoader />}><AdminBots /></Suspense></ProtectedRoute>} />
         <Route path="/admin/static-pages" element={<ProtectedRoute adminOnly><Suspense fallback={<PageLoader />}><AdminStaticPages /></Suspense></ProtectedRoute>} />
+        <Route path="/admin/tickets" element={<ProtectedRoute adminOnly><Suspense fallback={<PageLoader />}><AdminTickets /></Suspense></ProtectedRoute>} />
         {/* Legal pages (public) */}
         <Route path="/legal/terms" element={<Suspense fallback={<PageLoader />}><Terms /></Suspense>} />
         <Route path="/legal/privacy" element={<Suspense fallback={<PageLoader />}><Privacy /></Suspense>} />
@@ -194,6 +204,7 @@ export default function App() {
         <Route path="/press" element={<Suspense fallback={<PageLoader />}><Press /></Suspense>} />
         <Route path="/contact" element={<Suspense fallback={<PageLoader />}><Contact /></Suspense>} />
         <Route path="/status" element={<Suspense fallback={<PageLoader />}><Status /></Suspense>} />
+        <Route path="/help" element={<ProtectedRoute><Suspense fallback={<PageLoader />}><Tickets /></Suspense></ProtectedRoute>} />
         <Route path="/forgot-password" element={<GuestRoute><Suspense fallback={<PageLoader />}><ForgotPassword /></Suspense></GuestRoute>} />
         <Route path="/reset-password" element={<GuestRoute endSession><Suspense fallback={<PageLoader />}><ResetPassword /></Suspense></GuestRoute>} />
         <Route path="/verify-email" element={<GuestRoute endSession><Suspense fallback={<PageLoader />}><VerifyEmail /></Suspense></GuestRoute>} />

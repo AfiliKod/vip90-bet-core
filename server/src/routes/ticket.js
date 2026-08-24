@@ -1,6 +1,7 @@
 import { Router } from 'express';
 import { requireAuth, requireAdmin } from '../middleware/auth.js';
 import { validate } from '../middleware/validate.js';
+import { auditLog } from '../middleware/audit.js';
 import { createTicketSchema, replySchema, setStatusSchema } from '../validators/ticket.js';
 import * as ctrl from '../controllers/ticket.js';
 
@@ -15,7 +16,7 @@ r.post('/mine/:id/reply', requireAuth, validate(replySchema), ctrl.replyToMyTick
 // Admin uçları
 r.get('/', requireAuth, requireAdmin, ctrl.listAllTickets);
 r.get('/:id', requireAuth, requireAdmin, ctrl.getAnyTicket);
-r.post('/:id/reply', requireAuth, requireAdmin, validate(replySchema), ctrl.replyAsAdmin);
-r.patch('/:id/status', requireAuth, requireAdmin, validate(setStatusSchema), ctrl.setTicketStatus);
+r.post('/:id/reply', requireAuth, requireAdmin, auditLog('TICKET_REPLY'), validate(replySchema), ctrl.replyAsAdmin);
+r.patch('/:id/status', requireAuth, requireAdmin, auditLog('TICKET_STATUS_CHANGE'), validate(setStatusSchema), ctrl.setTicketStatus);
 
 export default r;

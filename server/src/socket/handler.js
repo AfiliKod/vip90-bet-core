@@ -1,4 +1,5 @@
 import jwt from 'jsonwebtoken';
+import User from '../models/User.js';
 import { subscribeToGameStream, unsubscribeFromGameStream, initializeGameStream, getRecentWinners } from '../services/liveGameStream.js';
 import { initChatSocket } from '../services/chat.js';
 
@@ -13,6 +14,18 @@ export function initSocket(io) {
     });
     socket.on('unsubscribe:user', ({ userId }) => {
       if (userId) socket.leave(`user:${userId}`);
+    });
+
+    // Ticket/KYC gibi admin-only bildirimler için — daha önce hiçbir socket
+    // bu odaya katılmıyordu, services/kyc.js'teki io.to('role:admin').emit(...)
+    // çağrısı hiç kimseye ulaşmıyordu. userId'nin gerçekten admin olduğu DB'den
+    // doğrulanır (client'ın kendi beyanına güvenilmez).
+    socket.on('subscribe:admin', async ({ userId }) => {
+      if (!userId) return;
+      try {
+        const user = await User.findById(userId).select('role').lean();
+        if (user?.role === 'admin') socket.join('role:admin');
+      } catch { /* geçersiz id vb. — sessizce yok say */ }
     });
   });
 

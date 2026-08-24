@@ -2,9 +2,10 @@ import { create } from 'zustand';
 import api from '../services/api';
 import { socket } from '../services/socket';
 
-function connectUserSocket(userId) {
+function connectUserSocket(userId, role) {
   if (!socket.connected) socket.connect();
   socket.emit('subscribe:user', { userId });
+  if (role === 'admin') socket.emit('subscribe:admin', { userId });
 }
 
 function disconnectUserSocket(userId) {
@@ -20,7 +21,7 @@ export const useAuthStore = create((set) => ({
       const { data } = await api.post('/auth/refresh');
       localStorage.setItem('accessToken', data.accessToken);
       set({ user: data.user, token: data.accessToken, isLoading: false });
-      connectUserSocket(data.user._id || data.user.id);
+      connectUserSocket(data.user._id || data.user.id, data.user.role);
     } catch {
       // Depolama ile state ayrışmasın: refresh reddedildiyse elde kalan accessToken
       // artık bir oturumu temsil etmiyor.
@@ -32,7 +33,7 @@ export const useAuthStore = create((set) => ({
     const { data } = await api.post('/auth/login', { username, password });
     localStorage.setItem('accessToken', data.accessToken);
     set({ user: data.user, token: data.accessToken });
-    connectUserSocket(data.user._id || data.user.id);
+    connectUserSocket(data.user._id || data.user.id, data.user.role);
     return data.user;
   },
   // P6 — cüzdanla giriş. window.ethereum (MetaMask vb.) üzerinden adres alır,
@@ -55,7 +56,7 @@ export const useAuthStore = create((set) => ({
     });
     localStorage.setItem('accessToken', data.accessToken);
     set({ user: data.user, token: data.accessToken });
-    connectUserSocket(data.user._id || data.user.id);
+    connectUserSocket(data.user._id || data.user.id, data.user.role);
     return data.user;
   },
   register: async (username, email, password, consents = {}, referredBy) => {
@@ -71,7 +72,7 @@ export const useAuthStore = create((set) => ({
     if (data.accessToken) {
       localStorage.setItem('accessToken', data.accessToken);
       set({ user: data.user, token: data.accessToken });
-      connectUserSocket(data.user._id || data.user.id);
+      connectUserSocket(data.user._id || data.user.id, data.user.role);
     }
     return data;
   },

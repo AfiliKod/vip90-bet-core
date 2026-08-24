@@ -4,11 +4,13 @@ import api from '../../services/api';
 
 export default function AdminDashboard() {
   const [pendingBank, setPendingBank] = useState(0);
+  const [openTickets, setOpenTickets] = useState(0);
   useEffect(() => {
     Promise.all([
       api.get('/bank/admin/pending?type=deposit'),
       api.get('/bank/admin/pending?type=withdraw'),
     ]).then(([d, w]) => setPendingBank(d.data.requests.length + w.data.requests.length)).catch(() => {});
+    api.get('/tickets', { params: { status: 'open' } }).then(({ data }) => setOpenTickets(data.length)).catch(() => {});
   }, []);
 
   return (
@@ -94,6 +96,16 @@ export default function AdminDashboard() {
           <div className="text-3xl mb-2">📄</div>
           <div className="font-semibold text-text-1">Statik Sayfalar</div>
           <div className="text-text-3 text-sm mt-1">Footer, Hakkımızda, Yasal metinler</div>
+        </Link>
+        <Link to="/admin/tickets" className="bg-bg-card border border-white/10 rounded-xl p-5 hover:border-accent/30 transition text-center relative">
+          {openTickets > 0 && (
+            <span className="absolute top-3 right-3 bg-accent text-white text-[10px] font-black rounded-full w-5 h-5 flex items-center justify-center">
+              {openTickets}
+            </span>
+          )}
+          <div className="text-3xl mb-2">🎫</div>
+          <div className="font-semibold text-text-1">Destek Talepleri</div>
+          <div className="text-text-3 text-sm mt-1">Yardım Merkezi ticket'ları</div>
         </Link>
       </div>
     </div>

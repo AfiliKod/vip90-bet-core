@@ -12,6 +12,38 @@ Madde formatı ve kategoriler için `docs/CHANGELOG_GUIDE.md`'ye bakın —
 
 ## [Yayınlanmadı]
 
+### D5 — Yardım Merkezi (ticket) sistemi aktif edildi
+Backend zaten tam yazılmıştı (`models/Ticket.js`, `services/ticket.js`,
+`routes/ticket.js`, `/api/tickets` mount edilmişti) ama hiçbir client
+sayfası yoktu ve footer'daki "Yardım Merkezi" linki yanlış yere
+(`/status`, sistem durumu sayfası) gidiyordu — ticket API'si tamamen
+kullanılmayan (orphan) kod hâlindeydi.
+
+**Eklendi:**
+- Oyuncu tarafı: `/help` sayfası — talep listesi, "Yeni Talep" formu,
+  talep detay/mesajlaşma paneli.
+- Admin tarafı: `/admin/tickets` sayfası — durum filtreli liste, detay
+  paneli, yanıt kutusu, durum değiştirme; Dashboard'a açık talep
+  sayaçlı kısayol kartı.
+- `services/ticket.js`'e bildirim entegrasyonu (KYC deseni takip edilerek):
+  yeni talep açıldığında adminlere socket bildirimi, admin yanıtladığında
+  oyuncuya socket bildirimi + e-posta.
+- `socket/handler.js`'e `subscribe:admin` event'i — **önceden hiçbir socket
+  `role:admin` odasına katılmıyordu**, bu yüzden `services/kyc.js`'teki
+  `io.to('role:admin').emit('kyc:new_submission', ...)` çağrısı da fiilen
+  hiç kimseye ulaşmıyordu; bu düzeltme KYC bildirimini de çalışır hâle
+  getiriyor. Katılım DB'den `role==='admin'` doğrulamasıyla yapılıyor
+  (client'ın kendi beyanına güvenilmiyor).
+- Admin ticket yanıt/durum değişikliği işlemleri artık `auditLog` ile
+  denetleniyor.
+
+**Değişti:**
+- Footer'daki "Yardım Merkezi" linki `/status`'tan `/help`'e düzeltildi.
+
+Canlı önizleme sunucusunda uçtan uca doğrulandı: oyuncu talep açtı, admin
+yanıtladı (durum open→in_progress otomatik geçti), admin durumu "Çözüldü"
+yaptı, oyuncu tekrar yazınca durum otomatik "Açık"a döndü.
+
 ### SF — Footer/statik sayfa yönetimi (Hakkımızda, Kariyer, Basın, İletişim, Yasal, Sorumlu Oyun)
 Hakkımızda/Kariyer/Basın/İletişim footer linkleri daha önce tamamen ölüydü
 (`href:'#'`, hiçbir sayfa yoktu); Yasal ve Sorumlu Oyun sayfalarının içeriği
