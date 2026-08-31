@@ -40,15 +40,16 @@ Bir önceki karttaki casino anasayfasına gelen geri bildirimlerin düzeltmesi.
   genişlikteki sütun içinde aynı kuralla ortalanıyordu; iki farklı genişlik
   farklı sonuç üretiyordu. `max-w-6xl mx-auto` kaldırılıp düz `px-4`
   kullanılarak her ikisi de sütunun sol kenarına sabitlendi.
-- Sol kenar düzeldikten sonra sağ kenarda hâlâ boşluk kalıyordu: oyun
-  kartları sabit genişlikte (`shrink-0 w-[140px]`) yatay-kaydırmalı bir
-  `flex` satırındaydı, bu yüzden geniş ekranlarda tüm kartlar kaydırma
-  gerekmeden sığınca satır son kartın bittiği yerde kesiliyor, sağ rayın
-  bittiği yere kadar boşluk kalıyordu (bir `overflow-x-auto` satırı
-  konteynerini doldurmaya zorlanmaz). `GameRowSection`'ın kart konteyneri
-  `grid-template-columns: repeat(auto-fill, minmax(140px,1fr))` kullanan
-  bir CSS grid'e çevrildi — kart sayısına bakılmaksızın satır her zaman tam
-  genişliği dolduruyor, sığmayan kartlar otomatik alt satıra sarıyor.
+- Oyun satırı konteynerinin genişliği hero satırıyla uyuşmuyordu; kartların
+  bulunduğu `shrink-0 w-[140px]` yatay-kaydırmalı `flex` satırının kendisi
+  değil, onu saran bölüm konteyneri sağ rayın bittiği yere kadar
+  uzanmıyordu. Sağdaki boşluğu gidermek için önce kartların CSS grid'e
+  (`repeat(auto-fill, minmax(140px,1fr))`) çevrilmesi denendi, ama bu
+  kartların satırı doldurmak için gerilmesine (ve kaydırma yerine alt
+  satıra sarmasına) yol açtığından geri alındı — oyun satırları yeniden
+  sabit genişlikte kartlarla yatay-kaydırmalı bir `flex` satırı, "tümünü
+  gör" linkleriyle birlikte hero'nun sınırları içinde (sol/sağ raylar
+  arasında) konumlanıyor, kartlar satırın sağına doğru gerilmiyor.
 - Boş Bahis Kuponu konteyneri, anasayfada hiçbir bahis seçeneği olmamasına
   rağmen "Tüm Oyunlar" kartından sonra sayfanın en altında görünüyordu —
   `BetSlip`, yan yana (flex-row) sayfalar için tasarlanmış bir `<aside>`

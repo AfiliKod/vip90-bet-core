@@ -42,7 +42,7 @@ function PalaceGameCard({ game }) {
   return (
     <Link
       to={`/palace/${encodeURIComponent(symbol)}?name=${encodeURIComponent(name)}`}
-      className="group relative rounded-xl overflow-hidden transition-all duration-200 text-center"
+      className="group relative rounded-xl overflow-hidden transition-all duration-200 text-center shrink-0 w-[140px] sm:w-[150px]"
       style={{ background: HOME_CARD, border: `1px solid ${HOME_BORDER}` }}
       onMouseEnter={e => { e.currentTarget.style.borderColor = 'color-mix(in srgb, var(--color-primary) 40%, transparent)'; }}
       onMouseLeave={e => { e.currentTarget.style.borderColor = HOME_BORDER; }}
@@ -82,7 +82,7 @@ function GameRowSection({ id, icon, title, subtitle, viewAllTo, viewAllLabel, ch
             </Link>
           )}
         </div>
-        <div className="grid gap-3 sm:gap-4 grid-cols-[repeat(auto-fill,minmax(120px,1fr))] sm:grid-cols-[repeat(auto-fill,minmax(140px,1fr))]">
+        <div className="flex gap-3 sm:gap-4 overflow-x-auto no-scrollbar pb-1">
           {children}
         </div>
       </div>
@@ -238,7 +238,7 @@ export default function HomePage() {
     inhouseGames: sectionOrder.includes('inhouseGames') ? (
       <GameRowSection id="ozel-oyunlar" icon="diamond" title={t('home.games.exclusive')} subtitle={t('home.games.exclusiveDesc')}>
         {INHOUSE_GAMES.map(g => (
-          <Link key={g.path} to={g.path} className="group relative rounded-xl overflow-hidden transition-all duration-200 text-center"
+          <Link key={g.path} to={g.path} className="group relative rounded-xl overflow-hidden transition-all duration-200 text-center shrink-0 w-[140px] sm:w-[150px]"
             style={{ background: HOME_CARD, border: `1px solid ${HOME_BORDER}` }}
             onMouseEnter={e => { e.currentTarget.style.borderColor = `${g.accent}66`; }}
             onMouseLeave={e => { e.currentTarget.style.borderColor = HOME_BORDER; }}
