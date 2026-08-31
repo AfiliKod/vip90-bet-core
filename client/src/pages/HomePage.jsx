@@ -66,7 +66,7 @@ function PalaceGameCard({ game }) {
 function GameRowSection({ id, icon, title, subtitle, viewAllTo, viewAllLabel, children }) {
   return (
     <section className="mt-8" id={id}>
-      <div className="max-w-6xl mx-auto px-4">
+      <div className="px-4">
         <div className="flex items-end justify-between mb-4">
           <div>
             <h2 className="text-lg font-extrabold text-white flex items-center gap-2 font-ui">
@@ -184,7 +184,7 @@ export default function HomePage() {
           <div className="absolute inset-0 bg-gradient-to-t from-black/50 via-transparent to-black/10" />
           <div className="absolute -top-16 -left-16 w-[380px] h-[380px] rounded-full opacity-20 pointer-events-none" style={{ background: `radial-gradient(circle, var(--color-primary) 0%, transparent 70%)` }} />
 
-          <div className="relative h-full max-w-6xl mx-auto px-5 sm:px-8 flex flex-col justify-center">
+          <div className="relative h-full px-4 flex flex-col justify-center">
             <div className="max-w-md">
               <span className="inline-flex items-center gap-1.5 text-[11px] font-bold uppercase tracking-wider mb-3 px-2.5 py-1 rounded bg-white/[0.06] text-white/60 font-ui">
                 <Icon name={slideIcon} className="!text-[13px]" />
@@ -281,7 +281,7 @@ export default function HomePage() {
 
         {/* Tüm Oyunlar — çoğaltma yapmadan gerçek tam katalog sayfasına yönlendirir */}
         <section className="mt-8">
-          <div className="max-w-6xl mx-auto px-4">
+          <div className="px-4">
             <Link
               to="/casino"
               className="flex items-center justify-between rounded-xl p-5 transition-colors group"

@@ -27,6 +27,7 @@ import { errorLogger } from './services/errorLogger.js';
 import { initDefaultPermissions, initDefaultRoles } from './services/permissions.js';
 import { initDefaultVipLevels } from './services/vip.js';
 import { startBotScheduler } from './jobs/botScheduler.js';
+import { startFakeWinnersScheduler } from './services/fakeWinners.js';
 import { seedDefaultPages } from './services/staticPages.js';
 import { initDefaultChatRoom } from './services/chat.js';
 
@@ -114,6 +115,9 @@ connectDB()
     startoddsSourceUpcomingSync(io);
     // P3 — bot oyuncular: aksiyonu hazır botları periyodik tetikler
     startBotScheduler();
+    // Son Kazananlar simülasyonu — gerçek User/bakiye kullanmadan, değişen
+    // aralıklarla kozmetik "kazanan" akışı üretir (bkz. services/fakeWinners.js)
+    startFakeWinnersScheduler();
     // Job'lar tamamen asılıp hiç rapor vermediğinde de bayatlığı yakala
     startMonitor();
     startReconciliation();

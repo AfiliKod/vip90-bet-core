@@ -17,6 +17,34 @@ export default function AdminBots() {
   const [error, setError] = useState('');
   const [form, setForm] = useState(null);
 
+  // Son Kazananlar simülasyonu — P3'ün gerçek User/bakiye mimarisinden
+  // AYRI, kozmetik bir sistem (services/fakeWinners.js). Gerçek User kaydı,
+  // gerçek bahis ya da gerçek bakiye değişimi yok.
+  const [fw, setFw] = useState(null);
+  const [fwPoolSize, setFwPoolSize] = useState(0);
+  const [fwSaving, setFwSaving] = useState(false);
+  const [fwError, setFwError] = useState('');
+
+  function loadFakeWinners() {
+    api.get('/admin/fake-winners')
+      .then(r => { setFw(r.data.config); setFwPoolSize(r.data.poolSize); })
+      .catch(() => setFwError(t('admin.fakeWinners.loadError')));
+  }
+
+  async function saveFakeWinners(updates) {
+    setFwError('');
+    setFwSaving(true);
+    try {
+      const r = await api.put('/admin/fake-winners', updates);
+      setFw(r.data.config);
+      setFwPoolSize(r.data.poolSize);
+    } catch (e) {
+      setFwError(e.response?.data?.error?.message || t('admin.fakeWinners.saveError'));
+    } finally {
+      setFwSaving(false);
+    }
+  }
+
   function load() {
     setError('');
     api.get('/admin/bots', { params: { limit: 100 } })
@@ -26,6 +54,7 @@ export default function AdminBots() {
   }
 
   useEffect(load, []);
+  useEffect(loadFakeWinners, []);
 
   function openCreate() {
     setForm({ username: '', email: '', botType: 'casual', notes: '' });
@@ -79,6 +108,71 @@ export default function AdminBots() {
 
   return (
     <div className="p-6 max-w-4xl mx-auto">
+      <div className="bg-bg-card border border-white/10 rounded-xl p-5 mb-8">
+        <h2 className="text-lg font-bold mb-1">{t('admin.fakeWinners.title')}</h2>
+        <p className="text-text-3 text-sm mb-4">{t('admin.fakeWinners.subtitle')}</p>
+        {fwError && (
+          <div className="mb-3 p-3 rounded-lg bg-red-500/10 border border-red-500/30 text-red-300 text-sm">{fwError}</div>
+        )}
+        {!fw ? (
+          <div className="text-text-3 text-sm">{t('admin.bots.loading')}</div>
+        ) : (
+          <>
+            <label className="flex items-center gap-2 mb-4 text-sm">
+              <input
+                type="checkbox"
+                checked={fw.enabled}
+                onChange={e => saveFakeWinners({ enabled: e.target.checked })}
+              />
+              {t('admin.fakeWinners.enabled')}
+            </label>
+            <div className="grid grid-cols-2 sm:grid-cols-3 gap-4 mb-3">
+              <label className="text-xs text-text-3">
+                {t('admin.fakeWinners.poolMin')}
+                <input type="number" defaultValue={fw.poolMin} min="1"
+                  onBlur={e => saveFakeWinners({ poolMin: Number(e.target.value) })}
+                  className="mt-1 w-full h-9 rounded-lg bg-bg-base border border-white/10 px-3 text-sm text-text-1" />
+              </label>
+              <label className="text-xs text-text-3">
+                {t('admin.fakeWinners.poolMax')}
+                <input type="number" defaultValue={fw.poolMax} min="1"
+                  onBlur={e => saveFakeWinners({ poolMax: Number(e.target.value) })}
+                  className="mt-1 w-full h-9 rounded-lg bg-bg-base border border-white/10 px-3 text-sm text-text-1" />
+              </label>
+              <label className="text-xs text-text-3">
+                {t('admin.fakeWinners.currentPool')}
+                <div className="mt-1 h-9 rounded-lg bg-bg-base border border-white/5 px-3 text-sm text-text-2 flex items-center">{fwPoolSize}</div>
+              </label>
+              <label className="text-xs text-text-3">
+                {t('admin.fakeWinners.intervalMin')}
+                <input type="number" defaultValue={fw.intervalMinMs} min="1000" step="1000"
+                  onBlur={e => saveFakeWinners({ intervalMinMs: Number(e.target.value) })}
+                  className="mt-1 w-full h-9 rounded-lg bg-bg-base border border-white/10 px-3 text-sm text-text-1" />
+              </label>
+              <label className="text-xs text-text-3">
+                {t('admin.fakeWinners.intervalMax')}
+                <input type="number" defaultValue={fw.intervalMaxMs} min="1000" step="1000"
+                  onBlur={e => saveFakeWinners({ intervalMaxMs: Number(e.target.value) })}
+                  className="mt-1 w-full h-9 rounded-lg bg-bg-base border border-white/10 px-3 text-sm text-text-1" />
+              </label>
+              <label className="text-xs text-text-3">
+                {t('admin.fakeWinners.amountMin')}
+                <input type="number" defaultValue={fw.amountMin} min="1"
+                  onBlur={e => saveFakeWinners({ amountMin: Number(e.target.value) })}
+                  className="mt-1 w-full h-9 rounded-lg bg-bg-base border border-white/10 px-3 text-sm text-text-1" />
+              </label>
+              <label className="text-xs text-text-3">
+                {t('admin.fakeWinners.amountMax')}
+                <input type="number" defaultValue={fw.amountMax} min="1"
+                  onBlur={e => saveFakeWinners({ amountMax: Number(e.target.value) })}
+                  className="mt-1 w-full h-9 rounded-lg bg-bg-base border border-white/10 px-3 text-sm text-text-1" />
+              </label>
+            </div>
+            {fwSaving && <div className="text-xs text-text-3">{t('common.saving')}</div>}
+          </>
+        )}
+      </div>
+
       <div className="flex items-center justify-between mb-2">
         <h1 className="text-2xl font-bold">{t('admin.bots.title')}</h1>
         <div className="flex gap-2">

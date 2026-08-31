@@ -12,6 +12,35 @@ Madde formatı ve kategoriler için `docs/CHANGELOG_GUIDE.md`'ye bakın —
 
 ## [Yayınlanmadı]
 
+### Son Kazananlar simülasyonu + navbar/hizalama düzeltmeleri
+Bir önceki karttaki casino anasayfasına gelen geri bildirimlerin düzeltmesi.
+
+**Eklendi:**
+- **Son Kazananlar simülasyonu** (`services/fakeWinners.js`, yeni) —
+  P3'ün gerçek `User`/bakiye mimarisinden BİLİNÇLİ olarak ayrı: hiçbir
+  gerçek kullanıcı kaydı, bahis ya da bakiye değişimi yok. Değişen
+  aralıklarla (varsayılan 8-45sn, admin'den ayarlanabilir) rastgele bir
+  Türkçe isim + in-house oyun + tutar (varsayılan ₺500-₺150.000) seçip
+  gerçek kazananlarla AYNI mekanizmayı (`addRecentWinner()`) çağırıyor —
+  client tarafında (`RecentWinnersTicker`/`WinnersPanel`) hiçbir değişiklik
+  gerekmedi. "Oyuncu havuzu" (varsayılan 200-300 isim) birkaç dakikada
+  bir yeniden zarlanıyor — kullanıcıların giriş/çıkış yapması illüzyonu.
+  Admin ayarları: `/admin/bots` sayfasının üstüne yeni bir kart eklendi
+  (etkin/pasif, havuz min-max, tetiklenme aralığı min-max, tutar min-max).
+- Navbar'a eksik arama/bildirim/dil ikonları eklendi (referansta vardı,
+  atlanmıştı) — dil değiştirici gerçek `LanguageSwitcher.jsx`'i kullanıyor
+  (zaten Login.jsx'te kanıtlanmış); arama ikonu `/casino`'ya yönlendiriyor,
+  bildirim ikonu şimdilik salt görsel (arkasında gerçek bir bildirim
+  sistemi yok, bunu gizlemiyoruz).
+
+**Düzeltildi:**
+- Hero ile altındaki oyun satırlarının (Popüler/Özel/Slot/Yeni Oyunlar)
+  yatay hizası tutarsızdı — hero'nun sağ rayla (260px) paylaştığı dar grid
+  sütunu içinde `max-w-6xl mx-auto` ile ortalanırken, oyun satırları TAM
+  genişlikteki sütun içinde aynı kuralla ortalanıyordu; iki farklı genişlik
+  farklı sonuç üretiyordu. `max-w-6xl mx-auto` kaldırılıp düz `px-4`
+  kullanılarak her ikisi de sütunun sol kenarına sabitlendi.
+
 ### Anasayfa artık casino sayfası + sitewide yeşil tema + gerçek Palace kataloğu
 Kullanıcının onayladığı bir statik referans tasarıma (üç sütunlu casino
 dashboard) göre anasayfa yeniden yapıldı. Bu kart, önceki "Anasayfa görsel

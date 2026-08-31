@@ -5,6 +5,7 @@ import { useBrandingStore } from '../store/brandingStore';
 import { useTranslation } from '../i18n';
 import { formatMoney } from '../utils/money.js';
 import { BRAND_GRADIENT, BRAND_GRADIENT_H } from '../styles/brand';
+import LanguageSwitcher from '../i18n/LanguageSwitcher.jsx';
 
 export default function Navbar() {
   const { user, logout } = useAuthStore();
@@ -52,6 +53,16 @@ export default function Navbar() {
           {user?.role === 'admin' && (
             <Link to="/admin" className="px-3 py-1.5 rounded-lg text-sm text-warning hover:bg-bg-hover transition whitespace-nowrap">{t('nav.admin')}</Link>
           )}
+        </div>
+
+        <div className="hidden sm:flex items-center gap-3 shrink-0">
+          <Link to="/casino" aria-label={t('nav.search')} className="w-8 h-8 rounded-full flex items-center justify-center text-text-2 hover:text-text-1 hover:bg-bg-hover transition">
+            <span className="material-symbols-outlined !text-[19px]">search</span>
+          </Link>
+          <button type="button" aria-label={t('nav.notifications')} className="w-8 h-8 rounded-full flex items-center justify-center text-text-2 hover:text-text-1 hover:bg-bg-hover transition">
+            <span className="material-symbols-outlined !text-[19px]">notifications</span>
+          </button>
+          <LanguageSwitcher />
         </div>
 
         {!user ? (

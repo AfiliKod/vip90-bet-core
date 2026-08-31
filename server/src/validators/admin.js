@@ -254,6 +254,23 @@ export const toggleStaticPageSchema = z.object({
   isEnabled: z.boolean(),
 });
 
+// Son Kazananlar simülasyonu (kozmetik, gerçek User/bakiye kullanmaz)
+export const updateFakeWinnersSchema = z.object({
+  enabled: z.boolean().optional(),
+  poolMin: z.number().int().min(1).max(5000).optional(),
+  poolMax: z.number().int().min(1).max(5000).optional(),
+  intervalMinMs: z.number().int().min(1000).max(600_000).optional(),
+  intervalMaxMs: z.number().int().min(1000).max(600_000).optional(),
+  amountMin: z.number().min(1).max(10_000_000).optional(),
+  amountMax: z.number().min(1).max(10_000_000).optional(),
+}).refine(d => d.poolMin === undefined || d.poolMax === undefined || d.poolMin <= d.poolMax, {
+  message: 'poolMin, poolMax\'tan büyük olamaz',
+}).refine(d => d.intervalMinMs === undefined || d.intervalMaxMs === undefined || d.intervalMinMs <= d.intervalMaxMs, {
+  message: 'intervalMinMs, intervalMaxMs\'ten büyük olamaz',
+}).refine(d => d.amountMin === undefined || d.amountMax === undefined || d.amountMin <= d.amountMax, {
+  message: 'amountMin, amountMax\'tan büyük olamaz',
+});
+
 export const updateBotSchema = z.object({
   isActive: z.boolean().optional(),
   botType: z.enum(['casual', 'aggressive', 'conservative', 'high_roller', 'bonus_hunter']).optional(),

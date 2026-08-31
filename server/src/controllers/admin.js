@@ -18,6 +18,7 @@ import { setThemeToken as setThemeTokenImpl, listThemeTokens } from '../theme/in
 import { THEME_PRESETS } from '../theme/presets.js';
 import { setBrandingField as setBrandingFieldImpl, listBranding } from '../branding/index.js';
 import { setHomeContent as setHomeContentImpl, getHomeContent } from '../pages/index.js';
+import { getConfig as getFakeWinnersConfig, saveConfig as saveFakeWinnersConfig, getPoolSize as getFakeWinnersPoolSize } from '../services/fakeWinners.js';
 import { getAllGameSettings, updateGameSettings as updateGameSettingsImpl } from '../services/gameSettings.js';
 import { getActiveCurrency, listCurrencies, setActiveCurrency } from '../currency/index.js';
 import {
@@ -1232,6 +1233,21 @@ export async function stopAllBotsHandler(req, res, next) {
   try {
     const count = await stopAllBots();
     res.json({ stopped: count });
+  } catch (e) { next(e); }
+}
+
+// ─── Son Kazananlar simülasyonu (kozmetik, P3'ün gerçek User/bakiye
+// mimarisinden bilinçli olarak ayrı — bkz. services/fakeWinners.js) ───
+export async function getFakeWinnersSettings(req, res, next) {
+  try {
+    res.json({ config: getFakeWinnersConfig(), poolSize: getFakeWinnersPoolSize() });
+  } catch (e) { next(e); }
+}
+
+export async function updateFakeWinnersSettings(req, res, next) {
+  try {
+    const config = await saveFakeWinnersConfig(req.body, req.user.id);
+    res.json({ config, poolSize: getFakeWinnersPoolSize() });
   } catch (e) { next(e); }
 }
 
