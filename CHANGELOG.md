@@ -12,6 +12,65 @@ Madde formatı ve kategoriler için `docs/CHANGELOG_GUIDE.md`'ye bakın —
 
 ## [Yayınlanmadı]
 
+### Anasayfa artık casino sayfası + sitewide yeşil tema + gerçek Palace kataloğu
+Kullanıcının onayladığı bir statik referans tasarıma (üç sütunlu casino
+dashboard) göre anasayfa yeniden yapıldı. Bu kart, önceki "Anasayfa görsel
+yenileme" pilotunun (aşağıda) yerini alıyor — hero/sidebar/sağ ray yapısı
+korundu, içerik ve renk sistemi baştan ele alındı.
+
+**Eklendi:**
+- **Sitewide yeşil tema** — `server/src/theme/registry.js`'teki gerçek
+  varsayılan renkler (`--color-primary`/`--color-primary-dark`/
+  `--color-accent`) cyan/mordan (#00d4ff/#7c3aed) yeşile (#63d629/#4fae20/
+  #3a9e18) çevrildi; bu, admin panelinden hâlâ değiştirilebilen AYNI tema
+  sistemi (A1/A2) — override yoksa görülen varsayılan artık yeşil.
+  `styles/brand.js`'teki `BRAND_GRADIENT`/`BRAND_GLOW`/`BRAND_BORDER` gibi
+  sabitler sabit hex yerine `var(--color-primary)`/`color-mix()` kullanacak
+  şekilde yeniden yazıldı — daha önce admin tema değişikliğine hiç tepki
+  vermiyorlardı (sabit cyan/mor hex'ti), artık gerçekten tema-duyarlı.
+- **Navbar yeniden düzenlendi** — sıra Casino/Spor Bahisleri/Canlı Bahis/
+  Kampanyalar oldu (Casino ilk sırada + `/` üzerinde de aktif görünüyor,
+  çünkü anasayfa artık casino sayfası), ayrı bir "Kayıt Ol" butonu eklendi
+  (`/login?tab=register`). Bakiye dropdown'u, admin linki, çıkış — hepsi
+  aynen korundu, yalnızca sabit cyan/mor hex'ler tema değişkenlerine çevrildi.
+- **Gerçek, lisanslı Palace kataloğu** — "Popüler Oyunlar", "Slot Oyunları",
+  "Yeni Oyunlar" satırları artık `POST /api/palace/games` ile CANLI çekilen
+  gerçek oyun verisi kullanıyor (Pragmatic Play + Spribe). Hiçbir oyun adı/
+  görseli kod içine gömülmedi — hepsi Palace'ın kendi CDN'inden geliyor.
+  Bu bilinçli bir tercih: proje daha önce (T5 varlık denetimi) tam olarak
+  bu yüzden lisanssız Pragmatic Play/BGaming verisini silmişti; bu kez
+  veri gerçekten bizim lisanslı aggregator kontratımızdan (T3) geliyor.
+- **HomeSidebar** yeniden yazıldı: konteyner arka planı (referanstaki gibi
+  çerçeveli), Ana Sayfa/Favoriler/Son Oynananlar (son ikisi "Yakında"
+  rozetiyle, henüz gerçek özellik değil — kullanıcı kararıyla bu turun
+  kapsamı dışında), Kategoriler (aynı sayfadaki bölümlere kaydırma) ve
+  Hızlı Erişim (Profil/Bahislerim/Yardım Merkezi/Ayarlar, gerçek route'lar).
+- "Özel Oyunlar" satırı artık gerçekten "özel" olanı gösteriyor: 13 in-house
+  oyunumuz — önceki turda buraya Aviator gibi 3. parti oyunlar da karışmıştı,
+  şimdi dürüst bir ayrım var (in-house = Özel Oyunlar, Palace = Popüler/
+  Slot/Yeni).
+- "Tüm Oyunlar" tek bir CTA kartı olarak `/casino`'ya (gerçek tam katalog
+  sayfası) yönlendiriyor — aynı Palace oyunlarını 4. kez tekrar etmek yerine.
+
+**Kaldırıldı:**
+- Hero altındaki eski "Hızlı Kategori Şeridi", Spor Bahisleri/Canlı Bahis
+  öne-çıkan-maç bölümleri, "Neden Biz?" ve alt CTA bandı anasayfadan
+  kaldırıldı — anasayfa artık casino'ya odaklı, spor bahis içeriği kendi
+  sayfalarında (`/bahis`, `/canli`) kalmaya devam ediyor.
+
+**Bilinen sınır:**
+- Admin panelindeki A4 bölüm sırası/görünürlük ayarı (`sportsBets`,
+  `liveBets`, `features`, `bottomCta` id'leri) artık homepage'de karşılığı
+  olmayan seçenekler içeriyor — o id'leri aç/kapat yapmanın artık hiçbir
+  görsel etkisi yok. Ayrı bir işte A4 admin ekranının bu yeni yapıya göre
+  güncellenmesi gerekiyor.
+- Kazananlar paneli (sağ ray) yalnızca gerçek kazanan verisi varsa görünür
+  — geliştirme ortamında bu veri boşsa panel hiç render olmuyor (bilinçli,
+  var olmayan veriyle dolu göstermiyoruz).
+- Palace kataloğu yalnızca Pragmatic Play + Spribe'tan çekiliyor (2/21
+  sağlayıcı) — daha fazla çeşitlilik istenirse `PALACE_PROVIDER_IDS`
+  genişletilebilir.
+
 ### Anasayfa görsel yenileme (pilot)
 Anasayfanın görsel dili baştan ele alındı — amaç, endüstri genelinde
 tanınan casino/betting görsel diline (koyu zemin + altın vurgu, gerçek

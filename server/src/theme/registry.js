@@ -13,9 +13,9 @@
  */
 
 export const THEME_TOKEN_DEFINITIONS = [
-  { id: 'primary', cssVar: '--color-primary', default: '#00d4ff', type: 'color' },
-  { id: 'primaryDark', cssVar: '--color-primary-dark', default: '#00aed4', type: 'color' },
-  { id: 'accent', cssVar: '--color-accent', default: '#7c3aed', type: 'color' },
+  { id: 'primary', cssVar: '--color-primary', default: '#63d629', type: 'color' },
+  { id: 'primaryDark', cssVar: '--color-primary-dark', default: '#4fae20', type: 'color' },
+  { id: 'accent', cssVar: '--color-accent', default: '#3a9e18', type: 'color' },
   { id: 'radiusMd', cssVar: '--radius-md', default: '0.75rem', type: 'radius' },
   { id: 'fontDisplay', cssVar: '--font-display', default: 'system-ui, -apple-system, sans-serif', type: 'font' },
 ];

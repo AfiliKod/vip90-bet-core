@@ -30,7 +30,7 @@ describe('createThemeStore', () => {
   test('DB’de override yoksa varsayılan değeri döner', async () => {
     const s = store({});
     const overrides = await s.getCssVars();
-    assert.strictEqual(overrides['--color-primary'], '#00d4ff');
+    assert.strictEqual(overrides['--color-primary'], '#63d629');
   });
 
   test('DB’de override varsa onu döner', async () => {
@@ -42,7 +42,7 @@ describe('createThemeStore', () => {
   test('getCssVars tüm tanımlı token’ları döner — kısmi override tam kümeyi bozmaz', async () => {
     const s = store({ primary: '#ff0000' });
     const overrides = await s.getCssVars();
-    assert.strictEqual(overrides['--color-accent'], '#7c3aed'); // varsayılanda kaldı
+    assert.strictEqual(overrides['--color-accent'], '#3a9e18'); // varsayılanda kaldı
   });
 
   test('list() tüm tanımları değer+kaynak bilgisiyle döner', async () => {
@@ -58,7 +58,7 @@ describe('createThemeStore', () => {
   test('load patlarsa varsayılanlara düşer, throw etmez', async () => {
     const s = createThemeStore({ load: async () => { throw new Error('db down'); }, now: () => 1000 });
     const overrides = await s.getCssVars();
-    assert.strictEqual(overrides['--color-primary'], '#00d4ff');
+    assert.strictEqual(overrides['--color-primary'], '#63d629');
   });
 
   test('invalidate() önbelleği temizler', async () => {
