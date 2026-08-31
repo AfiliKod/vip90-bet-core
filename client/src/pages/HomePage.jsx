@@ -2,7 +2,8 @@ import { Fragment, useState, useEffect, useRef, useMemo } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useTranslation } from '../i18n';
 import api from '../services/api';
-import BetSlip from '../components/BetSlip';
+import BetSlip, { SlipContent } from '../components/BetSlip';
+import { useBetSlipStore } from '../store/betSlipStore';
 import RecentWinnersTicker from '../components/RecentWinnersTicker';
 import HomeSidebar from '../components/home/HomeSidebar';
 import WinnersPanel from '../components/home/WinnersPanel';
@@ -41,7 +42,7 @@ function PalaceGameCard({ game }) {
   return (
     <Link
       to={`/palace/${encodeURIComponent(symbol)}?name=${encodeURIComponent(name)}`}
-      className="group relative rounded-xl overflow-hidden transition-all duration-200 text-center shrink-0 w-[140px] sm:w-[150px]"
+      className="group relative rounded-xl overflow-hidden transition-all duration-200 text-center"
       style={{ background: HOME_CARD, border: `1px solid ${HOME_BORDER}` }}
       onMouseEnter={e => { e.currentTarget.style.borderColor = 'color-mix(in srgb, var(--color-primary) 40%, transparent)'; }}
       onMouseLeave={e => { e.currentTarget.style.borderColor = HOME_BORDER; }}
@@ -81,7 +82,7 @@ function GameRowSection({ id, icon, title, subtitle, viewAllTo, viewAllLabel, ch
             </Link>
           )}
         </div>
-        <div className="flex gap-3 sm:gap-4 overflow-x-auto no-scrollbar pb-1">
+        <div className="grid gap-3 sm:gap-4 grid-cols-[repeat(auto-fill,minmax(120px,1fr))] sm:grid-cols-[repeat(auto-fill,minmax(140px,1fr))]">
           {children}
         </div>
       </div>
@@ -92,6 +93,7 @@ function GameRowSection({ id, icon, title, subtitle, viewAllTo, viewAllLabel, ch
 export default function HomePage() {
   const { t } = useTranslation();
   const navigate = useNavigate();
+  const betSlipSelections = useBetSlipStore(s => s.selections);
   const [current, setCurrent] = useState(0);
   const timerRef = useRef(null);
   const [pageContent, setPageContent] = useState(null);
@@ -220,6 +222,15 @@ export default function HomePage() {
         <div className="hidden lg:flex lg:flex-col lg:gap-4">
           <WinnersPanel />
           <PromoPanel />
+          {/* Bet slip yalnızca aktif bir seçim varsa (ör. başka sayfadan
+              gelen bir bahis kuponu) sağ rayda gösterilir — anasayfada
+              spor bahis içeriği yok, boş kupon burada anlamsız/kafa
+              karıştırıcı olurdu. */}
+          {betSlipSelections.length > 0 && (
+            <div className="rounded-xl overflow-hidden" style={{ background: HOME_CARD, border: `1px solid ${HOME_BORDER}` }}>
+              <SlipContent />
+            </div>
+          )}
         </div>
       </div>
     ) : null,
@@ -227,7 +238,7 @@ export default function HomePage() {
     inhouseGames: sectionOrder.includes('inhouseGames') ? (
       <GameRowSection id="ozel-oyunlar" icon="diamond" title={t('home.games.exclusive')} subtitle={t('home.games.exclusiveDesc')}>
         {INHOUSE_GAMES.map(g => (
-          <Link key={g.path} to={g.path} className="group relative rounded-xl overflow-hidden transition-all duration-200 text-center shrink-0 w-[140px] sm:w-[150px]"
+          <Link key={g.path} to={g.path} className="group relative rounded-xl overflow-hidden transition-all duration-200 text-center"
             style={{ background: HOME_CARD, border: `1px solid ${HOME_BORDER}` }}
             onMouseEnter={e => { e.currentTarget.style.borderColor = `${g.accent}66`; }}
             onMouseLeave={e => { e.currentTarget.style.borderColor = HOME_BORDER; }}
@@ -301,7 +312,9 @@ export default function HomePage() {
           </div>
         </section>
 
-        <BetSlip />
+        {/* desktopHidden: masaüstü kupon yerleşimini yukarıda (sağ ray) kendimiz
+            yönetiyoruz — burası yalnızca mobil bar/sheet davranışı için kalıyor. */}
+        <BetSlip desktopHidden />
       </div>
     </div>
   );

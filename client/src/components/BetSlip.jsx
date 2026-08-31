@@ -7,7 +7,7 @@ import { useTranslation } from '../i18n';
 import api from '../services/api';
 import { formatMoney, getActiveCurrency } from '../utils/money.js';
 
-function SlipContent({ onSubmitted }) {
+export function SlipContent({ onSubmitted }) {
   const { selections, type, stake, setType, setStake, removeSelection, clear, getTotalOdds } = useBetSlipStore();
   const user = useAuthStore(s => s.user);
   const updateBalance = useAuthStore(s => s.updateBalance);
@@ -97,19 +97,23 @@ function SlipContent({ onSubmitted }) {
   );
 }
 
-export default function BetSlip() {
+export default function BetSlip({ desktopHidden = false } = {}) {
   const { selections, getTotalOdds } = useBetSlipStore();
   const [mobileOpen, setMobileOpen] = useState(false);
   const totalOdds = getTotalOdds();
 
   return (
     <>
-      {/* ── Masaüstü: sabit yan panel ── */}
-      <aside className="w-72 shrink-0 hidden lg:block">
-        <div className="bg-bg-card border border-white/10 rounded-xl overflow-hidden sticky top-20">
-          <SlipContent />
-        </div>
-      </aside>
+      {/* ── Masaüstü: sabit yan panel — bazı sayfalar (ör. anasayfa) kendi
+          yerleşimini kullanmak istediğinde desktopHidden ile gizlenir,
+          mobil bar/sheet davranışı (aşağıda) buna bakılmaksızın çalışır. ── */}
+      {!desktopHidden && (
+        <aside className="w-72 shrink-0 hidden lg:block">
+          <div className="bg-bg-card border border-white/10 rounded-xl overflow-hidden sticky top-20">
+            <SlipContent />
+          </div>
+        </aside>
+      )}
 
       {/* ── Mobil: BottomNav'ın üstünde bar, sadece seçim varken ve sheet kapalıyken ── */}
       {selections.length > 0 && !mobileOpen && (

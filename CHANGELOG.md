@@ -40,6 +40,26 @@ Bir önceki karttaki casino anasayfasına gelen geri bildirimlerin düzeltmesi.
   genişlikteki sütun içinde aynı kuralla ortalanıyordu; iki farklı genişlik
   farklı sonuç üretiyordu. `max-w-6xl mx-auto` kaldırılıp düz `px-4`
   kullanılarak her ikisi de sütunun sol kenarına sabitlendi.
+- Sol kenar düzeldikten sonra sağ kenarda hâlâ boşluk kalıyordu: oyun
+  kartları sabit genişlikte (`shrink-0 w-[140px]`) yatay-kaydırmalı bir
+  `flex` satırındaydı, bu yüzden geniş ekranlarda tüm kartlar kaydırma
+  gerekmeden sığınca satır son kartın bittiği yerde kesiliyor, sağ rayın
+  bittiği yere kadar boşluk kalıyordu (bir `overflow-x-auto` satırı
+  konteynerini doldurmaya zorlanmaz). `GameRowSection`'ın kart konteyneri
+  `grid-template-columns: repeat(auto-fill, minmax(140px,1fr))` kullanan
+  bir CSS grid'e çevrildi — kart sayısına bakılmaksızın satır her zaman tam
+  genişliği dolduruyor, sığmayan kartlar otomatik alt satıra sarıyor.
+- Boş Bahis Kuponu konteyneri, anasayfada hiçbir bahis seçeneği olmamasına
+  rağmen "Tüm Oyunlar" kartından sonra sayfanın en altında görünüyordu —
+  `BetSlip`, yan yana (flex-row) sayfalar için tasarlanmış bir `<aside>`
+  iken anasayfanın dikey (flex-column) akışına dahil edilince kendi bloğu
+  olarak en alta düşüyor, seçim olmasa bile boş durum metniyle render
+  ediliyordu. `BetSlip.jsx`'ten `SlipContent` export edildi ve `BetSlip`'e
+  masaüstü `<aside>` bloğunu bastıran bir `desktopHidden` prop'u eklendi
+  (mobil bar/sheet davranışı etkilenmedi); anasayfada artık yalnızca aktif
+  bir seçim varken (`selections.length > 0`) sağ rayda Promosyonlar'dan
+  hemen sonra konumlanan bir kart olarak gösteriliyor, seçim yoksa hiç
+  render edilmiyor.
 
 ### Anasayfa artık casino sayfası + sitewide yeşil tema + gerçek Palace kataloğu
 Kullanıcının onayladığı bir statik referans tasarıma (üç sütunlu casino
