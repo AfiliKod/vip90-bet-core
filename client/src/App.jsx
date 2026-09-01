@@ -65,6 +65,8 @@ const Baccarat = lazy(() => import('./pages/games/Baccarat'));
 const VideoPoker = lazy(() => import('./pages/games/VideoPoker'));
 const DragonTiger = lazy(() => import('./pages/games/DragonTiger'));
 const HomePage = lazy(() => import('./pages/HomePage'));
+const Favorites = lazy(() => import('./pages/Favorites'));
+const RecentlyPlayed = lazy(() => import('./pages/RecentlyPlayed'));
 const Terms = lazy(() => import('./pages/legal/Terms'));
 const Privacy = lazy(() => import('./pages/legal/Privacy'));
 const Kvkk = lazy(() => import('./pages/legal/Kvkk'));
@@ -167,6 +169,8 @@ export default function App() {
         <Route path="/games/videopoker" element={<ProtectedRoute><Suspense fallback={<PageLoader />}><VideoPoker /></Suspense></ProtectedRoute>} />
         <Route path="/games/dragontiger" element={<ProtectedRoute><Suspense fallback={<PageLoader />}><DragonTiger /></Suspense></ProtectedRoute>} />
         <Route path="/my-bets" element={<ProtectedRoute><Layout><Suspense fallback={<PageLoader />}><MyBets /></Suspense></Layout></ProtectedRoute>} />
+        <Route path="/favorites" element={<ProtectedRoute><Layout><Suspense fallback={<PageLoader />}><Favorites /></Suspense></Layout></ProtectedRoute>} />
+        <Route path="/recently-played" element={<ProtectedRoute><Layout><Suspense fallback={<PageLoader />}><RecentlyPlayed /></Suspense></Layout></ProtectedRoute>} />
         <Route path="/profile" element={<ProtectedRoute><Layout><Suspense fallback={<PageLoader />}><Profile /></Suspense></Layout></ProtectedRoute>} />
         <Route path="/settings" element={<ProtectedRoute><Layout><Suspense fallback={<PageLoader />}><Settings /></Suspense></Layout></ProtectedRoute>} />
         <Route path="/promotions" element={<ProtectedRoute><Layout><Suspense fallback={<PageLoader />}><Promotions /></Suspense></Layout></ProtectedRoute>} />

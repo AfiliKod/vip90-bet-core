@@ -86,6 +86,52 @@ export async function updatePreferences(req, res, next) {
   } catch(e) { next(e); }
 }
 
+export async function getFavorites(req, res, next) {
+  try {
+    const user = await User.findById(req.user.id).select('favoriteGames');
+    res.json({ favorites: user.favoriteGames ?? [] });
+  } catch(e) { next(e); }
+}
+
+export async function toggleFavorite(req, res, next) {
+  try {
+    const { gameId, kind } = req.validated;
+    const user = await User.findById(req.user.id).select('favoriteGames');
+    const exists = user.favoriteGames.some(f => f.gameId === gameId && f.kind === kind);
+    if (exists) {
+      user.favoriteGames = user.favoriteGames.filter(f => !(f.gameId === gameId && f.kind === kind));
+    } else {
+      user.favoriteGames.push({ gameId, kind });
+    }
+    await user.save();
+    res.json({ favorites: user.favoriteGames });
+  } catch(e) { next(e); }
+}
+
+export async function getRecentlyPlayed(req, res, next) {
+  try {
+    const user = await User.findById(req.user.id).select('recentlyPlayed');
+    res.json({ recentlyPlayed: user.recentlyPlayed ?? [] });
+  } catch(e) { next(e); }
+}
+
+export async function recordRecentlyPlayed(req, res, next) {
+  try {
+    const { gameId, kind } = req.validated;
+    // Aynı oyun zaten dizide varsa çıkar, en başa (en yeni) tekrar ekle,
+    // sonra son 20 ile sınırla — dedupe + en-yeni-üstte tek atomik yazım.
+    await User.findByIdAndUpdate(req.user.id, {
+      $pull: { recentlyPlayed: { gameId, kind } },
+    });
+    const user = await User.findByIdAndUpdate(
+      req.user.id,
+      { $push: { recentlyPlayed: { $each: [{ gameId, kind, playedAt: new Date() }], $position: 0, $slice: 20 } } },
+      { new: true },
+    ).select('recentlyPlayed');
+    res.json({ recentlyPlayed: user.recentlyPlayed });
+  } catch(e) { next(e); }
+}
+
 export async function updatePassword(req, res, next) {
   try {
     const { currentPassword, newPassword } = req.validated;

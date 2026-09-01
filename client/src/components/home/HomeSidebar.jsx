@@ -6,11 +6,6 @@ import { HOME_CARD, HOME_BORDER } from '../../pages/home/homeTheme';
  * Anasayfaya özel sol navigasyon (yalnızca lg+, `HomePage.jsx` içinde mount
  * edilir) — kullanıcının onayladığı statik referansın (VIP90-BET-pixel-perfect-
  * homepage) sol menü yapısı, bizim gerçek route'larımızla.
- *
- * Favoriler / Son Oynananlar: bu özellik henüz yok (backend'de sıfırdan
- * aranmış, bulunamadı) — kullanıcı kararıyla bu turda yalnızca arayüz/link
- * olarak duruyor, tıklanınca hiçbir şey yapmıyor ("Yakında" rozetiyle
- * işaretli). Gerçek özellik ayrı bir işte inşa edilecek.
  */
 const CATEGORY_SECTIONS_IDS = ['popular-oyunlar', 'ozel-oyunlar', 'slot-oyunlari', 'yeni-oyunlar'];
 
@@ -36,19 +31,6 @@ function Row({ to, icon, label, end }) {
   );
 }
 
-function DisabledRow({ icon, label }) {
-  return (
-    <button
-      disabled
-      className="w-full flex items-center gap-3 px-3 py-[9px] rounded-md text-[13px] font-semibold font-ui text-[#5c6469] cursor-default text-left"
-    >
-      <span className="material-symbols-outlined !text-[19px] shrink-0">{icon}</span>
-      <span className="truncate flex-1">{label}</span>
-      <span className="text-[9px] font-bold uppercase tracking-wide text-[#4d5751] shrink-0">Yakında</span>
-    </button>
-  );
-}
-
 function CategoryButton({ icon, label, targetId }) {
   return (
     <button
@@ -70,8 +52,8 @@ export default function HomeSidebar() {
       style={{ background: `linear-gradient(180deg, ${HOME_CARD} 0%, #071017 100%)`, border: `1px solid ${HOME_BORDER}` }}
     >
       <Row to="/" end icon="home" label={t('nav.home')} />
-      <DisabledRow icon="star" label={t('home.sidebar.favorites')} />
-      <DisabledRow icon="history" label={t('home.sidebar.recentlyPlayed')} />
+      <Row to="/favorites" icon="star" label={t('home.sidebar.favorites')} />
+      <Row to="/recently-played" icon="history" label={t('home.sidebar.recentlyPlayed')} />
 
       <div className="mt-5">
         <p className="px-3 mb-1 text-[10px] font-bold uppercase tracking-wider text-[#5c6469] border-b border-[#202b31] pb-2 font-ui">

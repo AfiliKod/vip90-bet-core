@@ -6,6 +6,7 @@ import { useTranslation } from '../i18n';
 import { formatMoney } from '../utils/money.js';
 import { BRAND_GRADIENT, BRAND_GRADIENT_H } from '../styles/brand';
 import LanguageSwitcher from '../i18n/LanguageSwitcher.jsx';
+import SearchOverlay from './search/SearchOverlay.jsx';
 
 export default function Navbar() {
   const { user, logout } = useAuthStore();
@@ -14,8 +15,10 @@ export default function Navbar() {
   const { pathname } = useLocation();
   const { t } = useTranslation();
   const [open, setOpen] = useState(false);
+  const [searchOpen, setSearchOpen] = useState(false);
   const ref = useRef(null);
-  // Anasayfa artık casino sayfası — "Casino" sekmesi hem /casino hem / için aktif görünmeli.
+  const searchRef = useRef(null);
+  // Anasayfa artık casino sayfası — "Casino" sekmesi hem / hem /casino için aktif görünmeli.
   const casinoActive = pathname === '/casino' || pathname === '/';
 
   const handleLogout = async () => { setOpen(false); await logout(); navigate('/login'); };
@@ -24,6 +27,7 @@ export default function Navbar() {
   useEffect(() => {
     function handleClick(e) {
       if (ref.current && !ref.current.contains(e.target)) setOpen(false);
+      if (searchRef.current && !searchRef.current.contains(e.target)) setSearchOpen(false);
     }
     document.addEventListener('mousedown', handleClick);
     return () => document.removeEventListener('mousedown', handleClick);
@@ -46,7 +50,7 @@ export default function Navbar() {
           )}
         </Link>
         <div className="hidden lg:flex items-center gap-1 flex-1 overflow-x-auto">
-          <Link to="/casino" className={`px-3 py-1.5 rounded-lg text-sm hover:text-text-1 hover:bg-bg-hover transition whitespace-nowrap ${casinoActive ? 'text-text-1 bg-bg-hover' : 'text-text-2'}`}>{t('nav.casino')}</Link>
+          <Link to="/" className={`px-3 py-1.5 rounded-lg text-sm hover:text-text-1 hover:bg-bg-hover transition whitespace-nowrap ${casinoActive ? 'text-text-1 bg-bg-hover' : 'text-text-2'}`}>{t('nav.casino')}</Link>
           <NavLink to="/bahis" end className={({isActive}) => `px-3 py-1.5 rounded-lg text-sm hover:text-text-1 hover:bg-bg-hover transition whitespace-nowrap ${isActive ? 'text-text-1 bg-bg-hover' : 'text-text-2'}`}>{t('home.sports.title')}</NavLink>
           <NavLink to="/canli" className={({isActive}) => `px-3 py-1.5 rounded-lg text-sm hover:text-text-1 hover:bg-bg-hover transition whitespace-nowrap ${isActive ? 'text-text-1 bg-bg-hover' : 'text-text-2'}`}>{t('nav.liveBetting')}</NavLink>
           <NavLink to="/promotions" className={({isActive}) => `px-3 py-1.5 rounded-lg text-sm hover:text-text-1 hover:bg-bg-hover transition whitespace-nowrap ${isActive ? 'text-text-1 bg-bg-hover' : 'text-text-2'}`}>{t('nav.promotions')}</NavLink>
@@ -56,12 +60,17 @@ export default function Navbar() {
         </div>
 
         <div className="hidden sm:flex items-center gap-3 shrink-0">
-          <Link to="/casino" aria-label={t('nav.search')} className="w-8 h-8 rounded-full flex items-center justify-center text-text-2 hover:text-text-1 hover:bg-bg-hover transition">
-            <span className="material-symbols-outlined !text-[19px]">search</span>
-          </Link>
-          <button type="button" aria-label={t('nav.notifications')} className="w-8 h-8 rounded-full flex items-center justify-center text-text-2 hover:text-text-1 hover:bg-bg-hover transition">
-            <span className="material-symbols-outlined !text-[19px]">notifications</span>
-          </button>
+          <div className="relative" ref={searchRef}>
+            <button
+              type="button"
+              aria-label={t('nav.search')}
+              onClick={() => setSearchOpen(o => !o)}
+              className="w-8 h-8 rounded-full flex items-center justify-center text-text-2 hover:text-text-1 hover:bg-bg-hover transition"
+            >
+              <span className="material-symbols-outlined !text-[19px]">search</span>
+            </button>
+            {searchOpen && <SearchOverlay onClose={() => setSearchOpen(false)} />}
+          </div>
           <LanguageSwitcher />
         </div>
 

@@ -136,6 +136,21 @@ const schema = new mongoose.Schema({
     createdBy: { type: mongoose.Schema.Types.ObjectId, ref: 'User', default: null }, // botu oluşturan admin
     notes: { type: String, default: '' },
   },
+  // ─── Favoriler / Son Oynananlar ────────────────────────────────────
+  // gameId: Palace için game_code, in-house için route path (örn. /games/crash).
+  favoriteGames: [{
+    _id: false,
+    gameId: { type: String, required: true },
+    kind:   { type: String, enum: ['palace', 'inhouse'], required: true },
+    addedAt: { type: Date, default: Date.now },
+  }],
+  // En yeni en başta, controller içinde $slice ile son 20 ile sınırlanır.
+  recentlyPlayed: [{
+    _id: false,
+    gameId: { type: String, required: true },
+    kind:   { type: String, enum: ['palace', 'inhouse'], required: true },
+    playedAt: { type: Date, default: Date.now },
+  }],
 }, { timestamps: true });
 
 schema.index({ isBot: 1, 'botProfile.currentState': 1 });

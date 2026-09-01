@@ -5,7 +5,9 @@ import { useTranslation } from '../i18n';
 const TABS = [
   { to: '/bahis',     icon: '⚽', label: 'nav.sports', end: true,  module: 'betting' },
   { to: '/canli',     icon: '🔴', label: 'nav.live',  end: false, module: 'betting' },
-  { to: '/casino',    icon: '🎰', label: 'nav.casino', end: false, module: 'casino-content' },
+  // Anasayfa artık casino sayfası (bkz. Navbar.jsx) — end:true zorunlu,
+  // yoksa NavLink "/" her path'in başlangıcı olduğu için hep aktif görünür.
+  { to: '/',          icon: '🎰', label: 'nav.casino', end: true,  module: 'casino-content' },
 ];
 
 export default function BottomNav() {

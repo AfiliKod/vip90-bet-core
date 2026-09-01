@@ -5,6 +5,7 @@ import {
   changePasswordSchema, changeEmailSchema,
   dataExportRequestSchema, accountDeletionRequestSchema,
 } from '../validators/auth.js';
+import { gameActivitySchema } from '../validators/users.js';
 import * as ctrl from '../controllers/users.js';
 
 const r = Router();
@@ -15,6 +16,12 @@ r.get('/me/bets', ctrl.getMyBets);
 r.get('/me/transactions', ctrl.getMyTransactions);
 r.get('/me/preferences', ctrl.getPreferences);
 r.put('/me/preferences', ctrl.updatePreferences);
+
+// Favoriler / Son Oynananlar
+r.get('/me/favorites', ctrl.getFavorites);
+r.post('/me/favorites/toggle', validate(gameActivitySchema), ctrl.toggleFavorite);
+r.get('/me/recently-played', ctrl.getRecentlyPlayed);
+r.post('/me/recently-played', validate(gameActivitySchema), ctrl.recordRecentlyPlayed);
 
 // Password + Email change (Phase B14 — Zod validated)
 r.put('/me/password', validate(changePasswordSchema), ctrl.updatePassword);

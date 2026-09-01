@@ -12,6 +12,48 @@ Madde formatı ve kategoriler için `docs/CHANGELOG_GUIDE.md`'ye bakın —
 
 ## [Yayınlanmadı]
 
+### Favoriler, Son Oynananlar, arama, sağlayıcı rayı, navbar sadeleştirme
+Anasayfa sol menüsündeki placeholder "Yakında" satırlarını gerçek özelliğe çevirir, navbar'ı sadeleştirir.
+
+**Eklendi:**
+- **Favoriler** — her oyun kartında kalp ikonu (`FavoriteButton`), `User.favoriteGames`
+  (`{gameId, kind}`, Palace için `game_code` in-house için route path) alanına
+  `POST /api/users/me/favorites/toggle` ile ekler/çıkarır; `GET /api/users/me/favorites`.
+  Sol menüdeki "Favoriler" artık `/favorites` sayfasına gidiyor (yeni `Favorites.jsx`).
+- **Son Oynananlar** — bir oyun kartına tıklanınca (fire-and-forget)
+  `POST /api/users/me/recently-played` ile kaydediliyor; `User.recentlyPlayed`
+  dizisi dedupe + en-yeni-başta + son 20 ile sınırlı (`$pull` + `$push $slice`).
+  Sol menüdeki "Son Oynananlar" artık `/recently-played` sayfasına gidiyor
+  (yeni `RecentlyPlayed.jsx`). İkisi de yeni `gameActivityStore.js` (zustand,
+  optimistic toggle + rollback) üzerinden çalışıyor.
+- **Arama** — navbar'daki arama ikonu artık `/casino`'ya giden ölü bir link
+  değil, yeni `SearchOverlay.jsx` dropdown'unu açan bir buton. Oyun adı +
+  sağlayıcı adına göre canlı filtre (lisanslı Palace kataloğu + in-house
+  oyunlar + provider listesi, `CasinoRedesign.jsx`'teki cache deseninden
+  ayrıştırılan `utils/apiCache.js` ile bellek-içi TTL cache). Spor
+  Bahisleri/Canlı Bahis için ayrı bir arama modu bu turda YOK — route-aware
+  genişletme noktası kod içinde işaretli, sahte UI eklenmedi.
+- **Sağlayıcı rayı** — anasayfada slider'ın hemen altına, oyun satırlarından
+  önce yeni `ProviderRow.jsx`: `GET/POST /api/palace/providers` listesini
+  `GameRowSection` ile aynı yatay-kaydırmalı `flex + overflow-x-auto +
+  shrink-0` deseninde gösterir, bir sağlayıcıya tıklayınca `/casino?provider=
+  {id}`'ye gider. `CasinoRedesign.jsx` artık mount'ta bu query param'ı okuyup
+  ilgili sağlayıcı filtresiyle açılıyor (`useSearchParams`).
+
+**Değiştirildi:**
+- Dil değiştirici (`LanguageSwitcher.jsx`) buton grubundan native `<select>`'e
+  geçti — üçüncü bir dil eklendiğinde bileşende değişiklik gerekmeyecek.
+- Navbar'daki bildirim ikonu kaldırıldı (arkasında hiçbir gerçek bildirim
+  sistemi olmadan salt görsel duruyordu).
+- "Casino" nav linki (masaüstü navbar + mobil alt navigasyon) artık `/casino`
+  yerine `/`'e gidiyor — anasayfa zaten casino dashboard'unun kendisi;
+  `/casino` route'u kaldırılmadı, tam katalog/filtre sayfası olarak "tümünü
+  gör" linklerinden erişilebilir durumda kalıyor.
+
+**Kırılan Değişiklikler:**
+- Yok — `/casino` route'u ve mevcut linkleri değişmedi, yalnızca üst navbar/
+  alt navigasyondaki "Casino" sekmesinin hedefi değişti.
+
 ### Son Kazananlar simülasyonu + navbar/hizalama düzeltmeleri
 Bir önceki karttaki casino anasayfasına gelen geri bildirimlerin düzeltmesi.
 
