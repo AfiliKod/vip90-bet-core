@@ -12,6 +12,9 @@ Madde formatı ve kategoriler için `docs/CHANGELOG_GUIDE.md`'ye bakın —
 
 ## [Yayınlanmadı]
 
+### Kritik: oddsSource canlı senkronizasyon WS hatası tüm sunucuyu çökertiyordu
+`jobs/oddsSourceLiveSync.js`'teki `nodeupd` Socket.IO bağlantısında `ws.onerror = () => ws.close();` deseni — bir bağlantı hatasında `close()` çağrısı bazen (undici/`ws` kütüphanesinin bilinen bir tuzağı) yeni bir `error` event'i daha fırlatıyor, bu da `onerror`'ı SENKRON olarak yeniden tetikleyip sonsuz özyinelemeyle `RangeError: Maximum call stack size exceeded` ile **backend process'ini komple çökertiyordu**. `node --watch` her seferinde otomatik yeniden başlattığı için görünürde "çalışıyor" gibiydi, ama her çöküş anında Vite dev proxy'sinin o anki `/socket.io` bağlantıları "http proxy error" ile başarısız oluyordu (kullanıcının fark ettiği asıl belirti — proxy/socket.io yapılandırması değil, backend'in kendisiydi). Basit bir `erroring` bayrağı + `try/catch` ile ikinci `onerror` girişi yok sayılıyor artık.
+
 ### Çevrimiçi sayaç artık polling değil, socket push
 `GET /api/health/status`'un 10sn'de bir polling'i (madde: "neden hâlâ HTTP ile, socket zaten açıkken") tamamen kaldırıldı. Yeni `server/src/services/onlineCount.js` — `getOnlineCount()`/`broadcastOnlineCount()` — bir socket bağlanınca/koparınca (`socket/handler.js`) ve fake-winners oyuncu havuzu yeniden zarlanınca (`fakeWinners.js` `regeneratePool()`, admin ayar kaydında da tetikleniyor) tüm bağlı client'lara `online:count` event'i yayınlıyor. `useOnlineCount.js` artık yalnızca İLK değeri (guest/socket-bağlı-değilken flaş önlemek için) `GET /api/health/status`'tan tek seferlik çekiyor, sonrası socket'ten geliyor — `setInterval` tamamen kalktı. `/api/health/status` zaten rate limiter'dan muaftı (`skip:` — hiçbir zaman 429'a sebep olamazdı), ama tekrarlı istek olması gereksizdi; artık yok.
 
