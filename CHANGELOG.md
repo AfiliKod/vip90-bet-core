@@ -12,6 +12,11 @@ Madde formatı ve kategoriler için `docs/CHANGELOG_GUIDE.md`'ye bakın —
 
 ## [Yayınlanmadı]
 
+### Kaydırma butonu artık çift yönlü
+`ScrollHintArrow.jsx` (ProviderRow + GameRowSection) yalnızca sağa değil, satır sağa kaydırılıp solda oyun biriktiğinde sola da kaydırabiliyor — sol/sağ butonlar bağımsız olarak, yalnızca o yöne gerçekten kaydırılabilirken görünüyor (satırın başında sol buton, sonunda sağ buton kayboluyor). Tarayıcıda uçtan uca doğrulandı.
+
+`AllGamesSection.jsx`'in ("Tüm Oyunlar") `grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 xl:grid-cols-8` responsive grid'i bir önceki turda zaten eklenmişti — ekran genişliğine göre 2/3/4/6/8 arası farklı sayıda oyun gösteriyor, kart genişlikleri sabit değil (grid hücresi kadar esniyor). Bu oturumda tarayıcı otomasyon aracının pencereyi gerçekten daraltamaması nedeniyle mobil genişlikte görsel doğrulama YAPILAMADI — mekanizma standart Tailwind responsive grid deseni, kod değişikliği gerekmedi.
+
 ### Kaydırma butonu, 8'li grid, misafir kazananlar, doğru çevrimiçi sayacı, admin sadeleştirme, rate limit
 Bir önceki turdaki özelliklerin gerçek kullanımda ortaya çıkan sorunlarını düzeltir.
 
