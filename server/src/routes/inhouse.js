@@ -18,13 +18,16 @@ import {
 import { addRecentWinner, getRecentWinners } from '../services/liveGameStream.js';
 
 const router = Router();
-router.use(requireAuth);
 
 // GET /inhouse/recent-winners — "son kazananlar" şeridinin ilk yükleme verisi.
+// Herkese açık: misafir kullanıcılar da anasayfadaki sosyal-kanıt şeridini
+// görebilmeli (`WinnersPanel`/`RecentWinnersTicker` login şartı aramıyor).
 // Canlı güncellemeler soket üzerinden 'winners:new' event'iyle gelir (P4).
 router.get('/recent-winners', (req, res) => {
   res.json({ winners: getRecentWinners() });
 });
+
+router.use(requireAuth);
 
 // ── Ayarlanabilir oyunlar için ortak DB-ayar önbelleği ──────────────────────
 // crashGame.js/rouletteGame.js'teki modül-düzeyi cache deseninin bu

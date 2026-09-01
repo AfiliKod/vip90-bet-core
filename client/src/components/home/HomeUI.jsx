@@ -32,10 +32,16 @@ export function FavoriteButton({ gameId, kind }) {
       className="absolute top-2 right-2 z-10 w-6 h-6 rounded-full flex items-center justify-center transition-colors"
       style={{ background: 'rgba(2,8,13,0.65)', border: `1px solid ${isFavorite ? 'var(--color-primary)' : HOME_BORDER}` }}
     >
+      {/* Tek glyph ("favorite") + `FILL` eksen değeri: `material-symbols-outlined`
+          sınıfı varsayılan olarak FILL=0 kullanır, bu da "favorite" glyph'inin
+          bile ince bir ANAHAT olarak çizilmesine yol açar — yalnızca renk
+          değişimi favorilenmiş/favorilenmemiş halleri yeterince ayırt
+          etmiyordu. FILL:1 gerçek içi-dolu bir kalp render eder (Material
+          Symbols'ın kendi "favorite toggle" deseni). */}
       <Icon
-        name={isFavorite ? 'favorite' : 'favorite_border'}
-        className="!text-[13px]"
-        style={{ color: isFavorite ? 'var(--color-primary)' : '#c8ced2' }}
+        name="favorite"
+        className="!text-[14px]"
+        style={{ color: isFavorite ? 'var(--color-primary)' : '#c8ced2', fontVariationSettings: `'FILL' ${isFavorite ? 1 : 0}` }}
       />
     </button>
   );

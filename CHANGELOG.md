@@ -12,6 +12,52 @@ Madde formatı ve kategoriler için `docs/CHANGELOG_GUIDE.md`'ye bakın —
 
 ## [Yayınlanmadı]
 
+### Kaydırma butonu, 8'li grid, misafir kazananlar, doğru çevrimiçi sayacı, admin sadeleştirme, rate limit
+Bir önceki turdaki özelliklerin gerçek kullanımda ortaya çıkan sorunlarını düzeltir.
+
+**Düzeltildi:**
+- **Kaydırma ipucu → gerçek buton** — `ScrollHintArrow.jsx` artık salt görsel
+  bir fade+ikon değil, tıklanınca satırı yumuşak kaydıran (`scrollBy`), daha
+  büyük/belirgin dairesel bir buton (`ProviderRow` + `GameRowSection`).
+- **"Tüm Oyunlar" artık bir satırda 8 oyun** — `AllGamesSection.jsx` grid'i
+  `lg:grid-cols-6`'dan `lg:grid-cols-8`'e (xl breakpoint), sayfalama 30'dan
+  40'a (8×5) çıktı — diğer `GameRowSection` satırlarıyla aynı yoğunluk.
+- **`GET /api/inhouse/recent-winners` artık herkese açık** — bu route
+  `router.use(requireAuth)`'un ÖNÜNE alındı; misafir kullanıcılar 401
+  alıp Son Kazananlar panelini/şeridini hiç göremiyordu (route dosyasındaki
+  diğer TÜM uçlar hâlâ login gerektiriyor, yalnızca bu salt-okunur/herkese
+  açık sosyal-kanıt ucu ayrıldı).
+- **Çevrimiçi sayaç yanlış kaynaktan besleniyordu** — `GET /api/health/status`
+  bot payını `User.countDocuments({isBot:true,...})`'tan (P3'ün gerçek bot
+  mimarisi — şu an yalnızca birkaç, çoğu pasif kayıt, "200-300" ayarını hiç
+  yansıtmıyordu) değil, artık `services/fakeWinners.js`'in periyodik
+  yeniden-zarlanan oyuncu havuzu büyüklüğünden (`getPoolSize()`) alıyor —
+  admin'deki "Oyuncu Havuzu (min/maks)" ayarı gerçekten burayı besliyor.
+- **Favori kalp ikonu artık gerçekten "içi dolu"** — `material-symbols-outlined`
+  sınıfı varsayılan `FILL:0` kullandığından, favorilenince yalnızca renk
+  değişip glyph ince bir anahat olarak kalıyordu (görsel fark yetersizdi).
+  `HomeUI.jsx`'teki `FavoriteButton` artık tek "favorite" glyph'i +
+  `font-variation-settings: 'FILL' 1/0` ile favorilenince gerçek bir solid
+  kalp, favorilenmeyince anahat kalp render ediyor.
+- **Global rate limit çok düşüktü (200/15dk)** — modern bir SPA'nın normal
+  kullanımı (ilk yüklemede 10+ paralel istek, çevrimiçi sayacı 10sn'de bir
+  polling, aynı IP'den birden fazla sekme/kullanıcı) bunu kısa sürede aşıp
+  meşru trafiği 429'a düşürüyordu. `globalLimiter.max` 1200'e çıkarıldı.
+
+**Değiştirildi:**
+- **Admin `/admin/bots` sayfası sadeleştirildi** — "Bot Oyuncular" (isBot
+  bayraklı GERÇEK User hesaplarının liste/oluştur/başlat/durdur/sil UI'ı)
+  kaldırıldı: kozmetik "Son Kazananlar" akışının yanında ayrı, kafa
+  karıştırıcı ve siteteki çevrimiçi sayısını yansıtmayan bir yönetim
+  yüzeyiydi (backend'deki P3 bot mimarisi — `services/bot.js`,
+  `jobs/botScheduler.js` — dokunulmadan duruyor, yalnızca admin UI'ından
+  kaldırıldı; tek gerçek bot kaydı zaten pasifti). Geriye kalan "Son
+  Kazananlar Simülasyonu" kartı Oyuncu Havuzu / Kazanç Zamanlaması / Kazanç
+  Tutarı Aralığı / Kazanç Alanları olarak gruplandı, her bölüme havuzun
+  çevrimiçi sayacını da beslediğini ve zamanlama alanlarının ne anlama
+  geldiğini açıklayan metinler eklendi. `Dashboard.jsx`'teki kısayol kartı
+  buna göre yeniden etiketlendi.
+
 ### Kaydırma ipucu, sayfa-içi sağlayıcı filtresi, Tüm Oyunlar grid'i, çevrimiçi/bot sayacı, bot kazanç alanları
 Anasayfa etkileşimini ve "Son Kazananlar Simülasyonu" ayarlarını genişletir.
 

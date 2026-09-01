@@ -10,10 +10,13 @@ const createLimiter = (options) => {
   return rateLimit(options);
 };
 
-// Global API limit (Render free tier dostu, production'da artır)
+// Global API limit — IP başına. 200/15dk (eski değer) modern bir SPA'nın
+// normal kullanımını (anasayfa ilk yüklemede 10+ paralel istek, sağ raydaki
+// çevrimiçi sayacı 10sn'de bir polling, birden fazla sekme/kullanıcı aynı
+// IP'den) kolayca aşıp meşru trafiği 429'a düşürüyordu — artırıldı.
 export const globalLimiter = createLimiter({
   windowMs: 15 * 60 * 1000,
-  max: 200,
+  max: 1200,
   standardHeaders: true,
   legacyHeaders: false,
   message: { error: { code: 'RATE_LIMIT', message: 'Çok fazla istek. Lütfen biraz bekleyin.' } },

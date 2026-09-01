@@ -6,7 +6,7 @@ import { useAuthStore } from '../../store/authStore';
 import { HOME_CARD, HOME_BORDER } from '../../pages/home/homeTheme';
 import { Icon, FavoriteButton } from './HomeUI';
 
-const PAGE_SIZE = 30; // 6 sütun × 5 satır
+const PAGE_SIZE = 40; // 8 sütun × 5 satır — diğer GameRowSection satırlarındaki gibi bir satırda 8 oyun
 
 function GridGameCard({ game }) {
   const symbol = game.game_code;
@@ -94,7 +94,7 @@ export default function AllGamesSection({ games, loading, providerFilter, onClea
           <div className="py-10 text-center text-sm text-[#7d8a83] font-ui">{t('home.providers.emptyGames')}</div>
         ) : (
           <>
-            <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-3 sm:gap-4">
+            <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 xl:grid-cols-8 gap-3 sm:gap-4">
               {visible.map(g => <GridGameCard key={g.game_code} game={g} />)}
             </div>
             {hasMore && (
