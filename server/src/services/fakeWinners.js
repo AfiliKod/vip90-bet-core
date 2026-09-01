@@ -2,6 +2,7 @@ import Setting from '../models/Setting.js';
 import { addRecentWinner } from './liveGameStream.js';
 import { getGames } from './palaceCasinoService.js';
 import { isModuleUsable } from './licensing/index.js';
+import { getIO } from './socketEmitter.js';
 
 /**
  * "Son Kazananlar" simülasyonu — kullanıcı isteği üzerine P3'ün gerçek
@@ -137,6 +138,13 @@ export function regeneratePool() {
     next.push(name);
   }
   pool = next;
+
+  // Havuz büyüklüğü değişti — bağlı client'lara "çevrimiçi kullanıcı"
+  // sayısını hemen güncelle (services/onlineCount.js'ten import ETMİYORUZ:
+  // o dosya getPoolSize() için bu dosyayı import ediyor, döngüsel import'tan
+  // kaçınmak için formül burada kısaca tekrarlanıyor).
+  const io = getIO();
+  if (io) io.emit('online:count', { count: (io.engine.clientsCount ?? 0) + pool.length });
 }
 
 /** Oyunun tipik bahis ölçeğine göre kabaca inandırıcı bir kazanç üretir. */

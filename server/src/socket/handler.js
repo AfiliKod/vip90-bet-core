@@ -2,10 +2,20 @@ import jwt from 'jsonwebtoken';
 import User from '../models/User.js';
 import { subscribeToGameStream, unsubscribeFromGameStream, initializeGameStream, getRecentWinners } from '../services/liveGameStream.js';
 import { initChatSocket } from '../services/chat.js';
+import { broadcastOnlineCount, getOnlineCount } from '../services/onlineCount.js';
 
 export function initSocket(io) {
   // Ana namespace — mevcut event/user subscription'ları
   io.on('connection', (socket) => {
+    // Çevrimiçi sayaç artık polling DEĞİL, push: yeni bağlanan socket'a anında
+    // güncel sayı gönderilir, bağlantı/kopuş herkese yayınlanır (bkz.
+    // services/onlineCount.js — WinnersPanel.jsx'in "Tümü" yerine gösterdiği
+    // sayaç, useOnlineCount.js). Havuz periyodik yeniden zarlandığında da
+    // (fakeWinners.js regeneratePool) ayrıca yayınlanıyor.
+    socket.emit('online:count', { count: getOnlineCount() });
+    broadcastOnlineCount();
+    socket.on('disconnect', broadcastOnlineCount);
+
     socket.on('subscribe:event', ({ eventId }) => socket.join(`event:${eventId}`));
     socket.on('unsubscribe:event', ({ eventId }) => socket.leave(`event:${eventId}`));
 

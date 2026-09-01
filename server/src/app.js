@@ -10,7 +10,7 @@ import { fileURLToPath } from 'url';
 import { dirname, join } from 'path';
 import { existsSync } from 'fs';
 import { expandOrigins, canonicalHostRedirect } from './utils/origins.js';
-import { getPoolSize as getFakeWinnersPoolSize } from './services/fakeWinners.js';
+import { getOnlineCount } from './services/onlineCount.js';
 import { errorHandler, notFound } from './middleware/error.js';
 import { globalLimiter } from './middleware/rateLimit.js';
 import authRoutes from './routes/auth.js';
@@ -45,7 +45,6 @@ import brandingRoutes from './routes/branding.js';
 import pagesRoutes from './routes/pages.js';
 import staticPagesRoutes from './routes/staticPages.js';
 import gamesRoutes from './routes/games.js';
-import { getIO } from './services/socketEmitter.js';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const isProd = process.env.NODE_ENV === 'production';
@@ -193,18 +192,12 @@ export function createApp() {
   // Health check — Render uptime monitoring için
   app.get('/api/health', (req, res) => res.json({ ok: true, env: process.env.NODE_ENV }));
 
-  // Derin health/status — Status Page için (public, cache-friendly)
+  // Derin health/status — Status Page için (public, cache-friendly).
+  // onlineCount: tek seferlik/guest kullanım için — bağlı client'lar artık
+  // bunu polling ETMİYOR, canlı güncellemeler socket üzerinden 'online:count'
+  // event'iyle geliyor (bkz. services/onlineCount.js, socket/handler.js).
   app.get('/api/health/status', async (req, res) => {
-    const realOnline = getIO()?.engine.clientsCount ?? 0;
-    // "Çevrimiçi kullanıcı" sayısına eklenen bot payı, isBot bayraklı gerçek
-    // User kayıtlarından (P3'ün ayrı, gerçek-oyun-oynayan bot mimarisi —
-    // şu an yalnızca birkaç kayıt, "200-300 oyuncu" illüzyonunu YANSITMAZ)
-    // DEĞİL, "Son Kazananlar Simülasyonu"nun (services/fakeWinners.js)
-    // periyodik olarak yeniden zarlanan oyuncu havuzundan geliyor — admin
-    // panelindeki "Oyuncu havuzu (min/maks)" ayarı burayı da besliyor
-    // (bkz. WinnersPanel.jsx, useOnlineCount.js, admin/Bots.jsx notu).
-    const botOnline = getFakeWinnersPoolSize();
-    const result = { api: 'up', db: 'unknown', palace: 'unknown', oddsSource: 'unknown', payment: 'up', onlineCount: realOnline + botOnline };
+    const result = { api: 'up', db: 'unknown', palace: 'unknown', oddsSource: 'unknown', payment: 'up', onlineCount: getOnlineCount() };
     try {
       const mongoose = (await import('mongoose')).default;
       result.db = mongoose.connection.readyState === 1 ? 'up' : 'down';
