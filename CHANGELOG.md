@@ -36,9 +36,15 @@ Anasayfa sol menüsündeki placeholder "Yakında" satırlarını gerçek özelli
 - **Sağlayıcı rayı** — anasayfada slider'ın hemen altına, oyun satırlarından
   önce yeni `ProviderRow.jsx`: `GET/POST /api/palace/providers` listesini
   `GameRowSection` ile aynı yatay-kaydırmalı `flex + overflow-x-auto +
-  shrink-0` deseninde gösterir, bir sağlayıcıya tıklayınca `/casino?provider=
-  {id}`'ye gider. `CasinoRedesign.jsx` artık mount'ta bu query param'ı okuyup
-  ilgili sağlayıcı filtresiyle açılıyor (`useSearchParams`).
+  shrink-0` deseninde, her kartta logo + sağlayıcı adıyla birlikte gösterir,
+  bir sağlayıcıya tıklayınca `/casino?provider={id}`'ye gider.
+  `CasinoRedesign.jsx` artık mount'ta bu query param'ı okuyup ilgili
+  sağlayıcı filtresiyle açılıyor (`useSearchParams`). Palace'ın kendi
+  provider API'si `provider_logo` alanını güvenilir doldurmadığından
+  (çoğu sağlayıcıda boş), 21 sağlayıcının gerçek logosu Palace/GoldSlot
+  admin panelinden (Games > Providers List, kullanıcı onayıyla) indirilip
+  `client/public/images/providers/{provider_id}.png` altına eklendi;
+  `ProviderRow.jsx` provider ID'sine göre yerel logoyu kullanıyor.
 
 **Değiştirildi:**
 - Dil değiştirici (`LanguageSwitcher.jsx`) buton grubundan native `<select>`'e
