@@ -467,7 +467,7 @@ export default {
   'home.sidebar.allGames': 'All Games',
   'home.games.viewAll': 'View all ›',
   'home.games.allGamesDesc': 'Explore all slots and table games',
-  'home.rail.winners': 'Winners',
+  'home.rail.winners': 'Recent Winners',
   'home.rail.promotions': 'Promotions',
   'home.rail.all': 'View all',
   'home.stats.games': 'Original Games',

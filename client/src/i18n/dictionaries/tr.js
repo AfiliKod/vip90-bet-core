@@ -466,7 +466,7 @@ export default {
   'home.sidebar.allGames': 'Tüm Oyunlar',
   'home.games.viewAll': 'Tümünü Gör ›',
   'home.games.allGamesDesc': 'Tüm slot ve masa oyunlarını keşfet',
-  'home.rail.winners': 'Kazananlar',
+  'home.rail.winners': 'Son Kazananlar',
   'home.rail.promotions': 'Promosyonlar',
   'home.rail.all': 'Tümü',
   'home.stats.games': 'Özel Oyun',

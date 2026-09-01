@@ -34,22 +34,24 @@ Bir önceki karttaki casino anasayfasına gelen geri bildirimlerin düzeltmesi.
   sistemi yok, bunu gizlemiyoruz).
 
 **Düzeltildi:**
-- Hero ile altındaki oyun satırlarının (Popüler/Özel/Slot/Yeni Oyunlar)
-  yatay hizası tutarsızdı — hero'nun sağ rayla (260px) paylaştığı dar grid
-  sütunu içinde `max-w-6xl mx-auto` ile ortalanırken, oyun satırları TAM
-  genişlikteki sütun içinde aynı kuralla ortalanıyordu; iki farklı genişlik
-  farklı sonuç üretiyordu. `max-w-6xl mx-auto` kaldırılıp düz `px-4`
-  kullanılarak her ikisi de sütunun sol kenarına sabitlendi.
-- Oyun satırı konteynerinin genişliği hero satırıyla uyuşmuyordu; kartların
-  bulunduğu `shrink-0 w-[140px]` yatay-kaydırmalı `flex` satırının kendisi
-  değil, onu saran bölüm konteyneri sağ rayın bittiği yere kadar
-  uzanmıyordu. Sağdaki boşluğu gidermek için önce kartların CSS grid'e
-  (`repeat(auto-fill, minmax(140px,1fr))`) çevrilmesi denendi, ama bu
-  kartların satırı doldurmak için gerilmesine (ve kaydırma yerine alt
-  satıra sarmasına) yol açtığından geri alındı — oyun satırları yeniden
-  sabit genişlikte kartlarla yatay-kaydırmalı bir `flex` satırı, "tümünü
-  gör" linkleriyle birlikte hero'nun sınırları içinde (sol/sağ raylar
-  arasında) konumlanıyor, kartlar satırın sağına doğru gerilmiyor.
+- Oyun satırları (Popüler/Özel/Slot/Yeni Oyunlar) sağ raya (Son
+  Kazananlar/Promosyonlar/Kupon, 260px) kadar taşıyordu. Kök neden: hero
+  slider kendi İÇ grid'ini (`[1fr_260px]`) kuruyordu — slider sol sütunda,
+  sağ ray o grid'in ikinci sütunundaydı — ama altındaki `GameRowSection`
+  satırları bu grid'in DIŞINDA, ana flex-column akışında tam genişlikte
+  kardeş bloklardı; dolayısıyla sağ rayın altında boş kalan alana doğru
+  yayılıyorlardı. Ara adımda `max-w-6xl mx-auto` → `px-4` değişikliği ve
+  kart konteynerinin grid/flex arası denemeleri sadece semptomu maskeledi,
+  kökü çözmedi. Asıl düzeltme: hero'nun kendi iç grid'i kaldırıldı, bunun
+  yerine slider + tüm oyun satırları + "Tüm Oyunlar" kartı TEK bir üst
+  grid'in sol (1fr) sütununa, sağ ray (Son Kazananlar/Promosyonlar/Kupon)
+  aynı grid'in sağ (260px) sütununa kardeş olarak yerleştirildi — artık
+  main sütun sağ raya asla taşamıyor, sağ ray kendi içeriği bitince altını
+  boş bırakıyor (main sütun altta devam etse bile). Oyun kartları
+  `shrink-0 w-[140px] sm:w-[150px]` sabit genişlikte, yatay-kaydırmalı
+  (`overflow-x-auto`) bir `flex` satırında, "tümünü gör" linkleriyle
+  birlikte kalmaya devam ediyor. Ayrıca sağ ray paneli "Kazananlar" değil
+  "Son Kazananlar" olarak yeniden adlandırıldı (TR/EN).
 - Boş Bahis Kuponu konteyneri, anasayfada hiçbir bahis seçeneği olmamasına
   rağmen "Tüm Oyunlar" kartından sonra sayfanın en altında görünüyordu —
   `BetSlip`, yan yana (flex-row) sayfalar için tasarlanmış bir `<aside>`

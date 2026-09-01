@@ -177,7 +177,6 @@ export default function HomePage() {
   // istatistik şeridi/BetSlip oyun kartlarından ÖNCE görünüyordu).
   const SECTIONS = {
     hero: sectionOrder.includes('hero') ? (
-      <div className="lg:grid lg:grid-cols-[1fr_260px] lg:gap-4">
         <section className="relative w-full h-[420px] sm:h-[380px] overflow-hidden lg:rounded-xl" style={{ background: HOME_BG }}>
           {ALL_SLIDES.map((s, i) => (
             <img key={s.id} src={s.image} className={`absolute inset-0 w-full h-full object-cover transition-opacity duration-700 ${i === current ? 'opacity-100' : 'opacity-0'}`} alt="" loading={i === 0 ? 'eager' : 'lazy'} />
@@ -219,20 +218,6 @@ export default function HomePage() {
             ))}
           </div>
         </section>
-        <div className="hidden lg:flex lg:flex-col lg:gap-4">
-          <WinnersPanel />
-          <PromoPanel />
-          {/* Bet slip yalnızca aktif bir seçim varsa (ör. başka sayfadan
-              gelen bir bahis kuponu) sağ rayda gösterilir — anasayfada
-              spor bahis içeriği yok, boş kupon burada anlamsız/kafa
-              karıştırıcı olurdu. */}
-          {betSlipSelections.length > 0 && (
-            <div className="rounded-xl overflow-hidden" style={{ background: HOME_CARD, border: `1px solid ${HOME_BORDER}` }}>
-              <SlipContent />
-            </div>
-          )}
-        </div>
-      </div>
     ) : null,
 
     inhouseGames: sectionOrder.includes('inhouseGames') ? (
@@ -287,30 +272,53 @@ export default function HomePage() {
       <div className="flex-1 min-w-0 flex flex-col">
         <RecentWinnersTicker />
 
-        {sectionOrder.includes('hero') && <Fragment key="hero">{SECTIONS.hero}</Fragment>}
-        {SECTION_KEYS.filter(k => k !== 'hero').map(id => (SECTIONS[id] ? <Fragment key={id}>{SECTIONS[id]}</Fragment> : null))}
+        {/* Main + sağ ray TEK grid'de kardeş: oyun satırları böylece hep
+            main sütununun (1fr) genişliğinde kalır, sağ raya (260px)
+            taşmaz — hero eskiden kendi iç grid'ini kuruyordu, altındaki
+            GameRowSection'lar ise o grid'in dışında tam genişlik kardeş
+            bloklar olarak akıp sağ rayın da altına yayılıyordu. */}
+        <div className="lg:grid lg:grid-cols-[1fr_260px] lg:gap-4 lg:items-start">
+          <div className="min-w-0">
+            {sectionOrder.includes('hero') && <Fragment key="hero">{SECTIONS.hero}</Fragment>}
+            {SECTION_KEYS.filter(k => k !== 'hero').map(id => (SECTIONS[id] ? <Fragment key={id}>{SECTIONS[id]}</Fragment> : null))}
 
-        {/* Tüm Oyunlar — çoğaltma yapmadan gerçek tam katalog sayfasına yönlendirir */}
-        <section className="mt-8">
-          <div className="px-4">
-            <Link
-              to="/casino"
-              className="flex items-center justify-between rounded-xl p-5 transition-colors group"
-              style={{ background: HOME_CARD, border: `1px solid ${HOME_BORDER}` }}
-            >
-              <div className="flex items-center gap-3">
-                <span className="inline-flex items-center justify-center w-11 h-11 rounded-lg" style={{ background: 'color-mix(in srgb, var(--color-primary) 14%, transparent)' }}>
-                  <Icon name="apps" className="!text-[22px]" style={{ color: 'var(--color-primary)' }} />
-                </span>
-                <div>
-                  <div className="text-sm font-extrabold text-white font-ui">{t('home.sidebar.allGames')}</div>
-                  <div className="text-xs text-[#7d8a83] font-ui">{t('home.games.allGamesDesc')}</div>
-                </div>
+            {/* Tüm Oyunlar — çoğaltma yapmadan gerçek tam katalog sayfasına yönlendirir */}
+            <section className="mt-8">
+              <div className="px-4">
+                <Link
+                  to="/casino"
+                  className="flex items-center justify-between rounded-xl p-5 transition-colors group"
+                  style={{ background: HOME_CARD, border: `1px solid ${HOME_BORDER}` }}
+                >
+                  <div className="flex items-center gap-3">
+                    <span className="inline-flex items-center justify-center w-11 h-11 rounded-lg" style={{ background: 'color-mix(in srgb, var(--color-primary) 14%, transparent)' }}>
+                      <Icon name="apps" className="!text-[22px]" style={{ color: 'var(--color-primary)' }} />
+                    </span>
+                    <div>
+                      <div className="text-sm font-extrabold text-white font-ui">{t('home.sidebar.allGames')}</div>
+                      <div className="text-xs text-[#7d8a83] font-ui">{t('home.games.allGamesDesc')}</div>
+                    </div>
+                  </div>
+                  <Icon name="arrow_forward" className="!text-[20px] text-[#7d8a83] group-hover:translate-x-1 transition-transform" />
+                </Link>
               </div>
-              <Icon name="arrow_forward" className="!text-[20px] text-[#7d8a83] group-hover:translate-x-1 transition-transform" />
-            </Link>
+            </section>
           </div>
-        </section>
+
+          <div className="hidden lg:flex lg:flex-col lg:gap-4">
+            <WinnersPanel />
+            <PromoPanel />
+            {/* Bet slip yalnızca aktif bir seçim varsa (ör. başka sayfadan
+                gelen bir bahis kuponu) sağ rayda gösterilir — anasayfada
+                spor bahis içeriği yok, boş kupon burada anlamsız/kafa
+                karıştırıcı olurdu. */}
+            {betSlipSelections.length > 0 && (
+              <div className="rounded-xl overflow-hidden" style={{ background: HOME_CARD, border: `1px solid ${HOME_BORDER}` }}>
+                <SlipContent />
+              </div>
+            )}
+          </div>
+        </div>
 
         {/* desktopHidden: masaüstü kupon yerleşimini yukarıda (sağ ray) kendimiz
             yönetiyoruz — burası yalnızca mobil bar/sheet davranışı için kalıyor. */}
