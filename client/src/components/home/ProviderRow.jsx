@@ -1,8 +1,9 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { Link } from 'react-router-dom';
 import api from '../../services/api';
 import { useTranslation } from '../../i18n';
 import { HOME_CARD, HOME_BORDER } from '../../pages/home/homeTheme';
+import ScrollHintArrow from './ScrollHintArrow';
 
 // Palace'ın kendi provider API'si (`getProviders()`) `provider_logo` alanını
 // güvenilir doldurmuyor (çoğu sağlayıcıda boş dönüyor) — bu yüzden logolar
@@ -21,10 +22,17 @@ function providerLogo(p) {
  * `GameRowSection`'daki AYNI yatay-kaydırmalı `flex + overflow-x-auto +
  * shrink-0` deseni kullanılır (bkz. HomePage.jsx notu — kartların satırı
  * doldurmak için gerilmesi, taşma hatasına geri dönüş anlamına gelir).
+ *
+ * Bir sağlayıcıya tıklamak artık `/casino`'ya GİTMİYOR — `onSelect(provider)`
+ * ile HomePage'e bildiriyor, HomePage diğer oyun satırlarını gizleyip
+ * "Tüm Oyunlar" alanını bu sağlayıcının oyunlarıyla dolduruyor (bkz.
+ * HomePage.jsx `selectedProviderId`). Tam katalog/filtre sayfasına gitmek
+ * isteyenler için "Tümünü Gör" linki hâlâ `/casino`'ya gidiyor.
  */
-export default function ProviderRow() {
+export default function ProviderRow({ selectedId, onSelect }) {
   const { t } = useTranslation();
   const [providers, setProviders] = useState([]);
+  const scrollRef = useRef(null);
 
   useEffect(() => {
     let cancelled = false;
@@ -48,31 +56,40 @@ export default function ProviderRow() {
             {t('home.games.viewAll')}
           </Link>
         </div>
-        <div className="flex gap-3 sm:gap-4 overflow-x-auto no-scrollbar pb-1">
-          {providers.map(p => {
-            const logo = providerLogo(p);
-            const name = p.provider_name || p.name;
-            return (
-              <Link
-                key={p.provider_id}
-                to={`/casino?provider=${p.provider_id}`}
-                className="group shrink-0 w-[130px] h-[76px] rounded-xl flex flex-col items-center justify-center gap-1.5 px-3 transition-all duration-200"
-                style={{ background: HOME_CARD, border: `1px solid ${HOME_BORDER}` }}
-                onMouseEnter={e => { e.currentTarget.style.borderColor = 'color-mix(in srgb, var(--color-primary) 40%, transparent)'; }}
-                onMouseLeave={e => { e.currentTarget.style.borderColor = HOME_BORDER; }}
-              >
-                {logo && (
-                  <img
-                    src={logo}
-                    alt=""
-                    className="h-6 w-auto max-w-[90px] object-contain opacity-80 group-hover:opacity-100 transition-opacity duration-200"
-                    onError={e => { e.currentTarget.style.display = 'none'; }}
-                  />
-                )}
-                <span className="text-[11px] font-bold text-[#c8ced2] group-hover:text-white truncate max-w-full">{name}</span>
-              </Link>
-            );
-          })}
+        <div className="relative">
+          <div ref={scrollRef} className="flex gap-3 sm:gap-4 overflow-x-auto no-scrollbar pb-1">
+            {providers.map(p => {
+              const logo = providerLogo(p);
+              const name = p.provider_name || p.name;
+              const active = selectedId === p.provider_id;
+              return (
+                <button
+                  type="button"
+                  key={p.provider_id}
+                  onClick={() => onSelect?.(active ? null : { id: p.provider_id, name })}
+                  className="group shrink-0 w-[130px] h-[76px] rounded-xl flex flex-col items-center justify-center gap-1.5 px-3 transition-all duration-200"
+                  style={{
+                    background: HOME_CARD,
+                    border: `1px solid ${active ? 'var(--color-primary)' : HOME_BORDER}`,
+                    boxShadow: active ? '0 0 0 1px var(--color-primary)' : 'none',
+                  }}
+                  onMouseEnter={e => { if (!active) e.currentTarget.style.borderColor = 'color-mix(in srgb, var(--color-primary) 40%, transparent)'; }}
+                  onMouseLeave={e => { if (!active) e.currentTarget.style.borderColor = HOME_BORDER; }}
+                >
+                  {logo && (
+                    <img
+                      src={logo}
+                      alt=""
+                      className={`h-6 w-auto max-w-[90px] object-contain transition-opacity duration-200 ${active ? 'opacity-100' : 'opacity-80 group-hover:opacity-100'}`}
+                      onError={e => { e.currentTarget.style.display = 'none'; }}
+                    />
+                  )}
+                  <span className={`text-[11px] font-bold truncate max-w-full ${active ? 'text-white' : 'text-[#c8ced2] group-hover:text-white'}`}>{name}</span>
+                </button>
+              );
+            })}
+          </div>
+          <ScrollHintArrow containerRef={scrollRef} />
         </div>
       </div>
     </section>

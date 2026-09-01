@@ -11,6 +11,10 @@ import HomeSidebar from '../components/home/HomeSidebar';
 import WinnersPanel from '../components/home/WinnersPanel';
 import PromoPanel from '../components/home/PromoPanel';
 import ProviderRow from '../components/home/ProviderRow';
+import ScrollHintArrow from '../components/home/ScrollHintArrow';
+import AllGamesSection from '../components/home/AllGamesSection';
+import { Icon, FavoriteButton } from '../components/home/HomeUI';
+import { shuffle } from '../utils/shuffle';
 import { resolveSectionOrder, resolveBanners } from './home/pageContent';
 import { getPromoSlides } from './home/promoSlides';
 import { HOME_BG, HOME_CARD, HOME_BORDER } from './home/homeTheme';
@@ -33,41 +37,6 @@ const SLIDE_ICONS = {
 // lisanssız Pragmatic Play/BGaming verisi tam da bu yüzden silinmişti) —
 // hepsi çalışma zamanında Palace'ın kendi CDN'inden canlı çekiliyor.
 const PALACE_PROVIDER_IDS = [1, 15]; // Pragmatic Play, Spribe
-
-function Icon({ name, className = '', style }) {
-  return <span className={`material-symbols-outlined ${className}`} style={style} aria-hidden="true">{name}</span>;
-}
-
-// Kart üstü favori kalbi — Link navigasyonunu engelleyip yalnızca toggle
-// tetikler. Misafir kullanıcıda login sayfasına yönlendirir (backend
-// favoriler uçları requireAuth arkasında, bkz. server/src/routes/users.js).
-function FavoriteButton({ gameId, kind }) {
-  const navigate = useNavigate();
-  const user = useAuthStore(s => s.user);
-  const isFavorite = useGameActivityStore(s => s.isFavorite(gameId, kind));
-  const toggleFavorite = useGameActivityStore(s => s.toggleFavorite);
-
-  return (
-    <button
-      type="button"
-      aria-label={isFavorite ? 'Favorilerden çıkar' : 'Favorilere ekle'}
-      onClick={e => {
-        e.preventDefault();
-        e.stopPropagation();
-        if (!user) { navigate('/login'); return; }
-        toggleFavorite(gameId, kind);
-      }}
-      className="absolute top-2 right-2 z-10 w-6 h-6 rounded-full flex items-center justify-center transition-colors"
-      style={{ background: 'rgba(2,8,13,0.65)', border: `1px solid ${isFavorite ? 'var(--color-primary)' : HOME_BORDER}` }}
-    >
-      <Icon
-        name={isFavorite ? 'favorite' : 'favorite_border'}
-        className="!text-[13px]"
-        style={{ color: isFavorite ? 'var(--color-primary)' : '#c8ced2' }}
-      />
-    </button>
-  );
-}
 
 function PalaceGameCard({ game }) {
   const symbol = game.game_code;
@@ -103,6 +72,7 @@ function PalaceGameCard({ game }) {
 }
 
 function GameRowSection({ id, icon, title, subtitle, viewAllTo, viewAllLabel, children }) {
+  const scrollRef = useRef(null);
   return (
     <section className="mt-8" id={id}>
       <div className="px-4">
@@ -120,8 +90,11 @@ function GameRowSection({ id, icon, title, subtitle, viewAllTo, viewAllLabel, ch
             </Link>
           )}
         </div>
-        <div className="flex gap-3 sm:gap-4 overflow-x-auto no-scrollbar pb-1">
-          {children}
+        <div className="relative">
+          <div ref={scrollRef} className="flex gap-3 sm:gap-4 overflow-x-auto no-scrollbar pb-1">
+            {children}
+          </div>
+          <ScrollHintArrow containerRef={scrollRef} />
         </div>
       </div>
     </section>
@@ -138,6 +111,12 @@ export default function HomePage() {
   const timerRef = useRef(null);
   const [pageContent, setPageContent] = useState(null);
   const [palaceGames, setPalaceGames] = useState([]);
+  // Sağlayıcı rayından bir sağlayıcı seçilince diğer oyun satırları
+  // gizlenir, "Tüm Oyunlar" alanı yalnızca bu sağlayıcının oyunlarını
+  // gösterir (bkz. AllGamesSection.jsx, ProviderRow.jsx).
+  const [selectedProvider, setSelectedProvider] = useState(null); // {id, name} | null
+  const [providerGames, setProviderGames] = useState([]);
+  const [providerGamesLoading, setProviderGamesLoading] = useState(false);
 
   useEffect(() => {
     api.get('/pages/home').then(({ data }) => setPageContent(data?.content || null)).catch(() => {});
@@ -171,6 +150,21 @@ export default function HomePage() {
       newGames: byDateDesc.slice(0, 10),
     };
   }, [palaceGames]);
+
+  // "Tüm Oyunlar" alanının varsayılan (sağlayıcı filtresi yokken) içeriği —
+  // diğer satırlar gibi kürasyonlu değil, gerçekten rastgele bir örneklem.
+  const randomAllGames = useMemo(() => shuffle(palaceGames), [palaceGames]);
+
+  useEffect(() => {
+    if (!selectedProvider) { setProviderGames([]); return; }
+    let cancelled = false;
+    setProviderGamesLoading(true);
+    api.post('/palace/games', { lang: 'tr', provider_id: selectedProvider.id }).then(({ data }) => {
+      if (!cancelled) setProviderGames((data?.data || []).filter(g => g.launch_enable !== false));
+    }).catch(() => { if (!cancelled) setProviderGames([]); })
+      .finally(() => { if (!cancelled) setProviderGamesLoading(false); });
+    return () => { cancelled = true; };
+  }, [selectedProvider]);
 
   const HERO_SLIDES = [
     { id: 'welcome', title: t('home.hero.welcome'), path: '/bahis', cta: t('home.hero.getStarted'), desc: t('home.hero.welcomeDesc'), image: '/images/welcome-banner.png' },
@@ -326,30 +320,18 @@ export default function HomePage() {
         <div className="lg:grid lg:grid-cols-[1fr_260px] lg:gap-4 lg:items-start">
           <div className="min-w-0">
             {sectionOrder.includes('hero') && <Fragment key="hero">{SECTIONS.hero}</Fragment>}
-            <ProviderRow />
-            {SECTION_KEYS.filter(k => k !== 'hero').map(id => (SECTIONS[id] ? <Fragment key={id}>{SECTIONS[id]}</Fragment> : null))}
+            <ProviderRow selectedId={selectedProvider?.id} onSelect={setSelectedProvider} />
+            {/* Bir sağlayıcı seçiliyken diğer kürasyonlu satırlar (Popüler/
+                Özel/Slot/Yeni) gizlenir — aşağıdaki "Tüm Oyunlar" alanı
+                yalnızca seçilen sağlayıcının oyunlarını gösterir. */}
+            {!selectedProvider && SECTION_KEYS.filter(k => k !== 'hero').map(id => (SECTIONS[id] ? <Fragment key={id}>{SECTIONS[id]}</Fragment> : null))}
 
-            {/* Tüm Oyunlar — çoğaltma yapmadan gerçek tam katalog sayfasına yönlendirir */}
-            <section className="mt-8">
-              <div className="px-4">
-                <Link
-                  to="/casino"
-                  className="flex items-center justify-between rounded-xl p-5 transition-colors group"
-                  style={{ background: HOME_CARD, border: `1px solid ${HOME_BORDER}` }}
-                >
-                  <div className="flex items-center gap-3">
-                    <span className="inline-flex items-center justify-center w-11 h-11 rounded-lg" style={{ background: 'color-mix(in srgb, var(--color-primary) 14%, transparent)' }}>
-                      <Icon name="apps" className="!text-[22px]" style={{ color: 'var(--color-primary)' }} />
-                    </span>
-                    <div>
-                      <div className="text-sm font-extrabold text-white font-ui">{t('home.sidebar.allGames')}</div>
-                      <div className="text-xs text-[#7d8a83] font-ui">{t('home.games.allGamesDesc')}</div>
-                    </div>
-                  </div>
-                  <Icon name="arrow_forward" className="!text-[20px] text-[#7d8a83] group-hover:translate-x-1 transition-transform" />
-                </Link>
-              </div>
-            </section>
+            <AllGamesSection
+              games={selectedProvider ? providerGames : randomAllGames}
+              loading={selectedProvider ? providerGamesLoading : false}
+              providerFilter={selectedProvider}
+              onClearFilter={() => setSelectedProvider(null)}
+            />
           </div>
 
           <div className="hidden lg:flex lg:flex-col lg:gap-4">

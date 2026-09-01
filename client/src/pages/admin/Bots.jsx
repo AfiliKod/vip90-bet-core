@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import api from '../../services/api';
 import { useTranslation } from '../../i18n';
+import { useModuleStore } from '../../store/moduleStore';
 
 /**
  * P3 — bot oyuncular. Botlar ayrı bir koleksiyon değil, User
@@ -24,6 +25,7 @@ export default function AdminBots() {
   const [fwPoolSize, setFwPoolSize] = useState(0);
   const [fwSaving, setFwSaving] = useState(false);
   const [fwError, setFwError] = useState('');
+  const modulesAvailable = useModuleStore(s => s.available);
 
   function loadFakeWinners() {
     api.get('/admin/fake-winners')
@@ -168,7 +170,40 @@ export default function AdminBots() {
                   className="mt-1 w-full h-9 rounded-lg bg-bg-base border border-white/10 px-3 text-sm text-text-1" />
               </label>
             </div>
-            {fwSaving && <div className="text-xs text-text-3">{t('common.saving')}</div>}
+
+            <div className="border-t border-white/10 pt-3 mt-1">
+              <p className="text-xs font-semibold text-text-2 mb-2">{t('admin.fakeWinners.areasTitle')}</p>
+              <label className="flex items-center gap-2 mb-2 text-sm text-text-3">
+                <input type="checkbox" checked disabled />
+                {t('admin.fakeWinners.areaCore')}
+              </label>
+              <label className={`flex items-center gap-2 mb-2 text-sm ${modulesAvailable['casino-content'] === false ? 'text-text-3/50' : 'text-text-2'}`}>
+                <input
+                  type="checkbox"
+                  checked={!!fw.includeCasinoWins}
+                  disabled={modulesAvailable['casino-content'] === false}
+                  onChange={e => saveFakeWinners({ includeCasinoWins: e.target.checked })}
+                />
+                {t('admin.fakeWinners.areaCasino')}
+                {modulesAvailable['casino-content'] === false && (
+                  <span className="text-[10px] text-text-3">({t('admin.fakeWinners.moduleDisabled')})</span>
+                )}
+              </label>
+              <label className={`flex items-center gap-2 text-sm ${modulesAvailable['betting'] === false ? 'text-text-3/50' : 'text-text-2'}`}>
+                <input
+                  type="checkbox"
+                  checked={!!fw.includeBettingWins}
+                  disabled={modulesAvailable['betting'] === false}
+                  onChange={e => saveFakeWinners({ includeBettingWins: e.target.checked })}
+                />
+                {t('admin.fakeWinners.areaBetting')}
+                {modulesAvailable['betting'] === false && (
+                  <span className="text-[10px] text-text-3">({t('admin.fakeWinners.moduleDisabled')})</span>
+                )}
+              </label>
+            </div>
+
+            {fwSaving && <div className="text-xs text-text-3 mt-3">{t('common.saving')}</div>}
           </>
         )}
       </div>

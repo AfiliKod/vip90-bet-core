@@ -1,8 +1,9 @@
-import { it, describe, before, after, beforeEach } from 'node:test';
+import { it, describe, before, after, beforeEach, afterEach } from 'node:test';
 import assert from 'node:assert/strict';
 import mongoose from 'mongoose';
 import Setting from '../src/models/Setting.js';
 import { getRecentWinners } from '../src/services/liveGameStream.js';
+import { setModuleEnabled, invalidateModules } from '../src/modules/index.js';
 import {
   DEFAULT_CONFIG, loadConfig, saveConfig, getConfig, getPoolSize,
   regeneratePool, fireFakeWin,
@@ -67,7 +68,7 @@ describe('fireFakeWin', () => {
     await saveConfig({ enabled: false, poolMin: 3, poolMax: 3 });
     regeneratePool();
     const before = getRecentWinners(50).length;
-    fireFakeWin();
+    await fireFakeWin();
     assert.equal(getRecentWinners(50).length, before);
   });
 
@@ -75,7 +76,7 @@ describe('fireFakeWin', () => {
     await saveConfig({ enabled: true, poolMin: 3, poolMax: 3, amountMin: 100, amountMax: 200 });
     regeneratePool();
     const beforeCount = getRecentWinners(50).length;
-    fireFakeWin();
+    await fireFakeWin();
     const winners = getRecentWinners(50);
     assert.equal(winners.length, beforeCount + 1);
 
@@ -91,8 +92,55 @@ describe('fireFakeWin', () => {
   it('kazanan isimleri havuzdan seçilir', async () => {
     await saveConfig({ enabled: true, poolMin: 2, poolMax: 2 });
     regeneratePool();
-    fireFakeWin();
+    await fireFakeWin();
     const w = getRecentWinners(1)[0];
     assert.match(w.username, /^[A-ZÇĞİÖŞÜ][a-zçğıöşü]+ [A-Z]\.$/);
+  });
+});
+
+describe('fireFakeWin — kazanç alanları (Çekirdek/Casino/Bahisler)', () => {
+  afterEach(async () => {
+    await setModuleEnabled('casino-content', false);
+    await setModuleEnabled('betting', false);
+    invalidateModules();
+  });
+
+  it('includeCasinoWins/includeBettingWins false iken her zaman in-house kazananı üretir', async () => {
+    await saveConfig({ enabled: true, poolMin: 2, poolMax: 2, includeCasinoWins: false, includeBettingWins: false });
+    regeneratePool();
+    await fireFakeWin();
+    const w = getRecentWinners(1)[0];
+    assert.ok(w.gameId.startsWith('inhouse-'));
+  });
+
+  it('includeBettingWins true ama betting modülü kapalıyken bahis kazananı ÜRETMEZ (çekirdeğe düşer)', async () => {
+    await saveConfig({ enabled: true, poolMin: 2, poolMax: 2, includeCasinoWins: false, includeBettingWins: true });
+    await setModuleEnabled('betting', false);
+    regeneratePool();
+    await fireFakeWin();
+    const w = getRecentWinners(1)[0];
+    assert.notEqual(w.gameId, 'sports-bet');
+  });
+
+  it('includeBettingWins true ve betting modülü açıkken bahis kazananı üretebilir', async () => {
+    await saveConfig({ enabled: true, poolMin: 2, poolMax: 2, includeCasinoWins: false, includeBettingWins: true });
+    await setModuleEnabled('betting', true);
+    regeneratePool();
+    // Rastgele seçim 'core' da çıkabilir; birkaç deneme içinde en az bir kez 'betting' beklenir.
+    let sawBetting = false;
+    for (let i = 0; i < 40 && !sawBetting; i++) {
+      await fireFakeWin();
+      if (getRecentWinners(1)[0].gameId === 'sports-bet') sawBetting = true;
+    }
+    assert.ok(sawBetting, '40 denemede hiç bahis kazananı üretilmedi');
+  });
+
+  it('includeCasinoWins true ama casino-content modülü kapalıyken casino kazananı ÜRETMEZ', async () => {
+    await saveConfig({ enabled: true, poolMin: 2, poolMax: 2, includeCasinoWins: true, includeBettingWins: false });
+    await setModuleEnabled('casino-content', false);
+    regeneratePool();
+    await fireFakeWin();
+    const w = getRecentWinners(1)[0];
+    assert.ok(!w.gameId.startsWith('palace-'));
   });
 });

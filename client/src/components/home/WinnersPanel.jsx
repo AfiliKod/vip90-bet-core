@@ -1,18 +1,21 @@
-import { Link } from 'react-router-dom';
 import { useTranslation } from '../../i18n';
 import { formatMoney } from '../../utils/money.js';
 import { useRecentWinners, winnerImage, maskUsername } from '../../hooks/useRecentWinners';
+import { useOnlineCount } from '../../hooks/useOnlineCount';
 import { HOME_CARD, HOME_BORDER } from '../../pages/home/homeTheme';
 
 /**
  * Sağ ray — "Kazananlar" paneli (yalnızca lg+; lg altında aynı veri
  * `RecentWinnersTicker.jsx`'in yatay kart şeridi olarak gösterilir).
- * "Tümü" → /casino (bizde ayrı bir "tüm kazananlar" sayfası yok, en yakın
- * gerçek hedef budur).
+ * Başlığın yanındaki "Tümü" linki yerine artık çevrimiçi kullanıcı sayısı
+ * gösteriliyor (gerçek socket bağlantısı + anlık aktif bot sayısı, bkz.
+ * useOnlineCount.js / server/src/app.js GET /health/status) — eskiden
+ * sayfanın en üstünde ayrı bir yeşil bant olarak duran gösterge kaldırıldı.
  */
 export default function WinnersPanel() {
   const { t } = useTranslation();
   const winners = useRecentWinners();
+  const onlineCount = useOnlineCount();
 
   if (winners.length === 0) return null;
 
@@ -20,11 +23,14 @@ export default function WinnersPanel() {
     <div className="rounded-xl p-3.5" style={{ background: `linear-gradient(180deg, ${HOME_CARD} 0%, #071016 100%)`, border: `1px solid ${HOME_BORDER}` }}>
       <div className="flex items-center justify-between pb-3 mb-1 border-b" style={{ borderColor: HOME_BORDER }}>
         <span className="text-[15px] font-bold text-white font-ui">{t('home.rail.winners')}</span>
-        <Link to="/casino" className="text-[11px] font-semibold font-ui text-[#c8ced2] hover:text-white">{t('home.rail.all')} ›</Link>
+        <span className="inline-flex items-center gap-1.5 text-[11px] font-semibold font-ui text-[#c8ced2]">
+          <span className="w-[7px] h-[7px] rounded-full bg-green-500 animate-pulse" />
+          {t('home.rail.online', { count: onlineCount.toLocaleString('tr-TR') })}
+        </span>
       </div>
       <div className="flex flex-col">
         {winners.slice(0, 4).map((w, i) => {
-          const img = winnerImage(w.gameId);
+          const img = w.image || winnerImage(w.gameId);
           return (
             <div
               key={`${w.userId}-${w.timestamp}-${i}`}

@@ -12,6 +12,40 @@ Madde formatı ve kategoriler için `docs/CHANGELOG_GUIDE.md`'ye bakın —
 
 ## [Yayınlanmadı]
 
+### Kaydırma ipucu, sayfa-içi sağlayıcı filtresi, Tüm Oyunlar grid'i, çevrimiçi/bot sayacı, bot kazanç alanları
+Anasayfa etkileşimini ve "Son Kazananlar Simülasyonu" ayarlarını genişletir.
+
+**Eklendi:**
+- **Kaydırma ipucu oku** — yeni `ScrollHintArrow.jsx`, `ProviderRow` ve
+  `GameRowSection` satırlarının sağ kenarında, satır gerçekten sağa
+  kaydırılabilirken bir gradient-fade + ok ikonu gösterir; sona gelince
+  kaybolur.
+- **"Tüm Oyunlar" artık gerçek bir grid alanı** — yeni `AllGamesSection.jsx`:
+  diğer satırlar gibi rastgele örneklenmiş oyunları 6-sütun × 5-satır (30)
+  grid'de gösterir, "Daha Fazla Göster" butonu her tıklamada +30 açar.
+  Kaydırılabilir DEĞİL — önceki tek-link kartın yerini aldı.
+- **Sayfa-içi sağlayıcı filtresi** — `ProviderRow`'dan bir sağlayıcıya
+  tıklamak artık `/casino`'ya GİTMİYOR: sayfada kalıp diğer kürasyonlu
+  satırları (Popüler/Özel/Slot/Yeni) gizliyor, "Tüm Oyunlar" alanını
+  yalnızca o sağlayıcının oyunlarıyla dolduruyor ("× Filtreyi Kaldır" ile
+  geri dönülür). `/casino?provider=X` deep-link'i (`CasinoRedesign.jsx`)
+  hâlâ duruyor, yalnızca ProviderRow'un davranışı değişti.
+- **Çevrimiçi + bot sayacı** — sağ raydaki Son Kazananlar panelinin "Tümü"
+  linki yerine artık çevrimiçi kullanıcı sayısı (`useOnlineCount.js`)
+  gösteriliyor; backend `GET /api/health/status`'un `onlineCount`'u artık
+  gerçek socket bağlantısı + anlık aktif bot sayısı (`isBot:true,
+  isActive:true`) toplamı. Sayfanın en üstündeki ayrı yeşil "X çevrimiçi |
+  PWA" bandı (`OnlineStatusIndicator`) kaldırıldı.
+- **Bot kazanç alanları** — `/admin/bots`'taki Son Kazananlar Simülasyonu
+  ayarlarına "Kazanç Alanları" eklendi: Çekirdek (in-house, her zaman
+  açık) + Casino oyunları + Bahisler. İkinci ikisi yalnızca ilgili modül
+  (`casino-content`/`betting`) sitede gerçekten kullanılabilirken
+  (`isModuleUsable` — panel anahtarı VE lisans) seçilebilir/etkilidir;
+  `services/fakeWinners.js` artık her ateşlemede etkin alanlardan birini
+  rastgele seçiyor — Casino kazananları Palace'ın gerçek CDN görseliyle
+  (`addRecentWinner`'a yeni `image` alanı), Bahis kazananları jenerik bir
+  pazar/takım havuzundan (gerçek fikstür verisine dokunmuyor).
+
 ### Favoriler, Son Oynananlar, arama, sağlayıcı rayı, navbar sadeleştirme
 Anasayfa sol menüsündeki placeholder "Yakında" satırlarını gerçek özelliğe çevirir, navbar'ı sadeleştirir.
 

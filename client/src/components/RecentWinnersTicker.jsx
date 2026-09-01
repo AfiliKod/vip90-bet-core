@@ -26,7 +26,7 @@ export default function RecentWinnersTicker() {
         </div>
         <div className="flex gap-3 overflow-x-auto no-scrollbar pb-1">
           {winners.slice(0, 14).map((w, i) => {
-            const img = winnerImage(w.gameId);
+            const img = w.image || winnerImage(w.gameId);
             return (
               <div
                 key={`${w.userId}-${w.timestamp}-${i}`}

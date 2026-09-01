@@ -263,6 +263,8 @@ export const updateFakeWinnersSchema = z.object({
   intervalMaxMs: z.number().int().min(1000).max(600_000).optional(),
   amountMin: z.number().min(1).max(10_000_000).optional(),
   amountMax: z.number().min(1).max(10_000_000).optional(),
+  includeCasinoWins: z.boolean().optional(),
+  includeBettingWins: z.boolean().optional(),
 }).refine(d => d.poolMin === undefined || d.poolMax === undefined || d.poolMin <= d.poolMax, {
   message: 'poolMin, poolMax\'tan büyük olamaz',
 }).refine(d => d.intervalMinMs === undefined || d.intervalMaxMs === undefined || d.intervalMinMs <= d.intervalMaxMs, {

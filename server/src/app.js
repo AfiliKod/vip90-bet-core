@@ -10,6 +10,7 @@ import { fileURLToPath } from 'url';
 import { dirname, join } from 'path';
 import { existsSync } from 'fs';
 import { expandOrigins, canonicalHostRedirect } from './utils/origins.js';
+import User from './models/User.js';
 import { errorHandler, notFound } from './middleware/error.js';
 import { globalLimiter } from './middleware/rateLimit.js';
 import authRoutes from './routes/auth.js';
@@ -194,7 +195,13 @@ export function createApp() {
 
   // Derin health/status — Status Page için (public, cache-friendly)
   app.get('/api/health/status', async (req, res) => {
-    const result = { api: 'up', db: 'unknown', palace: 'unknown', oddsSource: 'unknown', payment: 'up', onlineCount: getIO()?.engine.clientsCount ?? 0 };
+    const realOnline = getIO()?.engine.clientsCount ?? 0;
+    // Botlar gerçek socket bağlantısı açmaz (server-side simülasyon) — sitede
+    // "çevrimiçi kullanıcı" görünürlüğü için anlık aktif bot sayısı gerçek
+    // bağlantı sayısına eklenir (bkz. WinnersPanel.jsx, useOnlineCount.js).
+    let botOnline = 0;
+    try { botOnline = await User.countDocuments({ isBot: true, isActive: true }); } catch { /* DB henüz bağlı değilse 0 say */ }
+    const result = { api: 'up', db: 'unknown', palace: 'unknown', oddsSource: 'unknown', payment: 'up', onlineCount: realOnline + botOnline };
     try {
       const mongoose = (await import('mongoose')).default;
       result.db = mongoose.connection.readyState === 1 ? 'up' : 'down';

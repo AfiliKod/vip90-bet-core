@@ -73,6 +73,10 @@ export function addRecentWinner(winner) {
     gameTitle: winner.gameTitle,
     amount: winner.amount,
     currency: winner.currency || 'TRY',
+    // Gerçek in-house kazananlarda yok (client winnerImage(gameId) ile
+    // türetir); yalnızca Palace/casino fake-winners simülasyonu Palace'ın
+    // gerçek CDN görselini buraya geçiyor (bkz. services/fakeWinners.js).
+    image: winner.image || null,
     timestamp: Date.now(),
   };
   
