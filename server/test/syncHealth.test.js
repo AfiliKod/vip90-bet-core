@@ -150,7 +150,7 @@ describe('alarm üretimi', () => {
     assert.ok(a.staleSeconds >= 240, `staleSeconds beklenenden küçük: ${a.staleSeconds}`);
     assert.strictEqual(a.consecutiveFailures, 1);
     assert.match(a.lastError, /fetch failed/);
-    assert.strictEqual(a.base, 'https://bet.example7169.com');
+    assert.strictEqual(a.base, 'mirror 7169');
   });
 });
 
@@ -177,7 +177,7 @@ describe('snapshot', () => {
     assert.strictEqual(snap.live.state, 'ok');
     assert.strictEqual(snap.live.staleSeconds, 120);
     assert.strictEqual(snap.live.bettingBlocked, false);
-    assert.strictEqual(snap.domain, 'https://bet.example7191.com');
+    assert.strictEqual(snap.domain, 'mirror 7191');
     assert.ok(snap.upcomingOdds, 'upcomingOdds da bulunmalı');
     assert.doesNotThrow(() => JSON.stringify(snap));
   });

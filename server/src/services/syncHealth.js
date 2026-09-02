@@ -105,6 +105,13 @@ export function createSyncHealth({ now = Date.now, onAlert = defaultAlert } = {}
 
   let lastBase = null;
 
+  // /api/health/status public'e açık (bkz. app.js) — kaynağın gerçek
+  // hostname'i (marka bilgisini taşıyan kısım) burada asla tutulmaz,
+  // yalnızca mirror numarası saklanır.
+  function maskBase(base) {
+    return base?.match(/(\d+)\.com/)?.[1] ? `mirror ${base.match(/(\d+)\.com/)[1]}` : null;
+  }
+
   /**
    * Durum geçişlerini kontrol eder ve yalnızca geçiş anında alarm üretir.
    * reportOk/reportFail bunu kendiliğinden çağırır; ayrıca job tamamen asılıp
@@ -128,7 +135,7 @@ export function createSyncHealth({ now = Date.now, onAlert = defaultAlert } = {}
   function reportOk(feed, meta) {
     const f = feeds.get(feed);
     if (!f) return;
-    if (meta?.base) lastBase = meta.base;
+    if (meta?.base) lastBase = maskBase(meta.base);
     f.lastSuccessAt = now();
     f.consecutiveFailures = 0;
     f.lastError = null;
@@ -138,7 +145,7 @@ export function createSyncHealth({ now = Date.now, onAlert = defaultAlert } = {}
   function reportFail(feed, error, meta) {
     const f = feeds.get(feed);
     if (!f) return;
-    if (meta?.base) lastBase = meta.base;
+    if (meta?.base) lastBase = maskBase(meta.base);
     f.consecutiveFailures++;
     f.lastError = error?.message ? String(error.message) : String(error ?? 'bilinmeyen hata');
     evaluate();

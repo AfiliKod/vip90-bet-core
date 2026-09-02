@@ -13,5 +13,8 @@
 export const HOME_GREEN = '#5ED631';
 export const HOME_GREEN_DARK = '#3FA820';
 export const HOME_BG = '#0a0f0d';
-export const HOME_CARD = '#0b131a';
+// Navbar.jsx:43 (`bg-bg-base`, tailwind.config.js `colors.bg.base`) ile
+// birebir aynı — tüm anasayfa konteyner/kart/buton arkaplanları artık üst
+// menü bar'ıyla tutarlı olsun diye kasıtlı olarak o rengi paylaşıyor.
+export const HOME_CARD = '#0d1526';
 export const HOME_BORDER = 'rgba(255,255,255,0.06)';

@@ -21,11 +21,14 @@ export default function WinnersPanel() {
 
   return (
     <div className="rounded-xl p-3.5" style={{ background: `linear-gradient(180deg, ${HOME_CARD} 0%, #071016 100%)`, border: `1px solid ${HOME_BORDER}` }}>
-      <div className="flex items-center justify-between pb-3 mb-1 border-b" style={{ borderColor: HOME_BORDER }}>
-        <span className="text-[15px] font-bold text-white font-ui">{t('home.rail.winners')}</span>
+      {/* 220px genişlikte (referans mizanpaj) başlık + çevrimiçi rozeti yan
+          yana sığmıyor ("Recent Winners" gibi uzun çevirilerde özellikle) —
+          alt alta istiflemek, dar rayda kelime kırılmasını önlüyor. */}
+      <div className="flex flex-col gap-1 pb-3 mb-1 border-b" style={{ borderColor: HOME_BORDER }}>
+        <span className="text-[15px] font-bold text-white font-ui whitespace-nowrap">{t('home.rail.winners')}</span>
         <span className="inline-flex items-center gap-1.5 text-[11px] font-semibold font-ui text-[#c8ced2]">
-          <span className="w-[7px] h-[7px] rounded-full bg-green-500 animate-pulse" />
-          {t('home.rail.online', { count: onlineCount.toLocaleString('tr-TR') })}
+          <span className="w-[7px] h-[7px] rounded-full bg-green-500 animate-pulse shrink-0" />
+          <span className="truncate">{t('home.rail.online', { count: onlineCount.toLocaleString('tr-TR') })}</span>
         </span>
       </div>
       <div className="flex flex-col">
