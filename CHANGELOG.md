@@ -12,7 +12,7 @@ Madde formatı ve kategoriler için `docs/CHANGELOG_GUIDE.md`'ye bakın —
 
 ## [Yayınlanmadı]
 
-### Kritik: oddsSource canlı senkronizasyon WS hatası tüm sunucuyu çökertiyordu
+### Kritik: OddsSource canlı senkronizasyon WS hatası tüm sunucuyu çökertiyordu
 `jobs/oddsSourceLiveSync.js`'teki `nodeupd` Socket.IO bağlantısında `ws.onerror = () => ws.close();` deseni — bir bağlantı hatasında `close()` çağrısı bazen (undici/`ws` kütüphanesinin bilinen bir tuzağı) yeni bir `error` event'i daha fırlatıyor, bu da `onerror`'ı SENKRON olarak yeniden tetikleyip sonsuz özyinelemeyle `RangeError: Maximum call stack size exceeded` ile **backend process'ini komple çökertiyordu**. `node --watch` her seferinde otomatik yeniden başlattığı için görünürde "çalışıyor" gibiydi, ama her çöküş anında Vite dev proxy'sinin o anki `/socket.io` bağlantıları "http proxy error" ile başarısız oluyordu (kullanıcının fark ettiği asıl belirti — proxy/socket.io yapılandırması değil, backend'in kendisiydi). Basit bir `erroring` bayrağı + `try/catch` ile ikinci `onerror` girişi yok sayılıyor artık.
 
 ### Çevrimiçi sayaç artık polling değil, socket push
@@ -288,7 +288,7 @@ sayfalar bu turun dışında; beğenilirse aynı dil yayılacak.
   doku, "Neden Biz?" bölümü arka planı).
 - `tailwind.config.js`'e `gold` renk paleti ve `font-display`/`font-ui`
   aileleri eklendi.
-- **İkinci iterasyon** — gerçek rakip sitelerinde (oddsSource7502, Exonbet291;
+- **İkinci iterasyon** — gerçek rakip sitelerinde (OddsSource7502, Exonbet291;
   1xbet güvenlik kısıtlamasıyla engellendi) yapılan tarayıcı incelemesi
   sonrası üç endüstri-standardı kalıp eklendi: (1) `RecentWinnersTicker`
   ince metin şeridinden yatay kaydırılan **kazanan kartlarına** çevrildi
@@ -473,13 +473,13 @@ değişikliği gerektiriyordu.
 
 ### T4/T5 — Takip: kullanıcıya görünen marka izi ve ölü betikler (kısmi)
 Dev server önizlemesi sırasında `server/src/data/oddsSource-domain.json`'ın
-(oddsSource'in Türkiye'de engellenen ayna domain'lerini DNS/HTTP ile keşfeden
+(OddsSource'in Türkiye'de engellenen ayna domain'lerini DNS/HTTP ile keşfeden
 canlı bir mekanizmanın önbelleği olduğu) sorgulanmasıyla ortaya çıktı: T4'ün
 orijinal kabul kriteri ("hiçbir üçüncü taraf marka adı geçmiyor") yalnızca
 kısmen karşılanmıştı — bu maddeyle şu güvenli/kullanıcıya-görünen kısım
 kapatıldı:
 - `/status` sayfasındaki `status.component.oddsSource.desc` sözlük değerinden
-  ("oddsSource — canlı oran ve maç verisi") marka adı çıkarıldı, jenerik hâle
+  ("OddsSource — canlı oran ve maç verisi") marka adı çıkarıldı, jenerik hâle
   getirildi (`tr.js`, `en.js`). Anahtar adı (`oddsSource`) dahili tanımlayıcı
   olduğu için kullanıcıya görünmüyor, değiştirilmedi.
 - `server/scripts/oddsSource.har` (30 MB ölü HAR yakalaması) ve
@@ -489,8 +489,8 @@ kapatıldı:
 **Bu kart hâlâ `done` değil, kasıtlı olarak.** İnceleme sırasında yeni bir
 bulgu ortaya çıktı: `ODDS_PROVIDER` ayarı canlı/fikstür senkronizasyon
 job'larının hangisinin çalışacağını seçmiyor — `server.js`,
-`startoddsSourceLiveSync`/`startoddsSourceUpcomingSync`'i bu ayardan bağımsız,
-koşulsuz başlatıyor; bu job'lar her zaman oddsSource'in ayna domain'ini
+`startOddsSourceLiveSync`/`startOddsSourceUpcomingSync`'i bu ayardan bağımsız,
+koşulsuz başlatıyor; bu job'lar her zaman OddsSource'in ayna domain'ini
 keşfedip WebSocket'le bağlanıyor. `ODDS_PROVIDER=theoddsapi` yapmak yalnızca
 ayrıştırma mantığını etkiliyor, bu trafiği durdurmuyor. Gerçek bir sağlayıcı
 değişimi (theoddsapi için yeni bir senkronizasyon job'ı + `server.js`'te
@@ -512,11 +512,11 @@ kapsamı dışında; V3 (ürün sayfası metni) kullanıcı onayı bekliyor.
 **Bu hâlâ satışa hazır sürüm değildir.** 1.0.0 etiketi, kalan üç kart
 kapanıp ürün fiilen yayına gönderilmeye hazır olduğunda verilecek.
 
-### T4/T5 — Tamamlama: oddsSource/BGaming demo oyun vitrini tamamen kaldırıldı
+### T4/T5 — Tamamlama: OddsSource/BGaming demo oyun vitrini tamamen kaldırıldı
 Aşağıdaki T4 (kısmi) ve T5 kritik bulgu maddelerini kapatır. Palace
 casino entegrasyonu (T3) pazara sürülecek üründen çıkarıldığı için,
 Palace'tan önceki dönemde deneme amaçlı kurulmuş bu vitrin sistemi
-artık hiçbir işlevsel amaca hizmet etmiyordu (oddsSource sadece spor bahis
+artık hiçbir işlevsel amaca hizmet etmiyordu (OddsSource sadece spor bahis
 oranı kaynağı olarak kalıyor — bu kaldırma onu etkilemez).
 
 **Kaldırıldı:**
@@ -529,9 +529,9 @@ oranı kaynağı olarak kalıyor — bu kaldırma onu etkilemez).
 - `client/src/pages/HomePage.jsx`: anasayfadaki "Pragmatic Play
   Oyunları" tanıtım bölümü.
 - `server/src/services/oddsSourceService.js`, `server/src/services/
-  streamService.js` — oddsSource/BGaming oyun sayfalarını canlı proxy'leyip
+  streamService.js` — OddsSource/BGaming oyun sayfalarını canlı proxy'leyip
   CDP screencast ile yayınlayan sunucu-taraflı tarayıcı otomasyonu.
-- `server/data/oddsSource-games.json` (3,2 MB) — oddsSource oyun kataloğu.
+- `server/data/oddsSource-games.json` (3,2 MB) — OddsSource oyun kataloğu.
 - `server/src/routes/casino.js`: `/game/:gameId`, `/relay`, `/cdn/*`,
   `/launcher-proxy/*`, `/logo-stub.js`, `/oddsSource-game/:id`,
   `/oddsSource-games`, `/oddsSource-launch`, `/swintt-proxy`,
@@ -582,7 +582,7 @@ değişiklikten sonra hatasız geçti.
   değişmedi. Toplam 1.114.475 satır repo'dan çıktı.
 - **Bu kart `done` değil, kasıtlı olarak.** Kabul kriteri ("hiçbir
   üçüncü taraf marka adı geçmiyor") beklenenden çok daha büyük bir
-  kapsam ortaya çıkardı: oddsSource yalnızca bahis oranı kaynağı değil,
+  kapsam ortaya çıkardı: OddsSource yalnızca bahis oranı kaynağı değil,
   `services/oddsSourceService.js` + `services/streamService.js` üzerinden
   **ayrı bir casino oyun akışı sağlayıcısı** olarak da gömülü — bu iki
   ayrı sistemin (odds senkronizasyon motoru + casino akışı) sökülmesi
@@ -593,11 +593,11 @@ değişiklikten sonra hatasız geçti.
 
 ### T2 — Lisanslı feed sağlayıcısı, ilk gerçek adaptör
 - `services/oddsProviders/theOddsApiProvider.js`: The Odds API adaptörü,
-  T1'deki oddsSource adaptörüyle aynı sözleşmeye (NormalizedEvent) uyuyor.
+  T1'deki OddsSource adaptörüyle aynı sözleşmeye (NormalizedEvent) uyuyor.
   Sağlayıcı canlı/yaklaşan ayrımını ayrı uçlarla vermediği için
   `commence_time`'a göre sınıflandırma yapılıyor (basitleştirilmiş
   sezgisel — kesin dakika-bazlı canlı skor bu sağlayıcıdan gelmiyor,
-  oddsSource'in nodeupd akışının aksine).
+  OddsSource'in nodeupd akışının aksine).
 - `oddsProviders/index.js`: kayıt defterine eklendi.
   `ODDS_PROVIDER=theoddsapi` ile aktif hale geliyor — kaynağı
   değiştirmek env değiştirmekten ibaret, sync job'ı hiç değişmiyor
@@ -779,8 +779,8 @@ TDD: 13 yeni test, tamamı önce kırmızı. Suite 265/265. (D5)
   sync katmanının tek bir bahis sitesine doğrudan bağımlılığını sökmenin ilk adımı.
   `ODDS_PROVIDER` env'inden aktif sağlayıcı seçimi, çift kayıt ve bilinmeyen
   sağlayıcı reddi. (T1)
-- oddsSource odds adaptörü (`services/oddsProviders/oddsSourceProvider.js`): mevcut
-  oddsSource bağlantısını kontratın arkasına alır, ham veriyi normalize etkinliğe
+- OddsSource odds adaptörü (`services/oddsProviders/oddsSourceProvider.js`): mevcut
+  OddsSource bağlantısını kontratın arkasına alır, ham veriyi normalize etkinliğe
   çevirir. Ağ erişimi enjekte edilebilir — testler ağa çıkmaz. Bozuk satırları
   atlar, batch'i öldürmez. (T1)
 - LiveSync job'ı odds sağlayıcı kontratına bağlandı

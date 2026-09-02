@@ -16,8 +16,8 @@ import { connectDB } from './db.js';
 import { initSocket } from './socket/handler.js';
 import { initCrashGame } from './services/inhouse/crashGame.js';
 import { initRouletteGame } from './services/inhouse/rouletteGame.js';
-import { startoddsSourceLiveSync } from './jobs/oddsSourceLiveSync.js';
-import { startoddsSourceUpcomingSync } from './jobs/oddsSourceUpcomingSync.js';
+import { startOddsSourceLiveSync } from './jobs/oddsSourceLiveSync.js';
+import { startOddsSourceUpcomingSync } from './jobs/oddsSourceUpcomingSync.js';
 import { startMonitor } from './services/syncHealth.js';
 import { startStatusTransition } from './jobs/statusTransition.js';
 import { startCleanupJob } from './jobs/cleanup.js';
@@ -111,8 +111,8 @@ connectDB()
     initRouletteGame(io);
     startCleanupJob();
     startStatusTransition(io);
-    startoddsSourceLiveSync(io);
-    startoddsSourceUpcomingSync(io);
+    startOddsSourceLiveSync(io);
+    startOddsSourceUpcomingSync(io);
     // P3 — bot oyuncular: aksiyonu hazır botları periyodik tetikler
     startBotScheduler();
     // Son Kazananlar simülasyonu — gerçek User/bakiye kullanmadan, değişen

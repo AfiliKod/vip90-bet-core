@@ -10,7 +10,7 @@ import { chromium } from 'playwright';
 import { readFileSync } from 'fs';
 import { resolve, dirname } from 'path';
 import { fileURLToPath } from 'url';
-import { getoddsSourceGameUrl } from '../src/services/oddsSourceService.js';
+import { getOddsSourceGameUrl } from '../src/services/oddsSourceService.js';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 
@@ -29,14 +29,14 @@ console.log(`\n🔍 Oyun trafiği analizi başlıyor: ${gameId} (${provider || '
 
 async function main() {
   // Launch URL al
-  console.log('  → oddsSource\'ten launch URL alınıyor...');
+  console.log('  → Kaynaktan launch URL alınıyor...');
   let launchUrl;
   try {
-    launchUrl = await getoddsSourceGameUrl(gameId, provider, false);
+    launchUrl = await getOddsSourceGameUrl(gameId, provider, false);
   } catch (e) {
     // Fallback: demo
     console.warn(`  ⚠ Real URL alınamadı (${e.message}), demo deneniyor...`);
-    launchUrl = await getoddsSourceGameUrl(gameId, provider, true);
+    launchUrl = await getOddsSourceGameUrl(gameId, provider, true);
   }
   console.log(`  ✓ Launch URL: ${launchUrl.slice(0, 80)}...\n`);
 

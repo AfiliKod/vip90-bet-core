@@ -2,7 +2,7 @@
  * 2. tur provider analizi — ka-gaming, yggdrasil, fazi, amusnet, egt, endorphina, ruby-play, cq9, pgsoft
  */
 import { chromium } from 'playwright';
-import { getoddsSourceGameUrl } from '../src/services/oddsSourceService.js';
+import { getOddsSourceGameUrl } from '../src/services/oddsSourceService.js';
 
 const TARGETS = [
   { provider: 'ka-gaming',   gameId: '019c896e-9fcd-77a9-9089-1e2ad2c4fb2a' },
@@ -23,7 +23,7 @@ const SKIP_HOST = ['google-analytics.com','googletagmanager.com','hotjar.com','d
 
 async function getUrl(provider, gameId) {
   try {
-    return await getoddsSourceGameUrl(gameId, provider, true);
+    return await getOddsSourceGameUrl(gameId, provider, true);
   } catch {
     return null;
   }

@@ -142,15 +142,15 @@ describe('alarm üretimi', () => {
 
   test('alarm yükü teşhis için gereken alanları taşır', () => {
     const { health, alerts, advance } = setup();
-    health.reportOk('live', { base: 'https://bet.oddsSource7191.com' });
+    health.reportOk('live', { base: 'https://bet.example7191.com' });
     advance(4 * MIN);
-    health.reportFail('live', new Error('fetch failed'), { base: 'https://bet.oddsSource7169.com' });
+    health.reportFail('live', new Error('fetch failed'), { base: 'https://bet.example7169.com' });
     const a = alerts[0];
     assert.strictEqual(a.feed, 'live');
     assert.ok(a.staleSeconds >= 240, `staleSeconds beklenenden küçük: ${a.staleSeconds}`);
     assert.strictEqual(a.consecutiveFailures, 1);
     assert.match(a.lastError, /fetch failed/);
-    assert.strictEqual(a.base, 'https://bet.oddsSource7169.com');
+    assert.strictEqual(a.base, 'https://bet.example7169.com');
   });
 });
 
@@ -170,14 +170,14 @@ describe('feed izolasyonu', () => {
 describe('snapshot', () => {
   test('her iki feed için serileştirilebilir durum döner', () => {
     const { health, advance } = setup();
-    health.reportOk('live', { base: 'https://bet.oddsSource7191.com' });
+    health.reportOk('live', { base: 'https://bet.example7191.com' });
     advance(2 * MIN);
     const snap = health.snapshot();
 
     assert.strictEqual(snap.live.state, 'ok');
     assert.strictEqual(snap.live.staleSeconds, 120);
     assert.strictEqual(snap.live.bettingBlocked, false);
-    assert.strictEqual(snap.domain, 'https://bet.oddsSource7191.com');
+    assert.strictEqual(snap.domain, 'https://bet.example7191.com');
     assert.ok(snap.upcomingOdds, 'upcomingOdds da bulunmalı');
     assert.doesNotThrow(() => JSON.stringify(snap));
   });

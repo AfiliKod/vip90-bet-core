@@ -1,5 +1,5 @@
 import { chromium } from 'playwright';
-import { getoddsSourceGameUrl } from '../src/services/oddsSourceService.js';
+import { getOddsSourceGameUrl } from '../src/services/oddsSourceService.js';
 
 const TARGETS = [
   { provider: 'bf-games',  gameId: '018d31f3-ce34-7326-9a1e-1b7f328ce6ca' },
@@ -24,7 +24,7 @@ async function analyzeProvider({ provider, gameId }) {
 
   let launchUrl;
   try {
-    launchUrl = await getoddsSourceGameUrl(gameId, provider, true);
+    launchUrl = await getOddsSourceGameUrl(gameId, provider, true);
   } catch {
     console.log('  ✗ URL alınamadı');
     return { provider, status: 'NO_URL' };

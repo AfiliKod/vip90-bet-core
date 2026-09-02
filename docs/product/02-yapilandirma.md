@@ -34,8 +34,8 @@ operatörün günlük işi).
 
 > **Bilinen sınır:** `ODDS_PROVIDER` yukarıdaki tablonun ima ettiğinin
 > aksine canlı/fikstür senkronizasyon job'larının HANGİSİNİN çalışacağını
-> seçmiyor — `server.js`, `startoddsSourceLiveSync`/`startoddsSourceUpcomingSync`'i
-> bu ayardan bağımsız, koşulsuz başlatıyor. Bu job'lar her zaman oddsSource'in
+> seçmiyor — `server.js`, `startOddsSourceLiveSync`/`startOddsSourceUpcomingSync`'i
+> bu ayardan bağımsız, koşulsuz başlatıyor. Bu job'lar her zaman OddsSource'in
 > ayna domain'ini keşfedip WebSocket'le bağlanır; `ODDS_PROVIDER=theoddsapi`
 > yapmak yalnızca ayrıştırma mantığını etkiler, bu trafiği durdurmaz. Tam
 > sağlayıcı değişimi — theoddsapi için yeni bir senkronizasyon job'ı yazmak
