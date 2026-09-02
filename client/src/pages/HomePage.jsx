@@ -313,11 +313,13 @@ export default function HomePage() {
         <RecentWinnersTicker />
 
         {/* Main + sağ ray TEK grid'de kardeş: oyun satırları böylece hep
-            main sütununun (1fr) genişliğinde kalır, sağ raya (260px)
+            main sütununun (1fr) genişliğinde kalır, sağ raya (220px)
             taşmaz — hero eskiden kendi iç grid'ini kuruyordu, altındaki
             GameRowSection'lar ise o grid'in dışında tam genişlik kardeş
-            bloklar olarak akıp sağ rayın da altına yayılıyordu. */}
-        <div className="lg:grid lg:grid-cols-[1fr_260px] lg:gap-4 lg:items-start">
+            bloklar olarak akıp sağ rayın da altına yayılıyordu.
+            220px: referans tasarımın (VIP90-BET-pixel-perfect-homepage/
+            styles.css .layout) sol sidebar ile eşit genişlik kararı. */}
+        <div className="lg:grid lg:grid-cols-[1fr_220px] lg:gap-4 lg:items-start">
           <div className="min-w-0">
             {sectionOrder.includes('hero') && <Fragment key="hero">{SECTIONS.hero}</Fragment>}
             <ProviderRow selectedId={selectedProvider?.id} onSelect={setSelectedProvider} />
