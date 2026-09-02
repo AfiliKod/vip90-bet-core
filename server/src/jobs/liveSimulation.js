@@ -20,6 +20,6 @@ export function startLiveSimulation(io) {
         io.emit('odds:update', { eventId: event._id, markets: event.markets });
         io.emit('score:update', { eventId: event._id, score: event.liveScore });
       }
-    } catch(e) { console.error('Simulation hatası:', e.message); }
+    } catch(e) { console.error('Simulation error:', e.message); }
   }, 8000);
 }

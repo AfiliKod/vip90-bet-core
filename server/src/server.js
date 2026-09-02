@@ -70,20 +70,20 @@ const clearAllIntervals = () => {
 
 // Phase E13 — Graceful shutdown
 async function shutdown(signal) {
-  console.log(`\n${signal} alındı, graceful shutdown başlıyor...`);
+  console.log(`\n${signal} received, starting graceful shutdown...`);
   try {
     // 1. Yeni istekleri kabul etme
-    httpServer.close(() => console.log('✅ HTTP server kapandı'));
-    io.close(() => console.log('✅ Socket.IO kapandı'));
+    httpServer.close(() => console.log('✅ HTTP server closed'));
+    io.close(() => console.log('✅ Socket.IO closed'));
     // 2. Interval'ları temizle
     clearAllIntervals();
-    console.log('✅ Job interval\'ları temizlendi');
+    console.log('✅ Job intervals cleared');
     // 3. DB bağlantısını kapat
     await mongoose.disconnect();
-    console.log('✅ MongoDB bağlantısı kapatıldı');
+    console.log('✅ MongoDB connection closed');
     setTimeout(() => process.exit(0), 1000).unref();
   } catch (e) {
-    console.error('Shutdown hatası:', e);
+    console.error('Shutdown error:', e);
     process.exit(1);
   }
 }
@@ -93,19 +93,19 @@ process.on('SIGINT', () => shutdown('SIGINT'));
 
 connectDB()
   .then(async () => {
-    httpServer.listen(PORT, () => console.log(`Server :${PORT} üzerinde çalışıyor`));
+    httpServer.listen(PORT, () => console.log(`Server running on :${PORT}`));
     // O4 — kademeli yönetici yetkileri: varsayılan izin/rol setini oluşturur
     // (idempotent, koleksiyon boşsa doldurur). Daha önce hiçbir yerden
     // çağrılmadığı için Permission/Role koleksiyonları hep boştu.
     initDefaultPermissions()
       .then(() => initDefaultRoles()) // roller izinlere referans verir, sırayla çalışmalı
-      .catch(err => console.error('initDefaultPermissions/Roles hatası:', err.message));
+      .catch(err => console.error('initDefaultPermissions/Roles error:', err.message));
     // O1 — VIP/seviye programı: varsayılan Bronze..Diamond seviyeleri
-    initDefaultVipLevels().catch(err => console.error('initDefaultVipLevels hatası:', err.message));
+    initDefaultVipLevels().catch(err => console.error('initDefaultVipLevels error:', err.message));
     // Footer/statik sayfalar: yasal metinler + kurumsal sayfa placeholder'ları
-    seedDefaultPages().catch(err => console.error('seedDefaultPages hatası:', err.message));
+    seedDefaultPages().catch(err => console.error('seedDefaultPages error:', err.message));
     // P1 — sohbet: hiç oda yoksa "Genel Sohbet" odasını oluşturur
-    initDefaultChatRoom().catch(err => console.error('initDefaultChatRoom hatası:', err.message));
+    initDefaultChatRoom().catch(err => console.error('initDefaultChatRoom error:', err.message));
     initSocket(io);
     initCrashGame(io);
     initRouletteGame(io);
@@ -128,7 +128,7 @@ connectDB()
       .catch(() => {});
   })
   .catch(err => {
-    console.error('DB bağlantı hatası:', err.message);
+    console.error('DB connection error:', err.message);
     errorLogger.critical('db_connect', err.message);
     process.exit(1);
   });

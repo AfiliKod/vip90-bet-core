@@ -8,10 +8,10 @@ export function startBotScheduler() {
       const results = await runBotScheduler();
       const executed = results.filter(r => r.executed).length;
       if (executed > 0) {
-        console.log(`[botScheduler] ${executed}/${results.length} bot aksiyonu çalıştırıldı`);
+        console.log(`[botScheduler] ${executed}/${results.length} bot actions executed`);
       }
     } catch (e) {
-      console.error('[botScheduler] hata:', e.message);
+      console.error('[botScheduler] error:', e.message);
     }
   }
 

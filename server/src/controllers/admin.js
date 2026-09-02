@@ -781,7 +781,7 @@ export async function withdrawPalaceTestUsers(req, res, next) {
               withdrawn: palaceBalance,
               status: 'success'
             });
-            console.log(`✅ ${user.username} (${user.palaceUserCode}): ${palaceBalance} TL çekildi`);
+            console.log(`✅ ${user.username} (${user.palaceUserCode}): ${palaceBalance} TL withdrawn`);
           } else {
             errorCount++;
             results.push({

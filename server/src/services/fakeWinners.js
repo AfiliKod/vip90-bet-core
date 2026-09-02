@@ -237,7 +237,7 @@ export async function fireFakeWin() {
 function scheduleNextFire() {
   const delay = randomInt(config.intervalMinMs, config.intervalMaxMs);
   fireTimer = setTimeout(() => {
-    fireFakeWin().catch(e => console.error('[fakeWinners] hata:', e.message));
+    fireFakeWin().catch(e => console.error('[fakeWinners] error:', e.message));
     scheduleNextFire();
   }, delay);
 }

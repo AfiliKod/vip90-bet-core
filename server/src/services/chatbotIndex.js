@@ -27,13 +27,13 @@ function loadKnowledgeBase() {
       chunks.push(...chunkMarkdown(content, file));
     }
   } catch (e) {
-    console.warn('[Chatbot] docs/product/ okunamadı:', e.message);
+    console.warn('[Chatbot] Failed to read docs/product/:', e.message);
   }
   try {
     const changelog = readFileSync(path.join(ROOT, 'CHANGELOG.md'), 'utf8');
     chunks.push(...chunkMarkdown(changelog, 'CHANGELOG.md'));
   } catch (e) {
-    console.warn('[Chatbot] CHANGELOG.md okunamadı:', e.message);
+    console.warn('[Chatbot] Failed to read CHANGELOG.md:', e.message);
   }
   return chunks;
 }

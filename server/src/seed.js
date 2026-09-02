@@ -18,7 +18,7 @@ await User.create({
   role: 'admin',
   balance: 0,
 });
-console.log('✅ Admin kullanıcısı oluşturuldu (admin / Admin1234!)');
+console.log('✅ Admin user created (admin / Admin1234!)');
 
 // Lokalde tespit edilmiş sorunlu BGaming oyunları
 const BROKEN_GAMES = [
@@ -46,7 +46,7 @@ await GameTask.deleteMany({ type: 'broken_game' });
 await GameTask.insertMany(
   BROKEN_GAMES.map(g => ({ ...g, provider: 'BGaming', status: 'pending' }))
 );
-console.log(`✅ ${BROKEN_GAMES.length} sorunlu BGaming oyunu GameTask'a eklendi`);
+console.log(`✅ ${BROKEN_GAMES.length} problematic BGaming games added to GameTask`);
 
 // ─── V1 — Demo ortamı verisi (idempotent) ─────────────────────────
 // Sınırlı yetkili demo yöneticisi, örnek oyuncular, bahis ve casino
@@ -57,7 +57,7 @@ const demo = await createDemoSeeder({
   betModel: Bet,
   casinoRoundModel: CasinoRound,
 }).seed();
-for (const c of demo.created) console.log(`✅ demo oluşturuldu: ${c}`);
-for (const s of demo.skipped) console.log(`• demo zaten mevcut: ${s}`);
+for (const c of demo.created) console.log(`✅ demo created: ${c}`);
+for (const s of demo.skipped) console.log(`• demo already exists: ${s}`);
 
 await mongoose.disconnect();

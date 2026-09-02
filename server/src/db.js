@@ -13,9 +13,9 @@ export async function connectDB() {
       socketTimeoutMS: 45000,
       maxIdleTimeMS: 60000,
     });
-    console.log('MongoDB bağlantısı kuruldu (pool: 5-20, bufferCommands: false)');
+    console.log('MongoDB connection established (pool: 5-20, bufferCommands: false)');
   } catch (err) {
-    console.error('MongoDB bağlantı hatası:', err.message);
+    console.error('MongoDB connection error:', err.message);
     throw err;
   }
 }

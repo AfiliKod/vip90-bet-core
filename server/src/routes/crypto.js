@@ -105,7 +105,7 @@ r.post('/check-deposit', async (req, res, next) => {
         console.log(`[crypto] ${fresh._id} → +${await formatMoney(tryAmount)} (${usdtAmount} USDT, tx:${txHash.slice(0,12)})`);
       } catch (e) {
         await session.abortTransaction();
-        console.error('[crypto] TX işleme hatası:', txHash, e.message);
+        console.error('[crypto] TX processing error:', txHash, e.message);
       } finally {
         session.endSession();
       }

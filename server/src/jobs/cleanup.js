@@ -13,7 +13,7 @@ export function startCleanupJob() {
       { $set: { archivedAt: new Date() } },
     );
     if (archiveResult.modifiedCount > 0) {
-      console.log(`[cleanup] ${archiveResult.modifiedCount} etkinlik arşivlendi`);
+      console.log(`[cleanup] ${archiveResult.modifiedCount} events archived`);
     }
 
     // 24 saat+ önce başlamış hâlâ upcoming olan eventleri bitir
@@ -22,7 +22,7 @@ export function startCleanupJob() {
       { $set: { status: 'finished' } },
     );
     if (staleResult.modifiedCount > 0) {
-      console.log(`[cleanup] ${staleResult.modifiedCount} eski upcoming etkinlik finished yapıldı`);
+      console.log(`[cleanup] ${staleResult.modifiedCount} stale upcoming events marked finished`);
     }
 
     // 30 günden uzak upcoming eventleri bitir (upcomingSync penceresi dışı)
@@ -31,7 +31,7 @@ export function startCleanupJob() {
       { $set: { status: 'finished' } },
     );
     if (farFutureResult.modifiedCount > 0) {
-      console.log(`[cleanup] ${farFutureResult.modifiedCount} uzak gelecek etkinlik finished yapıldı`);
+      console.log(`[cleanup] ${farFutureResult.modifiedCount} far-future events marked finished`);
     }
 
     // İptal edilmiş eski etkinlikleri sil
@@ -40,7 +40,7 @@ export function startCleanupJob() {
       startTime: { $lt: cutoff24h },
     });
     if (result.deletedCount > 0) {
-      console.log(`[cleanup] ${result.deletedCount} iptal etkinlik silindi`);
+      console.log(`[cleanup] ${result.deletedCount} cancelled events deleted`);
     }
   }
 

@@ -24,16 +24,16 @@ async function upsertEvent(data) {
 /* İlk tam senkronizasyon */
 export async function fullSync() {
   if (!process.env.ODDS_API_KEY) {
-    console.warn('ODDS_API_KEY tanımlanmamış, senkronizasyon atlandı');
+    console.warn('ODDS_API_KEY not set, sync skipped');
     return;
   }
 
-  console.log('📡 Odds API tam senkronizasyonu başlıyor...');
+  console.log('📡 Odds API full sync starting...');
   let events;
   try {
     events = await fetchAllEvents();
   } catch (err) {
-    if (err.quotaExceeded) { console.warn('⚠️  Odds API kotası doldu — senkronizasyon atlandı'); return; }
+    if (err.quotaExceeded) { console.warn('⚠️  Odds API quota exceeded — sync skipped'); return; }
     throw err;
   }
 
@@ -44,7 +44,7 @@ export async function fullSync() {
     else updated++;
   }
 
-  console.log(`✅ Senkronizasyon tamamlandı: ${created} yeni, ${updated} güncellendi`);
+  console.log(`✅ Sync complete: ${created} new, ${updated} updated`);
 }
 
 /* Periyodik oran güncellemesi (her 10 dakikada bir) */
@@ -54,7 +54,7 @@ export function startOddsSync(io) {
   const INTERVAL_MS = 10 * 60 * 1000; // 10 dakika
 
   setInterval(async () => {
-    console.log('🔄 Oran güncellemesi başlıyor...');
+    console.log('🔄 Odds refresh starting...');
     let updated = 0;
 
     for (const sport of SPORTS_TO_SYNC) {
@@ -78,11 +78,11 @@ export function startOddsSync(io) {
           updated++;
         }
       } catch (err) {
-        if (err.quotaExceeded) { console.warn('⚠️  Odds API kotası doldu — periyodik güncelleme durduruluyor'); return; }
-        console.error(`Oran güncelleme hatası (${sport.key}):`, err.message);
+        if (err.quotaExceeded) { console.warn('⚠️  Odds API quota exceeded — periodic refresh stopped'); return; }
+        console.error(`Odds refresh error (${sport.key}):`, err.message);
       }
     }
 
-    console.log(`✅ ${updated} etkinliğin oranları güncellendi`);
+    console.log(`✅ Odds updated for ${updated} events`);
   }, INTERVAL_MS);
 }

@@ -36,7 +36,7 @@ async function callLLM(systemPrompt, query) {
 
   if (!response.ok) {
     const err = await response.text().catch(() => '');
-    console.warn('[Chatbot] AI API hatası:', response.status, err.slice(0, 200));
+    console.warn('[Chatbot] AI API error:', response.status, err.slice(0, 200));
     return 'Şu an yanıt veremiyorum. Lütfen kısa süre sonra tekrar deneyin.';
   }
 

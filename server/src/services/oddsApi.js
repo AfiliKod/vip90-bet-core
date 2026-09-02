@@ -118,10 +118,10 @@ export async function fetchAllEvents() {
         });
       }
 
-      console.log(`  ${sport.league}: ${events.length} etkinlik`);
+      console.log(`  ${sport.league}: ${events.length} events`);
     } catch (e) {
       if (e.quotaExceeded) throw e;
-      console.error(`  ${sport.league} hatası:`, e.message);
+      console.error(`  ${sport.league} error:`, e.message);
     }
   }
 

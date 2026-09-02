@@ -49,9 +49,9 @@ function warnUnconfiguredOnce() {
   if (_warnedUnconfigured) return;
   _warnedUnconfigured = true;
   console.warn(
-    '[alert] Hiçbir alarm kanalı konfigüre değil — kritik olaylar hiçbir yere ' +
-    'bildirilmiyor. Admin panel → Ayarlar’dan bir kanal tanımlayın ' +
-    '(ya da ALERT_WEBHOOK_URL / TELEGRAM_BOT_TOKEN+TELEGRAM_CHAT_ID / ALERT_EMAIL_TO env).'
+    '[alert] No alert channel configured — critical events are not being ' +
+    'reported anywhere. Set one up in Admin panel → Settings ' +
+    '(or the ALERT_WEBHOOK_URL / TELEGRAM_BOT_TOKEN+TELEGRAM_CHAT_ID / ALERT_EMAIL_TO env).'
   );
 }
 

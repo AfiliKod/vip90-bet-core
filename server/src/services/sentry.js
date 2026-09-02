@@ -5,7 +5,7 @@ let _sentry = null;
 
 export async function initSentry(app) {
   if (!process.env.SENTRY_DSN) {
-    console.log('[sentry] SENTRY_DSN tanımlı değil — Sentry devre dışı');
+    console.log('[sentry] SENTRY_DSN not set — Sentry disabled');
     return;
   }
   try {

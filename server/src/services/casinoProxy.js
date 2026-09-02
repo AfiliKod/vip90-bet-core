@@ -117,7 +117,7 @@ export async function createSession(sessionId, demoUrl, { onSpinResult, initialB
       await page.evaluate((bal) => { window.__bz_balance = bal; }, initialBalance);
     }
   } catch (e) {
-    console.warn(`[casinoProxy] Yükleme hatası (${sessionId}):`, e.message);
+    console.warn(`[casinoProxy] Load error (${sessionId}):`, e.message);
   }
 
   sessions.set(sessionId, { browser, page });
@@ -154,7 +154,7 @@ export async function closeSession(sessionId) {
   if (!s) return;
   await s.browser.close().catch(() => {});
   sessions.delete(sessionId);
-  console.log(`[casinoProxy] Kapatıldı: ${sessionId}`);
+  console.log(`[casinoProxy] Closed: ${sessionId}`);
 }
 
 export function getSessionCount() { return sessions.size; }
