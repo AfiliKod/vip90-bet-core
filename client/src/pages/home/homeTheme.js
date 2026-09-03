@@ -9,12 +9,13 @@
  * HOME_GREEN artık kullanılmıyor (sitewide primary artık var(--color-primary)
  * üzerinden admin temasından geliyor) — betface.png döneminden kalıntı, silinmedi
  * çünkü referanslayan bir şey yok ama silmek de güvenli.
+ *
+ * HOME_CARD/HOME_BORDER artık `styles/surface.js`'ten re-export ediliyor —
+ * bu genel "yüzey" paleti Spor Bahisleri/Canlı Bahis sayfalarına da taşındığı
+ * için tek doğruluk kaynağı orada; burada iki ayrı hardcoded sabit olarak
+ * durup sessizce diverge etme riski ortadan kalktı.
  */
 export const HOME_GREEN = '#5ED631';
 export const HOME_GREEN_DARK = '#3FA820';
 export const HOME_BG = '#0a0f0d';
-// Navbar.jsx:43 (`bg-bg-base`, tailwind.config.js `colors.bg.base`) ile
-// birebir aynı — tüm anasayfa konteyner/kart/buton arkaplanları artık üst
-// menü bar'ıyla tutarlı olsun diye kasıtlı olarak o rengi paylaşıyor.
-export const HOME_CARD = '#0d1526';
-export const HOME_BORDER = 'rgba(255,255,255,0.06)';
+export { SURFACE_CARD as HOME_CARD, SURFACE_BORDER as HOME_BORDER } from '../../styles/surface.js';

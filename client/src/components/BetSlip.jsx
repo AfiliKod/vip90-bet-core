@@ -6,6 +6,7 @@ import { useToastStore } from '../store/toastStore';
 import { useTranslation } from '../i18n';
 import api from '../services/api';
 import { formatMoney, getActiveCurrency } from '../utils/money.js';
+import { SURFACE_CARD_BG, SURFACE_BORDER } from '../styles/surface';
 
 export function SlipContent({ onSubmitted }) {
   const { selections, type, stake, setType, setStake, removeSelection, clear, getTotalOdds } = useBetSlipStore();
@@ -62,7 +63,7 @@ export function SlipContent({ onSubmitted }) {
       )}
       <div className="p-3 space-y-2 max-h-60 overflow-y-auto">
         {selections.map(s => (
-          <div key={`${s.eventId}-${s.marketType}`} className="bg-bg-base rounded-lg p-3 flex items-start justify-between gap-2">
+          <div key={`${s.eventId}-${s.marketType}`} className="rounded-xl p-3 flex items-start justify-between gap-2" style={{ background: SURFACE_CARD_BG }}>
             <div className="text-xs flex-1 min-w-0">
               <div className="text-text-2 truncate">{s.eventLabel}</div>
               <div className="text-text-3 mt-0.5">{s.oddLabel}</div>
@@ -109,7 +110,7 @@ export default function BetSlip({ desktopHidden = false } = {}) {
           mobil bar/sheet davranışı (aşağıda) buna bakılmaksızın çalışır. ── */}
       {!desktopHidden && (
         <aside className="w-72 shrink-0 hidden lg:block">
-          <div className="bg-bg-card border border-white/10 rounded-xl overflow-hidden sticky top-20">
+          <div className="rounded-xl overflow-hidden sticky top-20" style={{ background: SURFACE_CARD_BG, border: `1px solid ${SURFACE_BORDER}` }}>
             <SlipContent />
           </div>
         </aside>
@@ -131,7 +132,7 @@ export default function BetSlip({ desktopHidden = false } = {}) {
       {mobileOpen && (
         <div className="fixed inset-0 z-50 lg:hidden flex flex-col justify-end">
           <div className="absolute inset-0 bg-black/60" onClick={() => setMobileOpen(false)} />
-          <div className="relative bg-bg-card rounded-t-2xl border-t border-white/10 max-h-[80vh] overflow-y-auto">
+          <div className="relative rounded-t-2xl max-h-[80vh] overflow-y-auto" style={{ background: SURFACE_CARD_BG, borderTop: `1px solid ${SURFACE_BORDER}` }}>
             <div className="flex items-center justify-end px-3 pt-3">
               <button onClick={() => setMobileOpen(false)} className="text-text-3 hover:text-text-1 text-2xl leading-none px-2" aria-label={t('common.close')}>✕</button>
             </div>

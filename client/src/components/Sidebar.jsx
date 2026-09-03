@@ -5,6 +5,7 @@ import { useSettingsStore } from '../store/settingsStore';
 import { SPORT_META } from '../utils/sportMeta';
 import { useFormatters } from '../i18n/useFormatters.jsx';
 import { BRAND_GRADIENT, BRAND_GLOW } from '../styles/brand';
+import { SURFACE_CARD_BG, SURFACE_BORDER } from '../styles/surface';
 
 const SPORT_ORDER = [
   'football', 'basketball', 'tennis', 'volleyball', 'icehockey',
@@ -122,7 +123,10 @@ export default function Sidebar() {
   }
 
   return (
-    <aside className="hidden md:flex w-[200px] shrink-0 bg-bg-base border-r border-white/10 flex-col overflow-y-auto">
+    <aside
+      className="hidden md:flex w-[200px] shrink-0 rounded-xl flex-col overflow-y-auto"
+      style={{ background: SURFACE_CARD_BG, border: `1px solid ${SURFACE_BORDER}` }}
+    >
 
       <div className="px-3 pt-4 pb-1">
         {/* Tümü */}

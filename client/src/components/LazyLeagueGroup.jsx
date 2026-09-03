@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useEventsStore, leagueKey } from '../store/eventsStore';
 import MiniEventCard from './MiniEventCard';
+import { SURFACE_CARD_BG, SURFACE_BORDER } from '../styles/surface';
 
 export default function LazyLeagueGroup({ sport, country, league, count, status = 'upcoming', defaultOpen = false, forceOpenSignal, onExtraClick }) {
   const [open, setOpen] = useState(defaultOpen);
@@ -25,7 +26,8 @@ export default function LazyLeagueGroup({ sport, country, league, count, status 
     <div id={`league-${key}`} className="mb-1">
       <button
         onClick={() => setOpen(o => !o)}
-        className="w-full flex items-center gap-2 px-3 py-2 rounded-lg bg-bg-card border border-white/10 text-sm font-medium text-text-1 hover:bg-bg-hover transition"
+        className="w-full flex items-center gap-2 px-3 py-2 rounded-xl text-sm font-medium text-text-1 hover:bg-white/[0.04] transition"
+        style={{ background: SURFACE_CARD_BG, border: `1px solid ${SURFACE_BORDER}` }}
       >
         <span className="flex-1 text-left truncate">{title}</span>
         <span className="text-xs text-text-3 font-normal">{count} etkinlik</span>
@@ -48,7 +50,7 @@ export default function LazyLeagueGroup({ sport, country, league, count, status 
                 event={ev}
                 live={false}
                 accent="#00d4ff"
-                bgColor="#111d30"
+                bgColor={SURFACE_CARD_BG}
                 onExtraClick={onExtraClick ? () => onExtraClick(ev._id) : undefined}
               />
             ))

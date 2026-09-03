@@ -6,6 +6,7 @@ import LazyLeagueGroup from '../components/LazyLeagueGroup';
 import BetSlip from '../components/BetSlip';
 import HeroSlider from '../components/HeroSlider';
 import { BRAND_GRADIENT_H } from '../styles/brand';
+import { SURFACE_CARD, SURFACE_CARD_BG, SURFACE_BORDER } from '../styles/surface';
 import { useTranslation } from '../i18n';
 
 function SearchInput({ value, onChange, placeholder }) {
@@ -26,7 +27,7 @@ function SearchInput({ value, onChange, placeholder }) {
         onChange={onChange}
         placeholder={placeholder ?? t('bahis.searchPlaceholder')}
         className="relative w-full rounded-xl pl-10 pr-9 py-2.5 text-sm outline-none transition-all backdrop-blur-sm font-medium"
-        style={{ background: '#0c1220aa', border: '1px solid #ffffff14', color: '#f0f4ff' }}
+        style={{ background: `${SURFACE_CARD}aa`, border: `1px solid ${SURFACE_BORDER}`, color: '#f0f4ff' }}
         onFocus={e => {
           e.currentTarget.style.background = '#0c1220ee';
           e.currentTarget.style.boxShadow = '0 0 16px #00d4ff33, 0 0 24px #7c3aed22';
@@ -142,7 +143,7 @@ export default function Bahis() {
             ) : (
               <div className="flex flex-col gap-2">
                 {searchResults.map(ev => (
-                  <MiniEventCard key={ev._id} event={ev} live={false} accent="#00d4ff" bgColor="#111d30" />
+                  <MiniEventCard key={ev._id} event={ev} live={false} accent="#00d4ff" bgColor={SURFACE_CARD_BG} />
                 ))}
               </div>
             )
@@ -163,7 +164,8 @@ export default function Bahis() {
                   <div key={s.sport} className="mb-2">
                     <button
                       onClick={() => setCollapsedSports(prev => ({ ...prev, [s.sport]: !(prev[s.sport] ?? (s.sport !== 'football')) }))}
-                      className="w-full flex items-center gap-2 px-3 py-2 rounded-lg bg-bg-card border border-white/10 text-sm font-semibold text-text-1 hover:bg-bg-hover transition mb-1"
+                      className="w-full flex items-center gap-2 px-3 py-2 rounded-xl text-sm font-semibold text-text-1 hover:bg-white/[0.04] transition mb-1"
+                      style={{ background: SURFACE_CARD_BG, border: `1px solid ${SURFACE_BORDER}` }}
                     >
                       <span>{meta.icon}</span>
                       <span className="flex-1 text-left">{meta.label}</span>

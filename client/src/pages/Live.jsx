@@ -8,6 +8,7 @@ import LeagueGroup from '../components/LeagueGroup';
 import BetSlip from '../components/BetSlip';
 import LiveHeroSlider from '../components/LiveHeroSlider';
 import { BRAND_GRADIENT_H, BRAND_GRADIENT, BRAND_GLOW } from '../styles/brand';
+import { SURFACE_CARD, SURFACE_CARD_BG, SURFACE_BORDER } from '../styles/surface';
 
 function SearchInput({ value, onChange, placeholder = t('sports.searchPlaceholder') }) {
   return (
@@ -26,13 +27,13 @@ function SearchInput({ value, onChange, placeholder = t('sports.searchPlaceholde
         onChange={onChange}
         placeholder={placeholder}
         className="relative w-full rounded-xl pl-10 pr-9 py-2.5 text-sm outline-none transition-all backdrop-blur-sm font-medium"
-        style={{ background: '#0c1220aa', border: '1px solid #ffffff14', color: '#f0f4ff' }}
+        style={{ background: `${SURFACE_CARD}aa`, border: `1px solid ${SURFACE_BORDER}`, color: '#f0f4ff' }}
         onFocus={e => {
-          e.currentTarget.style.background = '#0c1220ee';
+          e.currentTarget.style.background = `${SURFACE_CARD}ee`;
           e.currentTarget.style.boxShadow = '0 0 16px #00d4ff33, 0 0 24px #7c3aed22';
         }}
         onBlur={e => {
-          e.currentTarget.style.background = '#0c1220aa';
+          e.currentTarget.style.background = `${SURFACE_CARD}aa`;
           e.currentTarget.style.boxShadow = 'none';
         }}
       />
@@ -226,7 +227,8 @@ export default function Live() {
                   <div key={s} className="mb-2">
                     <button
                       onClick={() => setCollapsedSports(prev => ({ ...prev, [s]: !prev[s] }))}
-                      className="w-full flex items-center gap-2 px-3 py-2 rounded-lg bg-bg-card border border-white/10 text-sm font-semibold text-text-1 hover:bg-bg-hover transition mb-1"
+                      className="w-full flex items-center gap-2 px-3 py-2 rounded-xl text-sm font-semibold text-text-1 hover:bg-white/[0.04] transition mb-1"
+                      style={{ background: SURFACE_CARD_BG, border: `1px solid ${SURFACE_BORDER}` }}
                     >
                       <span>{meta.icon}</span>
                       <span className="flex-1 text-left">{meta.label}</span>
@@ -241,7 +243,7 @@ export default function Live() {
                             event={ev}
                             live
                             accent="#ef4444"
-                            bgColor="#111d30"
+                            bgColor={SURFACE_CARD_BG}
                             onExtraClick={() => handleToggleDrawer(ev._id)}
                           />
                         ))}
@@ -262,7 +264,7 @@ export default function Live() {
                   openDrawerId={openDrawerId}
                   onToggleDrawer={handleToggleDrawer}
                   accent="#ef4444"
-                  bgColor="#111d30"
+                  bgColor={SURFACE_CARD_BG}
                 />
               ))}
             </div>

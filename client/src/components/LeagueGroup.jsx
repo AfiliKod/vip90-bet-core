@@ -4,6 +4,7 @@ import MarketDrawer from './MarketDrawer';
 import { useSettingsStore } from '../store/settingsStore';
 import { translateLeagueKey } from '../utils/i18n';
 import { useTranslation } from '../i18n';
+import { SURFACE_CARD_BG, SURFACE_BORDER } from '../styles/surface';
 
 export default function LeagueGroup({ league, leagueFlag, events, openDrawerId, onToggleDrawer, accent, bgColor }) {
   const [collapsed, setCollapsed] = useState(false);
@@ -12,10 +13,11 @@ export default function LeagueGroup({ league, leagueFlag, events, openDrawerId, 
   const displayLeague = translateLeagueKey(league, lang);
 
   return (
-    <div className="mb-2 rounded-xl overflow-hidden border border-white/10">
+    <div className="mb-2 rounded-xl overflow-hidden" style={{ border: `1px solid ${SURFACE_BORDER}` }}>
       <button
         onClick={() => setCollapsed(c => !c)}
-        className="w-full flex items-center gap-2 px-3 py-2 bg-bg-card hover:bg-white/[0.04] transition-colors text-left"
+        className="w-full flex items-center gap-2 px-3 py-2 hover:bg-white/[0.04] transition-colors text-left"
+        style={{ background: SURFACE_CARD_BG }}
       >
         <span className="text-base">{leagueFlag}</span>
         <span className="flex-1 text-xs font-semibold text-text-1 truncate">
