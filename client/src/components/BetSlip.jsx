@@ -53,10 +53,10 @@ export function SlipContent({ onSubmitted }) {
       </div>
       {selections.length > 1 && (
         <div className="flex p-2 gap-1 border-b border-white/10">
-          {['single', 'combo'].map(t => (
-            <button key={t} onClick={() => setType(t)}
-              className={`flex-1 py-1.5 rounded-lg text-xs font-medium transition ${type === t ? 'bg-accent text-white' : 'text-text-2 hover:bg-bg-hover'}`}>
-              {t === 'single' ? t('betslip.single') : t('betslip.combo', { count: selections.length })}
+          {['single', 'combo'].map(betType => (
+            <button key={betType} onClick={() => setType(betType)}
+              className={`flex-1 py-1.5 rounded-lg text-xs font-medium transition ${type === betType ? 'bg-accent text-white' : 'text-text-2 hover:bg-bg-hover'}`}>
+              {betType === 'single' ? t('betslip.single') : t('betslip.combo', { count: selections.length })}
             </button>
           ))}
         </div>
@@ -101,6 +101,7 @@ export function SlipContent({ onSubmitted }) {
 export default function BetSlip({ desktopHidden = false } = {}) {
   const { selections, getTotalOdds } = useBetSlipStore();
   const [mobileOpen, setMobileOpen] = useState(false);
+  const { t } = useTranslation();
   const totalOdds = getTotalOdds();
 
   return (

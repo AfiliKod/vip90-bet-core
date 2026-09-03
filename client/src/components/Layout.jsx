@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { useLocation } from 'react-router-dom';
-import Sidebar from './Sidebar';
+import HomeSidebar from './home/HomeSidebar';
 import Footer from './Footer';
 import LiveHelp from './LiveHelp';
 import ChatWidgetContainer from './chat/ChatWidgetContainer';
@@ -10,13 +10,23 @@ import { useTranslation } from '../i18n';
 
 export default function Layout({ children }) {
   const { pathname } = useLocation();
+  // Bahis/Live/EventDetail kendi bağlam-duyarlı HomeSidebar'ını içeride
+  // kendisi render ediyor; Casino ve Anasayfa da kendi yerleşimini yönetiyor.
+  // Geri kalan tüm sayfalar (Kampanyalar, Profil, Ayarlar, Favoriler,
+  // Bahislerim, Son Oynananlar vb.) burada genel HomeSidebar kabuğunu alır —
+  // eskiden burada spor-filtre ağacı (Sidebar.jsx) gösteriliyordu, bu
+  // sayfalarla hiç ilgisi olmayan bir "Futbol/Basketbol/Tenis" listesiydi.
   const showSidebar = !pathname.startsWith('/casino') && !pathname.startsWith('/events/') && pathname !== '/' && pathname !== '/bahis' && pathname !== '/canli';
   const [helpOpen, setHelpOpen] = useState(false);
   const { t } = useTranslation();
 
   return (
     <div className="flex pb-14 lg:pb-0" style={{ height: 'calc(100vh - 56px)' }}>
-      {showSidebar && <Sidebar />}
+      {showSidebar && (
+        <div className="hidden lg:block shrink-0 pl-5 pt-5">
+          <HomeSidebar />
+        </div>
+      )}
       <div className="flex-1 overflow-y-auto min-w-0 relative" data-scroll-container>
         {children}
         <Footer onOpenHelp={() => setHelpOpen(true)} />

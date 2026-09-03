@@ -5,6 +5,7 @@ import { useToastStore } from '../store/toastStore';
 import { useAuthStore } from '../store/authStore';
 import { useTranslation } from '../i18n';
 import { formatMoney } from '../utils/money.js';
+import { SURFACE_CARD_BG, SURFACE_BORDER } from '../styles/surface';
 
 export default function Promotions() {
   const { t } = useTranslation();
@@ -37,23 +38,22 @@ export default function Promotions() {
 
   return (
     <div className="max-w-3xl mx-auto px-4 py-6">
-      <h1 className="text-2xl font-bold text-text-1 mb-6">🎁 {t('nav.promotions')}</h1>
+      <h1 className="text-2xl font-black text-text-1 mb-6">🎁 {t('nav.promotions')}</h1>
       <div className="grid gap-4">
-        <div className="bg-bg-card border border-accent/30 rounded-xl p-5 flex items-center justify-between gap-4" style={{ boxShadow: '0 0 16px rgba(0,212,255,0.08)' }}>
+        <div className="rounded-xl p-5 flex items-center justify-between gap-4" style={{ background: SURFACE_CARD_BG, border: `1px solid ${SURFACE_BORDER}` }}>
           <div className="flex-1 min-w-0">
             <h3 className="font-bold text-text-1 mb-1">🎁 {t('promotions.referralTitle')}</h3>
             <p className="text-text-3 text-sm">{t('promotions.referralDesc')}</p>
           </div>
           <Link to="/profile"
-            className="shrink-0 px-5 py-2.5 rounded-lg text-sm font-semibold text-black transition"
-            style={{ background: 'linear-gradient(90deg, #00d4ff, #7c3aed)', boxShadow: '0 0 12px #00d4ff55' }}>
+            className="shrink-0 px-5 py-2.5 rounded-lg text-sm font-semibold text-bg-deep bg-gradient-to-r from-primary to-accent hover:opacity-90 transition">
             {t('promotions.getMyLink')}
           </Link>
         </div>
         {promos.map(p => {
           const claimed = p.claimedBy?.some(id => id === user?._id);
           return (
-            <div key={p._id} className="bg-bg-card border border-white/10 rounded-xl p-5 flex items-center justify-between gap-4">
+            <div key={p._id} className="rounded-xl p-5 flex items-center justify-between gap-4" style={{ background: SURFACE_CARD_BG, border: `1px solid ${SURFACE_BORDER}` }}>
               <div className="flex-1 min-w-0">
                 <h3 className="font-bold text-text-1 mb-1">{p.title}</h3>
                 <p className="text-text-3 text-sm mb-3">{p.description}</p>
@@ -68,9 +68,8 @@ export default function Promotions() {
                 onClick={() => !claimed && setActivePromo(p)}
                 disabled={claimed}
                 className={`shrink-0 px-5 py-2.5 rounded-lg text-sm font-semibold transition ${
-                  claimed ? 'bg-bg-base text-text-3 cursor-not-allowed' : 'text-black'
+                  claimed ? 'bg-bg-base text-text-3 cursor-not-allowed' : 'text-bg-deep bg-gradient-to-r from-primary to-accent hover:opacity-90'
                 }`}
-                style={!claimed ? { background: 'linear-gradient(90deg, #00d4ff, #7c3aed)', boxShadow: '0 0 12px #00d4ff55' } : undefined}
               >
                 {claimed ? `✓ ${t('promotions.used')}` : t('promotions.use')}
               </button>
@@ -85,7 +84,7 @@ export default function Promotions() {
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4" style={{ background: 'rgba(0,0,0,0.7)' }}>
           <div
             className="max-w-md w-full rounded-2xl p-6 max-h-[90vh] overflow-y-auto"
-            style={{ background: '#0c1220', border: '1px solid rgba(0,212,255,0.3)' }}
+            style={{ background: SURFACE_CARD_BG, border: `1px solid ${SURFACE_BORDER}` }}
           >
             <div className="flex items-center justify-between mb-4">
               <h3 className="text-lg font-bold text-text-1">{activePromo.title}</h3>
@@ -106,7 +105,7 @@ export default function Promotions() {
               <p>• {t('promotions.ruleHedgeCancel')}</p>
               <p>
                 {t('promotions.detailedTermsPrefix')}{' '}
-                <Link to="/legal/bonus-terms" target="_blank" className="underline" style={{ color: '#00d4ff' }}>
+                <Link to="/legal/bonus-terms" target="_blank" className="underline text-primary">
                   {t('promotions.bonusTermsLink')}
                 </Link>
                 {t('promotions.detailedTermsSuffix')}
@@ -118,7 +117,7 @@ export default function Promotions() {
                 type="checkbox"
                 checked={acceptedTC}
                 onChange={e => setAcceptedTC(e.target.checked)}
-                className="w-4 h-4 mt-0.5 rounded cursor-pointer accent-cyan-400"
+                className="w-4 h-4 mt-0.5 rounded cursor-pointer accent-primary"
               />
               <span className="text-xs leading-relaxed" style={{ color: '#c8d8f0' }}>
                 {t('promotions.acceptTerms')}
@@ -135,8 +134,7 @@ export default function Promotions() {
               <button
                 onClick={claim}
                 disabled={!acceptedTC}
-                className="flex-1 py-2.5 rounded-lg text-sm font-bold text-black disabled:opacity-40 disabled:cursor-not-allowed"
-                style={{ background: 'linear-gradient(90deg, #00d4ff, #7c3aed)', boxShadow: '0 0 12px #00d4ff55' }}
+                className="flex-1 py-2.5 rounded-lg text-sm font-bold text-bg-deep bg-gradient-to-r from-primary to-accent hover:opacity-90 transition disabled:opacity-40 disabled:cursor-not-allowed"
               >
                 {t('promotions.getBonus')}
               </button>

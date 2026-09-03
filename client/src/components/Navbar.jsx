@@ -8,6 +8,15 @@ import { BRAND_GRADIENT, BRAND_GRADIENT_H } from '../styles/brand';
 import LanguageSwitcher from '../i18n/LanguageSwitcher.jsx';
 import SearchOverlay from './search/SearchOverlay.jsx';
 
+// Aktif üst menü sekmesinin altında birincil renkte ince bir çizgi gösterir —
+// nav.jsx'teki her sekme (Casino/Spor Bahisleri/Canlı Bahis/Promosyonlar) bu
+// sınıfı paylaşır, tek doğruluk kaynağı burada.
+function NAV_ITEM_ACTIVE_CLASS(isActive) {
+  return isActive
+    ? "text-text-1 bg-bg-hover rounded-lg after:content-[''] after:absolute after:left-3 after:right-3 after:-bottom-px after:h-0.5 after:rounded-full after:bg-[var(--color-primary)]"
+    : 'text-text-2 rounded-lg';
+}
+
 export default function Navbar() {
   const { user, logout } = useAuthStore();
   const { siteName, logo } = useBrandingStore();
@@ -50,10 +59,10 @@ export default function Navbar() {
           )}
         </Link>
         <div className="hidden lg:flex items-center gap-1 flex-1 overflow-x-auto">
-          <Link to="/" className={`px-3 py-1.5 rounded-lg text-sm hover:text-text-1 hover:bg-bg-hover transition whitespace-nowrap ${casinoActive ? 'text-text-1 bg-bg-hover' : 'text-text-2'}`}>{t('nav.casino')}</Link>
-          <NavLink to="/bahis" end className={({isActive}) => `px-3 py-1.5 rounded-lg text-sm hover:text-text-1 hover:bg-bg-hover transition whitespace-nowrap ${isActive ? 'text-text-1 bg-bg-hover' : 'text-text-2'}`}>{t('home.sports.title')}</NavLink>
-          <NavLink to="/canli" className={({isActive}) => `px-3 py-1.5 rounded-lg text-sm hover:text-text-1 hover:bg-bg-hover transition whitespace-nowrap ${isActive ? 'text-text-1 bg-bg-hover' : 'text-text-2'}`}>{t('nav.liveBetting')}</NavLink>
-          <NavLink to="/promotions" className={({isActive}) => `px-3 py-1.5 rounded-lg text-sm hover:text-text-1 hover:bg-bg-hover transition whitespace-nowrap ${isActive ? 'text-text-1 bg-bg-hover' : 'text-text-2'}`}>{t('nav.promotions')}</NavLink>
+          <Link to="/" className={`relative px-3 py-1.5 text-sm hover:text-text-1 hover:bg-bg-hover transition whitespace-nowrap ${NAV_ITEM_ACTIVE_CLASS(casinoActive)}`}>{t('nav.casino')}</Link>
+          <NavLink to="/bahis" end className={({isActive}) => `relative px-3 py-1.5 text-sm hover:text-text-1 hover:bg-bg-hover transition whitespace-nowrap ${NAV_ITEM_ACTIVE_CLASS(isActive)}`}>{t('home.sports.title')}</NavLink>
+          <NavLink to="/canli" className={({isActive}) => `relative px-3 py-1.5 text-sm hover:text-text-1 hover:bg-bg-hover transition whitespace-nowrap ${NAV_ITEM_ACTIVE_CLASS(isActive)}`}>{t('nav.liveBetting')}</NavLink>
+          <NavLink to="/promotions" className={({isActive}) => `relative px-3 py-1.5 text-sm hover:text-text-1 hover:bg-bg-hover transition whitespace-nowrap ${NAV_ITEM_ACTIVE_CLASS(isActive)}`}>{t('nav.promotions')}</NavLink>
           {user?.role === 'admin' && (
             <Link to="/admin" className="px-3 py-1.5 rounded-lg text-sm text-warning hover:bg-bg-hover transition whitespace-nowrap">{t('nav.admin')}</Link>
           )}
