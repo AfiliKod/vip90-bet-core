@@ -8,6 +8,8 @@ import LeagueGroup from '../components/LeagueGroup';
 import BetSlip, { SlipContent } from '../components/BetSlip';
 import LiveHeroSlider from '../components/LiveHeroSlider';
 import HomeSidebar from '../components/home/HomeSidebar';
+import WinnersPanel from '../components/home/WinnersPanel';
+import PromoPanel from '../components/home/PromoPanel';
 import { BRAND_GRADIENT_H, BRAND_GRADIENT, BRAND_GLOW } from '../styles/brand';
 import { SURFACE_CARD, SURFACE_CARD_BG, SURFACE_BORDER } from '../styles/surface';
 
@@ -245,6 +247,8 @@ export default function Live() {
       </div>
 
       <div className="hidden lg:flex lg:flex-col lg:gap-4">
+        <WinnersPanel />
+        <PromoPanel />
         <div className="rounded-xl overflow-hidden sticky top-20" style={{ background: SURFACE_CARD_BG, border: `1px solid ${SURFACE_BORDER}` }}>
           <SlipContent />
         </div>
