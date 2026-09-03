@@ -1,13 +1,20 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useMemo } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import api from '../services/api';
-import BetSlip from '../components/BetSlip';
+import BetSlip, { SlipContent } from '../components/BetSlip';
 import MatchHero from '../components/MatchHero';
+import HomeSidebar from '../components/home/HomeSidebar';
+import WinnersPanel from '../components/home/WinnersPanel';
+import PromoPanel from '../components/home/PromoPanel';
 import { socket } from '../services/socket';
 import { groupOddsIntoLines, getTableConfig, formatOdd } from '../utils/oddsUtils';
 import { useBetSlipStore } from '../store/betSlipStore';
 import { useSettingsStore } from '../store/settingsStore';
 import { useOddFlash } from '../hooks/useOddFlash';
+import { useEventsStore } from '../store/eventsStore';
+import { SPORT_META, sportIconMaterial } from '../utils/sportMeta';
+import { SURFACE_CARD_BG, SURFACE_BORDER } from '../styles/surface';
+import { useTranslation } from '../i18n';
 
 // Tıklanabilir oran hücresi — oran değişince kısa renk animasyonu
 function OddCell({ eventId, eventLabel, marketType, odd }) {
@@ -192,9 +199,15 @@ function MarketAccordion({ market, eventId, eventLabel, defaultOpen }) {
 }
 
 export default function EventDetail() {
+  const { t } = useTranslation();
   const { id } = useParams();
   const [event, setEvent] = useState(null);
   const [loading, setLoading] = useState(true);
+
+  const {
+    summary, fetchSummary,
+    events: liveStoreEvents, fetchEvents, setLeagueFilter,
+  } = useEventsStore();
 
   useEffect(() => {
     api.get(`/events/${id}`)
@@ -215,37 +228,137 @@ export default function EventDetail() {
     };
   }, [id]);
 
+  // Sidebar içeriği ziyaret edilen etkinliğin durumuna göre değişir: canlıysa
+  // Canlı Bahis'in, yaklaşansa Spor Bahisleri'nin kategori/lig verisi — bu
+  // sayfa da 1:1 aynı HomeSidebar kabuğunu kullanıyor.
+  const isLive = event?.status === 'live';
+
+  useEffect(() => {
+    if (!event) return;
+    if (isLive) fetchEvents('all', 'live');
+    else fetchSummary('upcoming');
+  }, [event?._id, isLive]);
+
+  const liveEvents = useMemo(() => liveStoreEvents.filter(e => e.status === 'live'), [liveStoreEvents]);
+
+  const sportCategories = useMemo(() => {
+    if (!event) return [];
+    if (isLive) {
+      const bySport = new Map();
+      for (const ev of liveEvents) {
+        if (!ev.sport) continue;
+        if (!bySport.has(ev.sport)) bySport.set(ev.sport, 0);
+        bySport.set(ev.sport, bySport.get(ev.sport) + 1);
+      }
+      return [
+        { key: 'all', icon: 'apps', label: t('common.all'), badge: liveEvents.length, onClick: () => {}, active: true },
+        ...[...bySport.entries()].map(([sport, count]) => ({
+          key: sport,
+          icon: sportIconMaterial(sport),
+          label: (SPORT_META[sport] ?? { label: sport }).label,
+          badge: count,
+          onClick: () => {},
+          active: sport === event.sport,
+        })),
+      ];
+    }
+    const totalCount = (summary?.sports || []).reduce((n, s) => n + s.count, 0);
+    return [
+      { key: 'all', icon: 'apps', label: t('common.all'), badge: totalCount, onClick: () => {}, active: true },
+      ...(summary?.sports || []).map(s => ({
+        key: s.sport,
+        icon: sportIconMaterial(s.sport),
+        label: (SPORT_META[s.sport] ?? { label: s.sport }).label,
+        badge: s.count,
+        onClick: () => {},
+        active: s.sport === event.sport,
+      })),
+    ];
+  }, [event, isLive, liveEvents, summary, t]);
+
+  const featuredLeagues = useMemo(() => {
+    if (!event) return [];
+    if (isLive) {
+      const map = new Map();
+      for (const ev of liveEvents) {
+        if (!ev.sport) continue;
+        const key = ev.country ? `${ev.country} > ${ev.league}` : ev.league;
+        if (!map.has(key)) map.set(key, { sport: ev.sport, key, count: 0 });
+        map.get(key).count++;
+      }
+      return [...map.values()].sort((a, b) => b.count - a.count).slice(0, 5).map(lg => ({
+        key: lg.key,
+        label: lg.key.includes(' > ') ? lg.key.split(' > ').at(-1) : lg.key,
+        badge: lg.count,
+        to: '/canli',
+        onClick: () => setLeagueFilter(lg.sport, lg.key),
+      }));
+    }
+    return (summary?.sports || [])
+      .flatMap(s => (s.leagues || []).map(lg => ({
+        sport: s.sport, country: lg.country, league: lg.league,
+        key: lg.country ? `${lg.country} > ${lg.league}` : lg.league,
+        count: lg.count,
+      })))
+      .sort((a, b) => b.count - a.count)
+      .slice(0, 5)
+      .map(lg => ({
+        key: `${lg.sport}:${lg.key}`,
+        label: lg.key.includes(' > ') ? lg.key.split(' > ').at(-1) : lg.key,
+        badge: lg.count,
+        onClick: () => {},
+      }));
+  }, [event, isLive, liveEvents, summary, setLeagueFilter]);
+
+  const topExtraLink = !isLive && event
+    ? { to: '/bahis', icon: 'event', label: t('bahis.upcomingEvents') }
+    : undefined;
+
   if (loading) return <div className="text-center text-text-3 py-16">Yükleniyor...</div>;
   if (!event) return <div className="text-center text-text-3 py-16">Etkinlik bulunamadı</div>;
 
   const label = `${event.homeTeam.name} vs ${event.awayTeam.name}`;
 
   return (
-    <div className="max-w-7xl mx-auto px-4 py-6 flex gap-6">
-      <main className="flex-1 min-w-0">
-        <Link to="/bahis" className="text-text-3 hover:text-text-1 text-sm mb-4 inline-flex items-center gap-1 transition">
-          ← Geri
-        </Link>
+    <div className="min-h-full lg:flex lg:gap-5 lg:px-5 lg:pt-5 lg:items-stretch">
+      <HomeSidebar categories={sportCategories} topExtraLink={topExtraLink} featuredLeagues={featuredLeagues} />
+      <div className="flex-1 min-w-0 flex flex-col">
+        <div className="lg:grid lg:grid-cols-[1fr_260px] lg:gap-4 lg:items-start">
+          <div className="min-w-0">
+            <Link to={isLive ? '/canli' : '/bahis'} className="text-text-3 hover:text-text-1 text-sm mb-4 inline-flex items-center gap-1 transition">
+              ← {t('common.back')}
+            </Link>
 
-        <MatchHero event={event} />
+            <MatchHero event={event} />
 
-        {event.markets.length === 0 ? (
-          <p className="text-center text-text-3 text-sm py-8">Bu etkinlik için şu an açık bahis bulunmuyor.</p>
-        ) : (
-          <div className="space-y-2">
-            {event.markets.map((market, i) => (
-              <MarketAccordion
-                key={market.type + i}
-                market={market}
-                eventId={event._id}
-                eventLabel={label}
-                defaultOpen={i === 0}
-              />
-            ))}
+            {event.markets.length === 0 ? (
+              <p className="text-center text-text-3 text-sm py-8">Bu etkinlik için şu an açık bahis bulunmuyor.</p>
+            ) : (
+              <div className="space-y-2 mt-4">
+                {event.markets.map((market, i) => (
+                  <MarketAccordion
+                    key={market.type + i}
+                    market={market}
+                    eventId={event._id}
+                    eventLabel={label}
+                    defaultOpen={i === 0}
+                  />
+                ))}
+              </div>
+            )}
           </div>
-        )}
-      </main>
-      <BetSlip />
+
+          <div className="hidden lg:flex lg:flex-col lg:gap-4">
+            <WinnersPanel />
+            <PromoPanel />
+            <div className="rounded-xl overflow-hidden sticky top-20" style={{ background: SURFACE_CARD_BG, border: `1px solid ${SURFACE_BORDER}` }}>
+              <SlipContent />
+            </div>
+          </div>
+        </div>
+
+        <BetSlip desktopHidden />
+      </div>
     </div>
   );
 }

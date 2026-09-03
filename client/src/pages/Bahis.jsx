@@ -63,8 +63,10 @@ export default function Bahis() {
     setCollapsedSports({});
   }
 
+  const totalCount = useMemo(() => (summary?.sports || []).reduce((n, s) => n + s.count, 0), [summary]);
+
   const sportCategories = useMemo(() => [
-    { key: 'all', icon: 'apps', label: t('common.all'), onClick: showAll, active: selectedCategory === 'all' },
+    { key: 'all', icon: 'apps', label: t('common.all'), badge: totalCount, onClick: showAll, active: selectedCategory === 'all' },
     ...(summary?.sports || []).map(s => ({
       key: s.sport,
       icon: sportIconMaterial(s.sport),
@@ -73,7 +75,7 @@ export default function Bahis() {
       onClick: () => goToSport(s.sport),
       active: selectedCategory === s.sport,
     })),
-  ], [summary, t, selectedCategory]);
+  ], [summary, t, selectedCategory, totalCount]);
 
   // Öne Çıkan Ligler — önceki Sidebar.jsx'teki "Popüler Ligler" (top 5,
   // etkinlik sayısına göre) ile aynı mantık, HomeSidebar'ın yeni
@@ -96,22 +98,17 @@ export default function Bahis() {
       }));
   }, [summary, setFocusLeague]);
 
-  const categoriesHeader = (
-    <span
-      className="inline-flex px-3 py-2 rounded-lg text-xs font-bold w-full justify-center"
-      style={{ background: 'var(--color-primary)', color: '#08110b' }}
-    >
-      {t('bahis.upcomingEvents')}
-    </span>
-  );
+  const topExtraLink = { to: '/bahis', icon: 'event', label: t('bahis.upcomingEvents') };
 
   return (
     <div className="min-h-full lg:flex lg:gap-5 lg:px-5 lg:pt-5 lg:items-stretch">
-      <HomeSidebar categories={sportCategories} categoriesHeader={categoriesHeader} featuredLeagues={featuredLeagues} />
+      <HomeSidebar categories={sportCategories} topExtraLink={topExtraLink} featuredLeagues={featuredLeagues} />
       <div className="flex-1 min-w-0 flex flex-col">
         <div className="lg:grid lg:grid-cols-[1fr_260px] lg:gap-4 lg:items-start">
         <div className="min-w-0">
           <PromoHeroSlider />
+
+          <h1 className="text-xl font-black text-text-1 my-4">{t('home.sports.title')}</h1>
 
           {/* Mobil spor kategorileri — Sidebar masaüstünde md breakpoint altında gizli olduğu için */}
           <div className="md:hidden -mx-1 my-4 flex gap-2 overflow-x-auto no-scrollbar px-1 pb-1">

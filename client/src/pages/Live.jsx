@@ -60,7 +60,7 @@ export default function Live() {
   // tetikliyor — hiyerarşik görünüm (tüm sporlar bir arada) o an kaybolup
   // yalnızca seçilen sporun lig listesi kalıyor, kaydırmaya gerek yok.
   const sportCategories = useMemo(() => [
-    { key: 'all', icon: 'apps', label: t('common.all'), onClick: () => setSportFilter('all'), active: selectedSport === 'all' },
+    { key: 'all', icon: 'apps', label: t('common.all'), badge: liveEvents.length, onClick: () => setSportFilter('all'), active: selectedSport === 'all' },
     ...sportChips.map(({ id, label, count }) => ({
       key: id,
       icon: sportIconMaterial(id),
@@ -69,7 +69,7 @@ export default function Live() {
       onClick: () => setSportFilter(id),
       active: selectedSport === id,
     })),
-  ], [sportChips, t, setSportFilter, selectedSport]);
+  ], [sportChips, t, setSportFilter, selectedSport, liveEvents.length]);
 
   // Öne Çıkan Ligler — canlı maçlardan lig başına maç sayısına göre top 5.
   const featuredLeagues = useMemo(() => {
@@ -91,19 +91,9 @@ export default function Live() {
       }));
   }, [liveEvents, setLeagueFilter]);
 
-  const categoriesHeader = liveEvents.length > 0 && (
-    <span
-      className="inline-flex items-center justify-center gap-1.5 px-3 py-2 rounded-lg text-xs font-bold w-full"
-      style={{ background: '#ef444422', color: '#ef4444', border: '1px solid #ef444444' }}
-    >
-      <span className="w-1.5 h-1.5 rounded-full bg-live animate-pulse shrink-0" />
-      {liveEvents.length} {t('sports.match')}
-    </span>
-  );
-
   return (
     <div className="min-h-full lg:flex lg:gap-5 lg:px-5 lg:pt-5 lg:items-stretch">
-      <HomeSidebar categories={sportCategories} categoriesHeader={categoriesHeader} featuredLeagues={featuredLeagues} />
+      <HomeSidebar categories={sportCategories} featuredLeagues={featuredLeagues} />
       <div className="flex-1 min-w-0 flex flex-col">
       <div className="lg:grid lg:grid-cols-[1fr_260px] lg:gap-4 lg:items-start">
       <div className="min-w-0">

@@ -48,7 +48,7 @@ function CategoryButton({ icon, label, targetId, onClick, badge, active }) {
   );
 }
 
-export default function HomeSidebar({ categories, categoriesHeader, featuredLeagues, featuredLeaguesTitle }) {
+export default function HomeSidebar({ categories, topExtraLink, featuredLeagues, featuredLeaguesTitle }) {
   const { t } = useTranslation();
 
   return (
@@ -57,6 +57,7 @@ export default function HomeSidebar({ categories, categoriesHeader, featuredLeag
       style={{ background: `linear-gradient(180deg, ${HOME_CARD} 0%, #071017 100%)`, border: `1px solid ${HOME_BORDER}` }}
     >
       <Row to="/" end icon="home" label={t('nav.home')} />
+      {topExtraLink && <Row to={topExtraLink.to} icon={topExtraLink.icon} label={topExtraLink.label} />}
       <Row to="/favorites" icon="star" label={t('home.sidebar.favorites')} />
       <Row to="/recently-played" icon="history" label={t('home.sidebar.recentlyPlayed')} />
 
@@ -64,7 +65,6 @@ export default function HomeSidebar({ categories, categoriesHeader, featuredLeag
         <p className="px-3 mb-1 text-[10px] font-bold uppercase tracking-wider text-[#5c6469] border-b border-[#202b31] pb-2 font-ui">
           {t('home.sidebar.categories')}
         </p>
-        {categoriesHeader && <div className="mt-2 mb-1">{categoriesHeader}</div>}
         <div className="flex flex-col mt-1">
           {categories ? (
             categories.map(c => (
