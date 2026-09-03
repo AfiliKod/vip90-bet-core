@@ -74,7 +74,7 @@ function PalaceGameCard({ game }) {
 function GameRowSection({ id, icon, title, subtitle, viewAllTo, viewAllLabel, children }) {
   const scrollRef = useRef(null);
   return (
-    <section className="mt-8" id={id}>
+    <section className="mt-[19px]" id={id}>
       <div className="px-4">
         <div className="flex items-end justify-between mb-4">
           <div>

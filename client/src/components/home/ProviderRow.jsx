@@ -45,7 +45,7 @@ export default function ProviderRow({ selectedId, onSelect }) {
   if (providers.length === 0) return null;
 
   return (
-    <section className="mt-8">
+    <section className="mt-[19px]">
       <div className="px-4">
         <div className="flex items-end justify-between mb-4">
           <h2 className="text-lg font-extrabold text-white flex items-center gap-2 font-ui">

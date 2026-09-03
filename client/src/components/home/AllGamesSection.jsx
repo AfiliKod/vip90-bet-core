@@ -64,7 +64,7 @@ export default function AllGamesSection({ games, loading, providerFilter, onClea
   const hasMore = visibleCount < games.length;
 
   return (
-    <section className="mt-8">
+    <section className="mt-[19px]">
       <div className="px-4">
         <div className="flex items-end justify-between mb-4">
           <div>
