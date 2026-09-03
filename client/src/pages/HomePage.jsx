@@ -307,19 +307,22 @@ export default function HomePage() {
   const SECTION_KEYS = ['hero', 'popularGames', 'inhouseGames', 'slotGames', 'newGames'];
 
   return (
-    <div className="min-h-full lg:flex lg:gap-5 lg:px-5 lg:pt-5 lg:items-start">
+    <div className="min-h-full lg:flex lg:gap-5 lg:px-5 lg:pt-5 lg:items-stretch">
       <HomeSidebar />
       <div className="flex-1 min-w-0 flex flex-col">
         <RecentWinnersTicker />
 
         {/* Main + sağ ray TEK grid'de kardeş: oyun satırları böylece hep
-            main sütununun (1fr) genişliğinde kalır, sağ raya (220px)
+            main sütununun (1fr) genişliğinde kalır, sağ raya (260px)
             taşmaz — hero eskiden kendi iç grid'ini kuruyordu, altındaki
             GameRowSection'lar ise o grid'in dışında tam genişlik kardeş
             bloklar olarak akıp sağ rayın da altına yayılıyordu.
-            220px: referans tasarımın (VIP90-BET-pixel-perfect-homepage/
-            styles.css .layout) sol sidebar ile eşit genişlik kararı. */}
-        <div className="lg:grid lg:grid-cols-[1fr_220px] lg:gap-4 lg:items-start">
+            260px: referans (VIP90-BET-pixel-perfect-homepage/styles.css
+            .layout) sol sidebar ile eşit 220px öneriyor, ama gerçek
+            içerikle (ör. "Recent Winners" + çevrimiçi rozeti tek satırda,
+            farklı dillerde daha da uzayabilir) 220px'te kırılıyordu —
+            bilinçli olarak sağa genişletildi, sol sidebar 220px'te kaldı. */}
+        <div className="lg:grid lg:grid-cols-[1fr_260px] lg:gap-4 lg:items-start">
           <div className="min-w-0">
             {sectionOrder.includes('hero') && <Fragment key="hero">{SECTIONS.hero}</Fragment>}
             <ProviderRow selectedId={selectedProvider?.id} onSelect={setSelectedProvider} />
