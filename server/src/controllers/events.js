@@ -17,9 +17,11 @@ function baseUpcomingMatch(status) {
 }
 
 // "Yaklaşanlar" görünümünde bugünden bu kadar uzağa kadar olan etkinlikler gösterilir —
-// bahis yapılma ihtimali düşük, aylar sonrasına kadar uzanan etkinlikleri elemek için.
+// oddsSourceUpcomingSync.js'in DB'ye kaydettiği ufukla (HORIZON_MS, 30 gün) AYNI
+// tutulmalı; daha dar olursa (önceden 14'tü) senkronize edilmiş etkinlikler DB'de
+// durup sayaçlarda/listede hiç görünmez — kullanıcı fark etti (bkz. memory).
 // full=1 (admin) istekleri bu sınırdan muaftır.
-const FUTURE_WINDOW_DAYS = 14;
+const FUTURE_WINDOW_DAYS = 30;
 const FUTURE_WINDOW_MS = FUTURE_WINDOW_DAYS * 24 * 60 * 60 * 1000;
 
 // Kısa TTL cache — sık tekrarlanan aynı sport+status kombinasyonlarının DB'ye
