@@ -1,10 +1,11 @@
 import { useEffect, useState, useMemo } from 'react';
 import { useEventsStore, leagueKey } from '../store/eventsStore';
-import { SPORT_META } from '../utils/sportMeta';
+import { SPORT_META, sportIconMaterial } from '../utils/sportMeta';
 import MiniEventCard from '../components/MiniEventCard';
 import LazyLeagueGroup from '../components/LazyLeagueGroup';
-import BetSlip from '../components/BetSlip';
+import BetSlip, { SlipContent } from '../components/BetSlip';
 import HeroSlider from '../components/HeroSlider';
+import HomeSidebar from '../components/home/HomeSidebar';
 import { BRAND_GRADIENT_H } from '../styles/brand';
 import { SURFACE_CARD, SURFACE_CARD_BG, SURFACE_BORDER } from '../styles/surface';
 import { useTranslation } from '../i18n';
@@ -97,12 +98,32 @@ export default function Bahis() {
     return set;
   }, [summary]);
 
+  // Sol sidebar tıklaması: sporu aç + o bölüme kaydır (mobil spor çiplerinin
+  // aynısı, bkz. aşağıdaki md:hidden blok — iki yerde de aynı davranış).
+  function goToSport(sport) {
+    setCollapsedSports(prev => ({ ...prev, [sport]: false }));
+    setTimeout(() => document.getElementById(`sport-${sport}`)?.scrollIntoView({ behavior: 'smooth', block: 'start' }), 50);
+  }
+
+  const sportCategories = useMemo(() => [
+    { key: 'all', icon: 'apps', label: t('common.all'), onClick: () => setCollapsedSports({}) },
+    ...(summary?.sports || []).map(s => ({
+      key: s.sport,
+      icon: sportIconMaterial(s.sport),
+      label: (SPORT_META[s.sport] ?? { label: s.sport }).label,
+      badge: s.count,
+      onClick: () => goToSport(s.sport),
+    })),
+  ], [summary, t]);
+
   return (
-    <div>
-      <HeroSlider />
-      <div className="max-w-full px-4 py-4 flex gap-4">
-        <main className="flex-1 min-w-0">
-          <div className="flex gap-2 mb-4 items-center flex-wrap">
+    <div className="min-h-full lg:flex lg:gap-5 lg:px-5 lg:pt-5 lg:items-stretch">
+      <HomeSidebar categories={sportCategories} />
+      <div className="flex-1 min-w-0 flex flex-col">
+        <div className="lg:grid lg:grid-cols-[1fr_260px] lg:gap-4 lg:items-start">
+        <div className="min-w-0">
+          <HeroSlider />
+          <div className="flex gap-2 my-4 items-center flex-wrap">
             <span className="px-4 py-2 rounded-lg text-sm font-bold text-black" style={{ background: 'linear-gradient(135deg, #00d4ff 0%, #7c3aed 100%)', boxShadow: '0 0 16px #00d4ff55, 0 0 24px #7c3aed33' }}>{t('bahis.upcomingEvents')}</span>
             <SearchInput
               value={search}
@@ -161,7 +182,7 @@ export default function Bahis() {
                 const meta = SPORT_META[s.sport] ?? { icon: '🏆', label: s.sport };
                 const isCollapsed = s.sport === 'football' ? !!collapsedSports[s.sport] : (collapsedSports[s.sport] ?? true);
                 return (
-                  <div key={s.sport} className="mb-2">
+                  <div key={s.sport} id={`sport-${s.sport}`} className="mb-2 scroll-mt-4">
                     <button
                       onClick={() => setCollapsedSports(prev => ({ ...prev, [s.sport]: !(prev[s.sport] ?? (s.sport !== 'football')) }))}
                       className="w-full flex items-center gap-2 px-3 py-2 rounded-xl text-sm font-semibold text-text-1 hover:bg-white/[0.04] transition mb-1"
@@ -193,9 +214,18 @@ export default function Bahis() {
               })}
             </div>
           )}
-        </main>
+        </div>
 
-        <BetSlip />
+        <div className="hidden lg:flex lg:flex-col lg:gap-4">
+          <div className="rounded-xl overflow-hidden sticky top-20" style={{ background: SURFACE_CARD_BG, border: `1px solid ${SURFACE_BORDER}` }}>
+            <SlipContent />
+          </div>
+        </div>
+        </div>
+
+        {/* desktopHidden: masaüstü kupon yerleşimini yukarıda (sağ ray) kendimiz
+            yönetiyoruz — burası yalnızca mobil bar/sheet davranışı için kalıyor. */}
+        <BetSlip desktopHidden />
       </div>
     </div>
   );

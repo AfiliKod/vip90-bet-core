@@ -10,7 +10,7 @@ import { useTranslation } from '../i18n';
 
 export default function Layout({ children }) {
   const { pathname } = useLocation();
-  const showSidebar = !pathname.startsWith('/casino') && pathname !== '/';
+  const showSidebar = !pathname.startsWith('/casino') && pathname !== '/' && pathname !== '/bahis' && pathname !== '/canli';
   const [helpOpen, setHelpOpen] = useState(false);
   const { t } = useTranslation();
 

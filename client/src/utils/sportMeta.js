@@ -23,6 +23,34 @@ export function sportIcon(sport) {
   return SPORT_META[sport]?.icon ?? '🏆';
 }
 
+// Material Symbols karşılıkları — yalnızca yeni navy tasarımın (HomeSidebar
+// kabuğu, Spor Bahisleri/Canlı Bahis'e taşınan hali) tek-renkli ikon diliyle
+// tutarlı kalması gereken yerlerde kullanılır. SPORT_META.icon (emoji) diğer
+// tüm kullanım yerlerinde (maç kartı, mobil çip vb.) DEĞİŞMEDEN kalıyor —
+// bu, o emoji kullanımlarını etkilemeyen ayrı, ek bir eşleme.
+const SPORT_ICON_MATERIAL = {
+  football: 'sports_soccer',
+  basketball: 'sports_basketball',
+  tennis: 'sports_tennis',
+  volleyball: 'sports_volleyball',
+  icehockey: 'sports_hockey',
+  golf: 'golf_course',
+  handball: 'sports_handball',
+  boxing: 'sports_mma',
+  baseball: 'sports_baseball',
+  americanfootball: 'sports_football',
+  rugby: 'sports_rugby',
+  mma: 'sports_martial_arts',
+  cricket: 'sports_cricket',
+  waterpolo: 'pool',
+  futsal: 'sports_soccer',
+  esports: 'sports_esports',
+};
+
+export function sportIconMaterial(sport) {
+  return SPORT_ICON_MATERIAL[sport] ?? 'sports';
+}
+
 export function sportLabel(sport, lang) {
   const meta = SPORT_META[sport];
   if (!meta) return sport;

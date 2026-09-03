@@ -1,54 +1,15 @@
 import { useEffect, useState, useMemo } from 'react';
 import { useTranslation } from '../i18n';
 import { useEventsStore, groupByLeague } from '../store/eventsStore';
-import { SPORT_META } from '../utils/sportMeta';
+import { SPORT_META, sportIconMaterial } from '../utils/sportMeta';
 import { useSportChips } from '../hooks/useSportChips';
 import MiniEventCard from '../components/MiniEventCard';
 import LeagueGroup from '../components/LeagueGroup';
-import BetSlip from '../components/BetSlip';
+import BetSlip, { SlipContent } from '../components/BetSlip';
 import LiveHeroSlider from '../components/LiveHeroSlider';
+import HomeSidebar from '../components/home/HomeSidebar';
 import { BRAND_GRADIENT_H, BRAND_GRADIENT, BRAND_GLOW } from '../styles/brand';
 import { SURFACE_CARD, SURFACE_CARD_BG, SURFACE_BORDER } from '../styles/surface';
-
-function SearchInput({ value, onChange, placeholder = t('sports.searchPlaceholder') }) {
-  return (
-    <div className="relative group w-full sm:w-64">
-      <div
-        className="absolute inset-0 rounded-xl opacity-0 group-focus-within:opacity-100 transition-opacity duration-300 pointer-events-none"
-        style={{ background: BRAND_GRADIENT_H, padding: '1px', WebkitMask: 'linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0)', WebkitMaskComposite: 'xor', maskComposite: 'exclude' }}
-      />
-      <span className="absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none transition-colors group-focus-within:text-cyan-400" style={{ color: '#4a5a78' }}>
-        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-4.35-4.35M17 11A6 6 0 1 1 5 11a6 6 0 0 1 12 0z" />
-        </svg>
-      </span>
-      <input
-        value={value}
-        onChange={onChange}
-        placeholder={placeholder}
-        className="relative w-full rounded-xl pl-10 pr-9 py-2.5 text-sm outline-none transition-all backdrop-blur-sm font-medium"
-        style={{ background: `${SURFACE_CARD}aa`, border: `1px solid ${SURFACE_BORDER}`, color: '#f0f4ff' }}
-        onFocus={e => {
-          e.currentTarget.style.background = `${SURFACE_CARD}ee`;
-          e.currentTarget.style.boxShadow = '0 0 16px #00d4ff33, 0 0 24px #7c3aed22';
-        }}
-        onBlur={e => {
-          e.currentTarget.style.background = `${SURFACE_CARD}aa`;
-          e.currentTarget.style.boxShadow = 'none';
-        }}
-      />
-      {value && (
-        <button
-          onClick={() => onChange({ target: { value: '' } })}
-          className="absolute right-3 top-1/2 -translate-y-1/2 leading-none transition-colors hover:text-cyan-400"
-          style={{ color: '#4a5a78' }}
-        >
-          ×
-        </button>
-      )}
-    </div>
-  );
-}
 
 export default function Live() {
   const { t } = useTranslation();
@@ -124,13 +85,13 @@ export default function Live() {
           onChange={onChange}
           placeholder={placeholder}
           className="relative w-full rounded-xl pl-10 pr-9 py-2.5 text-sm outline-none transition-all backdrop-blur-sm font-medium"
-          style={{ background: '#0c1220aa', border: '1px solid #ffffff14', color: '#f0f4ff' }}
+          style={{ background: `${SURFACE_CARD}aa`, border: `1px solid ${SURFACE_BORDER}`, color: '#f0f4ff' }}
           onFocus={e => {
-            e.currentTarget.style.background = '#0c1220ee';
+            e.currentTarget.style.background = `${SURFACE_CARD}ee`;
             e.currentTarget.style.boxShadow = '0 0 16px #00d4ff33, 0 0 24px #7c3aed22';
           }}
           onBlur={e => {
-            e.currentTarget.style.background = '#0c1220aa';
+            e.currentTarget.style.background = `${SURFACE_CARD}aa`;
             e.currentTarget.style.boxShadow = 'none';
           }}
         />
@@ -151,10 +112,24 @@ export default function Live() {
     setOpenDrawerId(prev => prev === eventId ? null : eventId);
   }
 
+  const sportCategories = useMemo(() => [
+    { key: 'all', icon: 'apps', label: t('common.all'), onClick: () => setSportFilter('all') },
+    ...sportChips.map(({ id, label, count }) => ({
+      key: id,
+      icon: sportIconMaterial(id),
+      label,
+      badge: count,
+      onClick: () => setSportFilter(id),
+    })),
+  ], [sportChips, t, setSportFilter]);
+
   return (
-    <div>
+    <div className="min-h-full lg:flex lg:gap-5 lg:px-5 lg:pt-5 lg:items-stretch">
+      <HomeSidebar categories={sportCategories} />
+      <div className="flex-1 min-w-0 flex flex-col">
+      <div className="lg:grid lg:grid-cols-[1fr_260px] lg:gap-4 lg:items-start">
+      <div className="min-w-0">
       <LiveHeroSlider />
-      <div className="max-w-full px-4 py-4">
       {/* Başlık + arama */}
       <div className="flex items-center gap-3 mb-4 flex-wrap">
         <div className="flex items-center gap-2">
@@ -207,8 +182,6 @@ export default function Live() {
         })}
       </div>
 
-      <div className="flex gap-4">
-        <main className="flex-1 min-w-0">
           {isLoading ? (
             <div className="text-center text-text-3 py-16">Yükleniyor...</div>
           ) : (hierarchicalGroups !== null ? hierarchicalGroups.size === 0 : groupedEvents.size === 0) ? (
@@ -224,7 +197,7 @@ export default function Live() {
                 const totalCount = sportEvents.length;
                 const isCollapsed = !!collapsedSports[s];
                 return (
-                  <div key={s} className="mb-2">
+                  <div key={s} id={`sport-${s}`} className="mb-2 scroll-mt-4">
                     <button
                       onClick={() => setCollapsedSports(prev => ({ ...prev, [s]: !prev[s] }))}
                       className="w-full flex items-center gap-2 px-3 py-2 rounded-xl text-sm font-semibold text-text-1 hover:bg-white/[0.04] transition mb-1"
@@ -269,10 +242,18 @@ export default function Live() {
               ))}
             </div>
           )}
-        </main>
-
-        <BetSlip />
       </div>
+
+      <div className="hidden lg:flex lg:flex-col lg:gap-4">
+        <div className="rounded-xl overflow-hidden sticky top-20" style={{ background: SURFACE_CARD_BG, border: `1px solid ${SURFACE_BORDER}` }}>
+          <SlipContent />
+        </div>
+      </div>
+      </div>
+
+      {/* desktopHidden: masaüstü kupon yerleşimini yukarıda (sağ ray) kendimiz
+          yönetiyoruz — burası yalnızca mobil bar/sheet davranışı için kalıyor. */}
+      <BetSlip desktopHidden />
       </div>
     </div>
   );

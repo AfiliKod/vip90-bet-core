@@ -3,12 +3,13 @@ import { useTranslation } from '../../i18n';
 import { HOME_CARD, HOME_BORDER } from '../../pages/home/homeTheme';
 
 /**
- * Anasayfaya özel sol navigasyon (yalnızca lg+, `HomePage.jsx` içinde mount
- * edilir) — kullanıcının onayladığı statik referansın (VIP90-BET-pixel-perfect-
- * homepage) sol menü yapısı, bizim gerçek route'larımızla.
+ * Sol navigasyon kabuğu — kullanıcının onayladığı statik referansın
+ * (VIP90-BET-pixel-perfect-homepage) sol menü yapısı. Yalnızca anasayfaya
+ * özel DEĞİL: `categories` prop'u verilmezse anasayfanın kendi oyun
+ * kategorileri (Popüler/Özel/Slot/Yeni Oyunlar) varsayılan olarak kullanılır;
+ * Spor Bahisleri/Canlı Bahis gibi sayfalar kendi kategori listesini (spor
+ * dalları) geçirerek AYNI kabuğu 1:1 yeniden kullanır — bkz. Bahis.jsx/Live.jsx.
  */
-const CATEGORY_SECTIONS_IDS = ['popular-oyunlar', 'ozel-oyunlar', 'slot-oyunlari', 'yeni-oyunlar'];
-
 function scrollToId(id) {
   document.getElementById(id)?.scrollIntoView({ behavior: 'smooth', block: 'start' });
 }
@@ -31,19 +32,20 @@ function Row({ to, icon, label, end }) {
   );
 }
 
-function CategoryButton({ icon, label, targetId }) {
+function CategoryButton({ icon, label, targetId, onClick, badge }) {
   return (
     <button
-      onClick={() => scrollToId(targetId)}
+      onClick={onClick ?? (() => scrollToId(targetId))}
       className="w-full flex items-center gap-3 px-3 py-[9px] rounded-md text-[13px] font-semibold font-ui transition-colors text-[#c8ced2] hover:text-white text-left"
     >
       <span className="material-symbols-outlined !text-[19px] shrink-0">{icon}</span>
-      <span className="truncate">{label}</span>
+      <span className="flex-1 truncate">{label}</span>
+      {badge != null && <span className="shrink-0 text-[10px] text-[#5c6469] font-normal">{badge}</span>}
     </button>
   );
 }
 
-export default function HomeSidebar() {
+export default function HomeSidebar({ categories }) {
   const { t } = useTranslation();
 
   return (
@@ -60,11 +62,19 @@ export default function HomeSidebar() {
           {t('home.sidebar.categories')}
         </p>
         <div className="flex flex-col mt-1">
-          <CategoryButton icon="whatshot" label={t('home.sidebar.popularGames')} targetId="popular-oyunlar" />
-          <CategoryButton icon="diamond" label={t('home.games.exclusive')} targetId="ozel-oyunlar" />
-          <CategoryButton icon="casino" label={t('home.sidebar.slotGames')} targetId="slot-oyunlari" />
-          <CategoryButton icon="fiber_new" label={t('home.sidebar.newGames')} targetId="yeni-oyunlar" />
-          <Row to="/casino" icon="apps" label={t('home.sidebar.allGames')} />
+          {categories ? (
+            categories.map(c => (
+              <CategoryButton key={c.key ?? c.label} icon={c.icon} label={c.label} onClick={c.onClick} badge={c.badge} />
+            ))
+          ) : (
+            <>
+              <CategoryButton icon="whatshot" label={t('home.sidebar.popularGames')} targetId="popular-oyunlar" />
+              <CategoryButton icon="diamond" label={t('home.games.exclusive')} targetId="ozel-oyunlar" />
+              <CategoryButton icon="casino" label={t('home.sidebar.slotGames')} targetId="slot-oyunlari" />
+              <CategoryButton icon="fiber_new" label={t('home.sidebar.newGames')} targetId="yeni-oyunlar" />
+              <Row to="/casino" icon="apps" label={t('home.sidebar.allGames')} />
+            </>
+          )}
         </div>
       </div>
 
