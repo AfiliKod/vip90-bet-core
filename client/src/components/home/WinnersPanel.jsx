@@ -37,8 +37,12 @@ export default function WinnersPanel() {
               className="flex items-center gap-2.5 py-2.5"
               style={{ borderBottom: i < 3 ? `1px solid ${HOME_BORDER}` : 'none' }}
             >
-              {img && (
+              {img ? (
                 <img src={img} alt="" className="w-[46px] h-[46px] rounded-lg object-cover shrink-0" onError={e => { e.currentTarget.style.display = 'none'; }} />
+              ) : (
+                <span className="w-[46px] h-[46px] rounded-lg shrink-0 flex items-center justify-center bg-white/5">
+                  <span className="material-symbols-outlined !text-[22px] text-[#c8ced2]">sports</span>
+                </span>
               )}
               <div className="min-w-0 flex-1">
                 <div className="text-xs font-bold text-white truncate font-ui">{w.gameTitle}</div>

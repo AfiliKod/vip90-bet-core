@@ -31,9 +31,15 @@ export function useRecentWinners() {
   return winners;
 }
 
-/** 'inhouse-crash' -> '/images/games/crash.png' (GAMES görsellerinin tek kaynağı). */
+/**
+ * 'inhouse-crash' -> '/images/games/crash.png'. `palace-...` (casino) zaten
+ * backend'den gerçek `image` alanıyla geliyor, bu fonksiyona hiç düşmüyor.
+ * `bet-...` (canlı bahis kazananı) için kapak görseli YOK — null döner,
+ * WinnersPanel/RecentWinnersTicker bunu jenerik bir ikonla gösterir.
+ */
 export function winnerImage(gameId) {
-  const slug = (gameId || '').replace(/^inhouse-/, '');
+  if (!gameId?.startsWith('inhouse-')) return null;
+  const slug = gameId.replace(/^inhouse-/, '');
   return slug ? `/images/games/${slug}.png` : null;
 }
 

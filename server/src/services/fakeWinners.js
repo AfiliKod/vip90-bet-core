@@ -1,4 +1,5 @@
 import Setting from '../models/Setting.js';
+import Event from '../models/Event.js';
 import { addRecentWinner } from './liveGameStream.js';
 import { getGames } from './palaceCasinoService.js';
 import { isModuleUsable } from './licensing/index.js';
@@ -63,20 +64,15 @@ const CASINO_POOL_TTL_MS = 30 * 60_000;
 let casinoGamesCache = [];
 let casinoGamesCacheAt = 0;
 
-// Gerçek canlı fikstür verisine dokunmuyor — TR_FIRST_NAMES ile aynı desende
-// küçük, jenerik bir bahis pazarı örneklem havuzu (kozmetik simülasyon).
-const BETTING_MARKET_TITLES = [
-  'Maç Sonucu · Galatasaray - Fenerbahçe',
-  'Alt/Üst 2.5 · Beşiktaş - Trabzonspor',
-  'Çifte Şans · Başakşehir - Sivasspor',
-  'İlk Yarı/Maç Sonucu · Konyaspor - Antalyaspor',
-  'Maç Sonucu · Real Madrid - Barcelona',
-  'Toplam Gol · Bayern Münih - Dortmund',
-  'Karşılıklı Gol · Liverpool - Man City',
-  'Maç Sonucu · PSG - Marsilya',
-  'Alt/Üst 3.5 · Juventus - Milan',
-  'Handikaplı Sonuç · Arsenal - Chelsea',
-];
+// Bahis kazançları artık gerçek canlı etkinliklere bağlı (kozmetik olsa da
+// maç bitmeden "kazanan" göstermek anlamsız — maç bitmeden kazanan/kaybeden
+// belli olmaz). Bir tur "betting" alanını seçtiğinde hemen bir kazanan
+// YAYINLANMAZ — o an canlı olan rastgele bir etkinlik için `pendingBettingWins`
+// sayacı artırılır; etkinlik gerçekten bitince (bkz. betGrading.js
+// autoSettleFinishedEvent → releaseBettingWinsForEvent) o ana kadar
+// biriken tüm kazananlar TEK SEFERDE, etkinlik adıyla (market karıştırmadan)
+// yayınlanır.
+const pendingBettingWins = new Map(); // eventId(string) -> count
 
 function randomInt(min, max) {
   return Math.floor(Math.random() * (max - min + 1)) + min;
@@ -208,17 +204,45 @@ async function fireCasinoWin() {
   });
 }
 
-function fireBettingWin() {
-  const username = pool[randomInt(0, pool.length - 1)];
-  const market = BETTING_MARKET_TITLES[randomInt(0, BETTING_MARKET_TITLES.length - 1)];
-  addRecentWinner({
-    userId: fakeUserId(),
-    username,
-    gameId: 'sports-bet',
-    gameTitle: market,
-    amount: randomAmount(),
-    currency: 'TRY',
-  });
+/** Rastgele canlı bir etkinlik seçip o etkinlik için bekleyen kazanan sayacını artırır. */
+async function queueBettingWin() {
+  const [live] = await Event.aggregate([
+    { $match: { status: 'live' } },
+    { $sample: { size: 1 } },
+    { $project: { _id: 1 } },
+  ]);
+  if (!live) return fireInhouseWin(); // şu an hiç canlı etkinlik yok — çekirdeğe düş
+  const key = String(live._id);
+  pendingBettingWins.set(key, (pendingBettingWins.get(key) ?? 0) + 1);
+}
+
+/**
+ * Bir etkinlik bittiğinde (betGrading.js#autoSettleFinishedEvent) çağrılır —
+ * o etkinlik için o ana kadar biriken tüm bekleyen kazananları TEK SEFERDE
+ * yayınlar. Market/pazar bilgisi KARIŞTIRILMAZ — yalnızca etkinlik adı
+ * ("Ev Sahibi - Deplasman") gösterilir; kapak görseli yok, client tarafı
+ * (`winnerImage`/WinnersPanel/RecentWinnersTicker) `gameId` "bet-" önekini
+ * görünce jenerik bir ikon gösterir.
+ */
+export function releaseBettingWinsForEvent(event) {
+  const key = String(event._id);
+  const count = pendingBettingWins.get(key);
+  if (!count) return;
+  pendingBettingWins.delete(key);
+  if (pool.length === 0) return;
+
+  const eventTitle = `${event.homeTeam?.name ?? ''} - ${event.awayTeam?.name ?? ''}`;
+  for (let i = 0; i < count; i++) {
+    const username = pool[randomInt(0, pool.length - 1)];
+    addRecentWinner({
+      userId: fakeUserId(),
+      username,
+      gameId: `bet-${key}`,
+      gameTitle: eventTitle,
+      amount: randomAmount(),
+      currency: 'TRY',
+    });
+  }
 }
 
 export async function fireFakeWin() {
@@ -230,7 +254,7 @@ export async function fireFakeWin() {
   const area = areas[randomInt(0, areas.length - 1)];
 
   if (area === 'casino') return fireCasinoWin();
-  if (area === 'betting') return fireBettingWin();
+  if (area === 'betting') return queueBettingWin();
   return fireInhouseWin();
 }
 

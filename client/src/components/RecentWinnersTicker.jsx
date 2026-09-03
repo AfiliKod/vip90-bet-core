@@ -33,8 +33,12 @@ export default function RecentWinnersTicker() {
                 className="flex items-center gap-2.5 shrink-0 rounded-xl pl-2 pr-4 py-2"
                 style={{ background: '#0d1526', border: '1px solid #ffffff0e' }}
               >
-                {img && (
+                {img ? (
                   <img src={img} alt="" className="w-9 h-9 rounded-lg object-cover shrink-0" onError={e => { e.currentTarget.style.display = 'none'; }} />
+                ) : (
+                  <span className="w-9 h-9 rounded-lg shrink-0 flex items-center justify-center bg-white/5">
+                    <span className="material-symbols-outlined !text-[18px] text-text-3">sports</span>
+                  </span>
                 )}
                 <div className="min-w-0">
                   <div className="text-[11px] text-text-3 font-ui whitespace-nowrap">
