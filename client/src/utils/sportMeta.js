@@ -17,6 +17,18 @@ export const SPORT_META = {
   waterpolo:        { label: 'Su Topu',            labelEn: 'Water Polo',        icon: '🤽' },
   futsal:           { label: 'Futsal',             labelEn: 'Futsal',            icon: '🥅' },
   esports:          { label: 'E-Spor',             labelEn: 'E-Sports',          icon: '🎮' },
+  australianfootball: { label: 'Avustralya Futbolu', labelEn: 'Australian Football', icon: '🏈' },
+  rugbyleague:      { label: 'Rugby Ligi',          labelEn: 'Rugby League',      icon: '🏉' },
+  rugbyunion:       { label: 'Rugby Birliği',       labelEn: 'Rugby Union',       icon: '🏉' },
+  billiards:        { label: 'Bilardo',             labelEn: 'Billiards',         icon: '🎱' },
+  cycling:          { label: 'Bisiklet Yarışı',     labelEn: 'Cycling',           icon: '🚴' },
+  formula1:         { label: 'Formula 1',           labelEn: 'Formula 1',         icon: '🏎️' },
+  motorsport:       { label: 'Motor Sporları',      labelEn: 'Motor Sports',      icon: '🏍️' },
+  sailing:          { label: 'Yelken',               labelEn: 'Sailing',           icon: '⛵' },
+  alpineskiing:     { label: 'Kayak',                labelEn: 'Alpine Skiing',     icon: '⛷️' },
+  autoracing:       { label: 'Otomobil Yarışı',      labelEn: 'Auto Racing',       icon: '🏁' },
+  biathlon:         { label: 'Biatlon',              labelEn: 'Biathlon',          icon: '🎿' },
+  chess:            { label: 'Satranç',              labelEn: 'Chess',             icon: '♟️' },
 };
 
 export function sportIcon(sport) {
@@ -45,6 +57,18 @@ const SPORT_ICON_MATERIAL = {
   waterpolo: 'pool',
   futsal: 'sports_soccer',
   esports: 'sports_esports',
+  australianfootball: 'sports_football',
+  rugbyleague: 'sports_rugby',
+  rugbyunion: 'sports_rugby',
+  billiards: 'sports_bar',
+  cycling: 'directions_bike',
+  formula1: 'sports_motorsports',
+  motorsport: 'two_wheeler',
+  sailing: 'sailing',
+  alpineskiing: 'downhill_skiing',
+  autoracing: 'sports_motorsports',
+  biathlon: 'downhill_skiing',
+  chess: 'extension',
 };
 
 export function sportIconMaterial(sport) {
