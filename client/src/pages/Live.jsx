@@ -6,21 +6,19 @@ import { useSportChips } from '../hooks/useSportChips';
 import MiniEventCard from '../components/MiniEventCard';
 import LeagueGroup from '../components/LeagueGroup';
 import BetSlip, { SlipContent } from '../components/BetSlip';
-import LiveHeroSlider from '../components/LiveHeroSlider';
+import PromoHeroSlider from '../components/home/PromoHeroSlider';
 import HomeSidebar from '../components/home/HomeSidebar';
 import WinnersPanel from '../components/home/WinnersPanel';
 import PromoPanel from '../components/home/PromoPanel';
-import { BRAND_GRADIENT_H, BRAND_GRADIENT, BRAND_GLOW } from '../styles/brand';
-import { SURFACE_CARD, SURFACE_CARD_BG, SURFACE_BORDER } from '../styles/surface';
+import { SURFACE_CARD_BG, SURFACE_BORDER } from '../styles/surface';
 
 export default function Live() {
   const { t } = useTranslation();
   const {
     events, isLoading, fetchEvents, initSocket, cleanup,
-    selectedSport, selectedLeague, setSportFilter,
+    selectedSport, selectedLeague, setSportFilter, setLeagueFilter,
   } = useEventsStore();
   const [openDrawerId, setOpenDrawerId] = useState(null);
-  const [search, setSearch] = useState('');
   const [collapsedSports, setCollapsedSports] = useState({});
 
   useEffect(() => {
@@ -39,118 +37,81 @@ export default function Live() {
       const key = e.country ? `${e.country} > ${e.league}` : e.league;
       return key === selectedLeague;
     });
-    if (search.trim()) {
-      const q = search.toLowerCase();
-      evs = evs.filter(e =>
-        e.homeTeam.name.toLowerCase().includes(q) ||
-        e.awayTeam.name.toLowerCase().includes(q) ||
-        e.league.toLowerCase().includes(q)
-      );
-    }
     return groupByLeague(evs);
-  }, [liveEvents, selectedSport, selectedLeague, search]);
+  }, [liveEvents, selectedSport, selectedLeague]);
 
   const hierarchicalGroups = useMemo(() => {
     if (selectedSport !== 'all' || selectedLeague) return null;
-    let evs = liveEvents;
-    if (search.trim()) {
-      const q = search.toLowerCase();
-      evs = evs.filter(e =>
-        e.homeTeam.name.toLowerCase().includes(q) ||
-        e.awayTeam.name.toLowerCase().includes(q) ||
-        e.league.toLowerCase().includes(q)
-      );
-    }
     const sportMap = new Map();
-    for (const ev of evs) {
+    for (const ev of liveEvents) {
       if (!ev.sport) continue;
       if (!sportMap.has(ev.sport)) sportMap.set(ev.sport, []);
       sportMap.get(ev.sport).push(ev);
     }
     return sportMap.size > 0 ? sportMap : null;
-  }, [liveEvents, selectedSport, selectedLeague, search]);
-
-  function SearchInput({ value, onChange, placeholder = t('sports.searchPlaceholder') }) {
-    return (
-      <div className="relative group w-full sm:w-64">
-        <div
-          className="absolute inset-0 rounded-xl opacity-0 group-focus-within:opacity-100 transition-opacity duration-300 pointer-events-none"
-          style={{ background: BRAND_GRADIENT_H, padding: '1px', WebkitMask: 'linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0)', WebkitMaskComposite: 'xor', maskComposite: 'exclude' }}
-        />
-        <span className="absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none transition-colors group-focus-within:text-cyan-400" style={{ color: '#4a5a78' }}>
-          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-4.35-4.35M17 11A6 6 0 1 1 5 11a6 6 0 0 1 12 0z" />
-          </svg>
-        </span>
-        <input
-          value={value}
-          onChange={onChange}
-          placeholder={placeholder}
-          className="relative w-full rounded-xl pl-10 pr-9 py-2.5 text-sm outline-none transition-all backdrop-blur-sm font-medium"
-          style={{ background: `${SURFACE_CARD}aa`, border: `1px solid ${SURFACE_BORDER}`, color: '#f0f4ff' }}
-          onFocus={e => {
-            e.currentTarget.style.background = `${SURFACE_CARD}ee`;
-            e.currentTarget.style.boxShadow = '0 0 16px #00d4ff33, 0 0 24px #7c3aed22';
-          }}
-          onBlur={e => {
-            e.currentTarget.style.background = `${SURFACE_CARD}aa`;
-            e.currentTarget.style.boxShadow = 'none';
-          }}
-        />
-        {value && (
-          <button
-            onClick={() => onChange({ target: { value: '' } })}
-            className="absolute right-3 top-1/2 -translate-y-1/2 leading-none transition-colors hover:text-cyan-400"
-            style={{ color: '#4a5a78' }}
-          >
-            ×
-          </button>
-        )}
-      </div>
-    );
-  }
+  }, [liveEvents, selectedSport, selectedLeague]);
 
   function handleToggleDrawer(eventId) {
     setOpenDrawerId(prev => prev === eventId ? null : eventId);
   }
 
+  // Not: Bahis.jsx'in "aç+kaydır" davranışının aksine, Live'da bir spor
+  // seçmek zaten mevcut `setSportFilter` filtre mekanizmasını (selectedSport)
+  // tetikliyor — hiyerarşik görünüm (tüm sporlar bir arada) o an kaybolup
+  // yalnızca seçilen sporun lig listesi kalıyor, kaydırmaya gerek yok.
   const sportCategories = useMemo(() => [
-    { key: 'all', icon: 'apps', label: t('common.all'), onClick: () => setSportFilter('all') },
+    { key: 'all', icon: 'apps', label: t('common.all'), onClick: () => setSportFilter('all'), active: selectedSport === 'all' },
     ...sportChips.map(({ id, label, count }) => ({
       key: id,
       icon: sportIconMaterial(id),
       label,
       badge: count,
       onClick: () => setSportFilter(id),
+      active: selectedSport === id,
     })),
-  ], [sportChips, t, setSportFilter]);
+  ], [sportChips, t, setSportFilter, selectedSport]);
+
+  // Öne Çıkan Ligler — canlı maçlardan lig başına maç sayısına göre top 5.
+  const featuredLeagues = useMemo(() => {
+    const map = new Map();
+    for (const ev of liveEvents) {
+      if (!ev.sport) continue;
+      const key = ev.country ? `${ev.country} > ${ev.league}` : ev.league;
+      if (!map.has(key)) map.set(key, { sport: ev.sport, key, count: 0 });
+      map.get(key).count++;
+    }
+    return [...map.values()]
+      .sort((a, b) => b.count - a.count)
+      .slice(0, 5)
+      .map(lg => ({
+        key: lg.key,
+        label: lg.key.includes(' > ') ? lg.key.split(' > ').at(-1) : lg.key,
+        badge: lg.count,
+        onClick: () => setLeagueFilter(lg.sport, lg.key),
+      }));
+  }, [liveEvents, setLeagueFilter]);
+
+  const categoriesHeader = liveEvents.length > 0 && (
+    <span
+      className="inline-flex items-center justify-center gap-1.5 px-3 py-2 rounded-lg text-xs font-bold w-full"
+      style={{ background: '#ef444422', color: '#ef4444', border: '1px solid #ef444444' }}
+    >
+      <span className="w-1.5 h-1.5 rounded-full bg-live animate-pulse shrink-0" />
+      {liveEvents.length} {t('sports.match')}
+    </span>
+  );
 
   return (
     <div className="min-h-full lg:flex lg:gap-5 lg:px-5 lg:pt-5 lg:items-stretch">
-      <HomeSidebar categories={sportCategories} />
+      <HomeSidebar categories={sportCategories} categoriesHeader={categoriesHeader} featuredLeagues={featuredLeagues} />
       <div className="flex-1 min-w-0 flex flex-col">
       <div className="lg:grid lg:grid-cols-[1fr_260px] lg:gap-4 lg:items-start">
       <div className="min-w-0">
-      <LiveHeroSlider />
-      {/* Başlık + arama */}
-      <div className="flex items-center gap-3 mb-4 flex-wrap">
-        <div className="flex items-center gap-2">
-          <span className="w-2.5 h-2.5 rounded-full bg-live animate-pulse shrink-0 shadow-[0_0_10px_rgba(239,68,68,0.7)]" />
-          <h1 className="text-xl font-black text-text-1">{t('nav.liveBetting')}</h1>
-          {liveEvents.length > 0 && (
-            <span
-              className="text-[11px] px-2.5 py-1 rounded-full font-bold border border-live/30"
-              style={{ background: '#ef444422', color: '#ef4444' }}
-            >
-              {liveEvents.length} {t('sports.match')}
-            </span>
-          )}
-        </div>
-        <SearchInput
-          value={search}
-          onChange={e => setSearch(e.target.value)}
-          placeholder={t('sports.searchPlaceholder')}
-        />
+      <PromoHeroSlider />
+
+      <div className="flex items-center gap-2 my-4">
+        <span className="w-2.5 h-2.5 rounded-full bg-live animate-pulse shrink-0 shadow-[0_0_10px_rgba(239,68,68,0.7)]" />
+        <h1 className="text-xl font-black text-text-1">{t('nav.liveBetting')}</h1>
       </div>
 
       {/* Mobil spor kategorileri — Sidebar masaüstünde md breakpoint altında gizli olduğu için */}
@@ -160,7 +121,7 @@ export default function Live() {
           className={`shrink-0 flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-bold transition-all ${
             selectedSport === 'all' ? 'text-black' : 'text-text-2 bg-white/5 border border-white/10'
           }`}
-          style={selectedSport === 'all' ? { background: BRAND_GRADIENT, boxShadow: BRAND_GLOW } : {}}
+          style={selectedSport === 'all' ? { background: 'var(--color-primary)' } : {}}
         >
           <span>🏆</span>
           <span>{t('common.all')}</span>
@@ -174,7 +135,7 @@ export default function Live() {
               className={`shrink-0 flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-bold transition-all ${
                 isActive ? 'text-black' : 'text-text-2 bg-white/5 border border-white/10'
               }`}
-              style={isActive ? { background: BRAND_GRADIENT, boxShadow: BRAND_GLOW } : {}}
+              style={isActive ? { background: 'var(--color-primary)' } : {}}
             >
               <span>{icon}</span>
               <span>{label}</span>

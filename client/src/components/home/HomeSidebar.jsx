@@ -32,11 +32,14 @@ function Row({ to, icon, label, end }) {
   );
 }
 
-function CategoryButton({ icon, label, targetId, onClick, badge }) {
+function CategoryButton({ icon, label, targetId, onClick, badge, active }) {
   return (
     <button
       onClick={onClick ?? (() => scrollToId(targetId))}
-      className="w-full flex items-center gap-3 px-3 py-[9px] rounded-md text-[13px] font-semibold font-ui transition-colors text-[#c8ced2] hover:text-white text-left"
+      className={`w-full flex items-center gap-3 px-3 py-[9px] rounded-md text-[13px] font-semibold font-ui transition-colors text-left border-l-2 ${
+        active ? 'text-[var(--color-primary)] bg-[color-mix(in_srgb,var(--color-primary)_10%,transparent)]' : 'text-[#c8ced2] hover:text-white'
+      }`}
+      style={{ borderColor: active ? 'var(--color-primary)' : 'transparent' }}
     >
       <span className="material-symbols-outlined !text-[19px] shrink-0">{icon}</span>
       <span className="flex-1 truncate">{label}</span>
@@ -45,7 +48,7 @@ function CategoryButton({ icon, label, targetId, onClick, badge }) {
   );
 }
 
-export default function HomeSidebar({ categories }) {
+export default function HomeSidebar({ categories, categoriesHeader, featuredLeagues, featuredLeaguesTitle }) {
   const { t } = useTranslation();
 
   return (
@@ -61,10 +64,11 @@ export default function HomeSidebar({ categories }) {
         <p className="px-3 mb-1 text-[10px] font-bold uppercase tracking-wider text-[#5c6469] border-b border-[#202b31] pb-2 font-ui">
           {t('home.sidebar.categories')}
         </p>
+        {categoriesHeader && <div className="mt-2 mb-1">{categoriesHeader}</div>}
         <div className="flex flex-col mt-1">
           {categories ? (
             categories.map(c => (
-              <CategoryButton key={c.key ?? c.label} icon={c.icon} label={c.label} onClick={c.onClick} badge={c.badge} />
+              <CategoryButton key={c.key ?? c.label} icon={c.icon} label={c.label} onClick={c.onClick} badge={c.badge} active={c.active} />
             ))
           ) : (
             <>
@@ -77,6 +81,19 @@ export default function HomeSidebar({ categories }) {
           )}
         </div>
       </div>
+
+      {featuredLeagues?.length > 0 && (
+        <div className="mt-5">
+          <p className="px-3 mb-1 text-[10px] font-bold uppercase tracking-wider text-[#5c6469] border-b border-[#202b31] pb-2 font-ui">
+            {featuredLeaguesTitle ?? t('sidebar.featuredLeagues')}
+          </p>
+          <div className="flex flex-col mt-1">
+            {featuredLeagues.map(lg => (
+              <CategoryButton key={lg.key} icon="emoji_events" label={lg.label} onClick={lg.onClick} badge={lg.badge} />
+            ))}
+          </div>
+        </div>
+      )}
 
       <div className="mt-5">
         <p className="px-3 mb-1 text-[10px] font-bold uppercase tracking-wider text-[#5c6469] border-b border-[#202b31] pb-2 font-ui">

@@ -119,12 +119,14 @@ export const useEventsStore = create((set, get) => ({
     get().fetchLeague(sport, country, league, status);
   },
 
-  searchEvents: async (query, status = 'upcoming') => {
+  // status verilmezse (Navbar arama kutusu) hem canlı hem yaklaşan etkinlikler
+  // aranır — bkz. GET /events controller'ı: status boşsa ikisini de döner.
+  searchEvents: async (query, status) => {
     const q = query.trim();
     if (q.length < 2) { set({ searchResults: null, searchLoading: false }); return; }
     set({ searchLoading: true });
     try {
-      const params = new URLSearchParams({ status, search: q });
+      const params = new URLSearchParams({ search: q, ...(status ? { status } : {}) });
       const { data } = await api.get(`/events?${params}`);
       set({ searchResults: data.events, searchLoading: false });
     } catch { set({ searchResults: [], searchLoading: false }); }

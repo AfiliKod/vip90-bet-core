@@ -1,79 +1,29 @@
 import { useEffect, useState, useMemo } from 'react';
 import { useEventsStore, leagueKey } from '../store/eventsStore';
 import { SPORT_META, sportIconMaterial } from '../utils/sportMeta';
-import MiniEventCard from '../components/MiniEventCard';
 import LazyLeagueGroup from '../components/LazyLeagueGroup';
 import BetSlip, { SlipContent } from '../components/BetSlip';
-import HeroSlider from '../components/HeroSlider';
+import PromoHeroSlider from '../components/home/PromoHeroSlider';
 import HomeSidebar from '../components/home/HomeSidebar';
 import WinnersPanel from '../components/home/WinnersPanel';
 import PromoPanel from '../components/home/PromoPanel';
-import { BRAND_GRADIENT_H } from '../styles/brand';
-import { SURFACE_CARD, SURFACE_CARD_BG, SURFACE_BORDER } from '../styles/surface';
+import { SURFACE_CARD_BG, SURFACE_BORDER } from '../styles/surface';
 import { useTranslation } from '../i18n';
-
-function SearchInput({ value, onChange, placeholder }) {
-  const { t } = useTranslation();
-  return (
-    <div className="relative group w-full sm:w-64">
-      <div
-        className="absolute inset-0 rounded-xl opacity-0 group-focus-within:opacity-100 transition-opacity duration-300 pointer-events-none"
-        style={{ background: BRAND_GRADIENT_H, padding: '1px', WebkitMask: 'linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0)', WebkitMaskComposite: 'xor', maskComposite: 'exclude' }}
-      />
-      <span className="absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none transition-colors group-focus-within:text-cyan-400" style={{ color: '#4a5a78' }}>
-        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-4.35-4.35M17 11A6 6 0 1 1 5 11a6 6 0 0 1 12 0z" />
-        </svg>
-      </span>
-      <input
-        value={value}
-        onChange={onChange}
-        placeholder={placeholder ?? t('bahis.searchPlaceholder')}
-        className="relative w-full rounded-xl pl-10 pr-9 py-2.5 text-sm outline-none transition-all backdrop-blur-sm font-medium"
-        style={{ background: `${SURFACE_CARD}aa`, border: `1px solid ${SURFACE_BORDER}`, color: '#f0f4ff' }}
-        onFocus={e => {
-          e.currentTarget.style.background = '#0c1220ee';
-          e.currentTarget.style.boxShadow = '0 0 16px #00d4ff33, 0 0 24px #7c3aed22';
-        }}
-        onBlur={e => {
-          e.currentTarget.style.background = '#0c1220aa';
-          e.currentTarget.style.boxShadow = 'none';
-        }}
-      />
-      {value && (
-        <button
-          onClick={() => onChange({ target: { value: '' } })}
-          className="absolute right-3 top-1/2 -translate-y-1/2 leading-none transition-colors hover:text-cyan-400"
-          style={{ color: '#4a5a78' }}
-        >
-          ×
-        </button>
-      )}
-    </div>
-  );
-}
 
 export default function Bahis() {
   const { t } = useTranslation();
   const {
     initSocket, cleanup,
     summary, summaryLoading, summaryError, fetchSummary,
-    searchResults, searchLoading, searchEvents, clearSearch,
     focusLeague, setFocusLeague,
   } = useEventsStore();
-  const [search, setSearch] = useState('');
   const [collapsedSports, setCollapsedSports] = useState({});
   const [forceOpenKey, setForceOpenKey] = useState(null);
+  const [selectedCategory, setSelectedCategory] = useState('all');
   const STATUS = 'upcoming';
 
   useEffect(() => { initSocket(); return cleanup; }, []);
   useEffect(() => { fetchSummary(STATUS); }, []);
-  // Debounced backend arama
-  useEffect(() => {
-    const q = search.trim();
-    const tm = setTimeout(() => { q.length >= 2 ? searchEvents(q, STATUS) : clearSearch(); }, 300);
-    return () => clearTimeout(tm);
-  }, [search]);
 
   // Sidebar'dan lig tıklanınca: sporu aç, ligi aç (forceOpen sinyali) ve scroll et.
   useEffect(() => {
@@ -103,40 +53,70 @@ export default function Bahis() {
   // Sol sidebar tıklaması: sporu aç + o bölüme kaydır (mobil spor çiplerinin
   // aynısı, bkz. aşağıdaki md:hidden blok — iki yerde de aynı davranış).
   function goToSport(sport) {
+    setSelectedCategory(sport);
     setCollapsedSports(prev => ({ ...prev, [sport]: false }));
     setTimeout(() => document.getElementById(`sport-${sport}`)?.scrollIntoView({ behavior: 'smooth', block: 'start' }), 50);
   }
 
+  function showAll() {
+    setSelectedCategory('all');
+    setCollapsedSports({});
+  }
+
   const sportCategories = useMemo(() => [
-    { key: 'all', icon: 'apps', label: t('common.all'), onClick: () => setCollapsedSports({}) },
+    { key: 'all', icon: 'apps', label: t('common.all'), onClick: showAll, active: selectedCategory === 'all' },
     ...(summary?.sports || []).map(s => ({
       key: s.sport,
       icon: sportIconMaterial(s.sport),
       label: (SPORT_META[s.sport] ?? { label: s.sport }).label,
       badge: s.count,
       onClick: () => goToSport(s.sport),
+      active: selectedCategory === s.sport,
     })),
-  ], [summary, t]);
+  ], [summary, t, selectedCategory]);
+
+  // Öne Çıkan Ligler — önceki Sidebar.jsx'teki "Popüler Ligler" (top 5,
+  // etkinlik sayısına göre) ile aynı mantık, HomeSidebar'ın yeni
+  // featuredLeagues bölümüne taşındı.
+  const featuredLeagues = useMemo(() => {
+    if (!summary?.sports) return [];
+    return summary.sports
+      .flatMap(s => (s.leagues || []).map(lg => ({
+        sport: s.sport, country: lg.country, league: lg.league,
+        key: lg.country ? `${lg.country} > ${lg.league}` : lg.league,
+        count: lg.count,
+      })))
+      .sort((a, b) => b.count - a.count)
+      .slice(0, 5)
+      .map(lg => ({
+        key: `${lg.sport}:${lg.key}`,
+        label: lg.key.includes(' > ') ? lg.key.split(' > ').at(-1) : lg.key,
+        badge: lg.count,
+        onClick: () => setFocusLeague({ sport: lg.sport, country: lg.country, league: lg.league }),
+      }));
+  }, [summary, setFocusLeague]);
+
+  const categoriesHeader = (
+    <span
+      className="inline-flex px-3 py-2 rounded-lg text-xs font-bold w-full justify-center"
+      style={{ background: 'var(--color-primary)', color: '#08110b' }}
+    >
+      {t('bahis.upcomingEvents')}
+    </span>
+  );
 
   return (
     <div className="min-h-full lg:flex lg:gap-5 lg:px-5 lg:pt-5 lg:items-stretch">
-      <HomeSidebar categories={sportCategories} />
+      <HomeSidebar categories={sportCategories} categoriesHeader={categoriesHeader} featuredLeagues={featuredLeagues} />
       <div className="flex-1 min-w-0 flex flex-col">
         <div className="lg:grid lg:grid-cols-[1fr_260px] lg:gap-4 lg:items-start">
         <div className="min-w-0">
-          <HeroSlider />
-          <div className="flex gap-2 my-4 items-center flex-wrap">
-            <span className="px-4 py-2 rounded-lg text-sm font-bold text-black" style={{ background: 'linear-gradient(135deg, #00d4ff 0%, #7c3aed 100%)', boxShadow: '0 0 16px #00d4ff55, 0 0 24px #7c3aed33' }}>{t('bahis.upcomingEvents')}</span>
-            <SearchInput
-              value={search}
-              onChange={e => setSearch(e.target.value)}
-            />
-          </div>
+          <PromoHeroSlider />
 
           {/* Mobil spor kategorileri — Sidebar masaüstünde md breakpoint altında gizli olduğu için */}
-          <div className="md:hidden -mx-1 mb-4 flex gap-2 overflow-x-auto no-scrollbar px-1 pb-1">
+          <div className="md:hidden -mx-1 my-4 flex gap-2 overflow-x-auto no-scrollbar px-1 pb-1">
             <button
-              onClick={() => setCollapsedSports({})}
+              onClick={showAll}
               className="shrink-0 flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-bold transition-all text-text-2 bg-white/5 border border-white/10"
             >
               <span>🏆</span>
@@ -158,19 +138,7 @@ export default function Bahis() {
             })}
           </div>
 
-          {search.trim().length >= 2 ? (
-            searchLoading ? (
-              <div className="text-center text-text-3 py-16">{t('bahis.searching')}</div>
-            ) : !searchResults || searchResults.length === 0 ? (
-              <div className="text-center text-text-3 py-16">{t('bahis.noResults')}</div>
-            ) : (
-              <div className="flex flex-col gap-2">
-                {searchResults.map(ev => (
-                  <MiniEventCard key={ev._id} event={ev} live={false} accent="#00d4ff" bgColor={SURFACE_CARD_BG} />
-                ))}
-              </div>
-            )
-          ) : summaryLoading && !summary ? (
+          {summaryLoading && !summary ? (
             <div className="text-center text-text-3 py-16">{t('common.loading')}</div>
           ) : summaryError ? (
             <div className="text-center text-text-3 py-16">
