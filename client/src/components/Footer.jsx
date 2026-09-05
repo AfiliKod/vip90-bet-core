@@ -59,10 +59,7 @@ function Footer({ onOpenHelp }) {
       heading: t('footer.legal'),
       items: loadFailed
         ? FALLBACK_LEGAL_ITEMS
-        : [
-            ...legalPages.map(p => ({ label: p.title, to: p.route })),
-            { label: t('footer.status'), to: '/status' },
-          ],
+        : legalPages.map(p => ({ label: p.title, to: p.route })),
     },
   ];
 

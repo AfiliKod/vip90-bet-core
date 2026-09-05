@@ -145,7 +145,13 @@ export default function AdminStaticPages() {
       )}
 
       {editing && (
-        <div className="fixed inset-0 bg-black/60 flex items-center justify-center p-4 z-50 overflow-y-auto" onClick={() => setEditing(null)}>
+        // items-center YERİNE items-start: içerik viewport'tan uzun olduğunda
+        // (çoğu madde/paragraf içeren sayfalarda hep böyle) flex+items-center
+        // ile overflow-y-auto birleşince tarayıcı scrollTop=0'ı içeriğin
+        // ORTASI gibi konumlandırıyordu — modal 1. madde yerine 3-4. maddeden
+        // açılmış gibi görünüyordu. items-start ile scrollTop=0 gerçekten
+        // içeriğin en üstünü (1. madde) gösterir.
+        <div className="fixed inset-0 bg-black/60 flex items-start justify-center p-4 z-50 overflow-y-auto" onClick={() => setEditing(null)}>
           <div className="bg-bg-card border border-white/10 rounded-xl p-5 max-w-2xl w-full my-8" onClick={e => e.stopPropagation()}>
             <h2 className="font-semibold mb-4">{t('admin.staticPages.editTitle')}</h2>
 

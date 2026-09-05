@@ -60,11 +60,11 @@ export default function Tickets() {
   }
 
   if (loading) {
-    return <div className="min-h-screen flex items-center justify-center text-text-3 text-sm">{t('ticket.loading')}</div>;
+    return <div className="min-h-[50vh] flex items-center justify-center text-text-3 text-sm">{t('ticket.loading')}</div>;
   }
 
   return (
-    <div className="min-h-screen">
+    <div>
       {error && (
         <div className="max-w-3xl mx-auto px-4 pt-6">
           <div className="p-3 rounded-lg bg-red-500/10 border border-red-500/30 text-red-300 text-sm">{error}</div>

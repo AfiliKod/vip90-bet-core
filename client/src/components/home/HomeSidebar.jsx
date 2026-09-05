@@ -20,11 +20,12 @@ function scrollToId(id) {
 // "Tümü" kategorisiyle birlikte iki öğenin aktif görünmesine, kafa karıştırıcı
 // bir görünüme yol açıyordu — forceInactive bu route-eşleşmesini görmezden
 // gelip Row'u her zaman normal (aktif olmayan) stille çizer.
-function Row({ to, icon, label, end, forceInactive }) {
+function Row({ to, icon, label, end, forceInactive, onClick }) {
   return (
     <NavLink
       to={to}
       end={end}
+      onClick={onClick}
       className={({ isActive }) => {
         const active = isActive && !forceInactive;
         return `flex items-center gap-3 px-3 py-[9px] rounded-md text-[13px] font-semibold font-ui transition-colors ${
@@ -64,7 +65,7 @@ export default function HomeSidebar({ categories, topExtraLink, featuredLeagues,
       style={{ background: `linear-gradient(180deg, ${HOME_CARD} 0%, #071017 100%)`, border: `1px solid ${HOME_BORDER}` }}
     >
       <Row to="/" end icon="home" label={t('nav.home')} />
-      {topExtraLink && <Row to={topExtraLink.to} icon={topExtraLink.icon} label={topExtraLink.label} forceInactive />}
+      {topExtraLink && <Row to={topExtraLink.to} icon={topExtraLink.icon} label={topExtraLink.label} onClick={topExtraLink.onClick} forceInactive />}
       <Row to="/favorites" icon="star" label={t('home.sidebar.favorites')} />
       <Row to="/recently-played" icon="history" label={t('home.sidebar.recentlyPlayed')} />
 

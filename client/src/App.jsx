@@ -79,7 +79,6 @@ const About = lazy(() => import('./pages/company/About'));
 const Career = lazy(() => import('./pages/company/Career'));
 const Press = lazy(() => import('./pages/company/Press'));
 const Contact = lazy(() => import('./pages/company/Contact'));
-const Status = lazy(() => import('./pages/Status'));
 const ForgotPassword = lazy(() => import('./pages/ForgotPassword'));
 const ResetPassword = lazy(() => import('./pages/ResetPassword'));
 const VerifyEmail = lazy(() => import('./pages/VerifyEmail'));
@@ -193,21 +192,21 @@ export default function App() {
         <Route path="/admin/bots" element={<ProtectedRoute adminOnly><Suspense fallback={<PageLoader />}><AdminBots /></Suspense></ProtectedRoute>} />
         <Route path="/admin/static-pages" element={<ProtectedRoute adminOnly><Suspense fallback={<PageLoader />}><AdminStaticPages /></Suspense></ProtectedRoute>} />
         <Route path="/admin/tickets" element={<ProtectedRoute adminOnly><Suspense fallback={<PageLoader />}><AdminTickets /></Suspense></ProtectedRoute>} />
-        {/* Legal pages (public) */}
-        <Route path="/legal/terms" element={<Suspense fallback={<PageLoader />}><Terms /></Suspense>} />
-        <Route path="/legal/privacy" element={<Suspense fallback={<PageLoader />}><Privacy /></Suspense>} />
-        <Route path="/legal/kvkk" element={<Suspense fallback={<PageLoader />}><Kvkk /></Suspense>} />
-        <Route path="/legal/cookies" element={<Suspense fallback={<PageLoader />}><Cookies /></Suspense>} />
-        <Route path="/legal/bonus-terms" element={<Suspense fallback={<PageLoader />}><BonusTerms /></Suspense>} />
-        <Route path="/legal/responsible-gaming" element={<Suspense fallback={<PageLoader />}><ResponsibleGaming /></Suspense>} />
-        <Route path="/legal/user-agreement" element={<Suspense fallback={<PageLoader />}><UserAgreement /></Suspense>} />
+        {/* Legal pages (public) — kendi TOC sidebar'ını (LegalLayout) korur, Layout'un
+            HomeSidebar'ı ile çakışmasın diye Layout.jsx bu rotaları hariç tutar. */}
+        <Route path="/legal/terms" element={<Layout><Suspense fallback={<PageLoader />}><Terms /></Suspense></Layout>} />
+        <Route path="/legal/privacy" element={<Layout><Suspense fallback={<PageLoader />}><Privacy /></Suspense></Layout>} />
+        <Route path="/legal/kvkk" element={<Layout><Suspense fallback={<PageLoader />}><Kvkk /></Suspense></Layout>} />
+        <Route path="/legal/cookies" element={<Layout><Suspense fallback={<PageLoader />}><Cookies /></Suspense></Layout>} />
+        <Route path="/legal/bonus-terms" element={<Layout><Suspense fallback={<PageLoader />}><BonusTerms /></Suspense></Layout>} />
+        <Route path="/legal/responsible-gaming" element={<Layout><Suspense fallback={<PageLoader />}><ResponsibleGaming /></Suspense></Layout>} />
+        <Route path="/legal/user-agreement" element={<Layout><Suspense fallback={<PageLoader />}><UserAgreement /></Suspense></Layout>} />
         {/* Company pages (public, statik sayfa yönetimi) */}
-        <Route path="/about" element={<Suspense fallback={<PageLoader />}><About /></Suspense>} />
-        <Route path="/career" element={<Suspense fallback={<PageLoader />}><Career /></Suspense>} />
-        <Route path="/press" element={<Suspense fallback={<PageLoader />}><Press /></Suspense>} />
-        <Route path="/contact" element={<Suspense fallback={<PageLoader />}><Contact /></Suspense>} />
-        <Route path="/status" element={<Suspense fallback={<PageLoader />}><Status /></Suspense>} />
-        <Route path="/help" element={<ProtectedRoute><Suspense fallback={<PageLoader />}><Tickets /></Suspense></ProtectedRoute>} />
+        <Route path="/about" element={<Layout><Suspense fallback={<PageLoader />}><About /></Suspense></Layout>} />
+        <Route path="/career" element={<Layout><Suspense fallback={<PageLoader />}><Career /></Suspense></Layout>} />
+        <Route path="/press" element={<Layout><Suspense fallback={<PageLoader />}><Press /></Suspense></Layout>} />
+        <Route path="/contact" element={<Layout><Suspense fallback={<PageLoader />}><Contact /></Suspense></Layout>} />
+        <Route path="/help" element={<ProtectedRoute><Layout><Suspense fallback={<PageLoader />}><Tickets /></Suspense></Layout></ProtectedRoute>} />
         <Route path="/forgot-password" element={<GuestRoute><Suspense fallback={<PageLoader />}><ForgotPassword /></Suspense></GuestRoute>} />
         <Route path="/reset-password" element={<GuestRoute endSession><Suspense fallback={<PageLoader />}><ResetPassword /></Suspense></GuestRoute>} />
         <Route path="/verify-email" element={<GuestRoute endSession><Suspense fallback={<PageLoader />}><VerifyEmail /></Suspense></GuestRoute>} />

@@ -98,7 +98,17 @@ export default function Bahis() {
       }));
   }, [summary, setFocusLeague]);
 
-  const topExtraLink = { to: '/bahis', icon: 'event', label: t('bahis.upcomingEvents') };
+  // "Tümü" seçili olsa bile bu linke tıklamak somut bir şey yapsın: filtreyi
+  // sıfırlar (showAll) ve etkinlik listesinin başına kaydırır — kendi
+  // sayfasına link verdiği için salt navigasyon hiçbir şey yapmıyordu.
+  const topExtraLink = {
+    to: '/bahis', icon: 'event', label: t('bahis.upcomingEvents'),
+    onClick: (e) => {
+      e.preventDefault();
+      showAll();
+      document.getElementById('upcoming-events-heading')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    },
+  };
 
   return (
     <div className="min-h-full lg:flex lg:gap-5 lg:px-5 lg:pt-5 lg:items-stretch">
@@ -108,7 +118,7 @@ export default function Bahis() {
         <div className="min-w-0">
           <PromoHeroSlider />
 
-          <h1 className="text-xl font-black text-text-1 my-4">{t('home.sports.title')}</h1>
+          <h1 id="upcoming-events-heading" className="text-xl font-black text-text-1 my-4 scroll-mt-4">{t('home.sports.title')}</h1>
 
           {/* Mobil spor kategorileri — Sidebar masaüstünde md breakpoint altında gizli olduğu için */}
           <div className="md:hidden -mx-1 my-4 flex gap-2 overflow-x-auto no-scrollbar px-1 pb-1">

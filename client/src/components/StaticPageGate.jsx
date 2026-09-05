@@ -8,7 +8,7 @@ export default function StaticPageGate({ slug, render }) {
 
   if (status === 'loading') {
     return (
-      <div className="min-h-screen flex items-center justify-center" style={{ background: '#05080f' }}>
+      <div className="min-h-[50vh] flex items-center justify-center">
         <div className="text-text-3 text-sm">{t('common.loading')}</div>
       </div>
     );
@@ -16,7 +16,7 @@ export default function StaticPageGate({ slug, render }) {
 
   if (status === 'notfound' || !page) {
     return (
-      <div className="min-h-screen flex items-center justify-center" style={{ background: '#05080f' }}>
+      <div className="min-h-[50vh] flex items-center justify-center">
         <div className="text-text-3 text-sm">{t('staticPage.unavailable')}</div>
       </div>
     );

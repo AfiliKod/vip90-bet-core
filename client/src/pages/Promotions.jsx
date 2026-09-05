@@ -6,6 +6,7 @@ import { useAuthStore } from '../store/authStore';
 import { useTranslation } from '../i18n';
 import { formatMoney } from '../utils/money.js';
 import { SURFACE_CARD_BG, SURFACE_BORDER } from '../styles/surface';
+import WinnersPanel from '../components/home/WinnersPanel';
 
 export default function Promotions() {
   const { t } = useTranslation();
@@ -37,46 +38,52 @@ export default function Promotions() {
   }
 
   return (
-    <div className="max-w-3xl mx-auto px-4 py-6">
-      <h1 className="text-2xl font-black text-text-1 mb-6">🎁 {t('nav.promotions')}</h1>
-      <div className="grid gap-4">
-        <div className="rounded-xl p-5 flex items-center justify-between gap-4" style={{ background: SURFACE_CARD_BG, border: `1px solid ${SURFACE_BORDER}` }}>
-          <div className="flex-1 min-w-0">
-            <h3 className="font-bold text-text-1 mb-1">🎁 {t('promotions.referralTitle')}</h3>
-            <p className="text-text-3 text-sm">{t('promotions.referralDesc')}</p>
-          </div>
-          <Link to="/profile"
-            className="shrink-0 px-5 py-2.5 rounded-lg text-sm font-semibold text-bg-deep bg-gradient-to-r from-primary to-accent hover:opacity-90 transition">
-            {t('promotions.getMyLink')}
-          </Link>
-        </div>
-        {promos.map(p => {
-          const claimed = p.claimedBy?.some(id => id === user?._id);
-          return (
-            <div key={p._id} className="rounded-xl p-5 flex items-center justify-between gap-4" style={{ background: SURFACE_CARD_BG, border: `1px solid ${SURFACE_BORDER}` }}>
-              <div className="flex-1 min-w-0">
-                <h3 className="font-bold text-text-1 mb-1">{p.title}</h3>
-                <p className="text-text-3 text-sm mb-3">{p.description}</p>
-                <div className="flex flex-wrap gap-2 text-xs text-text-3">
-                  <span className="bg-bg-base px-2 py-1 rounded">💰 {formatMoney(p.amount)}</span>
-                  <span className="bg-bg-base px-2 py-1 rounded">📊 {t('promotions.minOdds')}: {p.minOdds}</span>
-                  <span className="bg-bg-base px-2 py-1 rounded">🔄 {p.wageringMultiplier ?? p.wagering}x {t('promotions.wagering')}</span>
-                  {p.deadlineDays && <span className="bg-bg-base px-2 py-1 rounded">⏰ {p.deadlineDays}{t('promotions.daysShort')}</span>}
-                </div>
-              </div>
-              <button
-                onClick={() => !claimed && setActivePromo(p)}
-                disabled={claimed}
-                className={`shrink-0 px-5 py-2.5 rounded-lg text-sm font-semibold transition ${
-                  claimed ? 'bg-bg-base text-text-3 cursor-not-allowed' : 'text-bg-deep bg-gradient-to-r from-primary to-accent hover:opacity-90'
-                }`}
-              >
-                {claimed ? `✓ ${t('promotions.used')}` : t('promotions.use')}
-              </button>
+    <div className="px-4 py-6 lg:grid lg:grid-cols-[1fr_260px] lg:gap-4 lg:items-start max-w-6xl mx-auto">
+      <div className="min-w-0 max-w-3xl">
+        <h1 className="text-2xl font-black text-text-1 mb-6">🎁 {t('nav.promotions')}</h1>
+        <div className="grid gap-4">
+          <div className="rounded-xl p-5 flex items-center justify-between gap-4" style={{ background: SURFACE_CARD_BG, border: `1px solid ${SURFACE_BORDER}` }}>
+            <div className="flex-1 min-w-0">
+              <h3 className="font-bold text-text-1 mb-1">🎁 {t('promotions.referralTitle')}</h3>
+              <p className="text-text-3 text-sm">{t('promotions.referralDesc')}</p>
             </div>
-          );
-        })}
-        {!promos.length && <div className="text-center text-text-3 py-12">{t('promotions.noneFound')}</div>}
+            <Link to="/profile"
+              className="shrink-0 px-5 py-2.5 rounded-lg text-sm font-semibold text-bg-deep bg-gradient-to-r from-primary to-accent hover:opacity-90 transition">
+              {t('promotions.getMyLink')}
+            </Link>
+          </div>
+          {promos.map(p => {
+            const claimed = p.claimedBy?.some(id => id === user?._id);
+            return (
+              <div key={p._id} className="rounded-xl p-5 flex items-center justify-between gap-4" style={{ background: SURFACE_CARD_BG, border: `1px solid ${SURFACE_BORDER}` }}>
+                <div className="flex-1 min-w-0">
+                  <h3 className="font-bold text-text-1 mb-1">{p.title}</h3>
+                  <p className="text-text-3 text-sm mb-3">{p.description}</p>
+                  <div className="flex flex-wrap gap-2 text-xs text-text-3">
+                    <span className="bg-bg-base px-2 py-1 rounded">💰 {formatMoney(p.amount)}</span>
+                    <span className="bg-bg-base px-2 py-1 rounded">📊 {t('promotions.minOdds')}: {p.minOdds}</span>
+                    <span className="bg-bg-base px-2 py-1 rounded">🔄 {p.wageringMultiplier ?? p.wagering}x {t('promotions.wagering')}</span>
+                    {p.deadlineDays && <span className="bg-bg-base px-2 py-1 rounded">⏰ {p.deadlineDays}{t('promotions.daysShort')}</span>}
+                  </div>
+                </div>
+                <button
+                  onClick={() => !claimed && setActivePromo(p)}
+                  disabled={claimed}
+                  className={`shrink-0 px-5 py-2.5 rounded-lg text-sm font-semibold transition ${
+                    claimed ? 'bg-bg-base text-text-3 cursor-not-allowed' : 'text-bg-deep bg-gradient-to-r from-primary to-accent hover:opacity-90'
+                  }`}
+                >
+                  {claimed ? `✓ ${t('promotions.used')}` : t('promotions.use')}
+                </button>
+              </div>
+            );
+          })}
+          {!promos.length && <div className="text-center text-text-3 py-12">{t('promotions.noneFound')}</div>}
+        </div>
+      </div>
+
+      <div className="hidden lg:block mt-[52px]">
+        <WinnersPanel />
       </div>
 
       {/* T&C Modal (Phase A5) */}
