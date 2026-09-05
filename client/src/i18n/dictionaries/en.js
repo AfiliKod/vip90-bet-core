@@ -9,6 +9,7 @@ export default {
   'auth.login': 'Login',
   'auth.register': 'Register',
   'auth.logout': 'Logout',
+  'auth.sessionEnding': 'Signing you out...',
   'auth.forgotPassword': 'Forgot Password',
   'auth.connectWallet': 'Connect Wallet',
   'auth.continueWithGoogle': 'Continue with Google',
@@ -163,6 +164,18 @@ export default {
   'ticket.status.inProgress': 'In Progress',
   'ticket.status.resolved': 'Resolved',
   'ticket.status.closed': 'Closed',
+  'ticket.status.unknown': 'Unknown',
+  'ticket.yourTickets': 'Your support tickets',
+  'ticket.emptyHint': 'Having an issue? Open a ticket and our team will get back to you shortly.',
+  'ticket.noMessage': 'No message',
+  'ticket.messageCount': '{count} messages',
+  'ticket.notFound': 'Ticket not found',
+  'ticket.openedAt': 'Opened: {date}',
+  'ticket.you': 'You',
+  'ticket.supportTeam': 'Support Team',
+  'ticket.closedNotice': 'This ticket has been closed. Please open a new ticket for further questions.',
+  'ticket.replyPlaceholder': 'Write your reply...',
+  'ticket.sendHint': 'Press Enter to send · Shift+Enter for a new line',
   'admin.tickets.title': 'Support Tickets',
   'admin.tickets.subtitle': 'View and reply to player support requests.',
   'admin.tickets.filterAll': 'All',
@@ -604,6 +617,7 @@ export default {
   'bets.single': 'Single',
   'bets.stake': 'Stake',
   'bets.potentialWin': 'Potential Win',
+  'games.potentialWinShort': 'Pot. win',
   'bets.noneFound': 'No bets found',
 
   // Games (shared game controls)
@@ -841,6 +855,9 @@ export default {
   'games.roulette.betPlacedWaiting': 'Bet placed — waiting for the ball',
   'games.roulette.newRoundStarting': 'New round starting...',
   'games.roulette.liveMultiplayer': 'Live multiplayer',
+  'games.roulette.noResultYet': 'No results yet',
+  'games.roulette.bettingPhase': 'Betting Phase',
+  'games.roulette.playersBet': '{count} players placed bets',
 
   // Profile — deposit/withdraw flow (previously missing keys)
   'profile.accountHolderName': 'Account Holder Name',
@@ -878,6 +895,9 @@ export default {
   'profile.requestCreated': 'Request Created',
   'profile.responsibleGaming': 'Responsible Gaming & Limits',
   'profile.selectWithdrawAmount': 'Select Withdrawal Amount',
+  'profile.selectDepositAmount': 'Select Deposit Amount',
+  'profile.transactionHistory': 'Transaction History',
+  'profile.noTransactions': 'No transactions found',
   'profile.sendFromOwnAccountBold': 'only from a bank account registered in your own name',
   'profile.sendFromOwnAccountPrefix': 'Send the payment',
   'profile.sendFromOwnAccountSuffix': '— account matching can only be done this way',
@@ -910,6 +930,8 @@ export default {
   'games.mines.riskMedium': 'Medium',
   'games.mines.roundsCount': '{n} Rounds',
   'games.mines.wonWithMultiplier': '{mult}× · you won {amount}! 🏆',
+  'games.mines.multiplierLabel': 'Multiplier',
+  'games.mines.minesThisRound': 'Mines this round',
   'games.mines.yourMineCountUsed': 'The mine count you selected is used',
   'games.winAmount': 'Winnings',
   'games.won': 'You Won',
@@ -978,6 +1000,10 @@ export default {
   'casino.ctaSubtitle': 'Hundreds of games, the biggest jackpots, and a unique in-house experience. Join now, start winning.',
   'casino.exploreAllGames': 'Explore All Games',
   'casino.loadingProviders': 'Loading providers...',
+  'casino.loadingGames': 'Loading games...',
+  'casino.noSearchResultsFor': 'Try a different search for "{query}"',
+  'casino.noGamesInCategory': 'No games found in this category',
+  'casino.tryDifferentProvider': 'Try selecting a different provider',
   'common.scrollUp': 'Scroll up',
 
   // Game card descriptions (CasinoRedesign grid — distinct from games.*.subtitle, original text preserved)
@@ -1315,6 +1341,7 @@ export default {
   'games.crash.stopAutoRepeat': 'Stop auto repeat',
   'games.dice.winChance': 'Win chance',
   'games.dice.multiplier': 'Multiplier',
+  'games.dice.direction': 'Direction',
   'games.dragontiger.dragonWon': 'Dragon Won!',
   'games.dragontiger.tigerWon': 'Tiger Won!',
   'games.keno.selectAtLeastOne': 'Select at least 1 number',
@@ -1343,6 +1370,7 @@ export default {
   'games.limbo.minTarget': 'Target must be at least 1.01×',
   'games.limbo.playing': 'Playing...',
   'games.limbo.targetMultiplier': 'Target Multiplier (×)',
+  'games.limbo.result': 'Result',
   'toast.wonPrefix': 'You won!',
   'toast.refundedPrefix': 'Refunded!',
   'toast.lostPrefix': 'Lost:',
@@ -1442,6 +1470,16 @@ export default {
   'bahis.loadFailed': 'Failed to load.',
   'bahis.noEventsFound': 'No events found',
   'bahis.eventCount': '{count} events',
+  'bahis.noOpenBetsInLeague': 'No open bets in this league.',
+
+  // EventDetail
+  'eventDetail.notFound': 'Event not found',
+  'eventDetail.noOpenMarkets': 'There are no open bets for this event right now.',
+
+  // Live
+  'live.noLiveMatches': 'No live matches right now',
+  'live.matchesWillAppear': 'Matches will appear here once they start',
+  'live.matchCount': '{count} matches',
 
   // ForgotPassword
   'forgotPassword.title': 'Password Reset',
@@ -1492,4 +1530,11 @@ export default {
   'admin.bankRequests.approved': 'Request approved',
   'admin.bankRequests.rejected': 'Request rejected',
   'admin.bankRequests.rejectReasonPrompt': 'Rejection reason (optional):',
+
+  // Module gate
+  'moduleGate.title': 'This section is currently unavailable',
+  'moduleGate.description': 'This module has been temporarily disabled by the operator. The rest of the site continues to work normally.',
+
+  // PWA
+  'pwa.updateAvailable': 'New version available!',
 };

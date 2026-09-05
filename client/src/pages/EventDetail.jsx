@@ -317,8 +317,8 @@ export default function EventDetail() {
     ? { to: '/bahis', icon: 'event', label: t('bahis.upcomingEvents') }
     : undefined;
 
-  if (loading) return <div className="text-center text-text-3 py-16">Yükleniyor...</div>;
-  if (!event) return <div className="text-center text-text-3 py-16">Etkinlik bulunamadı</div>;
+  if (loading) return <div className="text-center text-text-3 py-16">{t('common.loading')}</div>;
+  if (!event) return <div className="text-center text-text-3 py-16">{t('eventDetail.notFound')}</div>;
 
   const label = `${event.homeTeam.name} vs ${event.awayTeam.name}`;
 
@@ -335,7 +335,7 @@ export default function EventDetail() {
             <MatchHero event={event} />
 
             {event.markets.length === 0 ? (
-              <p className="text-center text-text-3 text-sm py-8">Bu etkinlik için şu an açık bahis bulunmuyor.</p>
+              <p className="text-center text-text-3 text-sm py-8">{t('eventDetail.noOpenMarkets')}</p>
             ) : (
               <div className="space-y-2 mt-4">
                 {event.markets.map((market, i) => (

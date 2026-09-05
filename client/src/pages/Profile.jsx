@@ -548,7 +548,7 @@ const handleBankSubmit = async (confirmForfeit = false) => {
           {/* ── BANK DEPOSIT ── */}
           {method === 'bank' && mode === 'deposit' && !successRequest && step === 'amount' && (
             <div className="space-y-4">
-              <p className="text-sm text-text-2 font-medium">Yatırılacak Tutarı Seçin</p>
+              <p className="text-sm text-text-2 font-medium">{t('profile.selectDepositAmount')}</p>
               <div className="grid grid-cols-3 gap-2">
                 {AMOUNT_PRESETS.map(a => (
                   <button key={a} onClick={() => handleAmountSelect(a)}
@@ -775,7 +775,7 @@ const handleBankSubmit = async (confirmForfeit = false) => {
 
       {/* İşlem geçmişi */}
       <div className="bg-bg-card border border-white/10 rounded-xl p-4">
-        <h3 className="font-semibold text-text-1 mb-3">İşlem Geçmişi</h3>
+        <h3 className="font-semibold text-text-1 mb-3">{t('profile.transactionHistory')}</h3>
         <div className="space-y-2 max-h-80 overflow-y-auto">
           {transactions.map(tx => (
             <div key={tx._id} className="flex items-center justify-between text-sm py-2 border-b border-white/5 last:border-0">
@@ -789,13 +789,13 @@ const handleBankSubmit = async (confirmForfeit = false) => {
                   {tx.amount > 0 ? '+' : ''}{formatMoney(Math.abs(tx.amount))}
                 </span>
                 {tx.status === 'pending' && (
-                  <div className="text-yellow-400 text-xs">Bekliyor</div>
+                  <div className="text-yellow-400 text-xs">{t('bets.pending')}</div>
                 )}
               </div>
             </div>
           ))}
           {!transactions.length && (
-            <div className="text-text-3 text-center py-4 text-sm">İşlem bulunamadı</div>
+            <div className="text-text-3 text-center py-4 text-sm">{t('profile.noTransactions')}</div>
 )}
          </div>
        </div>

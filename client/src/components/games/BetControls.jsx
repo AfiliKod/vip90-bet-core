@@ -192,7 +192,7 @@ export default function BetControls({ value, onChange, disabled, presets, onAuto
       {/* ── Potential win ─────────────────────────────────────────────────── */}
       {potWin != null && (
         <div className="flex items-center justify-between px-1">
-          <span className="text-[10px] text-text-3 font-medium">Pot. kazanç</span>
+          <span className="text-[10px] text-text-3 font-medium">{t('games.potentialWinShort')}</span>
           <span className="text-[11px] font-black text-green-400 tabular-nums">
             {formatMoney(typeof potWin === 'number' ? potWin.toFixed(2) : potWin)}
           </span>

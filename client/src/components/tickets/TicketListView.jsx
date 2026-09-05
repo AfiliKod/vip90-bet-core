@@ -1,13 +1,12 @@
-const STATUS_META = {
-  open: { label: 'Açık', cls: 'bg-accent/15 text-accent' },
-  in_progress: { label: 'İşlemde', cls: 'bg-warning/15 text-warning' },
-  resolved: { label: 'Çözüldü', cls: 'bg-success/15 text-success' },
-  closed: { label: 'Kapandı', cls: 'bg-white/5 text-text-3' },
-};
+import { useTranslation } from '../../i18n';
 
-function getStatusMeta(status) {
-  return STATUS_META[status] || { label: 'Bilinmiyor', cls: 'bg-white/5 text-text-3' };
-}
+const STATUS_CLS = {
+  open: 'bg-accent/15 text-accent',
+  in_progress: 'bg-warning/15 text-warning',
+  resolved: 'bg-success/15 text-success',
+  closed: 'bg-white/5 text-text-3',
+};
+const STATUS_I18N_KEY = { open: 'open', in_progress: 'inProgress', resolved: 'resolved', closed: 'closed' };
 
 function getLastMessage(ticket) {
   const msgs = ticket?.messages;
@@ -23,35 +22,35 @@ function formatDateTime(value) {
 }
 
 export default function TicketListView({ tickets = [], onSelectTicket, onNewTicket }) {
+  const { t } = useTranslation();
   return (
     <div className="max-w-3xl mx-auto px-4 py-6">
       <div className="flex items-center justify-between mb-6">
         <div>
-          <h1 className="text-2xl font-bold text-text-1">🎧 Yardım Merkezi</h1>
+          <h1 className="text-2xl font-bold text-text-1">🎧 {t('ticket.title')}</h1>
           <p className="text-text-3 text-sm mt-1">
-            Destek talepleriniz{tickets.length > 0 ? ` (${tickets.length})` : ''}
+            {t('ticket.yourTickets')}{tickets.length > 0 ? ` (${tickets.length})` : ''}
           </p>
         </div>
         <button
           onClick={onNewTicket}
           className="px-4 py-2 rounded-lg bg-primary text-white text-sm font-medium shrink-0"
         >
-          + Yeni Talep
+          + {t('ticket.newTicket')}
         </button>
       </div>
 
       {tickets.length === 0 ? (
         <div className="bg-bg-card border border-dashed border-white/10 rounded-xl py-16 px-6 text-center animate-fade-in">
           <div className="text-4xl mb-3">📨</div>
-          <p className="font-semibold text-text-1">Henüz bir destek talebiniz yok</p>
-          <p className="text-text-3 text-sm mt-1">
-            Bir sorun mu yaşıyorsunuz? Talep oluşturun, ekibimiz kısa sürede yanıtlasın.
-          </p>
+          <p className="font-semibold text-text-1">{t('ticket.empty')}</p>
+          <p className="text-text-3 text-sm mt-1">{t('ticket.emptyHint')}</p>
         </div>
       ) : (
         <div className="space-y-3">
           {tickets.map(ticket => {
-            const meta = getStatusMeta(ticket.status);
+            const statusKey = STATUS_I18N_KEY[ticket.status];
+            const cls = STATUS_CLS[ticket.status] || 'bg-white/5 text-text-3';
             const lastMsg = getLastMessage(ticket);
             return (
               <div
@@ -64,17 +63,17 @@ export default function TicketListView({ tickets = [], onSelectTicket, onNewTick
               >
                 <div className="flex items-start justify-between gap-3">
                   <h3 className="font-semibold text-text-1 truncate">{ticket.subject}</h3>
-                  <span className={`shrink-0 text-xs px-2 py-0.5 rounded-full ${meta.cls}`}>
-                    {meta.label}
+                  <span className={`shrink-0 text-xs px-2 py-0.5 rounded-full ${cls}`}>
+                    {statusKey ? t(`ticket.status.${statusKey}`) : t('ticket.status.unknown')}
                   </span>
                 </div>
                 <p className="text-text-2 text-sm mt-1.5 truncate">
-                  {lastMsg ? lastMsg.text : 'Mesaj yok'}
+                  {lastMsg ? lastMsg.text : t('ticket.noMessage')}
                 </p>
                 <div className="flex items-center gap-1 text-text-3 text-xs mt-2">
                   <span>🕒</span>
                   <span>{formatDateTime(ticket.createdAt)}</span>
-                  <span>· {(ticket.messages || []).length} mesaj</span>
+                  <span>· {t('ticket.messageCount', { count: (ticket.messages || []).length })}</span>
                 </div>
               </div>
             );

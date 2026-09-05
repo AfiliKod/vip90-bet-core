@@ -1,7 +1,9 @@
 import { useState, useEffect } from 'react';
 import { usePWA } from '../hooks/usePWA.js';
+import { useTranslation } from '../i18n';
 
 export function PWAUpdateBanner() {
+  const { t } = useTranslation();
   const { updateAvailable, applyUpdate, isOnline } = usePWA();
   const [visible, setVisible] = useState(false);
 
@@ -18,19 +20,19 @@ export function PWAUpdateBanner() {
           <circle cx="12" cy="12" r="10" strokeOpacity="0.25" />
           <path d="M12 2a10 10 0 0 1 10 10" strokeOpacity="1" />
         </svg>
-        <span className="text-sm font-medium">Yeni sürüm mevcut!</span>
+        <span className="text-sm font-medium">{t('pwa.updateAvailable')}</span>
       </div>
       <div className="flex items-center gap-2">
         <button
           onClick={() => { applyUpdate(); setVisible(false); }}
           className="bg-white/20 hover:bg-white/30 px-3 py-1.5 rounded text-sm font-medium transition-colors"
         >
-          Güncelle
+          {t('common.update')}
         </button>
         <button
           onClick={() => setVisible(false)}
           className="p-1.5 hover:bg-white/20 rounded transition-colors"
-          aria-label="Kapat"
+          aria-label={t('common.close')}
         >
           <svg className="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
             <line x1="18" y1="6" x2="6" y2="18" />

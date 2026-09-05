@@ -4,6 +4,7 @@ import { useEventsStore } from '../store/eventsStore';
 import { useSettingsStore } from '../store/settingsStore';
 import { SPORT_META } from '../utils/sportMeta';
 import { useFormatters } from '../i18n/useFormatters.jsx';
+import { useTranslation } from '../i18n';
 import { BRAND_GRADIENT, BRAND_GLOW } from '../styles/brand';
 import { SURFACE_CARD_BG, SURFACE_BORDER } from '../styles/surface';
 
@@ -14,6 +15,7 @@ const SPORT_ORDER = [
 ];
 
 export default function Sidebar() {
+  const { t } = useTranslation();
   const fmt = useFormatters();
   const {
     events,
@@ -143,7 +145,7 @@ export default function Sidebar() {
           } : {}}
         >
           <span className="w-5 text-center text-sm">🏆</span>
-          <span className="flex-1 text-left font-bold">Tümü</span>
+          <span className="flex-1 text-left font-bold">{t('common.all')}</span>
           <span className="bg-bg-hover text-text-3 rounded-full px-1.5 py-px text-[10px] min-w-[18px] text-center">
             {totalBadge}
           </span>
@@ -224,7 +226,7 @@ export default function Sidebar() {
       <div className="px-3 pb-3 mt-2 border-t border-white/5 pt-3">
         {topLeagues.length > 0 && (
           <div className="mb-4">
-            <p className="text-[10px] font-bold uppercase tracking-wider text-text-2 mb-2 px-2">Popüler Ligler</p>
+            <p className="text-[10px] font-bold uppercase tracking-wider text-text-2 mb-2 px-2">{t('sidebar.popularLeagues')}</p>
             {topLeagues.map(({ sport, country, league, key, count }) => {
               const meta = SPORT_META[sport] ?? { icon: '🏆', label: sport };
               const isActive = !useSummaryTree && selectedLeague === key && selectedSport === sport;
@@ -253,7 +255,7 @@ export default function Sidebar() {
 
         {importantEvents.length > 0 && (
           <div>
-            <p className="text-[10px] font-bold uppercase tracking-wider text-text-2 mb-2 px-2">Önemli Maçlar</p>
+            <p className="text-[10px] font-bold uppercase tracking-wider text-text-2 mb-2 px-2">{t('sidebar.importantMatches')}</p>
             {importantEvents.map(ev => {
               const isLive = ev.status === 'live';
               const meta = SPORT_META[ev.sport] ?? { icon: '🏆', label: ev.sport };

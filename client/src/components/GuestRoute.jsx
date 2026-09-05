@@ -1,6 +1,7 @@
 import { useEffect, useRef } from 'react';
 import { Navigate, useLocation } from 'react-router-dom';
 import { useAuthStore } from '../store/authStore';
+import { useTranslation } from '../i18n';
 
 function FullScreenMessage({ children }) {
   return (
@@ -25,6 +26,7 @@ function safeRedirect(target) {
  * iç içe geçmez.
  */
 export default function GuestRoute({ children, endSession = false }) {
+  const { t } = useTranslation();
   const { user, isLoading, logout, clearAuth } = useAuthStore();
   const location = useLocation();
   const ending = useRef(false);
@@ -37,10 +39,10 @@ export default function GuestRoute({ children, endSession = false }) {
     })();
   }, [endSession, user, logout, clearAuth]);
 
-  if (isLoading) return <FullScreenMessage>Yükleniyor...</FullScreenMessage>;
+  if (isLoading) return <FullScreenMessage>{t('common.loading')}</FullScreenMessage>;
 
   if (user) {
-    if (endSession) return <FullScreenMessage>Oturumunuz kapatılıyor...</FullScreenMessage>;
+    if (endSession) return <FullScreenMessage>{t('auth.sessionEnding')}</FullScreenMessage>;
     const target = new URLSearchParams(location.search).get('redirect');
     return <Navigate to={safeRedirect(target)} replace />;
   }

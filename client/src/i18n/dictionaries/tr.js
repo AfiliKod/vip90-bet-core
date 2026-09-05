@@ -9,6 +9,7 @@ export default {
   'auth.login': 'Giriş Yap',
   'auth.register': 'Kayıt Ol',
   'auth.logout': 'Çıkış Yap',
+  'auth.sessionEnding': 'Oturumunuz kapatılıyor...',
   'auth.forgotPassword': 'Şifremi Unuttum',
   'auth.connectWallet': 'Cüzdanla Bağlan',
   'auth.continueWithGoogle': 'Google ile devam et',
@@ -162,6 +163,18 @@ export default {
   'ticket.status.inProgress': 'İnceleniyor',
   'ticket.status.resolved': 'Çözüldü',
   'ticket.status.closed': 'Kapalı',
+  'ticket.status.unknown': 'Bilinmiyor',
+  'ticket.yourTickets': 'Destek talepleriniz',
+  'ticket.emptyHint': 'Bir sorun mu yaşıyorsunuz? Talep oluşturun, ekibimiz kısa sürede yanıtlasın.',
+  'ticket.noMessage': 'Mesaj yok',
+  'ticket.messageCount': '{count} mesaj',
+  'ticket.notFound': 'Talep bulunamadı',
+  'ticket.openedAt': 'Açılış: {date}',
+  'ticket.you': 'Sen',
+  'ticket.supportTeam': 'Destek Ekibi',
+  'ticket.closedNotice': 'Bu talep kapatıldı. Yeni bir soru için lütfen yeni talep oluşturun.',
+  'ticket.replyPlaceholder': 'Yanıtınızı yazın...',
+  'ticket.sendHint': 'Enter ile gönder · Shift+Enter ile alt satır',
   'admin.tickets.title': 'Destek Talepleri',
   'admin.tickets.subtitle': 'Oyuncu destek taleplerini görüntüleyin ve yanıtlayın.',
   'admin.tickets.filterAll': 'Tümü',
@@ -603,6 +616,7 @@ export default {
   'bets.single': 'Tekli',
   'bets.stake': 'Tutar',
   'bets.potentialWin': 'Kazanılabilir',
+  'games.potentialWinShort': 'Pot. kazanç',
   'bets.noneFound': 'Bahis bulunamadı',
 
   // Games (ortak oyun kontrolleri)
@@ -840,6 +854,9 @@ export default {
   'games.roulette.betPlacedWaiting': 'Bahis koyuldu — top bekleniyor',
   'games.roulette.newRoundStarting': 'Yeni tur başlıyor...',
   'games.roulette.liveMultiplayer': 'Canlı çok oyunculu',
+  'games.roulette.noResultYet': 'Henüz sonuç yok',
+  'games.roulette.bettingPhase': 'Bahis Aşaması',
+  'games.roulette.playersBet': '{count} oyuncu bahis koydu',
 
   // Profile — para yatırma/çekme akışı (eksik kalan anahtarlar)
   'profile.accountHolderName': 'Hesap Sahibinin Adı Soyadı',
@@ -877,6 +894,9 @@ export default {
   'profile.requestCreated': 'Talep Oluşturuldu',
   'profile.responsibleGaming': 'Sorumlu Oyun & Limitler',
   'profile.selectWithdrawAmount': 'Çekilecek Tutarı Seçin',
+  'profile.selectDepositAmount': 'Yatırılacak Tutarı Seçin',
+  'profile.transactionHistory': 'İşlem Geçmişi',
+  'profile.noTransactions': 'İşlem bulunamadı',
   'profile.sendFromOwnAccountBold': 'yalnızca kendi adınıza kayıtlı banka hesabınızdan',
   'profile.sendFromOwnAccountPrefix': 'Ödemeyi',
   'profile.sendFromOwnAccountSuffix': 'gönderin — hesap eşleştirmesi ancak bu şekilde yapılabilir',
@@ -909,6 +929,8 @@ export default {
   'games.mines.riskMedium': 'Orta',
   'games.mines.roundsCount': '{n} Tur',
   'games.mines.wonWithMultiplier': '{mult}× · {amount} kazandınız! 🏆',
+  'games.mines.multiplierLabel': 'Çarpan',
+  'games.mines.minesThisRound': 'Bu turda mayın',
   'games.mines.yourMineCountUsed': 'Seçtiğiniz mayın sayısı kullanılır',
   'games.winAmount': 'Kazanç',
   'games.won': 'Kazandınız',
@@ -977,6 +999,10 @@ export default {
   'casino.ctaSubtitle': 'Yüzlerce oyun, en büyük jackpotlar ve benzersiz in-house deneyim. Hemen katıl, kazanmaya başla.',
   'casino.exploreAllGames': 'Tüm Oyunları Keşfet',
   'casino.loadingProviders': 'Sağlayıcılar yükleniyor...',
+  'casino.loadingGames': 'Oyunlar yükleniyor...',
+  'casino.noSearchResultsFor': '"{query}" için farklı bir arama dene',
+  'casino.noGamesInCategory': 'Bu kategoride oyun bulunamadı',
+  'casino.tryDifferentProvider': 'Farklı bir provider seçmeyi dene',
   'common.scrollUp': 'Yukarı çık',
 
   // Oyun kart açıklamaları (CasinoRedesign grid — mevcut games.*.subtitle'dan farklı, orijinal metin korundu)
@@ -1314,6 +1340,7 @@ export default {
   'games.crash.stopAutoRepeat': 'Otomatik tekrarı durdur',
   'games.dice.winChance': 'Kazanma şansı',
   'games.dice.multiplier': 'Çarpan',
+  'games.dice.direction': 'Yön',
   'games.dragontiger.dragonWon': 'Dragon Kazandı!',
   'games.dragontiger.tigerWon': 'Tiger Kazandı!',
   'games.keno.selectAtLeastOne': 'En az 1 sayı seçin',
@@ -1342,6 +1369,7 @@ export default {
   'games.limbo.minTarget': 'Hedef en az 1.01×',
   'games.limbo.playing': 'Oynuyor...',
   'games.limbo.targetMultiplier': 'Hedef Çarpan (×)',
+  'games.limbo.result': 'Sonuç',
   'toast.wonPrefix': 'Kazandınız!',
   'toast.refundedPrefix': 'İade edildi!',
   'toast.lostPrefix': 'Kaybedildi:',
@@ -1441,6 +1469,16 @@ export default {
   'bahis.loadFailed': 'Yüklenemedi.',
   'bahis.noEventsFound': 'Etkinlik bulunamadı',
   'bahis.eventCount': '{count} etkinlik',
+  'bahis.noOpenBetsInLeague': 'Bu ligde açık bahis yok.',
+
+  // EventDetail
+  'eventDetail.notFound': 'Etkinlik bulunamadı',
+  'eventDetail.noOpenMarkets': 'Bu etkinlik için şu an açık bahis bulunmuyor.',
+
+  // Live
+  'live.noLiveMatches': 'Şu an canlı maç bulunmuyor',
+  'live.matchesWillAppear': 'Maçlar başladığında burada görünecek',
+  'live.matchCount': '{count} maç',
 
   // ForgotPassword
   'forgotPassword.title': 'Şifre Sıfırlama',
@@ -1491,4 +1529,11 @@ export default {
   'admin.bankRequests.approved': 'Talep onaylandı',
   'admin.bankRequests.rejected': 'Talep reddedildi',
   'admin.bankRequests.rejectReasonPrompt': 'Reddetme sebebi (opsiyonel):',
+
+  // Modül kapısı
+  'moduleGate.title': 'Bu bölüm şu anda kapalı',
+  'moduleGate.description': 'Bu modül operatör tarafından geçici olarak devre dışı bırakıldı. Sitenin geri kalanı normal şekilde çalışmaya devam ediyor.',
+
+  // PWA
+  'pwa.updateAvailable': 'Yeni sürüm mevcut!',
 };

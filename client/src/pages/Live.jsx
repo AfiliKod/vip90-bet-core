@@ -145,12 +145,12 @@ export default function Live() {
       </div>
 
           {isLoading ? (
-            <div className="text-center text-text-3 py-16">Yükleniyor...</div>
+            <div className="text-center text-text-3 py-16">{t('common.loading')}</div>
           ) : (hierarchicalGroups !== null ? hierarchicalGroups.size === 0 : groupedEvents.size === 0) ? (
             <div className="flex flex-col items-center justify-center py-20 gap-3 text-text-3">
               <span className="text-5xl opacity-40">🔴</span>
-              <p className="text-sm font-medium">Şu an canlı maç bulunmuyor</p>
-              <p className="text-xs opacity-60">Maçlar başladığında burada görünecek</p>
+              <p className="text-sm font-medium">{t('live.noLiveMatches')}</p>
+              <p className="text-xs opacity-60">{t('live.matchesWillAppear')}</p>
             </div>
           ) : hierarchicalGroups !== null ? (
             <div>
@@ -167,7 +167,7 @@ export default function Live() {
                     >
                       <span>{meta.icon}</span>
                       <span className="flex-1 text-left">{meta.label}</span>
-                      <span className="text-xs text-text-3 font-normal">{totalCount} maç</span>
+                      <span className="text-xs text-text-3 font-normal">{t('live.matchCount', { count: totalCount })}</span>
                       <span className="text-xs text-text-3">{isCollapsed ? '▸' : '▾'}</span>
                     </button>
                     {!isCollapsed && (
