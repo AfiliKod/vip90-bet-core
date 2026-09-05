@@ -136,6 +136,26 @@ export function getTableConfig(lines) {
 }
 
 /**
+ * Bir etkinliğin gerçekten bahis yapılabilir (en az bir geçerli 1X2 oranı olan)
+ * olup olmadığını söyler. MiniEventCard bu koşulu sağlamayan etkinlikleri hiç
+ * render ETMEZ — bu yüzden lig/spor başlıklarındaki sayaçlar da bu fonksiyonla
+ * filtrelenmiş listeden hesaplanmalı, aksi halde "1 maç" yazıp 0 kart gösteren
+ * hayalet gruplar oluşur (canlı senkron bazı maçları oranı henüz gelmeden de
+ * "canlı" olarak işaretleyebiliyor — market dizisi boş kalabiliyor).
+ */
+export function hasDisplayableOdds(event) {
+  const markets = event?.markets;
+  if (!markets?.length) return false;
+  const main = markets.find(m => m.type === 'maç_sonucu') ?? markets[0];
+  const odds = main?.odds;
+  if (!odds?.length) return false;
+  const odd1 = odds.find(o => o.label === '1') ?? odds[0];
+  const oddX = odds.find(o => o.label === 'X') ?? odds[1];
+  const odd2 = odds.find(o => o.label === '2') ?? odds[2];
+  return (odd1?.value ?? 0) > 0 || (oddX?.value ?? 0) > 0 || (odd2?.value ?? 0) > 0;
+}
+
+/**
  * Oran değerini tercih edilen formatta gösterir.
  * decimal: 2.50 | fractional: 3/2 | american: +150
  */

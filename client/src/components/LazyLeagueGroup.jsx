@@ -1,7 +1,8 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { useEventsStore, leagueKey } from '../store/eventsStore';
 import MiniEventCard from './MiniEventCard';
 import { SURFACE_CARD_BG, SURFACE_BORDER } from '../styles/surface';
+import { hasDisplayableOdds } from '../utils/oddsUtils';
 
 export default function LazyLeagueGroup({ sport, country, league, count, status = 'upcoming', defaultOpen = false, forceOpenSignal, onExtraClick }) {
   const [open, setOpen] = useState(defaultOpen);
@@ -9,7 +10,12 @@ export default function LazyLeagueGroup({ sport, country, league, count, status 
 
   // Dışarıdan (Sidebar lig tıklaması → Bahis focusLeague) gelen sinyalle aç.
   useEffect(() => { if (forceOpenSignal) setOpen(true); }, [forceOpenSignal]);
-  const events = useEventsStore(s => s.leagueEvents.get(key));
+  const rawEvents = useEventsStore(s => s.leagueEvents.get(key));
+  // `count` prop sunucudan (özet toplamı) geliyor, oranı olmayan etkinlikleri
+  // de sayıyor — MiniEventCard onları hiç render etmiyor. Boş-durum mesajını
+  // ham değil, FİLTRELENMİŞ listeye göre göster; aksi halde "N etkinlik"
+  // yazıp altı sessizce boş kalan hayalet gruplar oluşuyor.
+  const events = useMemo(() => rawEvents?.filter(hasDisplayableOdds), [rawEvents]);
   const loading = useEventsStore(s => s.loadingLeagues.has(key));
   const failed = useEventsStore(s => s.failedLeagues.has(key));
   const fetchLeague = useEventsStore(s => s.fetchLeague);

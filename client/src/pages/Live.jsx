@@ -11,6 +11,7 @@ import HomeSidebar from '../components/home/HomeSidebar';
 import WinnersPanel from '../components/home/WinnersPanel';
 import PromoPanel from '../components/home/PromoPanel';
 import { SURFACE_CARD_BG, SURFACE_BORDER } from '../styles/surface';
+import { hasDisplayableOdds } from '../utils/oddsUtils';
 
 export default function Live() {
   const { t } = useTranslation();
@@ -27,7 +28,15 @@ export default function Live() {
     return cleanup;
   }, []);
 
-  const liveEvents = useMemo(() => events.filter(e => e.status === 'live'), [events]);
+  // hasDisplayableOdds burada, kaynakta filtrelenmezse sidebar rozetleri
+  // ("Futbol 42"), lig başlıkları ("X Ligi 1 maç") ve hiyerarşik gruplar hep
+  // MiniEventCard'ın (oranı olmayan etkinlikleri render ETMEDİĞİ) gerçek
+  // listesinden FARKLI, şişirilmiş bir sayı gösterir — "1 maç" yazıp 0 kart
+  // görünen hayalet lig grupları buradan geliyordu.
+  const liveEvents = useMemo(
+    () => events.filter(e => e.status === 'live' && hasDisplayableOdds(e)),
+    [events]
+  );
   const sportChips = useSportChips(liveEvents);
 
   const groupedEvents = useMemo(() => {

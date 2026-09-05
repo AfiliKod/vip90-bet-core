@@ -3,7 +3,7 @@ import { useBetSlipStore } from '../store/betSlipStore';
 import { useFormatters } from '../i18n/useFormatters.jsx';
 import { useSettingsStore } from '../store/settingsStore';
 import { sportIcon } from '../utils/sportMeta';
-import { formatOdd, pickMainLine } from '../utils/oddsUtils';
+import { formatOdd, pickMainLine, hasDisplayableOdds } from '../utils/oddsUtils';
 import { BRAND_GRADIENT, BRAND_GLOW } from '../styles/brand';
 import { useOddFlash } from '../hooks/useOddFlash';
 import { useTranslation } from '../i18n';
@@ -65,8 +65,7 @@ export default function MiniEventCard({ event, live, onExtraClick, accent: accen
   // O/U hattı (toplam gol sınırı, ör. "3.25") — etiketin sonundaki sayı.
   const ouLine = (ouOver?.label || ouUnder?.label || '').match(/([\d.]+)\s*$/)?.[1] || '';
 
-  const hasValidOdds = (odd1?.value ?? 0) > 0 || (oddX?.value ?? 0) > 0 || (odd2?.value ?? 0) > 0;
-  if (!hasValidOdds) return null;
+  if (!hasDisplayableOdds(event)) return null;
 
   // Kaynağın gösterdiği tam market sayısı (benzersiz market_id, ör. 148) — grup değil.
   const extraCount = Math.max(0, (event.marketCount || event.marketsCount || event.markets?.length || 0) - 1);

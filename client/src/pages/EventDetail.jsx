@@ -7,7 +7,7 @@ import HomeSidebar from '../components/home/HomeSidebar';
 import WinnersPanel from '../components/home/WinnersPanel';
 import PromoPanel from '../components/home/PromoPanel';
 import { socket } from '../services/socket';
-import { groupOddsIntoLines, getTableConfig, formatOdd } from '../utils/oddsUtils';
+import { groupOddsIntoLines, getTableConfig, formatOdd, hasDisplayableOdds } from '../utils/oddsUtils';
 import { useBetSlipStore } from '../store/betSlipStore';
 import { useSettingsStore } from '../store/settingsStore';
 import { useOddFlash } from '../hooks/useOddFlash';
@@ -239,7 +239,10 @@ export default function EventDetail() {
     else fetchSummary('upcoming');
   }, [event?._id, isLive]);
 
-  const liveEvents = useMemo(() => liveStoreEvents.filter(e => e.status === 'live'), [liveStoreEvents]);
+  const liveEvents = useMemo(
+    () => liveStoreEvents.filter(e => e.status === 'live' && hasDisplayableOdds(e)),
+    [liveStoreEvents]
+  );
 
   const sportCategories = useMemo(() => {
     if (!event) return [];
