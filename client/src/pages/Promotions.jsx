@@ -38,7 +38,7 @@ export default function Promotions() {
   }
 
   return (
-    <div className="px-4 py-6 lg:grid lg:grid-cols-[1fr_260px] lg:gap-4 lg:items-start max-w-6xl mx-auto">
+    <div className="px-4 py-6 lg:grid lg:grid-cols-[1fr_260px] lg:gap-4 lg:items-start">
       <div className="min-w-0 max-w-3xl">
         <h1 className="text-2xl font-black text-text-1 mb-6">🎁 {t('nav.promotions')}</h1>
         <div className="grid gap-4">

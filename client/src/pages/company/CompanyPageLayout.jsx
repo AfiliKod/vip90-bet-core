@@ -3,13 +3,14 @@ import { useTranslation } from '../../i18n';
 import { COMPANY } from '../../data/legalContent';
 import { SURFACE_CARD_BG, SURFACE_BORDER } from '../../styles/surface';
 import WinnersPanel from '../../components/home/WinnersPanel';
+import PromoPanel from '../../components/home/PromoPanel';
 
 /** LegalLayout'un sadeleştirilmiş hali — kurumsal sayfalar (Hakkımızda/Kariyer/Basın/İletişim) için, yasal sidebar/18+ rozeti yok. */
 export default function CompanyPageLayout({ title, intro, sections }) {
   const { t } = useTranslation();
 
   return (
-    <div className="px-4 py-8 max-w-5xl mx-auto lg:grid lg:grid-cols-[1fr_260px] lg:gap-4 lg:items-start">
+    <div className="px-4 py-8 lg:grid lg:grid-cols-[1fr_260px] lg:gap-4 lg:items-start">
       <div className="min-w-0 max-w-4xl">
         <div className="mb-6">
           <Link to="/" className="text-[10px] uppercase tracking-widest font-bold text-primary">
@@ -39,8 +40,9 @@ export default function CompanyPageLayout({ title, intro, sections }) {
         </div>
       </div>
 
-      <div className="hidden lg:block mt-[52px]">
+      <div className="hidden lg:flex lg:flex-col lg:gap-4 mt-[52px]">
         <WinnersPanel />
+        <PromoPanel />
       </div>
     </div>
   );
