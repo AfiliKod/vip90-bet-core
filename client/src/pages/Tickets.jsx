@@ -3,6 +3,7 @@ import api from '../services/api';
 import { useTranslation } from '../i18n';
 import TicketListView from '../components/tickets/TicketListView';
 import TicketDetailView from '../components/tickets/TicketDetailView';
+import WinnersPanel from '../components/home/WinnersPanel';
 
 /** Yardım Merkezi — oyuncu tarafı. TicketListView/TicketDetailView (opencode üretimi, saf UI) burada state+API'ye bağlanır. */
 export default function Tickets() {
@@ -64,7 +65,8 @@ export default function Tickets() {
   }
 
   return (
-    <div>
+    <div className="px-0 lg:px-4 lg:pt-6 max-w-5xl mx-auto lg:grid lg:grid-cols-[1fr_260px] lg:gap-4 lg:items-start">
+    <div className="min-w-0">
       {error && (
         <div className="max-w-3xl mx-auto px-4 pt-6">
           <div className="p-3 rounded-lg bg-red-500/10 border border-red-500/30 text-red-300 text-sm">{error}</div>
@@ -84,6 +86,11 @@ export default function Tickets() {
           onNewTicket={() => setShowNewForm(true)}
         />
       )}
+    </div>
+
+    <div className="hidden lg:block">
+      <WinnersPanel />
+    </div>
 
       {showNewForm && (
         <div className="fixed inset-0 bg-black/60 flex items-center justify-center p-4 z-50" onClick={() => setShowNewForm(false)}>

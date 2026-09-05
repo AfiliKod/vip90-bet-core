@@ -1,12 +1,9 @@
-import { useState } from 'react';
 import { useLocation } from 'react-router-dom';
 import HomeSidebar from './home/HomeSidebar';
 import Footer from './Footer';
-import LiveHelp from './LiveHelp';
 import ChatWidgetContainer from './chat/ChatWidgetContainer';
 import CookieConsent from './CookieConsent';
 import ScrollToTop from './ScrollToTop';
-import { useTranslation } from '../i18n';
 
 export default function Layout({ children }) {
   const { pathname } = useLocation();
@@ -20,8 +17,6 @@ export default function Layout({ children }) {
   // spor-filtre ağacı (Sidebar.jsx) gösteriliyordu, bu sayfalarla hiç ilgisi
   // olmayan bir "Futbol/Basketbol/Tenis" listesiydi.
   const showSidebar = !pathname.startsWith('/casino') && !pathname.startsWith('/events/') && !pathname.startsWith('/legal') && pathname !== '/' && pathname !== '/bahis' && pathname !== '/canli';
-  const [helpOpen, setHelpOpen] = useState(false);
-  const { t } = useTranslation();
 
   return (
     <div className="pb-14 lg:pb-0 relative" style={{ height: 'calc(100vh - 56px)' }}>
@@ -41,23 +36,9 @@ export default function Layout({ children }) {
             {children}
           </div>
         </div>
-        <Footer onOpenHelp={() => setHelpOpen(true)} />
+        <Footer />
       </div>
 
-      {/* Live Help floating button */}
-      <button
-        onClick={() => setHelpOpen(o => !o)}
-        className={`fixed bottom-20 right-4 lg:bottom-6 lg:right-6 z-40 w-12 h-12 rounded-full flex items-center justify-center shadow-lg transition-all ${
-          helpOpen
-            ? 'bg-bg-card border border-white/20 text-text-1 rotate-90'
-            : 'bg-primary text-bg-deep hover:bg-primary/90'
-        }`}
-        title={t('layout.liveHelp')}
-      >
-        {helpOpen ? '✕' : '💬'}
-      </button>
-
-      <LiveHelp open={helpOpen} onClose={() => setHelpOpen(false)} />
       <ChatWidgetContainer />
       <ScrollToTop />
       <CookieConsent />

@@ -12,7 +12,7 @@ const FALLBACK_LEGAL_ITEMS = [
   { label: 'KVKK Aydınlatma', to: '/legal/kvkk' },
 ];
 
-function Footer({ onOpenHelp }) {
+function Footer() {
   const { t } = useTranslation();
   const year = new Date().getFullYear();
   const siteName = useBrandingStore(s => s.siteName) || 'VIP90.bet';
@@ -51,7 +51,6 @@ function Footer({ onOpenHelp }) {
       items: [
         { label: t('footer.helpCenter'), to: '/help' },
         { label: t('footer.depositWithdraw'), to: '/profile' },
-        { label: t('footer.liveHelp'), action: 'livehelp' },
         ...supportPages.map(p => ({ label: p.title, to: p.route })),
       ],
     },
@@ -77,13 +76,6 @@ function Footer({ onOpenHelp }) {
                     <Link to={item.to} className="text-sm text-text-3 hover:text-text-1 transition">
                       {item.label}
                     </Link>
-                  ) : item.action === 'livehelp' ? (
-                    <button
-                      onClick={onOpenHelp}
-                      className="text-sm text-primary hover:text-primary/80 transition"
-                    >
-                      {item.label} ↗
-                    </button>
                   ) : (
                     <a href={item.href} className="text-sm text-text-3 hover:text-text-1 transition">
                       {item.label}

@@ -8,6 +8,7 @@ import { useToastStore } from '../store/toastStore';
 import api from '../services/api';
 import { useTranslation } from '../i18n';
 import { formatMoney, getActiveCurrency } from '../utils/money.js';
+import WinnersPanel from '../components/home/WinnersPanel';
 
 function txLabel(t, type) {
   const labels = {
@@ -307,7 +308,8 @@ const handleBankSubmit = async (confirmForfeit = false) => {
   };
 
   return (
-    <div className="max-w-2xl mx-auto px-3 sm:px-4 py-6">
+    <div className="px-3 sm:px-4 py-6 max-w-5xl mx-auto lg:grid lg:grid-cols-[1fr_260px] lg:gap-4 lg:items-start">
+    <div className="max-w-2xl min-w-0">
       {/* Kullanıcı bilgi kartı */}
       <div className="bg-bg-card border border-white/10 rounded-xl p-4 sm:p-6 mb-4">
         <div className="flex items-center gap-4 mb-6">
@@ -879,6 +881,11 @@ const handleBankSubmit = async (confirmForfeit = false) => {
            </div>
          </div>
        )}
-     </div>
-   );
+    </div>
+
+    <div className="hidden lg:block">
+      <WinnersPanel />
+    </div>
+    </div>
+  );
 }
