@@ -17,6 +17,9 @@ ve kod içi yorumlarda).
   gerçek video kaydının temeli, henüz video üretilmedi.
 - [08 — Varlık Lisans Denetimi](08-varlik-lisans-denetimi.md) — kritik
   bulgu içerir: `casinoGames.js` lisanssız üçüncü taraf içeriği barındırıyor.
+- [09 — Bilinen Kısıtlar](09-bilinen-kisitlar.md) — tanımlı ama uçtan
+  uca bağlı olmayan özellikler (KYC akışı, acente sistemi, çok kademeli
+  affiliate, VIP cashback).
 
 ## Durum notu (dürüstlük)
 
