@@ -98,21 +98,9 @@ export default function Bahis() {
       }));
   }, [summary, setFocusLeague]);
 
-  // "Tümü" seçili olsa bile bu linke tıklamak somut bir şey yapsın: filtreyi
-  // sıfırlar (showAll) ve etkinlik listesinin başına kaydırır — kendi
-  // sayfasına link verdiği için salt navigasyon hiçbir şey yapmıyordu.
-  const topExtraLink = {
-    to: '/bahis', icon: 'event', label: t('bahis.upcomingEvents'),
-    onClick: (e) => {
-      e.preventDefault();
-      showAll();
-      document.getElementById('upcoming-events-heading')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
-    },
-  };
-
   return (
     <div className="min-h-full lg:flex lg:gap-5 lg:px-5 lg:pt-5 lg:items-stretch">
-      <HomeSidebar categories={sportCategories} topExtraLink={topExtraLink} featuredLeagues={featuredLeagues} />
+      <HomeSidebar categories={sportCategories} featuredLeagues={featuredLeagues} />
       <div className="flex-1 min-w-0 flex flex-col">
         <div className="lg:grid lg:grid-cols-[1fr_260px] lg:gap-4 lg:items-start">
         <div className="min-w-0">
