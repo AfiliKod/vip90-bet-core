@@ -1,12 +1,18 @@
+import { useState } from 'react';
 import { useLocation } from 'react-router-dom';
 import HomeSidebar from './home/HomeSidebar';
 import Footer from './Footer';
+import LiveHelp from './LiveHelp';
 import ChatWidgetContainer from './chat/ChatWidgetContainer';
 import CookieConsent from './CookieConsent';
 import ScrollToTop from './ScrollToTop';
 
 export default function Layout({ children }) {
   const { pathname } = useLocation();
+  // Canlı Yardım'ın sabit sağ-alt İKONU kaldırıldı (kullanıcı isteği) ama
+  // özelliğin kendisi durmuyor — Footer'daki "Canlı Yardım" linki hâlâ
+  // onOpenHelp ile bu paneli açabiliyor.
+  const [helpOpen, setHelpOpen] = useState(false);
   // Bahis/Live/EventDetail kendi bağlam-duyarlı HomeSidebar'ını içeride
   // kendisi render ediyor; Casino ve Anasayfa da kendi yerleşimini yönetiyor.
   // /legal/* kendi TOC (içindekiler) sidebar'ını (LegalLayout) korur — iki
@@ -36,9 +42,10 @@ export default function Layout({ children }) {
             {children}
           </div>
         </div>
-        <Footer />
+        <Footer onOpenHelp={() => setHelpOpen(true)} />
       </div>
 
+      <LiveHelp open={helpOpen} onClose={() => setHelpOpen(false)} />
       <ChatWidgetContainer />
       <ScrollToTop />
       <CookieConsent />
