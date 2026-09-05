@@ -1,5 +1,5 @@
 import { Fragment, useState, useEffect, useRef, useMemo } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
+import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import { useTranslation } from '../i18n';
 import api from '../services/api';
 import BetSlip, { SlipContent } from '../components/BetSlip';
@@ -92,6 +92,7 @@ function GameRowSection({ id, icon, title, subtitle, viewAllTo, viewAllLabel, ch
 export default function HomePage() {
   const { t } = useTranslation();
   const navigate = useNavigate();
+  const [searchParams, setSearchParams] = useSearchParams();
   const betSlipSelections = useBetSlipStore(s => s.selections);
   const recordPlay = useGameActivityStore(s => s.recordPlay);
   const currentUser = useAuthStore(s => s.user);
@@ -140,6 +141,27 @@ export default function HomePage() {
   // "Tüm Oyunlar" alanının varsayılan (sağlayıcı filtresi yokken) içeriği —
   // diğer satırlar gibi kürasyonlu değil, gerçekten rastgele bir örneklem.
   const randomAllGames = useMemo(() => shuffle(palaceGames), [palaceGames]);
+
+  // /casino?provider=X deep-link'i (SearchOverlay'den, arama sonucundaki bir
+  // sağlayıcıya tıklayınca) — CasinoRedesign.jsx bunu useSearchParams ile
+  // okuyordu, /casino artık bu bileşeni (HomePage) render ettiği için aynı
+  // davranış burada korunuyor. Gerçek görünen adı almak için /palace/providers
+  // sorgulanıyor; bulunamazsa ham id gösterilir.
+  useEffect(() => {
+    const providerId = searchParams.get('provider');
+    if (!providerId) return;
+    let cancelled = false;
+    api.post('/palace/providers', { lang: 'tr' }).then(({ data }) => {
+      if (cancelled) return;
+      const match = (data?.data || []).find(p => p.provider_id === providerId);
+      setSelectedProvider({ id: providerId, name: match?.name || providerId });
+    }).catch(() => {
+      if (!cancelled) setSelectedProvider({ id: providerId, name: providerId });
+    });
+    setSearchParams(prev => { prev.delete('provider'); return prev; }, { replace: true });
+    return () => { cancelled = true; };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   useEffect(() => {
     if (!selectedProvider) { setProviderGames([]); return; }

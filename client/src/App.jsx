@@ -49,7 +49,6 @@ const AdminVip = lazy(() => import('./pages/admin/Vip'));
 const AdminBots = lazy(() => import('./pages/admin/Bots'));
 const AdminStaticPages = lazy(() => import('./pages/admin/StaticPages'));
 const AdminTickets = lazy(() => import('./pages/admin/Tickets'));
-const CasinoRedesign = lazy(() => import('./pages/CasinoRedesign'));
 const PalaceGame = lazy(() => import('./pages/PalaceGame'));
 const Crash = lazy(() => import('./pages/games/Crash'));
 const Mines = lazy(() => import('./pages/games/Mines'));
@@ -151,7 +150,7 @@ export default function App() {
         <Route path="/bahis" element={<Layout><ModuleGate module="betting"><Suspense fallback={<PageLoader />}><Bahis /></Suspense></ModuleGate></Layout>} />
         <Route path="/canli" element={<Layout><ModuleGate module="betting"><Suspense fallback={<PageLoader />}><Live /></Suspense></ModuleGate></Layout>} />
         <Route path="/events/:id" element={<Layout><ModuleGate module="betting"><Suspense fallback={<PageLoader />}><EventDetail /></Suspense></ModuleGate></Layout>} />
-        <Route path="/casino" element={<Layout><ModuleGate module="casino-content"><Suspense fallback={<PageLoader />}><CasinoRedesign /></Suspense></ModuleGate></Layout>} />
+        <Route path="/casino" element={<Layout><ModuleGate module="casino-content"><Suspense fallback={<PageLoader />}><HomePage /></Suspense></ModuleGate></Layout>} />
         <Route path="/palace/:gameId" element={<ProtectedRoute><Suspense fallback={<PageLoader />}><PalaceGame /></Suspense></ProtectedRoute>} />
         <Route path="/games/crash" element={<ProtectedRoute><Suspense fallback={<PageLoader />}><Crash /></Suspense></ProtectedRoute>} />
         <Route path="/games/mines" element={<ProtectedRoute><Suspense fallback={<PageLoader />}><Mines /></Suspense></ProtectedRoute>} />
