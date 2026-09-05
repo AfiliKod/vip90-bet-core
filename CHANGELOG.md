@@ -12,6 +12,34 @@ Madde formatı ve kategoriler için `docs/CHANGELOG_GUIDE.md`'ye bakın —
 
 ## [Yayınlanmadı]
 
+### Sağ ray tüm sayfalara yayıldı, Canlı Yardım artık yalnızca footer'dan
+Kampanyalar/Bahis/Canlı'da zaten var olan sağ ray (Son Kazananlar paneli) artık Hakkımızda/Kariyer/Basın/İletişim, Yardım Merkezi ve Profil (Para Yatır/Çek) sayfalarında da var — site genelinde tutarlı 3-sütun düzen. Sağ-alttaki sabit "Canlı Yardım" (💬) ikonu kaldırıldı; özelliğin kendisi (`LiveHelp.jsx`) ve footer'daki "Canlı Yardım" linki duruyor — yalnızca kalıcı floating giriş noktası kaldırıldı, panel hâlâ footer'dan açılabiliyor.
+
+### Oranı olmayan canlı/yaklaşan etkinlikler artık sayaçlarla tutarlı
+`MiniEventCard`, geçerli 1X2 oranı olmayan (market dizisi boş) etkinlikleri sessizce render etmiyordu (`return null`) ama lig/spor başlıklarındaki sayaçlar bu filtrelemeden önceki ham sayıyı gösteriyordu — sonuç, "CAF Kupası 1 maç" yazıp altında hiç kart göstermeyen hayalet lig grupları (canlı futbol etkinliklerinin ~%6-7'si şu an bu durumda; canlı senkron bazı maçları oranı gelmeden de "canlı" işaretleyebiliyor). `hasDisplayableOdds()` paylaşılan bir yardımcıya çıkarıldı; `Live.jsx`/`EventDetail.jsx`'in canlı etkinlik listesi ve Bahis'in `LazyLeagueGroup`'u artık aynı filtreden geçiyor, sayaç ile gösterilen kart sayısı her zaman eşleşiyor.
+
+### Footer artık tam genişlik, yasal/kurumsal sayfalar yeni arayüze gömüldü
+`Layout.jsx`'te Footer, sidebar+içerik flex satırının İÇİNDEYDİ — sidebar içerikten kısa kaldığında Footer yalnızca içerik sütunu genişliğinde görünüyor, solunda boşluk kalıyordu. Footer artık tek scroll konteynerinin içinde ama flex satırının dışında, her zaman tam genişlikte. `/legal/*`, Hakkımızda/Kariyer/Basın/İletişim ve Yardım Merkezi artık `Layout`'a sarılı — Footer/ScrollToTop/HomeSidebar alıyorlar (legal sayfalar kendi içindekiler sidebar'ını koruyor, iki sidebar çakışmasın diye). Sistem Durumu (`/status`) sayfası tamamen kaldırıldı — Casino Sağlayıcısı için yanlış "Kapalı" gösteriyordu. Admin > Statik Sayfalar düzenleme modalı artık her zaman 1. maddeden açılıyor (`flex items-center` + `overflow-y-auto` birleşimi, içerik viewport'tan uzun olduğunda `scrollTop=0`'ı içeriğin ortası gibi konumlandırıyordu). Bahis'teki "Yaklaşan Etkinlikler" linki artık tıklanınca kategori filtresini "Tümü"ye sıfırlayıp listeye kaydırıyor (önceden kendi sayfasına link verdiği için tıklamak hiçbir şey yapmıyordu).
+
+**Kırılan Değişiklikler:**
+- `/status` route'u ve `client/src/pages/Status.jsx` kaldırıldı. Bu sayfaya
+  dışarıdan link veren veya özelleştirmiş kurulumlar 404 yerine ana sayfaya
+  yönlenir (catch-all route zaten `Navigate to="/"` yapıyor) ama sayfanın
+  kendisi artık yok — sistem durumu göstermek isteyen kurulumlar bu
+  özelliği yeniden eklemeli.
+
+### Kritik: BetSlip herhangi bir orana tıklayınca sayfayı çökertiyordu
+`BetSlip` bileşeni `useTranslation()`'ı hiç çağırmıyordu — mobil kupon barı render olurken `t is not defined` ile tüm sayfa çöküyordu (yalnızca arkaplan renginden ibaret kalıyordu). Ayrıca `SlipContent` içinde `.map(t => ...)` çeviri fonksiyonunu gölgeliyordu, Tekli/Kombine butonları kırıktı. Kök neden ayrıca bulundu: `Layout.jsx`'in `showSidebar` mantığı eski spor-filtre ağacını (`Sidebar.jsx`) yalnızca Bahis/Live'da gizliyordu — Kampanyalar/Profil/Ayarlar/Favoriler/Bahislerim/Son Oynananlar sayfaları hâlâ bu sayfalarla hiç ilgisi olmayan "Futbol/Basketbol/Tenis" ağacını gösteriyordu; artık hepsi genel `HomeSidebar` kabuğu alıyor. `HomeSidebar`'daki "Yaklaşan Etkinlikler" linki kendi sayfasına işaret ettiğinden sürekli aktif görünüyordu, düzeltildi. Üst menüde aktif sayfanın altına birincil renkte ince bir çizgi eklendi.
+
+### Kaynağın 26 spor kategorisinin tamamı artık senkronize ediliyor
+Önceki `SPORT_MAP` kodlarının çoğu (`am`, `cr`, `wp`, `ru`, `sn`, `mma`, `dr`, `e`, `bs`, `fs`) kaynak tarafında hiç çalışmıyordu — sessizce boş yanıt dönüyordu, bu sporlar hiç senkronize olmuyordu. Doğru kodlar kaynağın sidebar linklerinin CSS class'ından (`m-menu__link_XXX`) tek tek çıkarılıp doğrulandı: Amerikan Futbolu (`am`→`rg`), Kriket (`cr`→`c`), Su Topu (`wp`→`wat`), Rugby ikiye ayrıldı (Rugby Ligi/`rgl`, Rugby Birliği/`rug`), Bilardo (`sno`) eklendi, 9 yeni kategori (Avustralya Futbolu, Bisiklet Yarışı, Formula 1, Motor Sporları, Yelken, Kayak, Otomobil Yarışı, Biatlon, Satranç) eklendi — Politikalar (seçim bahisleri) bilinçli olarak dahil edilmedi. Ayrıca özet penceresinin (14 gün) senkronizasyon ufkuyla (30 gün) uyuşmaması futbol sayısını 1377/1524'ten 1423'e çıkardı.
+
+### Canlı rozeti kaldırıldı, Tümü toplamı doğru sayıyor, Etkinlik Detay yeniden giydirildi
+Kategoriler üstündeki kırmızı "X canlı etkinlik" rozeti kaldırıldı; hem Canlı hem Bahis sayfalarında toplam sayı artık Kategoriler altındaki "Tümü" karşısında, Canlı'da da Bahis'teki gibi "Tümü" varsayılan seçili. Etkinlik Detay sayfası (`/events/:id`) artık aynı 3-sütun `HomeSidebar` düzenini kullanıyor — ziyaret edilen etkinlik canlıysa Canlı bağlamı, yaklaşansa Bahis bağlamı sidebar'da gösteriliyor.
+
+### Anasayfa promo slider'ı Bahis/Canlı'ya taşındı, sidebar zenginleştirildi, arama birleştirildi
+Anasayfanın promo/hero slider'ı yeni `PromoHeroSlider.jsx` ile Bahis/Canlı sayfalarına aynen taşındı. `HomeSidebar` artık Bahis/Canlı'da da kullanılıyor — "Öne Çıkan Ligler" bölümü ve sayfa-özel üst link (Bahis'te "Yaklaşan Etkinlikler") eklendi. Navbar arama artık sayfa-bağımsız: hem oyunları/sağlayıcıları hem canlı+yaklaşan etkinlikleri aynı anda arıyor (önceden sayfaya göre mod ayrımı vardı — bir etkinlik ya canlıda ya bahiste bulunabileceğinden ayrım kaldırıldı). Canlı bahis kazanç simülasyonu artık olay-güdümlü: sahte kazananlar maç bitene kadar birikiyor, etkinlik sonuçlanınca hepsi birden (market değil etkinlik adıyla, generik ikonla) açığa çıkıyor — bir bahsin sonucu maç ortasında mantıksal olarak tanımsız olduğundan.
+
 ### Kritik: OddsSource canlı senkronizasyon WS hatası tüm sunucuyu çökertiyordu
 `jobs/oddsSourceLiveSync.js`'teki `nodeupd` Socket.IO bağlantısında `ws.onerror = () => ws.close();` deseni — bir bağlantı hatasında `close()` çağrısı bazen (undici/`ws` kütüphanesinin bilinen bir tuzağı) yeni bir `error` event'i daha fırlatıyor, bu da `onerror`'ı SENKRON olarak yeniden tetikleyip sonsuz özyinelemeyle `RangeError: Maximum call stack size exceeded` ile **backend process'ini komple çökertiyordu**. `node --watch` her seferinde otomatik yeniden başlattığı için görünürde "çalışıyor" gibiydi, ama her çöküş anında Vite dev proxy'sinin o anki `/socket.io` bağlantıları "http proxy error" ile başarısız oluyordu (kullanıcının fark ettiği asıl belirti — proxy/socket.io yapılandırması değil, backend'in kendisiydi). Basit bir `erroring` bayrağı + `try/catch` ile ikinci `onerror` girişi yok sayılıyor artık.
 
