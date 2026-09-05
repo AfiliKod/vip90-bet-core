@@ -21,7 +21,11 @@ const schema = new mongoose.Schema({
   preferences: {
     avatarColor:      { type: String,   default: '#7c3aed' },
     favoriteSports:   { type: [String], default: [] },
-    accentColor:      { type: String,   default: 'cyan' },
+    // null = site temasını izle (operatörün Theme panelinden ayarladığı marka
+    // rengi). Eskiden varsayılan 'cyan' idi — bu, operatörün gerçek marka
+    // rengini (varsayılan yeşil, server/src/theme/registry.js) her kullanıcı
+    // Ayarlar sayfasını her ziyaret ettiğinde sessizce eziyordu.
+    accentColor:      { type: String,   default: null },
     oddsFormat:       { type: String,   default: 'decimal' },
     language:         { type: String,   default: 'tr' },
     notifyLive:       { type: Boolean,  default: true },

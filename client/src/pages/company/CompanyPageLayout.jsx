@@ -2,14 +2,13 @@ import { Link } from 'react-router-dom';
 import { useTranslation } from '../../i18n';
 import { COMPANY } from '../../data/legalContent';
 import { SURFACE_CARD_BG, SURFACE_BORDER } from '../../styles/surface';
-import PageWithRail from '../../components/PageWithRail';
 
 /** LegalLayout'un sadeleştirilmiş hali — kurumsal sayfalar (Hakkımızda/Kariyer/Basın/İletişim) için, yasal sidebar/18+ rozeti yok. */
 export default function CompanyPageLayout({ title, intro, sections }) {
   const { t } = useTranslation();
 
   return (
-    <PageWithRail className="px-4 py-8 max-w-4xl">
+    <div className="px-4 py-8 max-w-4xl mx-auto">
       <div className="mb-6">
         <Link to="/" className="text-[10px] uppercase tracking-widest font-bold text-primary">
           ← {t('common.back')}
@@ -36,6 +35,6 @@ export default function CompanyPageLayout({ title, intro, sections }) {
           </p>
         </div>
       </div>
-    </PageWithRail>
+    </div>
   );
 }

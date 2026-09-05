@@ -1,6 +1,7 @@
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
 import api from '../services/api';
+import { applySiteTheme } from '../theme/applySiteTheme';
 
 const ACCENT_COLORS = {
   cyan:   { primary: '#00d4ff', dark: '#00aed4' },
@@ -12,7 +13,11 @@ const ACCENT_COLORS = {
 const DEFAULTS = {
   avatarColor: '#7c3aed',
   favoriteSports: [],
-  accentColor: 'cyan',
+  // null = kişisel bir vurgu rengi seçilmedi, operatörün Theme panelinden
+  // ayarladığı site markası geçerli kalır. Eskiden varsayılan 'cyan' idi —
+  // bu, marka rengini (varsayılan yeşil) her Ayarlar ziyaretinde sessizce
+  // eziyordu (bkz. applyAccent).
+  accentColor: null,
   oddsFormat: 'decimal',
   language: 'tr',
   notifyLive: true,
@@ -20,7 +25,12 @@ const DEFAULTS = {
   defaultStake: 10,
 };
 
+/**
+ * null/'site' → kişisel override yok, operatörün marka rengini geri yükle.
+ * Aksi halde seçilen sabit vurgu rengini enjekte eder.
+ */
 function applyAccent(color) {
+  if (!color || color === 'site') { applySiteTheme(); return; }
   const c = ACCENT_COLORS[color];
   if (!c) return;
   document.documentElement.style.setProperty('--color-primary', c.primary);

@@ -1015,6 +1015,7 @@ export default {
   'settings.favoriteSports': 'Favori Sporlar',
   'settings.favoriteSportsHint': "Seçilen sporlar sidebar'da en üstte gösterilir",
   'settings.themeColor': 'Tema Rengi',
+  'settings.accent.site': 'Site Teması (Varsayılan)',
   'settings.accent.cyan': 'Cyan',
   'settings.accent.purple': 'Mor',
   'settings.accent.green': 'Yeşil',

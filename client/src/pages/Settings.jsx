@@ -173,10 +173,17 @@ function TabGorunum() {
 
       <div className="bg-bg-card border border-white/10 rounded-xl p-5">
         <h3 className="text-sm font-semibold text-text-1 mb-4">{t('settings.themeColor')}</h3>
-        <div className="flex gap-3">
+        <div className="flex gap-3 flex-wrap">
+          <button onClick={() => updatePreference('accentColor', null)}
+            className={`flex-1 min-w-[100px] py-3 rounded-xl border-2 transition-all text-xs font-bold ${
+              !preferences.accentColor ? 'border-white scale-105' : 'border-transparent hover:border-white/30'
+            }`}
+            style={{ backgroundColor: 'color-mix(in srgb, var(--color-primary) 20%, transparent)', color: 'var(--color-primary)' }}>
+            {t('settings.accent.site')}
+          </button>
           {Object.entries(ACCENT_COLORS).map(([name, c]) => (
             <button key={name} onClick={() => updatePreference('accentColor', name)}
-              className={`flex-1 py-3 rounded-xl border-2 transition-all text-xs font-bold capitalize ${
+              className={`flex-1 min-w-[100px] py-3 rounded-xl border-2 transition-all text-xs font-bold capitalize ${
                 preferences.accentColor === name ? 'border-white scale-105' : 'border-transparent hover:border-white/30'
               }`}
               style={{ backgroundColor: c.primary + '33', color: c.primary }}>

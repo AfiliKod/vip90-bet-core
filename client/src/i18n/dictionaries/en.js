@@ -1016,6 +1016,7 @@ export default {
   'settings.favoriteSports': 'Favorite Sports',
   'settings.favoriteSportsHint': 'Selected sports are shown at the top of the sidebar',
   'settings.themeColor': 'Theme Color',
+  'settings.accent.site': 'Site Theme (Default)',
   'settings.accent.cyan': 'Cyan',
   'settings.accent.purple': 'Purple',
   'settings.accent.green': 'Green',

@@ -3,7 +3,6 @@ import api from '../services/api';
 import { useTranslation } from '../i18n';
 import TicketListView from '../components/tickets/TicketListView';
 import TicketDetailView from '../components/tickets/TicketDetailView';
-import PageWithRail from '../components/PageWithRail';
 
 /** Yardım Merkezi — oyuncu tarafı. TicketListView/TicketDetailView (opencode üretimi, saf UI) burada state+API'ye bağlanır. */
 export default function Tickets() {
@@ -66,9 +65,9 @@ export default function Tickets() {
 
   return (
     <>
-      <PageWithRail className="px-0 lg:px-4 lg:pt-6">
+      <div className="max-w-3xl mx-auto px-4 py-6">
         {error && (
-          <div className="max-w-3xl mx-auto px-4 pt-6">
+          <div className="mb-4">
             <div className="p-3 rounded-lg bg-red-500/10 border border-red-500/30 text-red-300 text-sm">{error}</div>
           </div>
         )}
@@ -86,7 +85,7 @@ export default function Tickets() {
             onNewTicket={() => setShowNewForm(true)}
           />
         )}
-      </PageWithRail>
+      </div>
 
       {showNewForm && (
         <div className="fixed inset-0 bg-black/60 flex items-center justify-center p-4 z-50" onClick={() => setShowNewForm(false)}>

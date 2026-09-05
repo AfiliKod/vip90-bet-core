@@ -8,7 +8,6 @@ import { useToastStore } from '../store/toastStore';
 import api from '../services/api';
 import { useTranslation } from '../i18n';
 import { formatMoney, getActiveCurrency } from '../utils/money.js';
-import PageWithRail from '../components/PageWithRail';
 
 function txLabel(t, type) {
   const labels = {
@@ -308,7 +307,7 @@ const handleBankSubmit = async (confirmForfeit = false) => {
   };
 
   return (
-    <PageWithRail className="px-3 sm:px-4 py-6 max-w-2xl">
+    <div className="px-3 sm:px-4 py-6 max-w-2xl mx-auto">
       {/* Kullanıcı bilgi kartı */}
       <div className="bg-bg-card border border-white/10 rounded-xl p-4 sm:p-6 mb-4">
         <div className="flex items-center gap-4 mb-6">
@@ -320,7 +319,7 @@ const handleBankSubmit = async (confirmForfeit = false) => {
             <div className="text-text-2 text-sm">{user?.email}</div>
           </div>
           <div className="ml-auto text-right">
-            <div className="text-2xl sm:text-3xl font-black" style={{ color: '#00d4ff' }}>{formatMoney((user?.balance ?? 0))}</div>
+            <div className="text-2xl sm:text-3xl font-black" style={{ color: 'var(--color-primary)' }}>{formatMoney((user?.balance ?? 0))}</div>
             <div className="text-text-3 text-xs mt-1">Ana Bakiye</div>
             {user?.locked > 0 && (
               <div className="text-sm font-bold mt-1" style={{ color: '#fbbf24' }}>
@@ -880,6 +879,6 @@ const handleBankSubmit = async (confirmForfeit = false) => {
            </div>
          </div>
        )}
-    </PageWithRail>
+    </div>
   );
 }

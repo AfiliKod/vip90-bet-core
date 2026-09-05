@@ -17,12 +17,13 @@ export default function Layout({ children }) {
   // kendisi render ediyor; Casino ve Anasayfa da kendi yerleşimini yönetiyor.
   // /legal/* kendi TOC (içindekiler) sidebar'ını (LegalLayout) korur — iki
   // sidebar üst üste binmesin diye burada HomeSidebar verilmiyor.
-  // Geri kalan tüm sayfalar (Kampanyalar, Profil, Ayarlar, Favoriler,
-  // Bahislerim, Son Oynananlar, Hakkımızda/Kariyer/Basın/İletişim, Yardım
-  // Merkezi vb.) burada genel HomeSidebar kabuğunu alır — eskiden burada
-  // spor-filtre ağacı (Sidebar.jsx) gösteriliyordu, bu sayfalarla hiç ilgisi
-  // olmayan bir "Futbol/Basketbol/Tenis" listesiydi.
-  const showSidebar = !pathname.startsWith('/casino') && !pathname.startsWith('/events/') && !pathname.startsWith('/legal') && pathname !== '/' && pathname !== '/bahis' && pathname !== '/canli';
+  // Kampanyalar/Hakkımızda/Kariyer/Basın/İletişim/Yardım Masası/Profil/
+  // Bahislerim/Ayarlar kullanıcı isteğiyle sadeleştirildi: sol sidebar +
+  // sağ ray yok, yalnızca üst menü + tek sütun içerik + footer.
+  // Favoriler/Son Oynananlar bu sadeleştirmenin dışında, HomeSidebar'ı
+  // korumaya devam ediyor.
+  const SIMPLE_PATHS = ['/promotions', '/help', '/profile', '/my-bets', '/settings', '/about', '/career', '/press', '/contact'];
+  const showSidebar = !pathname.startsWith('/casino') && !pathname.startsWith('/events/') && !pathname.startsWith('/legal') && pathname !== '/' && pathname !== '/bahis' && pathname !== '/canli' && !SIMPLE_PATHS.includes(pathname);
 
   return (
     <div className="pb-14 lg:pb-0 relative" style={{ height: 'calc(100vh - 56px)' }}>

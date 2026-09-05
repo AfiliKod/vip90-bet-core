@@ -6,7 +6,6 @@ import { useAuthStore } from '../store/authStore';
 import { useTranslation } from '../i18n';
 import { formatMoney } from '../utils/money.js';
 import { SURFACE_CARD_BG, SURFACE_BORDER } from '../styles/surface';
-import PageWithRail from '../components/PageWithRail';
 
 export default function Promotions() {
   const { t } = useTranslation();
@@ -39,7 +38,7 @@ export default function Promotions() {
 
   return (
     <>
-    <PageWithRail className="px-4 py-6 max-w-3xl">
+    <div className="px-4 py-6 max-w-3xl mx-auto">
         <h1 className="text-2xl font-black text-text-1 mb-6">🎁 {t('nav.promotions')}</h1>
         <div className="grid gap-4">
           <div className="rounded-xl p-5 flex items-center justify-between gap-4" style={{ background: SURFACE_CARD_BG, border: `1px solid ${SURFACE_BORDER}` }}>
@@ -80,7 +79,7 @@ export default function Promotions() {
           })}
           {!promos.length && <div className="text-center text-text-3 py-12">{t('promotions.noneFound')}</div>}
         </div>
-    </PageWithRail>
+    </div>
 
       {/* T&C Modal (Phase A5) */}
       {activePromo && (
