@@ -110,9 +110,16 @@ export default defineConfig({
           }
         ]
       },
+      // Dev'de service worker KAPALI (vite-plugin-pwa'nın varsayılanı da bu) —
+      // önceden burada enabled:true idi ve Crash socket'inin (uzun-polling +
+      // WS yükseltme el sıkışması) SW'nin fetch interception katmanından geçen
+      // istekleriyle arada bir aralıklı, hatasız-sessiz bir şekilde çakışıp
+      // bağlantının hiç kurulamadan (ne 'connect' ne 'connect_error') askıda
+      // kalmasına yol açtığı gözlemlendi (bkz. Crash.jsx bağlantı bekçisi
+      // yorumu). Production build'de PWA/SW tamamen etkin kalmaya devam ediyor —
+      // yalnızca dev sunucusunda kapatıldı.
       devOptions: {
-        enabled: true,
-        type: 'module'
+        enabled: false
       }
     })
   ],
