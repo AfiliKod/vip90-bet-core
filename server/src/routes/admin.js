@@ -2,7 +2,7 @@ import { Router } from 'express';
 import { requireAuth, requireAdmin } from '../middleware/auth.js';
 import { auditLog } from '../middleware/audit.js';
 import { validate } from '../middleware/validate.js';
-import { createEventSchema, settleEventSchema, createUserSchema, updateBalanceSchema, updateThemeSchema, updateBrandingSchema, updateHomeContentSchema, updateFeaturedGamesSchema, applyThemePresetSchema, updateGameSettingsSchema, simulateRtpSchema, updateCurrencySchema, updateTimezoneSchema, createRoleSchema, updateRoleSchema, assignRoleSchema, upsertVipLevelSchema, createBotSchema, updateBotSchema, upsertStaticPageSchema, toggleStaticPageSchema, updateFakeWinnersSchema } from '../validators/admin.js';
+import { createEventSchema, settleEventSchema, createUserSchema, updateBalanceSchema, updateThemeSchema, updateBrandingSchema, updateHomeContentSchema, updateFeaturedGamesSchema, applyThemePresetSchema, updateGameSettingsSchema, simulateRtpSchema, updateCurrencySchema, updateTimezoneSchema, createRoleSchema, updateRoleSchema, assignRoleSchema, upsertVipLevelSchema, upsertPromotionSchema, createBotSchema, updateBotSchema, upsertStaticPageSchema, toggleStaticPageSchema, updateFakeWinnersSchema } from '../validators/admin.js';
 import * as ctrl from '../controllers/admin.js';
 import modulesAdminRouter from '../controllers/modules.js';
 import { timezoneStore } from '../services/timezoneLive.js';
@@ -107,6 +107,11 @@ r.delete('/roles/:id',             blockDemoAdmin, ctrl.deleteRoleHandler);
 r.get('/permissions',              ctrl.listPermissions);
 r.post('/users/:id/roles',         blockDemoAdmin, validate(assignRoleSchema), ctrl.assignUserRole);
 r.delete('/users/:id/roles/:roleId', blockDemoAdmin, ctrl.removeUserRole);
+
+// Kampanyalar/promosyonlar (Promotion) — admin CRUD
+r.get('/promotions',        ctrl.listPromotions);
+r.post('/promotions',       blockDemoAdmin, validate(upsertPromotionSchema), ctrl.savePromotion);
+r.delete('/promotions/:id', blockDemoAdmin, ctrl.deletePromotion);
 
 // O1 — VIP/seviye programı
 r.get('/vip-levels',        ctrl.listVipLevels);

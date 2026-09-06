@@ -67,6 +67,11 @@ export default function AdminDashboard() {
           <div className="font-semibold text-text-1">Sayfa Düzenleyici</div>
           <div className="text-text-3 text-sm mt-1">Bölüm sırası, kampanya banner'ları</div>
         </Link>
+        <Link to="/admin/promotions" className="bg-bg-card border border-white/10 rounded-xl p-5 hover:border-primary/30 transition text-center">
+          <div className="text-3xl mb-2">🎁</div>
+          <div className="font-semibold text-text-1">Kampanyalar</div>
+          <div className="text-text-3 text-sm mt-1">Bonus kampanyaları oluştur/düzenle</div>
+        </Link>
         <Link to="/admin/games-showcase" className="bg-bg-card border border-white/10 rounded-xl p-5 hover:border-accent/30 transition text-center">
           <div className="text-3xl mb-2">⭐</div>
           <div className="font-semibold text-text-1">Oyun Vitrini</div>
