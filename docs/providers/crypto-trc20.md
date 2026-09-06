@@ -57,16 +57,35 @@ Seed Phrase (CRYPTO_SEED_PHRASE)
 - **Adres Formatı:** Base58Check (T ile başlar, 34 karakter)
 - **Güvenlik:** Seed phrase sadece sunucuda saklanır
 
-### Admin Erişimi
+### Admin Erişimi ve Custodial Model
 
-Admin aynı seed phrase'ten herhangi bir kullanıcının adresini türetebilir:
+**Önemli:** Bu model **custodial** (emanetçidir). Seed phrase adminde olduğu için:
+- Admin tüm kullanıcıların cüzdan adreslerini türetebilir
+- Admin tüm cüzdanlardaki bakiyelerin sahibidir
+- Admin tek taraflı olarak USDT çekebilir
 
 ```javascript
 import { deriveDepositAddress } from '../services/cryptoService.js';
 
-// Kullanıcı #5'in adresi
-const user5Address = deriveDepositAddress(5);
+// Herhangi bir kullanıcının adresini türet
+const user5Address = deriveDepositAddress(5);   // Kullanıcı #5
+const user100Address = deriveDepositAddress(100); // Kullanıcı #100
 ```
+
+**Nasıl çalışır:**
+1. `User.cryptoDepositIndex` DB'de saklanır (sıralı: 0, 1, 2, ...)
+2. Admin bu index'i bilir → `deriveDepositAddress(index)` ile adresi türetir
+3. TronGrid public API ile bakiye sorgulanabilir
+
+**Güven riski:**
+- Seed phrase sızarsa TÜM cüzdanlar tehlikede
+- Admin malicious ise tüm bakiyeleri çalabilir
+- Kullanıcıların kendi özel anahtarları yok
+
+**Alternatif modeller (gelecek için):**
+- **Non-custodial:** Kullanıcı kendi key'ini tutar (zor ama güvenli)
+- **Multi-sig:** Birden fazla imza gerekir (guaclidean güvenlik)
+- **MPC (Multi-Party Computation):** Anahtar parçalara ayrılır
 
 ## API Endpointler
 
