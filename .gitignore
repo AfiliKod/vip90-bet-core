@@ -26,6 +26,8 @@ Thumbs.db
 # Session data (hassas — commit etme)
 server/scripts/session.json
 server/cookies.json
+odds-provider/cookies.json
+odds-provider/src/data/odds-source-domain.json
 
 # Manuel doğrulama scriptlerinin ürettiği ekran görüntüleri
 server/scripts/match-hero-*.png
