@@ -4,6 +4,7 @@
 //
 // Konfigürasyon admin panelinden (DB) ya da .env'den gelir — bkz services/settings.js.
 import { getSetting } from './settings.js';
+import { getSiteName } from '../branding/index.js';
 
 const THROTTLE = {
   CRITICAL: { windowMs: 60 * 1000, max: 100 },      // her dakika max 100
@@ -64,7 +65,7 @@ async function sendWebhook(level, category, message, meta) {
       await fetch(webhookUrl, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(formatPayload(level, category, message, meta)),
+        body: JSON.stringify(formatPayload(level, category, message, meta, await getSiteName())),
       });
     } else {
       // Generic webhook — flat JSON
@@ -125,7 +126,7 @@ async function sendEmailAlert(level, category, message, meta) {
     const { sendEmail } = await import('./email.js');
     await sendEmail({
       to,
-      subject: `[${level}] ${category} — VIP90`,
+      subject: `[${level}] ${category} — ${await getSiteName()}`,
       html: `<h2 style="font-family:sans-serif">${level}: ${category}</h2>
 <p style="font-family:sans-serif;font-size:15px">${message}</p>
 ${metaRows ? `<table style="font-family:monospace;font-size:13px">${metaRows}</table>` : ''}
@@ -137,13 +138,13 @@ ${metaRows ? `<table style="font-family:monospace;font-size:13px">${metaRows}</t
   return 'sent';
 }
 
-function formatPayload(level, category, message, meta) {
+function formatPayload(level, category, message, meta, siteName = 'VIP90.bet') {
   const color = level === 'CRITICAL' ? '#ef4444' : level === 'ERROR' ? '#f59e0b' : '#3b82f6';
   const emoji = level === 'CRITICAL' ? '🚨' : level === 'ERROR' ? '⚠️' : 'ℹ️';
 
   // Slack/Discord uyumlu embed
   return {
-    username: 'Bet Platform Alert',
+    username: `${siteName} Alert`,
     embeds: [{
       title: `${emoji} ${level}: ${category}`,
       description: message,

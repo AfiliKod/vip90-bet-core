@@ -6,11 +6,33 @@ import api from '../services/api';
 
 // API'ye ulaşılamazsa (network hatası) footer'ın tamamen boş kalmaması için
 // sabit bir yedek — yalnızca hep var olan sayfaları içerir, marka sütunu boş kalır.
+// Etiketler i18n anahtarı olarak tutulur (render sırasında t() ile çözülür),
+// aşağıdaki LEGAL_PAGE_TITLE_KEYS ile AYNI kaynak — böylece API çökse de
+// dil değişince Türkçe'de takılı kalmaz.
 const FALLBACK_LEGAL_ITEMS = [
-  { label: 'Kullanım Koşulları', to: '/legal/terms' },
-  { label: 'Gizlilik Politikası', to: '/legal/privacy' },
-  { label: 'KVKK Aydınlatma', to: '/legal/kvkk' },
+  { labelKey: 'legal.terms.title', to: '/legal/terms' },
+  { labelKey: 'legal.terms.subtitle', to: '/legal/user-agreement' },
+  { labelKey: 'legal.privacy.title', to: '/legal/privacy' },
+  { labelKey: 'legal.kvkk.title', to: '/legal/kvkk' },
+  { labelKey: 'legal.cookies.title', to: '/legal/cookies' },
+  { labelKey: 'legal.bonus.title', to: '/legal/bonus-terms' },
 ];
+
+// Bu 7 sabit yasal sayfanın BAŞLIĞI StaticPage.title'dan (DB, tek dilli,
+// admin panelinden Türkçe girilir) DEĞİL, LegalLayout.jsx'in zaten kullandığı
+// i18n anahtarlarından gelsin — aksi halde dil değiştirilince footer'daki
+// isim Türkçe'de kalır (asıl sayfa içeriği/intro'su hâlâ DB'den Türkçe gelir,
+// bu turun kapsamı yalnızca sayfa İSİMLERİ). `route`'a göre eşlenir çünkü
+// responsible-gaming footerColumn:'support' altında görünüyor, 'legal' değil.
+const LEGAL_PAGE_TITLE_KEYS = {
+  '/legal/terms': 'legal.terms.title',
+  '/legal/user-agreement': 'legal.terms.subtitle',
+  '/legal/privacy': 'legal.privacy.title',
+  '/legal/kvkk': 'legal.kvkk.title',
+  '/legal/cookies': 'legal.cookies.title',
+  '/legal/bonus-terms': 'legal.bonus.title',
+  '/legal/responsible-gaming': 'legal.responsible.title',
+};
 
 function Footer({ onOpenHelp }) {
   const { t } = useTranslation();
@@ -28,14 +50,21 @@ function Footer({ onOpenHelp }) {
     return () => { cancelled = true; };
   }, []);
 
+  // Bilinen 7 sabit yasal sayfa için i18n başlığını kullan, diğer (admin'in
+  // kendi oluşturduğu serbest) statik sayfalar için DB'deki title'a düş.
+  const pageLabel = (p) => {
+    const key = LEGAL_PAGE_TITLE_KEYS[p.route];
+    return key ? t(key) : p.title;
+  };
+
   const brandPages = (staticPages || []).filter(p => p.footerColumn === 'brand');
   const supportPages = (staticPages || []).filter(p => p.footerColumn === 'support');
   const legalPages = (staticPages || []).filter(p => p.footerColumn === 'legal');
 
   const LINKS = [
     {
-      heading: t('footer.brand'),
-      items: brandPages.map(p => ({ label: p.title, to: p.route })),
+      heading: t('footer.brand', { siteName }),
+      items: brandPages.map(p => ({ label: pageLabel(p), to: p.route })),
     },
     {
       heading: t('nav.sports'),
@@ -52,14 +81,14 @@ function Footer({ onOpenHelp }) {
         { label: t('footer.helpCenter'), to: '/help' },
         { label: t('footer.depositWithdraw'), to: '/profile' },
         { label: t('footer.liveHelp'), action: 'livehelp' },
-        ...supportPages.map(p => ({ label: p.title, to: p.route })),
+        ...supportPages.map(p => ({ label: pageLabel(p), to: p.route })),
       ],
     },
     {
       heading: t('footer.legal'),
       items: loadFailed
-        ? FALLBACK_LEGAL_ITEMS
-        : legalPages.map(p => ({ label: p.title, to: p.route })),
+        ? FALLBACK_LEGAL_ITEMS.map(item => ({ label: t(item.labelKey), to: item.to }))
+        : legalPages.map(p => ({ label: pageLabel(p), to: p.route })),
     },
   ];
 
@@ -126,7 +155,7 @@ function Footer({ onOpenHelp }) {
         {/* Yasal uyarı */}
         <div className="max-w-6xl mx-auto px-6 pb-6">
           <p className="text-[10px] text-text-3/60 leading-relaxed text-center">
-            {t('footer.legalWarning')}
+            {t('footer.legalWarning', { siteName })}
             {' '}<a href="https://www.gamblingtherapy.org" target="_blank" rel="noopener noreferrer" className="underline hover:text-text-3">
               gamblingtherapy.org
             </a>{' '}

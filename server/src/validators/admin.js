@@ -160,6 +160,21 @@ export const updateBrandingSchema = z.object({
   return approxDataUrlBytes(value) <= def.maxBytes;
 }, { message: 'Geçersiz değer: tür veya boyut sınırı aşıldı' });
 
+// Slayt görseli: ya var olan statik yol (/images/...), ya da panelden
+// yüklenmiş bir data: URL — branding görsellerindeki (logo/favicon) AYNI
+// "sunucu dosya sistemine hiç dokunmadan taşı" deseni, sadece daha büyük bir
+// üst sınırla (hero banner'ları logo/favicon'dan büyük olabiliyor).
+const HOME_BANNER_IMAGE_MAX_BYTES = 500_000;
+
+function isValidBannerImage(value) {
+  if (typeof value !== 'string' || !value) return false;
+  if (value.startsWith('/images/')) return true;
+  if (/^data:image\/[\w.+-]+;base64,/.test(value)) {
+    return approxDataUrlBytes(value) <= HOME_BANNER_IMAGE_MAX_BYTES;
+  }
+  return false;
+}
+
 export const updateHomeContentSchema = z.object({
   sectionOrder: z.array(z.enum(HOME_SECTION_IDS)).max(HOME_SECTION_IDS.length),
   banners: z.array(z.object({
@@ -167,8 +182,12 @@ export const updateHomeContentSchema = z.object({
     title: z.string().min(1).max(80).optional(),
     desc:  z.string().min(1).max(200).optional(),
     cta:   z.string().min(1).max(40).optional(),
+    image: z.string().optional(),
   })).max(HOME_BANNER_IDS.length),
-});
+}).refine(
+  ({ banners }) => banners.every(b => b.image === undefined || isValidBannerImage(b.image)),
+  { message: 'Geçersiz slayt görseli: tür veya boyut sınırı aşıldı (maks 500 KB)' },
+);
 
 export const updateFeaturedGamesSchema = z.object({
   codes: z.array(z.string().min(1).max(60)).max(MAX_FEATURED_GAMES),
@@ -217,6 +236,23 @@ export const upsertVipLevelSchema = z.object({
   color: z.string().max(20).optional(),
   icon: z.string().max(10).optional(),
   isActive: z.boolean().optional(),
+});
+
+// Kampanyalar/promosyonlar (Promotion modeli) — admin CRUD. Öncesinde tek
+// yaratım yolu tek seferlik bir script'ti (scripts/add-deneme-bonusu-promotion.mjs);
+// panelden yönetilebilir yüzey yoktu.
+export const upsertPromotionSchema = z.object({
+  id: z.string().min(1).optional(), // varsa güncelleme, yoksa yeni kayıt
+  type: z.enum(['welcome', 'freeBet', 'reload', 'trial']),
+  title: z.string().min(1).max(120),
+  description: z.string().max(1000).optional(),
+  amount: z.number().min(0),
+  minOdds: z.number().min(1).optional(),
+  wageringMultiplier: z.number().min(0).optional(),
+  deadlineDays: z.number().int().min(0).optional(),
+  expiresAt: z.string().datetime().optional().nullable(),
+  isActive: z.boolean().optional(),
+  gameWeights: z.record(z.string(), z.number()).optional(),
 });
 
 // P3 — bot oyuncular (User koleksiyonunda isBot:true)

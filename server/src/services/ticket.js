@@ -12,6 +12,7 @@ import Ticket from '../models/Ticket.js';
 import User from '../models/User.js';
 import { getIO } from './socketEmitter.js';
 import { sendEmail } from './email.js';
+import { getSiteName } from '../branding/index.js';
 
 const VALID_STATUSES = ['open', 'in_progress', 'resolved', 'closed'];
 
@@ -53,6 +54,7 @@ export async function addMessage(ticketId, senderId, senderRole, text) {
 
     const user = await User.findById(ticket.userId).select('username email');
     if (user?.email) {
+      const siteName = await getSiteName();
       await sendEmail({
         to: user.email,
         subject: `Destek talebinize yanıt geldi: ${ticket.subject}`,
@@ -61,7 +63,7 @@ export async function addMessage(ticketId, senderId, senderRole, text) {
           <p>Sayın ${user.username},</p>
           <p><strong>${ticket.subject}</strong> konulu destek talebinize yeni bir yanıt eklendi.</p>
           <p>Yanıtı görüntülemek için Yardım Merkezi'ne giriş yapabilirsiniz.</p>
-          <p>İyi eğlenceler,<br>VIP90.bet Ekibi</p>
+          <p>İyi eğlenceler,<br>${siteName} Ekibi</p>
         `,
       });
     }

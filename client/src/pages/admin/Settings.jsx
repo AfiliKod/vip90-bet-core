@@ -131,6 +131,40 @@ function RegionCurrencyCard({ t }) {
   );
 }
 
+/**
+ * Panel Dili kartı — yönetim panelinin arayüz dili. Yeni bir backend
+ * alanı/model AÇILMADI: mevcut global I18nProvider state'ini (locale,
+ * localStorage'da saklanır) doğrudan kullanır — Navbar'daki dil
+ * seçiciyle (LanguageSwitcher.jsx) AYNI state, sadece admin'in beklediği
+ * yerde (Sistem Ayarları) ayrı bir kontrol sunar. settingsStore.js'teki
+ * preferences.language (spor/oran içerik dili) ile KARIŞTIRILMAMALI —
+ * o ayrı, ilgisiz bir kavram.
+ */
+function PanelLanguageCard() {
+  const { t, locale, setLocale, locales } = useTranslation();
+  return (
+    <div className="bg-bg-card border border-white/10 rounded-xl p-4 mb-4">
+      <h2 className="text-lg font-semibold text-text-1">🌐 {t('admin.settings.panelLanguage.title')}</h2>
+      <p className="text-xs text-text-3 mt-0.5 mb-4">{t('admin.settings.panelLanguage.hint')}</p>
+      <div className="flex flex-wrap gap-2">
+        {locales.map(code => (
+          <button
+            key={code}
+            onClick={() => setLocale(code)}
+            className={`px-3 py-1.5 rounded-lg text-xs font-medium border transition ${
+              code === locale
+                ? 'bg-accent/20 text-accent border-accent/30'
+                : 'border-white/10 text-text-3 hover:text-text-1 hover:border-white/25'
+            }`}
+          >
+            {code.toUpperCase()}
+          </button>
+        ))}
+      </div>
+    </div>
+  );
+}
+
 export default function AdminSettings() {
   const { t } = useTranslation();
   const [settings, setSettings] = useState([]);
@@ -160,7 +194,7 @@ export default function AdminSettings() {
       title: `✉️ ${t('admin.settings.email')}`,
       hint: t('admin.settings.emailHint'),
       keys: [
-        { key: 'ALERT_EMAIL_TO', label: t('admin.settings.recipientAddress'), placeholder: 'admin@vip90.bet' },
+        { key: 'ALERT_EMAIL_TO', label: t('admin.settings.recipientAddress'), placeholder: 'admin@example.com' },
       ],
     },
   ];
@@ -219,6 +253,7 @@ export default function AdminSettings() {
     <div className="max-w-3xl mx-auto px-4 py-6">
       <h1 className="text-2xl font-bold text-text-1 mb-6">⚙️ {t('admin.settings.pageTitle')}</h1>
 
+      <PanelLanguageCard />
       <RegionCurrencyCard t={t} />
 
       <div className="flex items-center justify-between mb-2">

@@ -16,7 +16,15 @@ export const HOME_SECTION_IDS = [
   'hero', 'quickNav', 'inhouseGames', 'sportsBets', 'liveBets', 'casinoGames', 'features', 'bottomCta',
 ];
 
-export const HOME_BANNER_IDS = ['deneme-bonusu', 'hosgeldin-bonusu', 'arkadasini-getir'];
+// 'welcome'..'casino' — HomePage'in hero slider'ındaki 4 gezinme slaydı
+// (önceden PromoHeroSlider.jsx içinde ayrı, override edilemeyen sabit bir
+// dizi olan HERO_SLIDES) artık kampanya banner'larıyla (deneme-bonusu vb.)
+// AYNI override sözleşmesine dahil — "Slider Düzenleme Aracı" (Pages.jsx)
+// bu 7 slaydın tamamının başlık/açıklama/buton/GÖRSELİNİ düzenleyebilir.
+export const HOME_BANNER_IDS = [
+  'welcome', 'sports', 'live', 'casino',
+  'deneme-bonusu', 'hosgeldin-bonusu', 'arkadasini-getir',
+];
 
 export const DEFAULT_HOME_CONTENT = { sectionOrder: [], banners: [] };
 

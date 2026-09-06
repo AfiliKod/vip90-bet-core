@@ -15,15 +15,21 @@ export const DEFAULT_SECTION_ORDER = [
   'hero', 'quickNav', 'inhouseGames', 'sportsBets', 'liveBets', 'features', 'bottomCta',
 ];
 
-export const SECTION_LABELS = {
-  hero: 'Hero Slider',
-  quickNav: 'Hızlı Gezinme Kartları',
-  inhouseGames: 'Özel Oyunlar',
-  sportsBets: 'Spor Bahisleri',
-  liveBets: 'Canlı Bahis',
-  features: 'Neden Biz?',
-  bottomCta: 'Alt Çağrı Bandı',
-};
+// Admin panelindeki (Slider Düzenleme Aracı) bölüm etiketleri — i18n'e
+// bağlı olduğundan (dil değişince Türkçe'de takılı kalmasın) sabit obje
+// değil, `t` enjekte edilen bir fonksiyon (bkz. promoSlides.js'teki AYNI desen).
+export function getSectionLabel(t, id) {
+  const key = {
+    hero: 'admin.pages.sections.hero',
+    quickNav: 'admin.pages.sections.quickNav',
+    inhouseGames: 'admin.pages.sections.inhouseGames',
+    sportsBets: 'admin.pages.sections.sportsBets',
+    liveBets: 'admin.pages.sections.liveBets',
+    features: 'admin.pages.sections.features',
+    bottomCta: 'admin.pages.sections.bottomCta',
+  }[id];
+  return key ? t(key) : id;
+}
 
 /**
  * Sunucudan gelen (veya eksik/geçersiz) sectionOrder'ı güvenli bir diziye
@@ -54,6 +60,7 @@ export function resolveBanners(baseBanners, overrides) {
       title: o.title?.trim() || base.title,
       desc: o.desc?.trim() || base.desc,
       cta: o.cta?.trim() || base.cta,
+      image: o.image?.trim() || base.image,
     });
   }
   return out.length ? out : baseBanners;

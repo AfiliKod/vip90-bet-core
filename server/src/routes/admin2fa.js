@@ -5,6 +5,7 @@ import User from '../models/User.js';
 import { createError } from '../middleware/error.js';
 import { requireAuth } from '../middleware/auth.js';
 import { adminLimiter } from '../middleware/rateLimit.js';
+import { getSiteName } from '../branding/index.js';
 import { Router } from 'express';
 
 const r = Router();
@@ -20,7 +21,7 @@ r.post('/setup', requireAuth, adminLimiter, async (req, res, next) => {
     if (user.twoFactorEnabled) return next(createError(400, 'ALREADY_ENABLED', '2FA zaten aktif'));
 
     const secret = speakeasy.generateSecret({
-      name: `Bet Platform (${user.username})`,
+      name: `${await getSiteName()} (${user.username})`,
       length: 32,
     });
 

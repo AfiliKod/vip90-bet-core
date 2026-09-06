@@ -2,6 +2,7 @@ import KycDocument from '../models/KycDocument.js';
 import User from '../models/User.js';
 import { getIO } from './socketEmitter.js';
 import { sendEmail } from './email.js';
+import { getSiteName } from '../branding/index.js';
 
 /**
  * KYC configuration - which pages/features require KYC
@@ -119,6 +120,7 @@ export async function approveKyc(userId, adminId, options = {}) {
   await user.save({ session });
 
   // Send email notification
+  const approvedSiteName = await getSiteName();
   await sendEmail({
     to: user.email,
     subject: 'KYC Onaylandı',
@@ -127,7 +129,7 @@ export async function approveKyc(userId, adminId, options = {}) {
       <p>Sayın ${user.username},</p>
       <p>Kimlik doğrulama belgeleriniz incelendi ve onaylandı. Artık tüm özellikleri sınırsız kullanabilirsiniz.</p>
       ${notes ? `<p><strong>Admin notu:</strong> ${notes}</p>` : ''}
-      <p>İyi eğlenceler,<br>VIP90.bet Ekibi</p>
+      <p>İyi eğlenceler,<br>${approvedSiteName} Ekibi</p>
     `,
   });
 
@@ -167,6 +169,7 @@ export async function rejectKyc(userId, adminId, reason, options = {}) {
   await user.save({ session });
 
   // Send email notification
+  const rejectedSiteName = await getSiteName();
   await sendEmail({
     to: user.email,
     subject: 'KYC Reddedildi',
@@ -176,7 +179,7 @@ export async function rejectKyc(userId, adminId, reason, options = {}) {
       <p>Kimlik doğrulama belgeleriniz incelendi ancak reddedildi.</p>
       <p><strong>Sebep:</strong> ${reason}</p>
       <p>Lütfen doğru belgeleri yeniden yükleyin.</p>
-      <p>İyi eğlenceler,<br>VIP90.bet Ekibi</p>
+      <p>İyi eğlenceler,<br>${rejectedSiteName} Ekibi</p>
     `,
   });
 

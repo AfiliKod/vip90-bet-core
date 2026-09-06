@@ -11,6 +11,7 @@ import {
 import {
   signRefresh, setRefreshCookie, enrichWithPalaceBalance, enrichWithLockedBalance,
 } from '../controllers/auth.js';
+import { getSiteName } from '../branding/index.js';
 
 const r = Router();
 const testMode = process.env.NODE_ENV === 'test' || process.env.E2E_TEST === 'true';
@@ -18,9 +19,9 @@ const conditionalAuthLimiter = testMode ? (req, res, next) => next() : authLimit
 
 // POST /api/auth/wallet/nonce — hem giriş hem hesaba bağlama için kullanılır,
 // bu yüzden auth gerektirmez.
-r.post('/nonce', conditionalAuthLimiter, validate(walletNonceSchema), (req, res) => {
+r.post('/nonce', conditionalAuthLimiter, validate(walletNonceSchema), async (req, res) => {
   const nonce = setAuthNonce(req.validated.address);
-  res.json({ message: generateAuthMessage(nonce) });
+  res.json({ message: generateAuthMessage(nonce, await getSiteName()) });
 });
 
 // POST /api/auth/wallet/login — cüzdanla giriş (yeni kullanıcı ise otomatik oluşturur)

@@ -18,6 +18,15 @@ export default function LegalLayout({ title, intro, sections, children }) {
   const { t } = useTranslation();
   const updatedAt = new Date().toLocaleDateString('tr-TR');
 
+  // Sayfa BAŞLIĞI (h1) dile göre değişsin — DB'deki `title` (StaticPage.title,
+  // tek dilli, admin panelinden Türkçe girilir) yerine, SECTIONS'ın zaten
+  // taşıdığı i18n anahtarını kullan. `intro`/`sections` (asıl hukuki metin)
+  // BİLEREK DB'den (Türkçe) gelmeye devam ediyor — bu turun kapsamı sadece
+  // sayfa isimleri, tam içerik çevirisi değil. Bilinen 7 sayfa dışında bir
+  // route'a rastlarsa (SECTIONS'ta yoksa) DB title'ına düşer.
+  const pageTitle = SECTIONS.find(s => s.to === location.pathname)?.label;
+  const displayTitle = pageTitle ? t(pageTitle) : title;
+
   return (
     <div className="max-w-6xl mx-auto px-4 py-8">
       {/* Header */}
@@ -25,7 +34,7 @@ export default function LegalLayout({ title, intro, sections, children }) {
         <Link to="/" className="text-[10px] uppercase tracking-widest font-bold text-primary">
           ← {t('common.back')}
         </Link>
-        <h1 className="text-2xl font-black mt-2 text-text-1">{title}</h1>
+        <h1 className="text-2xl font-black mt-2 text-text-1">{displayTitle}</h1>
         <p className="text-sm mt-2 max-w-3xl text-text-3">{intro}</p>
         <div className="flex items-center gap-3 text-[10px] mt-3 text-text-3/70">
           <span>Versiyon: {LEGAL_VERSION}</span>

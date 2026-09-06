@@ -33,8 +33,8 @@ export async function recoverAddress(message, signature) {
  * @param {string} nonce - Unique nonce for this auth attempt
  * @returns {string} Message to sign
  */
-export function generateAuthMessage(nonce) {
-  return `VIP90.bet Girişi\n\nNonce: ${nonce}\nTimestamp: ${Date.now()}\n\nBu mesajı imzalayarak kimliğinizi doğruluyorsunuz.`;
+export function generateAuthMessage(nonce, siteName = 'VIP90.bet') {
+  return `${siteName} Girişi\n\nNonce: ${nonce}\nTimestamp: ${Date.now()}\n\nBu mesajı imzalayarak kimliğinizi doğruluyorsunuz.`;
 }
 
 /**

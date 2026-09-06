@@ -7,6 +7,7 @@ import BonusWagering from '../models/BonusWagering.js';
 import GameTask from '../models/GameTask.js';
 import CasinoRound from '../models/CasinoRound.js';
 import CasinoSession from '../models/CasinoSession.js';
+import Promotion from '../models/Promotion.js';
 import { settleEvent } from '../services/settlement.js';
 import { createError } from '../middleware/error.js';
 import { errorLogger } from '../services/errorLogger.js';
@@ -1154,6 +1155,40 @@ export async function removeUserRole(req, res, next) {
 // ─── O1 — VIP/seviye programı ───────────────────────────────────────
 // services/vip.js zaten yazılmıştı (awardXp artık CasinoRound/settlement'a
 // bağlı — bkz. modellerdeki not) — burada yalnızca admin CRUD ucu eklendi.
+// ─── Kampanyalar/promosyonlar (Promotion) — admin CRUD ──────────────────────
+// Öncesinde tek yaratım yolu tek seferlik bir script'ti; şimdi panelden
+// yönetilebiliyor. list TÜM kayıtları döner (isActive:false dahil — admin
+// pasif kampanyaları da görüp yeniden aktive edebilmeli), kullanıcı-yüzü
+// GET /promotions ise sadece isActive:true döndürmeye devam ediyor (değişmedi).
+export async function listPromotions(req, res, next) {
+  try {
+    const promotions = await Promotion.find().sort({ createdAt: -1 });
+    res.json({ promotions });
+  } catch (e) { next(e); }
+}
+
+export async function savePromotion(req, res, next) {
+  try {
+    const { id, ...fields } = req.validated;
+    let promotion;
+    if (id) {
+      promotion = await Promotion.findByIdAndUpdate(id, fields, { new: true, runValidators: true });
+      if (!promotion) throw createError(404, 'NOT_FOUND', 'Kampanya bulunamadı');
+    } else {
+      promotion = await Promotion.create(fields);
+    }
+    res.json({ promotion });
+  } catch (e) { next(e); }
+}
+
+export async function deletePromotion(req, res, next) {
+  try {
+    const promotion = await Promotion.findByIdAndDelete(req.params.id);
+    if (!promotion) throw createError(404, 'NOT_FOUND', 'Kampanya bulunamadı');
+    res.json({ ok: true });
+  } catch (e) { next(e); }
+}
+
 export async function listVipLevels(req, res, next) {
   try {
     const levels = await getAllVipLevels();
