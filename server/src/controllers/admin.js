@@ -19,7 +19,7 @@ import { THEME_PRESETS } from '../theme/presets.js';
 import { setBrandingField as setBrandingFieldImpl, listBranding } from '../branding/index.js';
 import { setHomeContent as setHomeContentImpl, getHomeContent } from '../pages/index.js';
 import { getConfig as getFakeWinnersConfig, saveConfig as saveFakeWinnersConfig, getPoolSize as getFakeWinnersPoolSize } from '../services/fakeWinners.js';
-import { getAllGameSettings, updateGameSettings as updateGameSettingsImpl } from '../services/gameSettings.js';
+import { getAllGameSettings } from '../services/gameSettings.js';
 import { getActiveCurrency, listCurrencies, setActiveCurrency } from '../currency/index.js';
 import {
   getAllRoles, getAllPermissions, createRole, updateRole, deleteRole,
@@ -29,14 +29,7 @@ import { getAllVipLevels, upsertVipLevel, deleteVipLevel } from '../services/vip
 import { getReferralTreeView } from '../services/referralTreeView.js';
 import { createBot, getAllBots, getBotById, updateBot, deleteBot, getBotStats, startAllBots, stopAllBots } from '../services/bot.js';
 import { listAllForAdmin as listAllStaticPagesForAdmin, upsertPage as upsertStaticPageSvc, togglePage as toggleStaticPageSvc } from '../services/staticPages.js';
-import { invalidateCrashSettingsCache } from '../services/inhouse/crashGame.js';
-import { invalidateRouletteSettingsCache } from '../services/inhouse/rouletteGame.js';
-import {
-  invalidateMinesSettingsCache, invalidateDiceSettingsCache, invalidateLimboSettingsCache,
-  invalidateHiloSettingsCache, invalidateDragonTigerSettingsCache,
-  invalidatePlinkoSettingsCache, invalidateWheelSettingsCache, invalidateKenoSettingsCache,
-  invalidateBaccaratSettingsCache, invalidateBlackjackSettingsCache, invalidateVideoPokerSettingsCache,
-} from '../routes/inhouse.js';
+import { updateSettings as updateProviderGameSettings } from '../services/inhouseProviderClient.js';
 import { simulateBlackjackRtp, simulateVideoPokerRtp } from '../services/inhouse/rtpSimulator.js';
 import { setFeaturedGameCodes as setFeaturedGameCodesImpl, getFeaturedGameCodes } from '../games/index.js';
 
@@ -1015,31 +1008,37 @@ export async function getGameSettings(req, res, next) {
   }
 }
 
-const GAME_CACHE_INVALIDATORS = {
-  'inhouse-crash': invalidateCrashSettingsCache,
-  'inhouse-roulette': invalidateRouletteSettingsCache,
-  'inhouse-mines': invalidateMinesSettingsCache,
-  'inhouse-dice': invalidateDiceSettingsCache,
-  'inhouse-limbo': invalidateLimboSettingsCache,
-  'inhouse-hilo': invalidateHiloSettingsCache,
-  'inhouse-dragontiger': invalidateDragonTigerSettingsCache,
-  'inhouse-plinko': invalidatePlinkoSettingsCache,
-  'inhouse-wheel': invalidateWheelSettingsCache,
-  'inhouse-keno': invalidateKenoSettingsCache,
-  'inhouse-baccarat': invalidateBaccaratSettingsCache,
-  'inhouse-blackjack': invalidateBlackjackSettingsCache,
-  'inhouse-videopoker': invalidateVideoPokerSettingsCache,
+// TAM 13 in-house oyun da artık çok-kiracılı provider mimarisine taşındı
+// (bkz. server/src/provider/) — ayarları doğrudan bu DB'den değil, operatör
+// API anahtarıyla PUT /api/provider/v1/settings/:gameId üzerinden yönetiliyor.
+// Admin panelimiz "kısayol yok" kararı gereği gelecekteki alıcıların
+// kullanacağı AYNI yoldan (gerçek HTTP round-trip) geçiyor.
+const PROVIDER_GAME_SHORT_IDS = {
+  'inhouse-crash': 'crash',
+  'inhouse-roulette': 'roulette',
+  'inhouse-mines': 'mines',
+  'inhouse-dice': 'dice',
+  'inhouse-limbo': 'limbo',
+  'inhouse-wheel': 'wheel',
+  'inhouse-plinko': 'plinko',
+  'inhouse-keno': 'keno',
+  'inhouse-hilo': 'hilo',
+  'inhouse-blackjack': 'blackjack',
+  'inhouse-baccarat': 'baccarat',
+  'inhouse-videopoker': 'videopoker',
+  'inhouse-dragontiger': 'dragontiger',
 };
 
 export async function updateGameSettings(req, res, next) {
   try {
     const { gameId } = req.params;
-    if (!GAME_CACHE_INVALIDATORS[gameId]) {
+    const { reason, ...updates } = req.validated;
+
+    const shortId = PROVIDER_GAME_SHORT_IDS[gameId];
+    if (!shortId) {
       return res.status(400).json({ error: { code: 'UNKNOWN_GAME', message: `Bilinmeyen oyun: ${gameId}` } });
     }
-    const { reason, ...updates } = req.validated;
-    const { settings, changes } = await updateGameSettingsImpl(gameId, updates, req.user.id, { reason });
-    GAME_CACHE_INVALIDATORS[gameId]();
+    const { settings, changes } = await updateProviderGameSettings(shortId, { ...updates, reason });
     res.json({ settings, changes });
   } catch (e) {
     next(e);

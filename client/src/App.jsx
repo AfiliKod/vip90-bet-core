@@ -51,18 +51,6 @@ const AdminStaticPages = lazy(() => import('./pages/admin/StaticPages'));
 const AdminTickets = lazy(() => import('./pages/admin/Tickets'));
 const PalaceGame = lazy(() => import('./pages/PalaceGame'));
 const InhouseGameLauncher = lazy(() => import('./pages/games/InhouseGameLauncher'));
-const Mines = lazy(() => import('./pages/games/Mines'));
-const Plinko = lazy(() => import('./pages/games/Plinko'));
-const Dice = lazy(() => import('./pages/games/Dice'));
-const Limbo = lazy(() => import('./pages/games/Limbo'));
-const Wheel = lazy(() => import('./pages/games/Wheel'));
-const Hilo = lazy(() => import('./pages/games/Hilo'));
-const Keno = lazy(() => import('./pages/games/Keno'));
-const Blackjack = lazy(() => import('./pages/games/Blackjack'));
-const Roulette = lazy(() => import('./pages/games/Roulette'));
-const Baccarat = lazy(() => import('./pages/games/Baccarat'));
-const VideoPoker = lazy(() => import('./pages/games/VideoPoker'));
-const DragonTiger = lazy(() => import('./pages/games/DragonTiger'));
 const HomePage = lazy(() => import('./pages/HomePage'));
 const Favorites = lazy(() => import('./pages/Favorites'));
 const RecentlyPlayed = lazy(() => import('./pages/RecentlyPlayed'));
@@ -153,18 +141,18 @@ export default function App() {
         <Route path="/casino" element={<Layout><ModuleGate module="casino-content"><Suspense fallback={<PageLoader />}><HomePage /></Suspense></ModuleGate></Layout>} />
         <Route path="/palace/:gameId" element={<ProtectedRoute><Suspense fallback={<PageLoader />}><PalaceGame /></Suspense></ProtectedRoute>} />
         <Route path="/games/crash" element={<ProtectedRoute><Suspense fallback={<PageLoader />}><InhouseGameLauncher gameId="crash" /></Suspense></ProtectedRoute>} />
-        <Route path="/games/mines" element={<ProtectedRoute><Suspense fallback={<PageLoader />}><Mines /></Suspense></ProtectedRoute>} />
-        <Route path="/games/plinko" element={<ProtectedRoute><Suspense fallback={<PageLoader />}><Plinko /></Suspense></ProtectedRoute>} />
-        <Route path="/games/dice" element={<ProtectedRoute><Suspense fallback={<PageLoader />}><Dice /></Suspense></ProtectedRoute>} />
-        <Route path="/games/limbo" element={<ProtectedRoute><Suspense fallback={<PageLoader />}><Limbo /></Suspense></ProtectedRoute>} />
-        <Route path="/games/wheel" element={<ProtectedRoute><Suspense fallback={<PageLoader />}><Wheel /></Suspense></ProtectedRoute>} />
-        <Route path="/games/hilo" element={<ProtectedRoute><Suspense fallback={<PageLoader />}><Hilo /></Suspense></ProtectedRoute>} />
-        <Route path="/games/keno" element={<ProtectedRoute><Suspense fallback={<PageLoader />}><Keno /></Suspense></ProtectedRoute>} />
-        <Route path="/games/blackjack" element={<ProtectedRoute><Suspense fallback={<PageLoader />}><Blackjack /></Suspense></ProtectedRoute>} />
-        <Route path="/games/roulette" element={<ProtectedRoute><Suspense fallback={<PageLoader />}><Roulette /></Suspense></ProtectedRoute>} />
-        <Route path="/games/baccarat" element={<ProtectedRoute><Suspense fallback={<PageLoader />}><Baccarat /></Suspense></ProtectedRoute>} />
-        <Route path="/games/videopoker" element={<ProtectedRoute><Suspense fallback={<PageLoader />}><VideoPoker /></Suspense></ProtectedRoute>} />
-        <Route path="/games/dragontiger" element={<ProtectedRoute><Suspense fallback={<PageLoader />}><DragonTiger /></Suspense></ProtectedRoute>} />
+        <Route path="/games/mines" element={<ProtectedRoute><Suspense fallback={<PageLoader />}><InhouseGameLauncher gameId="mines" /></Suspense></ProtectedRoute>} />
+        <Route path="/games/plinko" element={<ProtectedRoute><Suspense fallback={<PageLoader />}><InhouseGameLauncher gameId="plinko" /></Suspense></ProtectedRoute>} />
+        <Route path="/games/dice" element={<ProtectedRoute><Suspense fallback={<PageLoader />}><InhouseGameLauncher gameId="dice" /></Suspense></ProtectedRoute>} />
+        <Route path="/games/limbo" element={<ProtectedRoute><Suspense fallback={<PageLoader />}><InhouseGameLauncher gameId="limbo" /></Suspense></ProtectedRoute>} />
+        <Route path="/games/wheel" element={<ProtectedRoute><Suspense fallback={<PageLoader />}><InhouseGameLauncher gameId="wheel" /></Suspense></ProtectedRoute>} />
+        <Route path="/games/hilo" element={<ProtectedRoute><Suspense fallback={<PageLoader />}><InhouseGameLauncher gameId="hilo" /></Suspense></ProtectedRoute>} />
+        <Route path="/games/keno" element={<ProtectedRoute><Suspense fallback={<PageLoader />}><InhouseGameLauncher gameId="keno" /></Suspense></ProtectedRoute>} />
+        <Route path="/games/blackjack" element={<ProtectedRoute><Suspense fallback={<PageLoader />}><InhouseGameLauncher gameId="blackjack" /></Suspense></ProtectedRoute>} />
+        <Route path="/games/roulette" element={<ProtectedRoute><Suspense fallback={<PageLoader />}><InhouseGameLauncher gameId="roulette" /></Suspense></ProtectedRoute>} />
+        <Route path="/games/baccarat" element={<ProtectedRoute><Suspense fallback={<PageLoader />}><InhouseGameLauncher gameId="baccarat" /></Suspense></ProtectedRoute>} />
+        <Route path="/games/videopoker" element={<ProtectedRoute><Suspense fallback={<PageLoader />}><InhouseGameLauncher gameId="videopoker" /></Suspense></ProtectedRoute>} />
+        <Route path="/games/dragontiger" element={<ProtectedRoute><Suspense fallback={<PageLoader />}><InhouseGameLauncher gameId="dragontiger" /></Suspense></ProtectedRoute>} />
         <Route path="/my-bets" element={<ProtectedRoute><Layout><Suspense fallback={<PageLoader />}><MyBets /></Suspense></Layout></ProtectedRoute>} />
         <Route path="/favorites" element={<ProtectedRoute><Layout><Suspense fallback={<PageLoader />}><Favorites /></Suspense></Layout></ProtectedRoute>} />
         <Route path="/recently-played" element={<ProtectedRoute><Layout><Suspense fallback={<PageLoader />}><RecentlyPlayed /></Suspense></Layout></ProtectedRoute>} />

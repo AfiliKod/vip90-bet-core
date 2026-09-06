@@ -45,6 +45,9 @@ import brandingRoutes from './routes/branding.js';
 import pagesRoutes from './routes/pages.js';
 import staticPagesRoutes from './routes/staticPages.js';
 import gamesRoutes from './routes/games.js';
+import providerRoutes from './provider/routes/index.js';
+import inhouseProviderProxyRoutes from './routes/inhouseProviderProxy.js';
+import { getAllOperatorOrigins } from './provider/services/operatorOriginCache.js';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const isProd = process.env.NODE_ENV === 'production';
@@ -68,13 +71,22 @@ if (process.env.RAILWAY_PUBLIC_DOMAIN) {
 }
 
 export const corsOptions = {
-  origin: (origin, cb) => {
+  // async: DB-tabanlı operatör-origin listesi (provider/services/
+  // operatorOriginCache.js, 30sn TTL) statik baseOrigins'e ek olarak
+  // kontrol edilir — operatörler aynı statik game-host bundle'ını kendi
+  // white-label domain'lerinde barındırabilir, bu yüzden origin listesi
+  // artık salt .env değil, DB'den (Operator.allowedOrigins) geliyor.
+  origin: async (origin, cb) => {
     if (!origin) return cb(null, false);
     if (baseOrigins.includes('*') || baseOrigins.includes(origin)) return cb(null, true);
     // Development only: ngrok tunnel desteği (Phase B10 — production'da kapalı)
     if (!isProd && (origin.endsWith('.ngrok-free.dev') || origin === 'https://ngrok-free.dev')) {
       return cb(null, true);
     }
+    try {
+      const operatorOrigins = await getAllOperatorOrigins();
+      if (operatorOrigins.has(origin)) return cb(null, true);
+    } catch { /* DB erişilemezse statik allowlist'e düş — aşağıda reddedilir */ }
     cb(new Error('CORS: ' + origin));
   },
   credentials: true,
@@ -130,6 +142,12 @@ export function createApp() {
   // gövdeyi tekrar okumadığı için aşağıdaki global express.json bu istekler
   // için no-op olur — global limit diğer tüm uçlarda 10kb olarak kalır.
   app.use('/api/admin/branding', express.json({ limit: '1mb' }));
+  // Wallet-callback alıcısı: HMAC doğrulaması imzalanan TAM ham gövdeyi
+  // gerektiriyor (bkz. provider/services/hmacSign.js) — req.body'yi tekrar
+  // JSON.stringify etmek anahtar sırası farkıyla imzayı sessizce bozabilir.
+  app.use('/api/inhouse-provider/callback', express.json({
+    verify: (req, res, buf) => { req.rawBody = buf.toString('utf8'); },
+  }));
   app.use(express.json({ limit: '10kb' })); // Phase B3
   app.use(express.urlencoded({ extended: false, limit: '10kb' }));
   app.use(mongoSanitize()); // Phase B12
@@ -165,6 +183,11 @@ export function createApp() {
   app.use('/api/admin', adminRoutes);
   app.use('/api/palace', palaceRoutes);
   app.use('/api/inhouse', inhouseRoutes);
+  // Çok-kiracılı in-house game provider (bkz. server/src/provider/) — merkezi
+  // oyun sunucusunun operatör-tarafı API'si. inhouse-provider: bu sitenin
+  // (Operatör #1) provider'a konuşan client + wallet-callback alıcısı.
+  app.use('/api/provider/v1', providerRoutes);
+  app.use('/api/inhouse-provider', inhouseProviderProxyRoutes);
   app.use('/api/help', helpRoutes);
   app.use('/api/crypto', cryptoRoutes);
   app.use('/api/bank', bankRoutes);

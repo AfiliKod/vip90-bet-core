@@ -1,8 +1,18 @@
 import mongoose from 'mongoose';
 
 const schema = new mongoose.Schema({
-  gameId: { type: String, required: true, unique: true }, // 'inhouse-crash', 'inhouse-roulette'
+  gameId: { type: String, required: true }, // 'inhouse-crash', 'inhouse-roulette'
   gameTitle: { type: String, required: true },
+
+  // Çok-kiracılı provider mimarisi (bkz. server/src/provider/): null =
+  // eski/tek-operatör davranışı (11 oyunun 11'i de bu turda hâlâ null,
+  // dokunulmadı). Gerçek bir ObjectId = operatöre özel ayar (şu an sadece
+  // Crash için, bkz. scripts/migrations/add-operator-to-game-settings.mjs).
+  // İKİ ayrı partial unique index aşağıda: biri null-operatorId grubu için
+  // eski tekil-gameId davranışını korur, diğeri gerçek operatorId'ler için
+  // (operatorId,gameId) ikilisini tekilleştirir — böylece 11 eski oyun hiç
+  // etkilenmeden aynı koleksiyonda operatör-bazlı Crash dokümanları yaşayabilir.
+  operatorId: { type: mongoose.Schema.Types.ObjectId, ref: 'Operator', default: null, index: true },
   
   // Crash settings
   crashHouseEdgePercent: { type: Number, default: 20, min: 0, max: 50 }, // %20 = 1 in 5 instant crash
@@ -108,5 +118,12 @@ const schema = new mongoose.Schema({
     reason: String,
   }],
 }, { timestamps: true });
+
+// Açık isimler bilerek verildi: eski (tek alanlı, partial OLMAYAN) `gameId_1`
+// unique index'iyle aynı ada düşüp MongoDB'de "IndexOptionsConflict" hatası
+// almamak için — migration (scripts/migrations/add-operator-to-game-settings.mjs)
+// eski index'i açıkça DÜŞÜRÜR, bu ikisi onun yerine geçer.
+schema.index({ gameId: 1 }, { name: 'gameId_legacy_unique', unique: true, partialFilterExpression: { operatorId: null } });
+schema.index({ operatorId: 1, gameId: 1 }, { name: 'operatorId_gameId_unique', unique: true, partialFilterExpression: { operatorId: { $type: 'objectId' } } });
 
 export default mongoose.model('GameSettings', schema);

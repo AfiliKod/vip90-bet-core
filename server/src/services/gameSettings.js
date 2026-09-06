@@ -273,17 +273,245 @@ export async function updateGameSettings(gameId, updates, adminId, options = {})
 }
 
 /**
- * Get crash game settings (for game server)
+ * Operatör-bazlı Crash ayarı (bkz. server/src/provider/). Eski parametresiz
+ * getCrashSettings() kaldırıldı — crashGame.js artık singleton değil, her
+ * operatörün kendi izole GameSettings dokümanını kullanıyor (bkz.
+ * models/GameSettings.js'teki operatorId + partial unique index çifti).
+ * Yoksa Crash'in varsayılan değerleriyle (initDefaultGameSettings'teki
+ * 'inhouse-crash' şablonuyla birebir) o operatöre özel lazy-seed yapılır.
  */
-export async function getCrashSettings() {
-  return getGameSettings('inhouse-crash');
+const OPERATOR_GAME_DEFAULTS = {
+  'inhouse-crash': {
+    gameTitle: 'Crash',
+    crashHouseEdgePercent: 20,
+    crashMinBet: 1,
+    crashMaxBet: 50000,
+    crashAutoCashoutEnabled: true,
+    crashTickMs: 100,
+    crashWaitMs: 6000,
+    crashShowMs: 3000,
+  },
+  'inhouse-roulette': {
+    gameTitle: 'European Roulette',
+    rouletteHouseEdgePercent: 2.7,
+    rouletteMinBet: 1,
+    rouletteMaxBet: 50000,
+    rouletteMaxPayout: 36,
+    rouletteWaitMs: 5000,
+    rouletteSpinMs: 4800,
+    rouletteResultMs: 3000,
+  },
+  'inhouse-mines': {
+    gameTitle: 'Mines',
+    minesPayoutFactor: 0.78,
+    minesMinBet: 1,
+    minesMaxBet: 50000,
+  },
+  'inhouse-dice': {
+    gameTitle: 'Dice',
+    dicePayoutFactor: 78,
+    diceMinBet: 1,
+    diceMaxBet: 50000,
+  },
+  'inhouse-limbo': {
+    gameTitle: 'Limbo',
+    limboHouseEdgePercent: 20,
+    limboMinBet: 1,
+    limboMaxBet: 50000,
+  },
+  'inhouse-hilo': {
+    gameTitle: 'Hi-Lo',
+    hiloPayoutFactor: 0.78,
+    hiloMinBet: 1,
+    hiloMaxBet: 50000,
+  },
+  'inhouse-dragontiger': {
+    gameTitle: 'Dragon Tiger',
+    dragonTigerWinMultiplier: 1.6,
+    dragonTigerTieMultiplier: 13,
+    dragonTigerTiePushMultiplier: 0.5,
+    dragonTigerMinBet: 1,
+    dragonTigerMaxBet: 50000,
+  },
+  'inhouse-plinko': {
+    gameTitle: 'Plinko',
+    plinkoPayoutScale: 1.0,
+    plinkoMinBet: 1,
+    plinkoMaxBet: 50000,
+  },
+  'inhouse-wheel': {
+    gameTitle: 'Wheel',
+    wheelPayoutScale: 1.0,
+    wheelMinBet: 1,
+    wheelMaxBet: 50000,
+  },
+  'inhouse-keno': {
+    gameTitle: 'Keno',
+    kenoPayoutScale: 1.0,
+    kenoMinBet: 1,
+    kenoMaxBet: 50000,
+  },
+  'inhouse-baccarat': {
+    gameTitle: 'Baccarat',
+    baccaratBankerMultiplier: 1.7,
+    baccaratPlayerMultiplier: 1.75,
+    baccaratTieMultiplier: 8,
+    baccaratMinBet: 1,
+    baccaratMaxBet: 50000,
+  },
+  'inhouse-blackjack': {
+    gameTitle: 'Blackjack',
+    blackjackPayoutMult: 2.0,
+    blackjackWinMult: 1.4,
+    dealerHitsSoft17: true,
+    blackjackMinBet: 1,
+    blackjackMaxBet: 50000,
+  },
+  'inhouse-videopoker': {
+    gameTitle: 'Video Poker',
+    vpRoyalFlushMult: 656,
+    vpStraightFlushMult: 41,
+    vpFourKindMult: 21,
+    vpFullHouseMult: 7,
+    vpFlushMult: 5,
+    vpStraightMult: 3,
+    vpThreeKindMult: 2.5,
+    vpTwoPairMult: 1.5,
+    vpJacksOrBetterMult: 0.8,
+    vpMinBet: 1,
+    vpMaxBet: 50000,
+  },
+};
+
+/** operatorId + gameId scoped ayar — yoksa o oyunun varsayılanlarıyla lazy-seed. */
+async function getOperatorGameSettings(operatorId, gameId) {
+  const existing = await GameSettings.findOne({ operatorId, gameId });
+  if (existing) return existing;
+
+  const defaults = OPERATOR_GAME_DEFAULTS[gameId];
+  await GameSettings.updateOne(
+    { operatorId, gameId },
+    { $setOnInsert: { operatorId, gameId, ...defaults } },
+    { upsert: true },
+  );
+  return GameSettings.findOne({ operatorId, gameId });
 }
 
-/**
- * Get roulette game settings (for game server)
- */
-export async function getRouletteSettings() {
-  return getGameSettings('inhouse-roulette');
+export async function getCrashSettingsForOperator(operatorId) {
+  return getOperatorGameSettings(operatorId, 'inhouse-crash');
+}
+
+export async function getRouletteSettingsForOperator(operatorId) {
+  return getOperatorGameSettings(operatorId, 'inhouse-roulette');
+}
+
+/** Jenerik operatör-bazlı ayar erişimi — HTTP oyun motoru (provider/services/instantGameEngine.js,
+ *  sessionGameEngine.js) bunu kullanır. gameId TAM DB formatında olmalı (ör. 'inhouse-dice'). */
+export async function getGameSettingsForOperator(operatorId, gameId) {
+  return getOperatorGameSettings(operatorId, gameId);
+}
+
+// minKey/maxKey: her oyunun min/max bahis alan adları — jenerik çapraz
+// doğrulama (max >= min) ve jenerik bahis-aralığı kontrolü (instantGameEngine.js)
+// için. percentField: varsa [alan, min, max] — house-edge tipi tekil yüzde
+// alanlarının aralık kontrolü.
+const GAME_FIELD_META = {
+  'inhouse-crash':       { minKey: 'crashMinBet', maxKey: 'crashMaxBet', percentField: ['crashHouseEdgePercent', 0, 50] },
+  'inhouse-roulette':    { minKey: 'rouletteMinBet', maxKey: 'rouletteMaxBet', percentField: ['rouletteHouseEdgePercent', 0, 10] },
+  'inhouse-mines':       { minKey: 'minesMinBet', maxKey: 'minesMaxBet' },
+  'inhouse-dice':        { minKey: 'diceMinBet', maxKey: 'diceMaxBet' },
+  'inhouse-limbo':       { minKey: 'limboMinBet', maxKey: 'limboMaxBet', percentField: ['limboHouseEdgePercent', 0, 50] },
+  'inhouse-hilo':        { minKey: 'hiloMinBet', maxKey: 'hiloMaxBet' },
+  'inhouse-dragontiger': { minKey: 'dragonTigerMinBet', maxKey: 'dragonTigerMaxBet' },
+  'inhouse-plinko':      { minKey: 'plinkoMinBet', maxKey: 'plinkoMaxBet' },
+  'inhouse-wheel':       { minKey: 'wheelMinBet', maxKey: 'wheelMaxBet' },
+  'inhouse-keno':        { minKey: 'kenoMinBet', maxKey: 'kenoMaxBet' },
+  'inhouse-baccarat':    { minKey: 'baccaratMinBet', maxKey: 'baccaratMaxBet' },
+  'inhouse-blackjack':   { minKey: 'blackjackMinBet', maxKey: 'blackjackMaxBet' },
+  'inhouse-videopoker':  { minKey: 'vpMinBet', maxKey: 'vpMaxBet' },
+};
+
+export function getGameFieldMeta(gameId) {
+  return GAME_FIELD_META[gameId];
+}
+
+const OPERATOR_ALLOWED_FIELDS = {
+  'inhouse-crash': [
+    'crashHouseEdgePercent', 'crashMinBet', 'crashMaxBet',
+    'crashAutoCashoutEnabled', 'crashTickMs', 'crashWaitMs', 'crashShowMs', 'isActive',
+  ],
+  'inhouse-roulette': [
+    'rouletteHouseEdgePercent', 'rouletteMinBet', 'rouletteMaxBet',
+    'rouletteMaxPayout', 'rouletteWaitMs', 'rouletteSpinMs', 'rouletteResultMs', 'isActive',
+  ],
+  'inhouse-mines': ['minesPayoutFactor', 'minesMinBet', 'minesMaxBet', 'isActive'],
+  'inhouse-dice': ['dicePayoutFactor', 'diceMinBet', 'diceMaxBet', 'isActive'],
+  'inhouse-limbo': ['limboHouseEdgePercent', 'limboMinBet', 'limboMaxBet', 'isActive'],
+  'inhouse-hilo': ['hiloPayoutFactor', 'hiloMinBet', 'hiloMaxBet', 'isActive'],
+  'inhouse-dragontiger': [
+    'dragonTigerWinMultiplier', 'dragonTigerTieMultiplier', 'dragonTigerTiePushMultiplier',
+    'dragonTigerMinBet', 'dragonTigerMaxBet', 'isActive',
+  ],
+  'inhouse-plinko': ['plinkoPayoutScale', 'plinkoMinBet', 'plinkoMaxBet', 'isActive'],
+  'inhouse-wheel': ['wheelPayoutScale', 'wheelMinBet', 'wheelMaxBet', 'isActive'],
+  'inhouse-keno': ['kenoPayoutScale', 'kenoMinBet', 'kenoMaxBet', 'isActive'],
+  'inhouse-baccarat': [
+    'baccaratBankerMultiplier', 'baccaratPlayerMultiplier', 'baccaratTieMultiplier',
+    'baccaratMinBet', 'baccaratMaxBet', 'isActive',
+  ],
+  'inhouse-blackjack': [
+    'blackjackPayoutMult', 'blackjackWinMult', 'dealerHitsSoft17',
+    'blackjackMinBet', 'blackjackMaxBet', 'isActive',
+  ],
+  'inhouse-videopoker': [
+    'vpRoyalFlushMult', 'vpStraightFlushMult', 'vpFourKindMult', 'vpFullHouseMult',
+    'vpFlushMult', 'vpStraightMult', 'vpThreeKindMult', 'vpTwoPairMult', 'vpJacksOrBetterMult',
+    'vpMinBet', 'vpMaxBet', 'isActive',
+  ],
+};
+
+function validateOperatorUpdate(gameId, updateData) {
+  const meta = GAME_FIELD_META[gameId];
+  if (!meta) return;
+  const { minKey, maxKey, percentField } = meta;
+  if (percentField) {
+    const [field, lo, hi] = percentField;
+    if (updateData[field] !== undefined && (updateData[field] < lo || updateData[field] > hi)) {
+      throw createError(400, 'INVALID_RANGE', `${field} ${lo}-${hi} aralığında olmalı`);
+    }
+  }
+  if (updateData[minKey] !== undefined && updateData[minKey] <= 0) {
+    throw createError(400, 'INVALID_RANGE', 'Min bet pozitif olmalı');
+  }
+  if (updateData[maxKey] !== undefined && updateData[maxKey] < (updateData[minKey] || 0)) {
+    throw createError(400, 'INVALID_RANGE', 'Max bet min betten büyük olmalı');
+  }
+}
+
+/** Operatörün KENDİ RTP/min-max/timing ayarını güncellemesi için (bkz. provider/routes/operatorSettings.js). */
+export async function updateOperatorGameSettings(operatorId, gameId, updates, options = {}) {
+  const { reason = '' } = options;
+  const allowedFields = OPERATOR_ALLOWED_FIELDS[gameId];
+  if (!allowedFields) throw createError(400, 'UNKNOWN_GAME', `Bilinmeyen oyun: ${gameId}`);
+
+  const updateData = Object.fromEntries(Object.entries(updates).filter(([k]) => allowedFields.includes(k)));
+  if (Object.keys(updateData).length === 0) {
+    throw createError(400, 'NO_VALID_FIELDS', 'Güncellenecek geçerli alan yok');
+  }
+  validateOperatorUpdate(gameId, updateData);
+
+  const settings = await getOperatorGameSettings(operatorId, gameId);
+  const changes = [];
+  for (const [key, newValue] of Object.entries(updateData)) {
+    if (settings[key] !== newValue) {
+      changes.push({ field: key, oldValue: settings[key], newValue, changedAt: new Date(), reason });
+    }
+  }
+  Object.assign(settings, updateData);
+  settings.updatedAt = new Date();
+  settings.changeLog.push(...changes);
+  await settings.save();
+  return { settings, changes };
 }
 
 export async function getMinesSettings() {

@@ -14,8 +14,9 @@ import mongoose from 'mongoose';
 import { createApp, corsOptions } from './app.js';
 import { connectDB } from './db.js';
 import { initSocket } from './socket/handler.js';
-import { initCrashGame } from './services/inhouse/crashGame.js';
-import { initRouletteGame } from './services/inhouse/rouletteGame.js';
+import { initCrashGameNamespace } from './provider/games/crashGame.js';
+import { initRouletteGameNamespace } from './provider/games/rouletteGame.js';
+import { startWalletCallbackRetryWorker } from './provider/services/retryOutbox.js';
 import { startOddsSourceLiveSync } from './jobs/oddsSourceLiveSync.js';
 import { startOddsSourceUpcomingSync } from './jobs/oddsSourceUpcomingSync.js';
 import { startMonitor } from './services/syncHealth.js';
@@ -107,9 +108,10 @@ connectDB()
     // P1 — sohbet: hiç oda yoksa "Genel Sohbet" odasını oluşturur
     initDefaultChatRoom().catch(err => console.error('initDefaultChatRoom error:', err.message));
     initSocket(io);
-    initCrashGame(io);
-    initRouletteGame(io);
+    initCrashGameNamespace(io);
+    initRouletteGameNamespace(io);
     startCleanupJob();
+    startWalletCallbackRetryWorker();
     startStatusTransition(io);
     startOddsSourceLiveSync(io);
     startOddsSourceUpcomingSync(io);
