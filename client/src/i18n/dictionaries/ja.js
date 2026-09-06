@@ -140,7 +140,7 @@ export default {
   'nav.crypto': 'クリプト（USDT）',
   'nav.legal': '法的情報',
   // Footer
-  'footer.brand': 'VIP90.bet',
+  'footer.brand': '{siteName}',
   'staticPage.unavailable': 'このページは現在利用できません。',
   'ticket.title': 'ヘルプセンター',
   'ticket.subtitle': 'サポートリクエストを確認・新規作成できます。',
@@ -220,7 +220,7 @@ export default {
   'footer.bonusTerms': 'ボーナス規約',
   'footer.status': 'システムステータス',
   'footer.copyright': '© {year} {siteName}. All rights reserved.',
-  'footer.legalWarning': 'VIP90.betはライセンス・監査を受けたベットプラットフォームです。18歳未満の方のアクセスは禁止されています。カジノ依存症は深刻な経済的・心理的問題を引き起こす可能性があります。サポートが必要な場合は',
+  'footer.legalWarning': '{siteName}はライセンス・監査を受けたベットプラットフォームです。18歳未満の方のアクセスは禁止されています。カジノ依存症は深刻な経済的・心理的問題を引き起こす可能性があります。サポートが必要な場合は',
   'footer.legalWarningUrl': 'をご覧ください。',
 
   // Sports
@@ -398,7 +398,7 @@ export default {
 
   // LiveHelp
   'livehelp.title': 'ライブサポート',
-  'livehelp.welcome': 'こんにちは！VIP90.betサポートアシスタントです。どのようにお手伝いできますか？',
+  'livehelp.welcome': 'こんにちは！{siteName}サポートアシスタントです。どのようにお手伝いできますか？',
   'livehelp.faq.deposit': 'どのように入金すればいいですか？',
   'livehelp.faq.withdraw': '当選金はどうやって出金しますか？',
   'livehelp.faq.liveBet': 'ライブベットはどうやって行いますか？',
@@ -417,7 +417,7 @@ export default {
 
   // Home
   'home.recentWinners': '最新の当選者',
-  'home.hero.welcome': 'VIP90.betへようこそ',
+  'home.hero.welcome': '{siteName}へようこそ',
   'home.hero.sports': 'スポーツベット',
   'home.hero.live': 'ライブベット',
   'home.hero.casino': 'カジノ',
@@ -439,7 +439,7 @@ export default {
   'home.promo.referFriendDesc': '友達を招待し、彼が得た利益の10%を獲得。招待が多いほど利益も増える！',
   'home.promo.referFriendCta': '招待する',
   'home.games.exclusive': '限定ゲーム',
-  'home.games.exclusiveDesc': 'VIP90.bet限定のインハウスゲームで異なる体験を',
+  'home.games.exclusiveDesc': '{siteName}限定のインハウスゲームで異なる体験を',
   'home.sports.title': 'スポーツベット',
   'home.sports.subtitle': '15以上のスポーツ、hundreds of leagues、thousands of matches',
   'home.sports.allSports': 'すべてのスポーツ →',
@@ -455,7 +455,7 @@ export default {
   'home.casino.allGames': 'すべてのゲーム →',
   'home.casino.provider': '🎯 Pragmatic Play',
   'home.casino.explore': 'カジノを探す →',
-  'home.features.title': 'VIP90.betが選ばれる理由',
+  'home.features.title': '{siteName}が選ばれる理由',
   'home.features.subtitle': '最高の体験ために必要なすべて',
   'home.features.fastPayouts': '高速ペイアウト',
   'home.features.fastPayoutsDesc': '当選金は即座に受け取れます。待ちません。',
@@ -465,7 +465,7 @@ export default {
   'home.features.bonusesDesc': 'ウェルカムボーナス、ロスボーナス、その他多数。',
   'home.features.support': '24時間サポート',
   'home.features.supportDesc': 'ライブサポートでいつでもお手伝いします。',
-  'home.cta.title': 'VIP90.betで勝ち始めよう',
+  'home.cta.title': '{siteName}で勝ち始めよう',
   'home.cta.getStarted': '今すぐ始める',
   'home.cta.register': '新規登録',
   'home.trust.licensed': 'ライセンス済み＆安全',
@@ -994,7 +994,7 @@ export default {
   'casino.exclusive': '限定',
   'casino.showMore': 'さらに表示（{count}）',
   'casino.searchPlaceholder': 'ゲームやプロバイダーを検索...',
-  'casino.ctaTitle': 'VIP90.betカジノで勝ち始めよう',
+  'casino.ctaTitle': '{siteName}カジノで勝ち始めよう',
   'casino.ctaSubtitle': 'hundreds of games, biggest jackpots, unique in-house experience. Join now and start winning.',
   'casino.exploreAllGames': 'すべてのゲームを探す',
   'casino.loadingProviders': 'プロバイダーを読み込み中...',

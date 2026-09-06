@@ -21,9 +21,9 @@ import { formatMoney } from '../../utils/money.js';
  * override mekanizmasından geçiyorlar — Slider Düzenleme Aracı (admin/
  * Pages.jsx) her ikisini de tek listede gösterip görsel dahil düzenleyebilir.
  */
-export function getHeroNavSlides(t) {
+export function getHeroNavSlides(t, siteName) {
   return [
-    { id: 'welcome', title: t('home.hero.welcome'), path: '/bahis', cta: t('home.hero.getStarted'), desc: t('home.hero.welcomeDesc'), image: '/images/welcome-banner.png' },
+    { id: 'welcome', title: t('home.hero.welcome', { siteName }), path: '/bahis', cta: t('home.hero.getStarted'), desc: t('home.hero.welcomeDesc'), image: '/images/welcome-banner.png' },
     { id: 'sports', title: t('home.hero.sports'), path: '/bahis', cta: t('home.hero.betNow'), desc: t('home.hero.sportsDesc'), image: '/images/hero-sports.png' },
     { id: 'live', title: t('home.hero.live'), path: '/canli', cta: t('home.hero.watchLive'), desc: t('home.hero.liveDesc'), image: '/images/hero-live.png' },
     { id: 'casino', title: t('home.hero.casino'), path: '/casino', cta: t('home.hero.exploreGames'), desc: t('home.hero.casinoDesc'), image: '/images/hero-casino.png' },

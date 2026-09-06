@@ -10,13 +10,14 @@
  *   olarak engeller.
  */
 import { searchKnowledge } from './chatbotKnowledge.js';
+import { getSiteName } from '../branding/index.js';
 
 export const ESCALATION_MESSAGE =
   'Bu konuda elimde güvenilir bir bilgi yok. Lütfen destek talebi (ticket) açın, ekibimiz size yardımcı olsun.';
 
-export function buildGroundedSystemPrompt({ chunks, version }) {
+export function buildGroundedSystemPrompt({ chunks, version, siteName = 'VIP90.bet' }) {
   const context = chunks.map(c => `## ${c.heading || c.source}\n${c.text}`).join('\n\n');
-  return `Sen VIP90.bet platformunun ürün destek asistanısın. Şu an çalışan sürüm: ${version}.
+  return `Sen ${siteName} platformunun ürün destek asistanısın. Şu an çalışan sürüm: ${version}.
 
 Yalnızca aşağıdaki doküman parçalarına dayanarak cevap ver. Buradaki
 bilgiyle cevaplayamıyorsan ya da emin değilsen, tahmin etme — kullanıcıyı
@@ -41,7 +42,7 @@ export async function answerQuestion({ query, allChunks, version, callLLM }) {
   if (!relevant.length) {
     return { reply: ESCALATION_MESSAGE, escalated: true };
   }
-  const systemPrompt = buildGroundedSystemPrompt({ chunks: relevant, version });
+  const systemPrompt = buildGroundedSystemPrompt({ chunks: relevant, version, siteName: await getSiteName() });
   const reply = await callLLM(systemPrompt, query);
   return { reply, escalated: false };
 }

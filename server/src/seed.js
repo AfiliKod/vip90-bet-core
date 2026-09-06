@@ -13,7 +13,7 @@ await mongoose.connect(process.env.MONGODB_URI);
 await User.deleteMany({});
 await User.create({
   username: 'admin',
-  email: 'admin@vip90.bet',
+  email: 'admin@example.com',
   password: 'Admin1234!',
   role: 'admin',
   balance: 0,

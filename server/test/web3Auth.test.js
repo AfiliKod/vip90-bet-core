@@ -27,7 +27,7 @@ describe('Web3 Auth Service', () => {
       const nonce = 'abc123';
       const message = generateAuthMessage(nonce);
       
-      assert.ok(message.includes('VIP90.bet Girişi'));
+      assert.ok(message.includes('VIP90.bet Girişi')); // siteName verilmezse varsayılan marka adına düşer
       assert.ok(message.includes(`Nonce: ${nonce}`));
       assert.ok(message.includes('imzalayarak kimliğinizi doğruluyorsunuz'));
     });

@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useTranslation } from '../../i18n';
+import { useBrandingStore } from '../../store/brandingStore';
 import api from '../../services/api';
 import { Icon } from './HomeUI';
 import { resolveSectionOrder, resolveBanners } from '../../pages/home/pageContent';
@@ -29,6 +30,7 @@ const SLIDE_ICONS = {
  */
 export default function PromoHeroSlider() {
   const { t } = useTranslation();
+  const siteName = useBrandingStore(s => s.siteName) || 'VIP90.bet';
   const navigate = useNavigate();
   const [current, setCurrent] = useState(0);
   const timerRef = useRef(null);
@@ -41,7 +43,7 @@ export default function PromoHeroSlider() {
   // Gezinme slaytları (welcome/sports/live/casino) + kampanya banner'ları —
   // artık TEK bir override listesinden geçiyor (bkz. promoSlides.js,
   // resolveBanners()) ki admin panelinden ikisi de (görsel dahil) düzenlenebilsin.
-  const ALL_SLIDES = resolveBanners([...getPromoSlides(t), ...getHeroNavSlides(t)], pageContent?.banners);
+  const ALL_SLIDES = resolveBanners([...getPromoSlides(t), ...getHeroNavSlides(t, siteName)], pageContent?.banners);
   const sectionOrder = resolveSectionOrder(pageContent?.sectionOrder);
 
   const TRUST_BADGES = [

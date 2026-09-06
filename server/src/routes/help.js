@@ -2,6 +2,7 @@ import { Router } from 'express';
 import { requireAuth } from '../middleware/auth.js';
 import { answerQuestion, ESCALATION_MESSAGE } from '../services/chatbot.js';
 import { getKnowledgeChunks, getCurrentVersion } from '../services/chatbotIndex.js';
+import { getSiteName } from '../branding/index.js';
 
 const r = Router();
 
@@ -20,7 +21,7 @@ async function callLLM(systemPrompt, query) {
       'Content-Type': 'application/json',
       'Authorization': `Bearer ${API_KEY}`,
       'HTTP-Referer': process.env.CLIENT_URL || 'http://localhost',
-      'X-Title': 'VIP90.bet Destek Asistanı',
+      'X-Title': `${await getSiteName()} Destek Asistanı`,
     },
     body: JSON.stringify({
       model: MODEL,

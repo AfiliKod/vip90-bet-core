@@ -160,7 +160,7 @@ export default function AdminSettings() {
       title: `✉️ ${t('admin.settings.email')}`,
       hint: t('admin.settings.emailHint'),
       keys: [
-        { key: 'ALERT_EMAIL_TO', label: t('admin.settings.recipientAddress'), placeholder: 'admin@vip90.bet' },
+        { key: 'ALERT_EMAIL_TO', label: t('admin.settings.recipientAddress'), placeholder: 'admin@example.com' },
       ],
     },
   ];

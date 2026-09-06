@@ -1,6 +1,7 @@
 import { useState, useRef, useEffect, useCallback } from 'react';
 import api from '../services/api';
 import { useTranslation } from '../i18n';
+import { useBrandingStore } from '../store/brandingStore';
 
 const SUGGESTIONS = [
   'livehelp.faq.deposit',
@@ -25,10 +26,11 @@ function TypingDots() {
 
 export default function LiveHelp({ open, onClose }) {
   const { t } = useTranslation();
+  const siteName = useBrandingStore(s => s.siteName) || 'VIP90.bet';
   const [messages, setMessages] = useState([
     {
       role: 'assistant',
-      content: t('livehelp.welcome'),
+      content: t('livehelp.welcome', { siteName }),
     },
   ]);
   const [input, setInput] = useState('');

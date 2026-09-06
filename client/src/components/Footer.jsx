@@ -63,7 +63,7 @@ function Footer({ onOpenHelp }) {
 
   const LINKS = [
     {
-      heading: t('footer.brand'),
+      heading: t('footer.brand', { siteName }),
       items: brandPages.map(p => ({ label: pageLabel(p), to: p.route })),
     },
     {
@@ -155,7 +155,7 @@ function Footer({ onOpenHelp }) {
         {/* Yasal uyarı */}
         <div className="max-w-6xl mx-auto px-6 pb-6">
           <p className="text-[10px] text-text-3/60 leading-relaxed text-center">
-            {t('footer.legalWarning')}
+            {t('footer.legalWarning', { siteName })}
             {' '}<a href="https://www.gamblingtherapy.org" target="_blank" rel="noopener noreferrer" className="underline hover:text-text-3">
               gamblingtherapy.org
             </a>{' '}
