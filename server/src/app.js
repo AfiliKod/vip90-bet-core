@@ -54,6 +54,13 @@ const baseOrigins = expandOrigins(
     .split(',').map(s => s.trim()).filter(Boolean),
 );
 
+// game-host: in-house oyunların ayrı barındırılan uygulaması (provider
+// formatı — bkz. GAME_HOST_URL). Ana site ile farklı origin'de servis
+// edildiği için hem REST hem Socket.IO CORS listesine eklenmesi gerekiyor.
+if (process.env.GAME_HOST_URL) {
+  baseOrigins.push(...process.env.GAME_HOST_URL.split(',').map(s => s.trim()).filter(Boolean));
+}
+
 // Railway injects RAILWAY_PUBLIC_DOMAIN automatically — add it so <script crossorigin>
 // same-origin requests pass CORS when CLIENT_URL isn't explicitly configured.
 if (process.env.RAILWAY_PUBLIC_DOMAIN) {

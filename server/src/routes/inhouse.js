@@ -1,4 +1,5 @@
 import { Router } from 'express';
+import jwt from 'jsonwebtoken';
 import { createHmac, randomBytes } from 'crypto';
 import { requireAuth } from '../middleware/auth.js';
 import User from '../models/User.js';
@@ -16,6 +17,7 @@ import {
   buildDeck52, evaluatePokerHand,
 } from '../services/inhouse/videoPokerMath.js';
 import { addRecentWinner, getRecentWinners } from '../services/liveGameStream.js';
+import { signAccess } from '../controllers/auth.js';
 
 const router = Router();
 
@@ -27,7 +29,102 @@ router.get('/recent-winners', (req, res) => {
   res.json({ winners: getRecentWinners() });
 });
 
+// ── PROVIDER FORMATI: game-host oturum değişimi ─────────────────────────────
+// game-host ayrı bir origin'de servis edildiği için ana uygulamanın
+// localStorage'ındaki accessToken'a erişemez — bu yüzden requireAuth'tan
+// (Authorization header) ÖNCE, herkese açık ama yalnızca geçerli bir launch
+// token'ıyla kullanılabilir bu uç nokta tanımlı. Amacı: tek kullanımlık kısa
+// ömürlü launch token'ını (bkz. POST /launch altta), crashGame.js/
+// rouletteGame.js'in socket auth middleware'inin ZATEN beklediği normal
+// accessToken şekline (signAccess() ile aynı claim'ler, JWT_SECRET) çevirmek
+// — böylece oyunun soket/auth mantığında TEK SATIR bile değişmiyor, yalnızca
+// bu token'ı NASIL elde ettiği değişiyor (bkz. game-host/src/games/Crash.jsx).
+const usedLaunchTokenJtis = new Map(); // jti → expiryMs, tekrar kullanımı engellemek için
+
+function pruneUsedLaunchTokens() {
+  const now = Date.now();
+  for (const [jti, exp] of usedLaunchTokenJtis) {
+    if (exp < now) usedLaunchTokenJtis.delete(jti);
+  }
+}
+
+router.post('/session', async (req, res) => {
+  try {
+    const { token } = req.body || {};
+    if (!token || !process.env.GAME_HOST_SECRET) {
+      return res.status(400).json({ error: 'Token gerekli' });
+    }
+
+    let payload;
+    try {
+      payload = jwt.verify(token, process.env.GAME_HOST_SECRET);
+    } catch {
+      return res.status(401).json({ error: 'Geçersiz veya süresi dolmuş launch token' });
+    }
+
+    pruneUsedLaunchTokens();
+    if (usedLaunchTokenJtis.has(payload.jti)) {
+      return res.status(401).json({ error: 'Bu launch token zaten kullanıldı' });
+    }
+    usedLaunchTokenJtis.set(payload.jti, payload.exp * 1000);
+
+    const user = await User.findById(payload.sub).select('role tokenVersion');
+    if (!user) return res.status(401).json({ error: 'Kullanıcı bulunamadı' });
+
+    res.json({ accessToken: signAccess(user), gameId: payload.gameId });
+  } catch (err) {
+    res.status(500).json({ error: 'Oturum değişimi başarısız' });
+  }
+});
+
 router.use(requireAuth);
+
+// ── PROVIDER FORMATI: game-host başlatma ────────────────────────────────────
+// Sağlayıcı-tarzı mimari: gerçek oyun arayüzü artık ana client bundle'ında
+// değil, ayrı barındırılan `game-host` uygulamasında yaşıyor (bkz.
+// game-host/README.md). Bu uç nokta Palace'ın launchGame() ile aynı deseni
+// izler — kısa ömürlü, imzalı bir URL üretir, istemci bunu iframe'e gömer
+// (bkz. client/src/pages/games/InhouseGameLauncher.jsx).
+//
+// GAME_HOST_SECRET bilerek JWT_SECRET'tan AYRI tutuldu: bu token'ın güven
+// sınırı normal oturum token'ından farklı ve ömrü çok kısa (~60sn, tek
+// kullanımlık — bkz. POST /session'daki jti kontrolü). Bu token SADECE
+// game-host sayfasının İLK yüklemesini yetkilendirir; gerçek oyun soketi
+// /session'dan dönen normal (15dk) accessToken'ı kullanır — aksi halde
+// bağlantı bekçisinin (watchdog) uzun bir oturumda tekrar tekrar
+// yeniden bağlanma denemesi 60sn sonra süresi dolmuş bir token'a çarpıp
+// sessizce tıkanırdı (bkz. Crash.jsx bağlantı bekçisi yorumu — "asla
+// sessizce pes etme" sözü, altındaki token'ın da yeterince uzun ömürlü
+// olmasını gerektirir).
+//
+// TODO(gelecek): satış sonrası buyer'a özel lisans kontrolü isteniyorsa bu
+// uç nokta `registry.js`'teki modül/lisans sistemine (bkz. requireBetting,
+// requireCasinoContent) bağlanacak yeni bir 'inhouse-games' modülüyle
+// sarmalanabilir — şu an kapsam dışı, inhouse çekirdek platformun (M1)
+// parçası olarak gate'siz kalıyor.
+const GAME_HOST_LAUNCH_TTL_SECONDS = 60;
+
+// Faz 1: yalnızca Crash game-host'a taşındı. Diğer 12 oyun taşındıkça
+// buraya eklenecek (bkz. game-host/README.md "sıradaki adımlar").
+const GAME_HOST_GAME_IDS = new Set(['crash']);
+
+router.post('/launch', (req, res) => {
+  const { gameId } = req.body || {};
+  if (!GAME_HOST_GAME_IDS.has(gameId)) {
+    return res.status(400).json({ error: 'Bilinmeyen oyun' });
+  }
+  if (!process.env.GAME_HOST_URL || !process.env.GAME_HOST_SECRET) {
+    return res.status(503).json({ error: 'Oyun sunucusu yapılandırılmamış' });
+  }
+
+  const token = jwt.sign(
+    { sub: String(req.user.id), gameId, jti: randomBytes(12).toString('hex') },
+    process.env.GAME_HOST_SECRET,
+    { expiresIn: GAME_HOST_LAUNCH_TTL_SECONDS },
+  );
+
+  res.json({ url: `${process.env.GAME_HOST_URL}/${gameId}?token=${token}` });
+});
 
 // ── Ayarlanabilir oyunlar için ortak DB-ayar önbelleği ──────────────────────
 // crashGame.js/rouletteGame.js'teki modül-düzeyi cache deseninin bu

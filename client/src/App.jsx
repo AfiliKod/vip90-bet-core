@@ -50,7 +50,7 @@ const AdminBots = lazy(() => import('./pages/admin/Bots'));
 const AdminStaticPages = lazy(() => import('./pages/admin/StaticPages'));
 const AdminTickets = lazy(() => import('./pages/admin/Tickets'));
 const PalaceGame = lazy(() => import('./pages/PalaceGame'));
-const Crash = lazy(() => import('./pages/games/Crash'));
+const InhouseGameLauncher = lazy(() => import('./pages/games/InhouseGameLauncher'));
 const Mines = lazy(() => import('./pages/games/Mines'));
 const Plinko = lazy(() => import('./pages/games/Plinko'));
 const Dice = lazy(() => import('./pages/games/Dice'));
@@ -152,7 +152,7 @@ export default function App() {
         <Route path="/events/:id" element={<Layout><ModuleGate module="betting"><Suspense fallback={<PageLoader />}><EventDetail /></Suspense></ModuleGate></Layout>} />
         <Route path="/casino" element={<Layout><ModuleGate module="casino-content"><Suspense fallback={<PageLoader />}><HomePage /></Suspense></ModuleGate></Layout>} />
         <Route path="/palace/:gameId" element={<ProtectedRoute><Suspense fallback={<PageLoader />}><PalaceGame /></Suspense></ProtectedRoute>} />
-        <Route path="/games/crash" element={<ProtectedRoute><Suspense fallback={<PageLoader />}><Crash /></Suspense></ProtectedRoute>} />
+        <Route path="/games/crash" element={<ProtectedRoute><Suspense fallback={<PageLoader />}><InhouseGameLauncher gameId="crash" /></Suspense></ProtectedRoute>} />
         <Route path="/games/mines" element={<ProtectedRoute><Suspense fallback={<PageLoader />}><Mines /></Suspense></ProtectedRoute>} />
         <Route path="/games/plinko" element={<ProtectedRoute><Suspense fallback={<PageLoader />}><Plinko /></Suspense></ProtectedRoute>} />
         <Route path="/games/dice" element={<ProtectedRoute><Suspense fallback={<PageLoader />}><Dice /></Suspense></ProtectedRoute>} />
