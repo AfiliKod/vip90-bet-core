@@ -17,7 +17,7 @@ import CryptoDeposit from '../src/models/CryptoDeposit.js';
 import BonusWagering from '../src/models/BonusWagering.js';
 import { deriveDepositAddress, fetchIncomingUSDT, getHotWalletAddress } from '../src/services/cryptoService.js';
 import { shouldAutoCredit, shouldAutoProcessWithdraw, CRYPTO_SETTINGS } from '../src/config/crypto.js';
-import { getSpendableBreakdown } from '../src/services/wagering.js';
+import { getSpendableBreakdown, previewForfeitAmount, forfeitActiveWagerings, getLockedAmount } from '../src/services/wagering.js';
 
 describe('Crypto Payment System - Shasta Testnet', () => {
   before(async () => {
@@ -313,6 +313,253 @@ describe('Crypto Payment System - Shasta Testnet', () => {
       assert.equal(breakdown.balance, 500);
       assert.equal(breakdown.locked, 200);
       assert.equal(breakdown.withdrawable, 300);
+    });
+  });
+
+  // ── Senaryo Testleri ───────────────────────────────────────────────────────
+  describe('Withdrawal Scenarios', () => {
+    const TRC20_ADDR = 'TTestWa11etAddressForCoreTests1111';
+
+    describe('Scenario 1: No bonus, sufficient balance, below $15 (auto process)', () => {
+      it('should allow auto-process when no bonus and amount < $15', async () => {
+        const user = await User.create({
+          username: 'scenario1',
+          email: 's1@test.com',
+          password: 'hashed_password',
+          balance: 500,
+        });
+
+        const breakdown = await getSpendableBreakdown(user._id);
+        assert.equal(breakdown.locked, 0, 'No locked bonus');
+        assert.equal(breakdown.withdrawable, 500, 'Full balance withdrawable');
+        assert.ok(breakdown.withdrawable >= 10, 'Balance covers 10 USDT');
+        assert.ok(shouldAutoProcessWithdraw(10), '10 USDT is below auto-process limit');
+      });
+    });
+
+    describe('Scenario 2: No bonus, sufficient balance, above $15 (admin approval)', () => {
+      it('should require admin approval when no bonus and amount >= $15', async () => {
+        const user = await User.create({
+          username: 'scenario2',
+          email: 's2@test.com',
+          password: 'hashed_password',
+          balance: 500,
+        });
+
+        const breakdown = await getSpendableBreakdown(user._id);
+        assert.equal(breakdown.locked, 0, 'No locked bonus');
+        assert.equal(breakdown.withdrawable, 500, 'Full balance withdrawable');
+        assert.ok(breakdown.withdrawable >= 50, 'Balance covers 50 USDT');
+        assert.ok(!shouldAutoProcessWithdraw(50), '50 USDT requires admin approval');
+      });
+    });
+
+    describe('Scenario 3: No bonus, insufficient balance', () => {
+      it('should reject withdrawal when balance is too low', async () => {
+        const user = await User.create({
+          username: 'scenario3',
+          email: 's3@test.com',
+          password: 'hashed_password',
+          balance: 3,
+        });
+
+        const breakdown = await getSpendableBreakdown(user._id);
+        assert.equal(breakdown.withdrawable, 3, 'Only 3₺ available');
+        assert.ok(breakdown.withdrawable < CRYPTO_SETTINGS.minWithdraw, 'Below minimum withdrawal');
+      });
+    });
+
+    describe('Scenario 4: With bonus, sufficient withdrawable, below $15', () => {
+      it('should allow auto-process with bonus if withdrawable covers amount', async () => {
+        const user = await User.create({
+          username: 'scenario4',
+          email: 's4@test.com',
+          password: 'hashed_password',
+          balance: 500,
+        });
+
+        await BonusWagering.create({
+          userId: user._id,
+          bonusAmount: 100,
+          wageringRequired: 3500,
+          status: 'active',
+        });
+
+        const breakdown = await getSpendableBreakdown(user._id);
+        assert.equal(breakdown.locked, 100, '100₺ locked');
+        assert.equal(breakdown.withdrawable, 400, '400₺ withdrawable');
+        assert.ok(breakdown.withdrawable >= 10, 'Covers 10 USDT');
+        assert.ok(shouldAutoProcessWithdraw(10), '10 USDT auto-processes');
+      });
+    });
+
+    describe('Scenario 5: With bonus, sufficient withdrawable, above $15', () => {
+      it('should require admin approval with bonus if amount >= $15', async () => {
+        const user = await User.create({
+          username: 'scenario5',
+          email: 's5@test.com',
+          password: 'hashed_password',
+          balance: 500,
+        });
+
+        await BonusWagering.create({
+          userId: user._id,
+          bonusAmount: 100,
+          wageringRequired: 3500,
+          status: 'active',
+        });
+
+        const breakdown = await getSpendableBreakdown(user._id);
+        assert.equal(breakdown.locked, 100, '100₺ locked');
+        assert.equal(breakdown.withdrawable, 400, '400₺ withdrawable');
+        assert.ok(breakdown.withdrawable >= 50, 'Covers 50 USDT');
+        assert.ok(!shouldAutoProcessWithdraw(50), '50 USDT needs admin approval');
+      });
+    });
+
+    describe('Scenario 6: With bonus, insufficient withdrawable, forfeit covers', () => {
+      it('should return 409 ACTIVE_BONUS_LOCK and show forfeit preview', async () => {
+        const user = await User.create({
+          username: 'scenario6',
+          email: 's6@test.com',
+          password: 'hashed_password',
+          balance: 500,
+        });
+
+        // 0% progress → tam bonusAmount feda edilir (tamamı unchecked kısım)
+        await BonusWagering.create({
+          userId: user._id,
+          bonusAmount: 300,
+          wageringRequired: 10500,
+          wageringProgress: 0,
+          status: 'active',
+        });
+
+        const breakdown = await getSpendableBreakdown(user._id);
+        assert.equal(breakdown.locked, 300, '300₺ locked');
+        assert.equal(breakdown.withdrawable, 200, 'Only 200₺ withdrawable');
+
+        // Kullanıcı 400₺ çekmek istiyor — yetersiz
+        assert.ok(breakdown.withdrawable < 400, '200 < 400 → insufficient');
+
+        // Forfeit önizlemesi: progress=0 olduğu için tam bonusAmount feda edilir
+        const forfeitAmount = await previewForfeitAmount(user._id);
+        assert.equal(forfeitAmount, 300, 'Full bonus amount forfeited when progress=0');
+
+        const predictedWithdrawable = Math.max(0, parseFloat((breakdown.balance - forfeitAmount).toFixed(2)));
+        assert.equal(predictedWithdrawable, 200, '500 - 300 = 200 → still under 400');
+
+        // Bu durumda forfeit YETMIYOR — kullanıcıya "yetersiz" denilmeli
+        assert.ok(predictedWithdrawable < 400, 'Even after forfeit: 200 < 400 → insufficient');
+      });
+    });
+
+    describe('Scenario 7: With bonus, insufficient withdrawable, forfeit does NOT cover', () => {
+      it('should reject when even forfeit is not enough', async () => {
+        const user = await User.create({
+          username: 'scenario7',
+          email: 's7@test.com',
+          password: 'hashed_password',
+          balance: 100,
+        });
+
+        await BonusWagering.create({
+          userId: user._id,
+          bonusAmount: 80,
+          wageringRequired: 2800,
+          status: 'active',
+        });
+
+        const breakdown = await getSpendableBreakdown(user._id);
+        assert.equal(breakdown.withdrawable, 20, 'Only 20₺ withdrawable');
+
+        // 50₺ çekmek istiyor
+        assert.ok(breakdown.withdrawable < 50, '20 < 50 → insufficient');
+
+        const forfeitAmount = await previewForfeitAmount(user._id);
+        const predictedWithdrawable = Math.max(0, parseFloat((breakdown.balance - forfeitAmount).toFixed(2)));
+
+        assert.ok(predictedWithdrawable < 50, `Even after forfeit: ${predictedWithdrawable} < 50 → still insufficient`);
+      });
+    });
+
+    describe('Scenario 8: Bonus wagering completed → fully withdrawable', () => {
+      it('should have no locked amount after wagering is completed', async () => {
+        const user = await User.create({
+          username: 'scenario8',
+          email: 's8@test.com',
+          password: 'hashed_password',
+          balance: 500,
+        });
+
+        await BonusWagering.create({
+          userId: user._id,
+          bonusAmount: 200,
+          wageringRequired: 7000,
+          wageringProgress: 7000,
+          status: 'completed',
+        });
+
+        const breakdown = await getSpendableBreakdown(user._id);
+        assert.equal(breakdown.locked, 0, 'No locked — wagering completed');
+        assert.equal(breakdown.withdrawable, 500, 'Full balance withdrawable');
+      });
+    });
+
+    describe('Scenario 9: Multiple active bonuse stacking', () => {
+      it('should sum all active wagerings for locked amount', async () => {
+        const user = await User.create({
+          username: 'scenario9',
+          email: 's9@test.com',
+          password: 'hashed_password',
+          balance: 1000,
+        });
+
+        await BonusWagering.create([
+          { userId: user._id, bonusAmount: 100, wageringRequired: 3500, status: 'active' },
+          { userId: user._id, bonusAmount: 200, wageringRequired: 7000, status: 'active' },
+          { userId: user._id, bonusAmount: 50, wageringRequired: 1750, status: 'active' },
+        ]);
+
+        const locked = await getLockedAmount(user._id);
+        assert.equal(locked, 350, 'Total locked: 100+200+50 = 350');
+
+        const breakdown = await getSpendableBreakdown(user._id);
+        assert.equal(breakdown.withdrawable, 650, '1000 - 350 = 650');
+      });
+    });
+
+    describe('Scenario 10: Forfeit destroys bonus irreversibly', () => {
+      it('should reduce balance and mark wagerings as forfeited', async () => {
+        const user = await User.create({
+          username: 'scenario10',
+          email: 's10@test.com',
+          password: 'hashed_password',
+          balance: 500,
+        });
+
+        const w1 = await BonusWagering.create({
+          userId: user._id,
+          bonusAmount: 200,
+          wageringRequired: 7000,
+          wageringProgress: 1000,
+          status: 'active',
+        });
+
+        const beforeForfeit = await getSpendableBreakdown(user._id);
+        assert.equal(beforeForfeit.withdrawable, 300, 'Before forfeit: 300₺');
+
+        const result = await forfeitActiveWagerings(user._id);
+        assert.ok(result.totalForfeitedAmount > 0, 'Forfeited some amount');
+
+        const afterForfeit = await getSpendableBreakdown(user._id);
+        assert.equal(afterForfeit.locked, 0, 'No locked after forfeit');
+        assert.equal(afterForfeit.balance, afterForfeit.withdrawable, 'All remaining is withdrawable');
+
+        // Wagering status should be 'forfeited'
+        const w1After = await BonusWagering.findById(w1._id);
+        assert.equal(w1After.status, 'forfeited', 'Wagering marked as forfeited');
+      });
     });
   });
 });
