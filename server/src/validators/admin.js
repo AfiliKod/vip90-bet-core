@@ -160,6 +160,21 @@ export const updateBrandingSchema = z.object({
   return approxDataUrlBytes(value) <= def.maxBytes;
 }, { message: 'Geçersiz değer: tür veya boyut sınırı aşıldı' });
 
+// Slayt görseli: ya var olan statik yol (/images/...), ya da panelden
+// yüklenmiş bir data: URL — branding görsellerindeki (logo/favicon) AYNI
+// "sunucu dosya sistemine hiç dokunmadan taşı" deseni, sadece daha büyük bir
+// üst sınırla (hero banner'ları logo/favicon'dan büyük olabiliyor).
+const HOME_BANNER_IMAGE_MAX_BYTES = 500_000;
+
+function isValidBannerImage(value) {
+  if (typeof value !== 'string' || !value) return false;
+  if (value.startsWith('/images/')) return true;
+  if (/^data:image\/[\w.+-]+;base64,/.test(value)) {
+    return approxDataUrlBytes(value) <= HOME_BANNER_IMAGE_MAX_BYTES;
+  }
+  return false;
+}
+
 export const updateHomeContentSchema = z.object({
   sectionOrder: z.array(z.enum(HOME_SECTION_IDS)).max(HOME_SECTION_IDS.length),
   banners: z.array(z.object({
@@ -167,8 +182,12 @@ export const updateHomeContentSchema = z.object({
     title: z.string().min(1).max(80).optional(),
     desc:  z.string().min(1).max(200).optional(),
     cta:   z.string().min(1).max(40).optional(),
+    image: z.string().optional(),
   })).max(HOME_BANNER_IDS.length),
-});
+}).refine(
+  ({ banners }) => banners.every(b => b.image === undefined || isValidBannerImage(b.image)),
+  { message: 'Geçersiz slayt görseli: tür veya boyut sınırı aşıldı (maks 500 KB)' },
+);
 
 export const updateFeaturedGamesSchema = z.object({
   codes: z.array(z.string().min(1).max(60)).max(MAX_FEATURED_GAMES),

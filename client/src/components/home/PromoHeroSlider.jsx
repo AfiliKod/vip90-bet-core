@@ -4,7 +4,7 @@ import { useTranslation } from '../../i18n';
 import api from '../../services/api';
 import { Icon } from './HomeUI';
 import { resolveSectionOrder, resolveBanners } from '../../pages/home/pageContent';
-import { getPromoSlides } from '../../pages/home/promoSlides';
+import { getPromoSlides, getHeroNavSlides } from '../../pages/home/promoSlides';
 import { HOME_BG } from '../../pages/home/homeTheme';
 
 // Slide id -> Material Symbols glyph. Salt görsel eşleme; pageContent/A4
@@ -38,16 +38,11 @@ export default function PromoHeroSlider() {
     api.get('/pages/home').then(({ data }) => setPageContent(data?.content || null)).catch(() => {});
   }, []);
 
-  const HERO_SLIDES = [
-    { id: 'welcome', title: t('home.hero.welcome'), path: '/bahis', cta: t('home.hero.getStarted'), desc: t('home.hero.welcomeDesc'), image: '/images/welcome-banner.png' },
-    { id: 'sports', title: t('home.hero.sports'), path: '/bahis', cta: t('home.hero.betNow'), desc: t('home.hero.sportsDesc'), image: '/images/hero-sports.png' },
-    { id: 'live', title: t('home.hero.live'), path: '/canli', cta: t('home.hero.watchLive'), desc: t('home.hero.liveDesc'), image: '/images/hero-live.png' },
-    { id: 'casino', title: t('home.hero.casino'), path: '/casino', cta: t('home.hero.exploreGames'), desc: t('home.hero.casinoDesc'), image: '/images/hero-casino.png' },
-  ];
-
-  const promoSlides = resolveBanners(getPromoSlides(t), pageContent?.banners);
+  // Gezinme slaytları (welcome/sports/live/casino) + kampanya banner'ları —
+  // artık TEK bir override listesinden geçiyor (bkz. promoSlides.js,
+  // resolveBanners()) ki admin panelinden ikisi de (görsel dahil) düzenlenebilsin.
+  const ALL_SLIDES = resolveBanners([...getPromoSlides(t), ...getHeroNavSlides(t)], pageContent?.banners);
   const sectionOrder = resolveSectionOrder(pageContent?.sectionOrder);
-  const ALL_SLIDES = [...promoSlides, ...HERO_SLIDES];
 
   const TRUST_BADGES = [
     { icon: 'shield', label: t('home.trust.licensed') },

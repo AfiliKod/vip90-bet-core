@@ -123,6 +123,10 @@ export function createApp() {
   // gövdeyi tekrar okumadığı için aşağıdaki global express.json bu istekler
   // için no-op olur — global limit diğer tüm uçlarda 10kb olarak kalır.
   app.use('/api/admin/branding', express.json({ limit: '1mb' }));
+  // Slider Düzenleme Aracı: banner/hero slaytlarının görselleri (birden
+  // fazla, her biri maks 500kb data: URL) branding'in tek dosyasından daha
+  // büyük bir JSON gövdesi taşıyabilir — aynı öncelikli-parser deseni.
+  app.use('/api/admin/pages', express.json({ limit: '6mb' }));
   app.use(express.json({ limit: '10kb' })); // Phase B3
   app.use(express.urlencoded({ extended: false, limit: '10kb' }));
   app.use(mongoSanitize()); // Phase B12

@@ -59,4 +59,16 @@ assert.deepEqual(
   'boşluktan ibaret override metni yok sayılır, base değeri korunur',
 );
 
+assert.deepEqual(
+  resolveBanners(base, [{ id: 'a', image: 'data:image/png;base64,AAA=' }]),
+  [{ ...base[0], image: 'data:image/png;base64,AAA=' }],
+  'görsel override edilir (Slider Düzenleme Aracı — panelden yüklenen görsel)',
+);
+
+assert.deepEqual(
+  resolveBanners(base, [{ id: 'a', image: '   ' }]),
+  [{ ...base[0] }],
+  'boşluktan ibaret görsel override\'ı yok sayılır, base görseli korunur',
+);
+
 console.log('pageContent.test.js: tüm assertion\'lar geçti');

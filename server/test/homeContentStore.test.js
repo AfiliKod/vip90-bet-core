@@ -8,9 +8,11 @@ describe('HOME_SECTION_IDS / HOME_BANNER_IDS', () => {
     assert.ok(HOME_SECTION_IDS.includes('hero'));
   });
 
-  test('3 banner id\'si tanımlı', () => {
-    assert.strictEqual(HOME_BANNER_IDS.length, 3);
+  test('7 banner id\'si tanımlı (4 gezinme slaydı + 3 kampanya)', () => {
+    assert.strictEqual(HOME_BANNER_IDS.length, 7);
     assert.ok(HOME_BANNER_IDS.includes('deneme-bonusu'));
+    assert.ok(HOME_BANNER_IDS.includes('welcome'));
+    assert.ok(HOME_BANNER_IDS.includes('casino'));
   });
 });
 

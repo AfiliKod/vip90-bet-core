@@ -54,6 +54,7 @@ export function resolveBanners(baseBanners, overrides) {
       title: o.title?.trim() || base.title,
       desc: o.desc?.trim() || base.desc,
       cta: o.cta?.trim() || base.cta,
+      image: o.image?.trim() || base.image,
     });
   }
   return out.length ? out : baseBanners;
