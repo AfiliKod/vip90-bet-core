@@ -21,7 +21,10 @@ import { getSpendableBreakdown } from '../src/services/wagering.js';
 
 describe('Crypto Payment System - Shasta Testnet', () => {
   before(async () => {
-    await mongoose.connect(process.env.MONGODB_URI || 'mongodb://localhost:27017/betzone_test_crypto');
+    // Kasıtlı olarak MONGODB_URI'yi yok sayıyoruz: .env üstteki config() çağrısıyla
+    // yükleniyor ve gerçek geliştirme veritabanını (betzone) işaret ediyor. Bu satır
+    // || ile fallback olsaydı testler admin dahil tüm kullanıcıları silerdi (yaşandı).
+    await mongoose.connect('mongodb://localhost:27017/betzone_test_crypto');
   });
 
   after(async () => {
