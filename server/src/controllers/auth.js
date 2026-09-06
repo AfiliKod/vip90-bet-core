@@ -106,7 +106,6 @@ export async function register(req, res, next) {
     try {
       emailResult = await sendEmail({
         to: email,
-        subject: 'Email adresinizi doğrulayın — Bet Platform',
         template: 'verify-email',
         data: {
           username,
@@ -238,7 +237,6 @@ export async function resendVerification(req, res, next) {
       try {
         emailResult = await sendEmail({
           to: email,
-          subject: 'Email adresinizi doğrulayın — Bet Platform',
           template: 'verify-email',
           data: {
             username: user.username,
@@ -273,7 +271,6 @@ export async function forgotPassword(req, res, next) {
       try {
         emailResult = await sendEmail({
           to: email,
-          subject: 'Şifre sıfırlama — Bet Platform',
           template: 'password-reset',
           data: {
             username: user.username,

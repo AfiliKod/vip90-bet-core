@@ -140,7 +140,7 @@ export default {
   'nav.crypto': 'คริปโต (USDT)',
   'nav.legal': 'กฎหมาย',
   // Footer
-  'footer.brand': 'VIP90.bet',
+  'footer.brand': '{siteName}',
   'staticPage.unavailable': 'หน้านี้ไม่พร้อมใช้งานในขณะนี้',
   'ticket.title': 'ศูนย์ช่วยเหลือ',
   'ticket.subtitle': 'คุณสามารถติดตามคำขอสนับสนุนของคุณได้ที่นี่ และสร้างคำขอใหม่ได้',
@@ -220,7 +220,7 @@ export default {
   'footer.bonusTerms': 'เงื่อนไขโบนัส',
   'footer.status': 'สถานะระบบ',
   'footer.copyright': '© {year} {siteName}. สงวนลิขสิทธิ์ทุกประการ',
-  'footer.legalWarning': 'VIP90.bet เป็นแพลตฟอร์มเดิมพันที่ได้รับอนุญาตและมีการตรวจสอบ บุคคลที่มีอายุต่ำกว่า 18 ปีห้ามเข้าถึงเว็บไซต์ การพนันอาจทำให้เกิดปัญหาทางการเงินและจิตใจที่ร้ายแรง สำหรับความช่วยเหลือ',
+  'footer.legalWarning': '{siteName} เป็นแพลตฟอร์มเดิมพันที่ได้รับอนุญาตและมีการตรวจสอบ บุคคลที่มีอายุต่ำกว่า 18 ปีห้ามเข้าถึงเว็บไซต์ การพนันอาจทำให้เกิดปัญหาทางการเงินและจิตใจที่ร้ายแรง สำหรับความช่วยเหลือ',
   'footer.legalWarningUrl': 'คุณสามารถเยี่ยมชมได้ที่',
 
   // Sports
@@ -398,7 +398,7 @@ export default {
 
   // LiveHelp
   'livehelp.title': 'ช่วยเหลือสด',
-  'livehelp.welcome': 'สวัสดี! ฉันเป็นผู้ช่วยสนับสนุน VIP90.bet ฉันช่วยอะไรคุณได้บ้าง?',
+  'livehelp.welcome': 'สวัสดี! ฉันเป็นผู้ช่วยสนับสนุน {siteName} ฉันช่วยอะไรคุณได้บ้าง?',
   'livehelp.faq.deposit': 'จะฝากเงินได้อย่างไร?',
   'livehelp.faq.withdraw': 'จะถอนเงินรางวัลได้อย่างไร?',
   'livehelp.faq.liveBet': 'จะเดิมพันสดได้อย่างไร?',
@@ -417,7 +417,7 @@ export default {
 
   // Home
   'home.recentWinners': 'ผู้ชนะล่าสุด',
-  'home.hero.welcome': 'ยินดีต้อนรับสู่ VIP90.bet',
+  'home.hero.welcome': 'ยินดีต้อนรับสู่ {siteName}',
   'home.hero.sports': 'เดิมพันกีฬา',
   'home.hero.live': 'เดิมพันสด',
   'home.hero.casino': 'คาสิโน',
@@ -439,7 +439,7 @@ export default {
   'home.promo.referFriendDesc': 'เชิญเพื่อนมา รับ 10% กำไรจากทุกเดิมพันที่พวกเขาทำได้ ยิ่งเชิญมาก ยิ่งได้มาก!',
   'home.promo.referFriendCta': 'เชิญเลย',
   'home.games.exclusive': 'เกมสุดพิเศษ',
-  'home.games.exclusiveDesc': 'ประสบการณ์ที่แตกต่างด้วยเกม In-house สุดพิเศษบน VIP90.bet',
+  'home.games.exclusiveDesc': 'ประสบการณ์ที่แตกต่างด้วยเกม In-house สุดพิเศษบน {siteName}',
   'home.sports.title': 'เดิมพันกีฬา',
   'home.sports.subtitle': 'กีฬากว่า 15 ชนิด ลีกหลายร้อยรายการ และการแข่งขันหลายพันนัด',
   'home.sports.allSports': 'กีฬาทั้งหมด →',
@@ -455,7 +455,7 @@ export default {
   'home.casino.allGames': 'เกมทั้งหมด →',
   'home.casino.provider': '🎯 Pragmatic Play',
   'home.casino.explore': 'สำรวจคาสิโน →',
-  'home.features.title': 'ทำไมต้อง VIP90.bet?',
+  'home.features.title': 'ทำไมต้อง {siteName}?',
   'home.features.subtitle': 'ทุกสิ่งที่คุณต้องการเพื่อประสบการณ์ที่ดีที่สุด',
   'home.features.fastPayouts': 'การจ่ายเงินที่รวดเร็ว',
   'home.features.fastPayoutsDesc': 'ถอนเงินรางวัลได้ทันที ไม่ต้องรอ',
@@ -465,7 +465,7 @@ export default {
   'home.features.bonusesDesc': 'โบนัสต้อนรับ โบนัสคืนเงิน และอีกมากมาย',
   'home.features.support': 'สนับสนุน 7/24',
   'home.features.supportDesc': 'พร้อมช่วยเหลือคุณทุกเวลาผ่านช่วยเหลือสด',
-  'home.cta.title': 'เริ่มชนะกับ VIP90.bet',
+  'home.cta.title': 'เริ่มชนะกับ {siteName}',
   'home.cta.getStarted': 'เริ่มเลย',
   'home.cta.register': 'สมัครสมาชิก',
   'home.trust.licensed': 'ได้รับอนุญาตและปลอดภัย',
@@ -995,7 +995,7 @@ export default {
   'casino.exclusive': 'สุดพิเศษ',
   'casino.showMore': 'แสดงเพิ่ม ({count})',
   'casino.searchPlaceholder': 'ค้นหาเกมหรือผู้ให้บริการ...',
-  'casino.ctaTitle': 'เริ่มชนะกับ VIP90.bet Casino',
+  'casino.ctaTitle': 'เริ่มชนะกับ {siteName} Casino',
   'casino.ctaSubtitle': 'เกมหลายร้อยเกม แจ็คพอตที่ใหญ่ที่สุด และประสบการณ์ In-House ที่ไม่เหมือนใคร เข้าร่วมเลย เริ่มชนะ',
   'casino.exploreAllGames': 'สำรวจเกมทั้งหมด',
   'casino.loadingProviders': 'กำลังโหลดผู้ให้บริการ...',

@@ -140,7 +140,7 @@ export default {
   'nav.crypto': 'Krypto (USDT)',
   'nav.legal': 'Rechtliches',
   // Footer
-  'footer.brand': 'VIP90.bet',
+  'footer.brand': '{siteName}',
   'staticPage.unavailable': 'Diese Seite ist derzeit nicht verfügbar.',
   'ticket.title': 'Hilfezentrum',
   'ticket.subtitle': 'Verfolgen Sie hier Ihre Support-Anfragen und erstellen Sie neue.',
@@ -220,7 +220,7 @@ export default {
   'footer.bonusTerms': 'Bonusbedingungen',
   'footer.status': 'Systemstatus',
   'footer.copyright': '© {year} {siteName}. Alle Rechte vorbehalten.',
-  'footer.legalWarning': 'VIP90.bet ist eine lizenzierte und regulierte Wettplattform. Personen unter 18 Jahren ist der Zugang zur Seite untersagt. Spielsucht kann zu ernsthaften finanziellen und psychologischen Problemen führen. Hilfe finden Sie unter',
+  'footer.legalWarning': '{siteName} ist eine lizenzierte und regulierte Wettplattform. Personen unter 18 Jahren ist der Zugang zur Seite untersagt. Spielsucht kann zu ernsthaften finanziellen und psychologischen Problemen führen. Hilfe finden Sie unter',
   'footer.legalWarningUrl': 'besuchen Sie.',
 
   // Sports
@@ -398,7 +398,7 @@ export default {
 
   // LiveHelp
   'livehelp.title': 'Live-Hilfe',
-  'livehelp.welcome': 'Hallo! Ich bin der VIP90.bet Support-Assistent. Wie kann ich Ihnen helfen?',
+  'livehelp.welcome': 'Hallo! Ich bin der {siteName} Support-Assistent. Wie kann ich Ihnen helfen?',
   'livehelp.faq.deposit': 'Wie kann ich einzahlen?',
   'livehelp.faq.withdraw': 'Wie kann ich meinen Gewinn auszahlen?',
   'livehelp.faq.liveBet': 'Wie platziere ich eine Live-Wette?',
@@ -417,7 +417,7 @@ export default {
 
   // Home
   'home.recentWinners': 'Letzte Gewinner',
-  'home.hero.welcome': 'Willkommen bei VIP90.bet',
+  'home.hero.welcome': 'Willkommen bei {siteName}',
   'home.hero.sports': 'Sportwetten',
   'home.hero.live': 'Live-Wetten',
   'home.hero.casino': 'Casino',
@@ -439,7 +439,7 @@ export default {
   'home.promo.referFriendDesc': 'Laden Sie Freunde ein und erhalten Sie 10 % des Gewinns ihrer Wetten. Je mehr Einladungen, desto mehr Gewinn!',
   'home.promo.referFriendCta': 'Einladen',
   'home.games.exclusive': 'Exklusive Spiele',
-  'home.games.exclusiveDesc': 'Einzigartige Erlebnisse mit VIP90.bet exklusiven In-House-Spielen',
+  'home.games.exclusiveDesc': 'Einzigartige Erlebnisse mit {siteName} exklusiven In-House-Spielen',
   'home.sports.title': 'Sportwetten',
   'home.sports.subtitle': '15+ Sportarten, Hunderte Ligen und Tausende Spiele',
   'home.sports.allSports': 'Alle Sportarten →',
@@ -455,7 +455,7 @@ export default {
   'home.casino.allGames': 'Alle Spiele →',
   'home.casino.provider': '🎯 Pragmatic Play',
   'home.casino.explore': 'Casino entdecken →',
-  'home.features.title': 'Warum VIP90.bet?',
+  'home.features.title': 'Warum {siteName}?',
   'home.features.subtitle': 'Alles was Sie für das beste Erlebnis brauchen',
   'home.features.fastPayouts': 'Schnelle Auszahlungen',
   'home.features.fastPayoutsDesc': 'Gewinne sofort auszahlen, keine Wartezeit.',
@@ -465,7 +465,7 @@ export default {
   'home.features.bonusesDesc': 'Willkommensbonus, Cashback und mehr.',
   'home.features.support': '7/24 Support',
   'home.features.supportDesc': 'Wir sind jederzeit für Sie da mit Live-Hilfe.',
-  'home.cta.title': 'Gewinnen Sie mit VIP90.bet',
+  'home.cta.title': 'Gewinnen Sie mit {siteName}',
   'home.cta.getStarted': 'Jetzt starten',
   'home.cta.register': 'Registrieren',
   'home.trust.licensed': 'Lizenziert & Sicher',
@@ -995,7 +995,7 @@ export default {
   'casino.exclusive': 'Exklusiv',
   'casino.showMore': 'Mehr anzeigen ({count})',
   'casino.searchPlaceholder': 'Spiel oder Anbieter suchen...',
-  'casino.ctaTitle': 'Gewinnen Sie mit VIP90.bet Casino',
+  'casino.ctaTitle': 'Gewinnen Sie mit {siteName} Casino',
   'casino.ctaSubtitle': 'Hunderte Spiele, die größten Jackpots und einzigartige In-House-Erlebnisse. Jetzt dabei sein und gewinnen.',
   'casino.exploreAllGames': 'Alle Spiele entdecken',
   'casino.loadingProviders': 'Anbieter werden geladen...',

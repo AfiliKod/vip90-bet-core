@@ -4,6 +4,7 @@ import { useForm } from 'react-hook-form';
 import Swal from 'sweetalert2';
 import { useAuthStore } from '../store/authStore';
 import { useToastStore } from '../store/toastStore';
+import { useBrandingStore } from '../store/brandingStore';
 import { LEGAL_VERSION } from '../data/legalContent';
 import api from '../services/api';
 import { useTranslation } from '../i18n';
@@ -12,6 +13,7 @@ import TelegramLoginWidget from '../components/TelegramLoginWidget';
 
 export default function Login() {
   const { t } = useTranslation();
+  const siteName = useBrandingStore(s => s.siteName) || 'VIP90.bet';
   const [searchParams] = useSearchParams();
   const refUsername = searchParams.get('ref');
   const [tab, setTab] = useState(searchParams.get('tab') === 'register' ? 'register' : 'login');
@@ -145,7 +147,7 @@ export default function Login() {
         </div>
         <div className="text-center mb-8">
           <div className="text-5xl mb-3">💎</div>
-          <h1 className="text-2xl font-bold text-text-1">VIP90.bet</h1>
+          <h1 className="text-2xl font-bold text-text-1">{siteName}</h1>
           <p className="text-text-2 text-sm mt-1">{t('auth.sportsBettingPlatform')}</p>
         </div>
 

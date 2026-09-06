@@ -121,7 +121,7 @@ export default function AdminBranding() {
                   <input
                     type="text"
                     value={current || ''}
-                    placeholder={f.id === 'siteName' ? 'VIP90.bet' : "'Poppins', sans-serif"}
+                    placeholder={f.id === 'siteName' ? 'Site Adınız' : "'Poppins', sans-serif"}
                     onChange={e => onTextChange(f.id, e.target.value)}
                     className="w-56 bg-bg-base border border-white/10 rounded-lg px-3 py-2 text-sm text-text-1"
                   />

@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useTranslation } from '../../i18n';
+import { useBrandingStore } from '../../store/brandingStore';
 import api from '../../services/api';
 import { Icon } from './HomeUI';
 import { resolveSectionOrder, resolveBanners } from '../../pages/home/pageContent';
@@ -29,6 +30,7 @@ const SLIDE_ICONS = {
  */
 export default function PromoHeroSlider() {
   const { t } = useTranslation();
+  const siteName = useBrandingStore(s => s.siteName) || 'VIP90.bet';
   const navigate = useNavigate();
   const [current, setCurrent] = useState(0);
   const timerRef = useRef(null);
@@ -39,7 +41,7 @@ export default function PromoHeroSlider() {
   }, []);
 
   const HERO_SLIDES = [
-    { id: 'welcome', title: t('home.hero.welcome'), path: '/bahis', cta: t('home.hero.getStarted'), desc: t('home.hero.welcomeDesc'), image: '/images/welcome-banner.png' },
+    { id: 'welcome', title: t('home.hero.welcome', { siteName }), path: '/bahis', cta: t('home.hero.getStarted'), desc: t('home.hero.welcomeDesc'), image: '/images/welcome-banner.png' },
     { id: 'sports', title: t('home.hero.sports'), path: '/bahis', cta: t('home.hero.betNow'), desc: t('home.hero.sportsDesc'), image: '/images/hero-sports.png' },
     { id: 'live', title: t('home.hero.live'), path: '/canli', cta: t('home.hero.watchLive'), desc: t('home.hero.liveDesc'), image: '/images/hero-live.png' },
     { id: 'casino', title: t('home.hero.casino'), path: '/casino', cta: t('home.hero.exploreGames'), desc: t('home.hero.casinoDesc'), image: '/images/hero-casino.png' },

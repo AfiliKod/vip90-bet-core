@@ -140,7 +140,7 @@ export default {
   'nav.crypto': 'Cripto (USDT)',
   'nav.legal': 'Legal',
   // Footer
-  'footer.brand': 'VIP90.bet',
+  'footer.brand': '{siteName}',
   'staticPage.unavailable': 'Esta página no está disponible en este momento.',
   'ticket.title': 'Centro de Ayuda',
   'ticket.subtitle': 'Puedes seguir tus solicitudes de soporte aquí y crear nuevas.',
@@ -220,7 +220,7 @@ export default {
   'footer.bonusTerms': 'Términos de Bonos',
   'footer.status': 'Estado del Sistema',
   'footer.copyright': '© {year} {siteName}. Todos los derechos reservados.',
-  'footer.legalWarning': 'VIP90.bet es una plataforma de apuestas licenciada y regulada. El acceso al sitio está prohibido para personas menores de 18 años. El juego problemático puede provocar problemas financieros y psicológicos graves. Para obtener ayuda,',
+  'footer.legalWarning': '{siteName} es una plataforma de apuestas licenciada y regulada. El acceso al sitio está prohibido para personas menores de 18 años. El juego problemático puede provocar problemas financieros y psicológicos graves. Para obtener ayuda,',
   'footer.legalWarningUrl': 'puedes visitar esta dirección.',
 
   // Sports
@@ -398,7 +398,7 @@ export default {
 
   // LiveHelp
   'livehelp.title': 'Ayuda en Vivo',
-  'livehelp.welcome': '¡Hola! Soy el asistente de soporte de VIP90.bet. ¿Cómo puedo ayudarte?',
+  'livehelp.welcome': '¡Hola! Soy el asistente de soporte de {siteName}. ¿Cómo puedo ayudarte?',
   'livehelp.faq.deposit': '¿Cómo hago un depósito?',
   'livehelp.faq.withdraw': '¿Cómo retiro mis ganancias?',
   'livehelp.faq.liveBet': '¿Cómo apuesto en vivo?',
@@ -417,7 +417,7 @@ export default {
 
   // Home
   'home.recentWinners': 'Últimos Ganadores',
-  'home.hero.welcome': 'Bienvenido a VIP90.bet',
+  'home.hero.welcome': 'Bienvenido a {siteName}',
   'home.hero.sports': 'Apuestas Deportivas',
   'home.hero.live': 'Apuestas en Vivo',
   'home.hero.casino': 'Casino',
@@ -439,7 +439,7 @@ export default {
   'home.promo.referFriendDesc': 'Invita a un amigo y gana 10% de las ganancias de cada apuesta. ¡Cuanto más invites, más ganarás!',
   'home.promo.referFriendCta': 'Invitar',
   'home.games.exclusive': 'Juegos Exclusivos',
-  'home.games.exclusiveDesc': 'Experiencia única con juegos exclusivos de VIP90.bet',
+  'home.games.exclusiveDesc': 'Experiencia única con juegos exclusivos de {siteName}',
   'home.sports.title': 'Apuestas Deportivas',
   'home.sports.subtitle': '15+ deportes, cientos de ligas y miles de partidos',
   'home.sports.allSports': 'Todos los Deportes →',
@@ -455,7 +455,7 @@ export default {
   'home.casino.allGames': 'Todos los Juegos →',
   'home.casino.provider': '🎯 Pragmatic Play',
   'home.casino.explore': 'Explorar Casino →',
-  'home.features.title': '¿Por qué VIP90.bet?',
+  'home.features.title': '¿Por qué {siteName}?',
   'home.features.subtitle': 'Todo lo que necesitas para la mejor experiencia',
   'home.features.fastPayouts': 'Pagos Rápidos',
   'home.features.fastPayoutsDesc': 'Cobra tus ganancias al instante, sin esperas.',
@@ -465,7 +465,7 @@ export default {
   'home.features.bonusesDesc': 'Bono de bienvenida, bono de pérdidas y mucho más.',
   'home.features.support': 'Soporte 7/24',
   'home.features.supportDesc': 'Estamos aquí para ti en todo momento con ayuda en vivo.',
-  'home.cta.title': 'Empieza a Ganar con VIP90.bet',
+  'home.cta.title': 'Empieza a Ganar con {siteName}',
   'home.cta.getStarted': 'Comenzar Ahora',
   'home.cta.register': 'Registrarse',
   'home.trust.licensed': 'Licenciado y Seguro',
@@ -995,7 +995,7 @@ export default {
   'casino.exclusive': 'Exclusivo',
   'casino.showMore': 'Mostrar Más ({count})',
   'casino.searchPlaceholder': 'Buscar juego o proveedor...',
-  'casino.ctaTitle': 'Empieza a Ganar con VIP90.bet Casino',
+  'casino.ctaTitle': 'Empieza a Ganar con {siteName} Casino',
   'casino.ctaSubtitle': 'Cientos de juegos, los mayores jackpots y una experiencia in-house única. ¡Únete ahora y empieza a ganar!',
   'casino.exploreAllGames': 'Explorar Todos los Juegos',
   'casino.loadingProviders': 'Cargando proveedores...',

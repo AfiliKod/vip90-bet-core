@@ -140,7 +140,7 @@ export default {
   'nav.crypto': '크립토 (USDT)',
   'nav.legal': '법적 고지',
   // Footer
-  'footer.brand': 'VIP90.bet',
+  'footer.brand': '{siteName}',
   'staticPage.unavailable': '이 페이지는 현재 사용할 수 없습니다.',
   'ticket.title': '고객센터',
   'ticket.subtitle': '지원 요청을 여기서 확인하고 새 요청을 생성할 수 있습니다.',
@@ -220,7 +220,7 @@ export default {
   'footer.bonusTerms': '보너스 약관',
   'footer.status': '시스템 상태',
   'footer.copyright': '© {year} {siteName}. 모든 권리 보유.',
-  'footer.legalWarning': 'VIP90.bet은 라인선스를 받고 감독되는 베팅 플랫폼입니다. 만 18세 미만의 사이트 이용은 불법입니다. 도박 중독은 심각한 재정적, 심리적 문제를 야기할 수 있습니다. 도움이 필요하시면',
+  'footer.legalWarning': '{siteName}은 라인선스를 받고 감독되는 베팅 플랫폼입니다. 만 18세 미만의 사이트 이용은 불법입니다. 도박 중독은 심각한 재정적, 심리적 문제를 야기할 수 있습니다. 도움이 필요하시면',
   'footer.legalWarningUrl': '를 방문해 주세요.',
 
   // Sports
@@ -398,7 +398,7 @@ export default {
 
   // LiveHelp
   'livehelp.title': '고객센터',
-  'livehelp.welcome': '안녕하세요! VIP90.bet 지원 어시스턴트입니다. 어떤 도움이 필요하신가요?',
+  'livehelp.welcome': '안녕하세요! {siteName} 지원 어시스턴트입니다. 어떤 도움이 필요하신가요?',
   'livehelp.faq.deposit': '입금은 어떻게 하나요?',
   'livehelp.faq.withdraw': '당첨금은 어떻게 출금하나요?',
   'livehelp.faq.liveBet': '라이브 베팅은 어떻게 하나요?',
@@ -417,7 +417,7 @@ export default {
 
   // Home
   'home.recentWinners': '최근 당첨자',
-  'home.hero.welcome': 'VIP90.bet에 오신 것을 환영합니다',
+  'home.hero.welcome': '{siteName}에 오신 것을 환영합니다',
   'home.hero.sports': '스포츠 베팅',
   'home.hero.live': '라이브 베팅',
   'home.hero.casino': '카지노',
@@ -439,7 +439,7 @@ export default {
   'home.promo.referFriendDesc': '친구를 초대하고, 친구가 하는 모든 베팅에서 10% 수익을 받으세요. 많이 초대할수록 더 많은 수익!',
   'home.promo.referFriendCta': '초대하기',
   'home.games.exclusive': '독점 게임',
-  'home.games.exclusiveDesc': 'VIP90.bet만의 in-house 게임으로 차별화된 경험',
+  'home.games.exclusiveDesc': '{siteName}만의 in-house 게임으로 차별화된 경험',
   'home.sports.title': '스포츠 베팅',
   'home.sports.subtitle': '15개 이상의 스포츠, 수백 개의 리그, 수천 개의 경기',
   'home.sports.allSports': '모든 스포츠 →',
@@ -455,7 +455,7 @@ export default {
   'home.casino.allGames': '모든 게임 →',
   'home.casino.provider': '🎯 Pragmatic Play',
   'home.casino.explore': '카지노 둘러보기 →',
-  'home.features.title': 'VIP90.bet이 특별한 이유',
+  'home.features.title': '{siteName}이 특별한 이유',
   'home.features.subtitle': '최고의 경험을 위한 모든 것',
   'home.features.fastPayouts': '빠른 지급',
   'home.features.fastPayoutsDesc': '당첨금을 즉시 출금하세요. 기다릴 필요 없습니다.',
@@ -465,7 +465,7 @@ export default {
   'home.features.bonusesDesc': '웰컴 보너스, 캐시백 보너스 등 다양한 혜택.',
   'home.features.support': '24/7 지원',
   'home.features.supportDesc': '고객센터를 통해 언제든지 도움을 드립니다.',
-  'home.cta.title': 'VIP90.bet에서 당첨을 시작하세요',
+  'home.cta.title': '{siteName}에서 당첨을 시작하세요',
   'home.cta.getStarted': '바로 시작',
   'home.cta.register': '회원가입',
   'home.trust.licensed': '라인선스 & 보안',
@@ -995,7 +995,7 @@ export default {
   'casino.exclusive': '독점',
   'casino.showMore': '더 보기 ({count})',
   'casino.searchPlaceholder': '게임 또는 제공업체 검색...',
-  'casino.ctaTitle': 'VIP90.bet 카지노에서 당첨을 시작하세요',
+  'casino.ctaTitle': '{siteName} 카지노에서 당첨을 시작하세요',
   'casino.ctaSubtitle': '수백 개의 게임, 최대 잭팟, 독보적인 in-house 경험. 지금 바로 참여하고 당첨되세요.',
   'casino.exploreAllGames': '모든 게임 둘러보기',
   'casino.loadingProviders': '제공업체 로딩 중...',

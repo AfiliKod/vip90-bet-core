@@ -141,7 +141,7 @@ export default {
   'nav.legal': 'Legal',
 
   // Footer
-  'footer.brand': 'VIP90.bet',
+  'footer.brand': '{siteName}',
   'staticPage.unavailable': 'This page is currently unavailable.',
   'ticket.title': 'Help Center',
   'ticket.subtitle': 'Track your support requests here, or open a new one.',
@@ -221,7 +221,7 @@ export default {
   'footer.bonusTerms': 'Bonus Terms',
   'footer.status': 'System Status',
   'footer.copyright': '© {year} {siteName}. All rights reserved.',
-  'footer.legalWarning': 'VIP90.bet is a licensed and regulated betting platform. Access is prohibited for persons under 18. Gambling addiction can lead to serious financial and psychological problems. For help, visit',
+  'footer.legalWarning': '{siteName} is a licensed and regulated betting platform. Access is prohibited for persons under 18. Gambling addiction can lead to serious financial and psychological problems. For help, visit',
   'footer.legalWarningUrl': '.',
 
   // Sports
@@ -399,7 +399,7 @@ export default {
 
   // LiveHelp
   'livehelp.title': 'Live Help',
-  'livehelp.welcome': 'Hello! I\'m the VIP90.bet support assistant. How can I help you?',
+  'livehelp.welcome': 'Hello! I\'m the {siteName} support assistant. How can I help you?',
   'livehelp.faq.deposit': 'How do I deposit?',
   'livehelp.faq.withdraw': 'How do I withdraw my winnings?',
   'livehelp.faq.liveBet': 'How do I play live betting?',
@@ -418,7 +418,7 @@ export default {
 
   // Home
   'home.recentWinners': 'Recent Winners',
-  'home.hero.welcome': 'Welcome to VIP90.bet',
+  'home.hero.welcome': 'Welcome to {siteName}',
   'home.hero.sports': 'Sports Betting',
   'home.hero.live': 'Live Betting',
   'home.hero.casino': 'Casino',
@@ -440,7 +440,7 @@ export default {
   'home.promo.referFriendDesc': 'Bring your friend, earn 10% profit share from every bet they win. The more invites, the more earnings!',
   'home.promo.referFriendCta': 'Invite',
   'home.games.exclusive': 'Exclusive Games',
-  'home.games.exclusiveDesc': 'A different experience with VIP90.bet exclusive in-house games',
+  'home.games.exclusiveDesc': 'A different experience with {siteName} exclusive in-house games',
   'home.sports.title': 'Sports Betting',
   'home.sports.subtitle': '15+ sports, hundreds of leagues, thousands of matches',
   'home.sports.allSports': 'All Sports →',
@@ -456,7 +456,7 @@ export default {
   'home.casino.allGames': 'All Games →',
   'home.casino.provider': '🎯 Pragmatic Play',
   'home.casino.explore': 'Explore Casino →',
-  'home.features.title': 'Why VIP90.bet?',
+  'home.features.title': 'Why {siteName}?',
   'home.features.subtitle': 'Everything you need for the best experience',
   'home.features.fastPayouts': 'Fast Payouts',
   'home.features.fastPayoutsDesc': 'Cash out your winnings instantly, no waiting.',
@@ -466,7 +466,7 @@ export default {
   'home.features.bonusesDesc': 'Welcome bonus, cashback bonus and more.',
   'home.features.support': '24/7 Support',
   'home.features.supportDesc': 'Live help by your side at all times.',
-  'home.cta.title': 'Start Winning with VIP90.bet',
+  'home.cta.title': 'Start Winning with {siteName}',
   'home.cta.getStarted': 'Get Started',
   'home.cta.register': 'Register',
   'home.trust.licensed': 'Licensed & Secure',
@@ -996,7 +996,7 @@ export default {
   'casino.exclusive': 'Exclusive',
   'casino.showMore': 'Show More ({count})',
   'casino.searchPlaceholder': 'Search game or provider...',
-  'casino.ctaTitle': 'Start Winning with VIP90.bet Casino',
+  'casino.ctaTitle': 'Start Winning with {siteName} Casino',
   'casino.ctaSubtitle': 'Hundreds of games, the biggest jackpots, and a unique in-house experience. Join now, start winning.',
   'casino.exploreAllGames': 'Explore All Games',
   'casino.loadingProviders': 'Loading providers...',

@@ -140,7 +140,7 @@ export default {
   'nav.crypto': 'Kripto (USDT)',
   'nav.legal': 'Yasal',
   // Footer
-  'footer.brand': 'VIP90.bet',
+  'footer.brand': '{siteName}',
   'staticPage.unavailable': 'Bu sayfa şu anda kullanılamıyor.',
   'ticket.title': 'Yardım Merkezi',
   'ticket.subtitle': 'Destek taleplerinizi buradan takip edebilir, yeni talep açabilirsiniz.',
@@ -220,7 +220,7 @@ export default {
   'footer.bonusTerms': 'Bonus Koşulları',
   'footer.status': 'Sistem Durumu',
   'footer.copyright': '© {year} {siteName}. Tüm hakları saklıdır.',
-  'footer.legalWarning': 'VIP90.bet lisanslı ve denetlenen bir bahis platformudur. 18 yaş altındaki kişilerin siteye erişimi yasaktır. Kumar bağımlılığı ciddi finansal ve psikolojik sorunlara yol açabilir. Yardım için',
+  'footer.legalWarning': '{siteName} lisanslı ve denetlenen bir bahis platformudur. 18 yaş altındaki kişilerin siteye erişimi yasaktır. Kumar bağımlılığı ciddi finansal ve psikolojik sorunlara yol açabilir. Yardım için',
   'footer.legalWarningUrl': 'adresini ziyaret edebilirsiniz.',
 
   // Sports
@@ -398,7 +398,7 @@ export default {
 
   // LiveHelp
   'livehelp.title': 'Canlı Yardım',
-  'livehelp.welcome': 'Merhaba! Ben VIP90.bet destek asistanıyım. Size nasıl yardımcı olabilirim?',
+  'livehelp.welcome': 'Merhaba! Ben {siteName} destek asistanıyım. Size nasıl yardımcı olabilirim?',
   'livehelp.faq.deposit': 'Para nasıl yatırırım?',
   'livehelp.faq.withdraw': 'Kazancımı nasıl çekerim?',
   'livehelp.faq.liveBet': 'Canlı bahis nasıl oynanır?',
@@ -417,7 +417,7 @@ export default {
 
   // Home
   'home.recentWinners': 'Son Kazananlar',
-  'home.hero.welcome': 'VIP90.bet\'e Hoşgeldin',
+  'home.hero.welcome': '{siteName}\'e Hoşgeldin',
   'home.hero.sports': 'Spor Bahisleri',
   'home.hero.live': 'Canlı Bahis',
   'home.hero.casino': 'Casino',
@@ -439,7 +439,7 @@ export default {
   'home.promo.referFriendDesc': 'Arkadaşını getir, kazandığı her bahisten %10 kâr payı kazan. Ne kadar çok davet, o kadar çok kazanç!',
   'home.promo.referFriendCta': 'Davet Et',
   'home.games.exclusive': 'Özel Oyunlar',
-  'home.games.exclusiveDesc': 'VIP90.bet\'e özel in-house oyunlarla farklı bir deneyim',
+  'home.games.exclusiveDesc': '{siteName}\'e özel in-house oyunlarla farklı bir deneyim',
   'home.sports.title': 'Spor Bahisleri',
   'home.sports.subtitle': '15+ spor dalı, yüzlerce lig ve binlerce maç',
   'home.sports.allSports': 'Tüm Sporlar →',
@@ -455,7 +455,7 @@ export default {
   'home.casino.allGames': 'Tüm Oyunlar →',
   'home.casino.provider': '🎯 Pragmatic Play',
   'home.casino.explore': 'Casinoyu Keşfet →',
-  'home.features.title': 'Neden VIP90.bet?',
+  'home.features.title': 'Neden {siteName}?',
   'home.features.subtitle': 'En iyi deneyim için ihtiyacın olan her şey',
   'home.features.fastPayouts': 'Hızlı Ödemeler',
   'home.features.fastPayoutsDesc': 'Kazancınızı anında çekin, bekleme yapmayın.',
@@ -465,7 +465,7 @@ export default {
   'home.features.bonusesDesc': 'Hoşgeldin bonusu, kayıp bonusu ve daha fazlası.',
   'home.features.support': '7/24 Destek',
   'home.features.supportDesc': 'Canlı yardım ile her an yanınızdayız.',
-  'home.cta.title': 'VIP90.bet ile Kazanmaya Başla',
+  'home.cta.title': '{siteName} ile Kazanmaya Başla',
   'home.cta.getStarted': 'Hemen Başla',
   'home.cta.register': 'Kayıt Ol',
   'home.trust.licensed': 'Lisanslı & Güvenli',
@@ -995,7 +995,7 @@ export default {
   'casino.exclusive': 'Özel',
   'casino.showMore': 'Daha Fazla Göster ({count})',
   'casino.searchPlaceholder': 'Oyun veya sağlayıcı ara...',
-  'casino.ctaTitle': 'VIP90.bet Casino ile Kazanmaya Başla',
+  'casino.ctaTitle': '{siteName} Casino ile Kazanmaya Başla',
   'casino.ctaSubtitle': 'Yüzlerce oyun, en büyük jackpotlar ve benzersiz in-house deneyim. Hemen katıl, kazanmaya başla.',
   'casino.exploreAllGames': 'Tüm Oyunları Keşfet',
   'casino.loadingProviders': 'Sağlayıcılar yükleniyor...',

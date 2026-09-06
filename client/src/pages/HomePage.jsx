@@ -6,6 +6,7 @@ import BetSlip, { SlipContent } from '../components/BetSlip';
 import { useBetSlipStore } from '../store/betSlipStore';
 import { useGameActivityStore } from '../store/gameActivityStore';
 import { useAuthStore } from '../store/authStore';
+import { useBrandingStore } from '../store/brandingStore';
 import RecentWinnersTicker from '../components/RecentWinnersTicker';
 import HomeSidebar from '../components/home/HomeSidebar';
 import WinnersPanel from '../components/home/WinnersPanel';
@@ -91,6 +92,7 @@ function GameRowSection({ id, icon, title, subtitle, viewAllTo, viewAllLabel, ch
 
 export default function HomePage() {
   const { t } = useTranslation();
+  const siteName = useBrandingStore(s => s.siteName) || 'VIP90.bet';
   const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
   const betSlipSelections = useBetSlipStore(s => s.selections);
@@ -193,7 +195,7 @@ export default function HomePage() {
 
   const SECTIONS = {
     inhouseGames: sectionOrder.includes('inhouseGames') ? (
-      <GameRowSection id="ozel-oyunlar" icon="diamond" title={t('home.games.exclusive')} subtitle={t('home.games.exclusiveDesc')}>
+      <GameRowSection id="ozel-oyunlar" icon="diamond" title={t('home.games.exclusive')} subtitle={t('home.games.exclusiveDesc', { siteName })}>
         {INHOUSE_GAMES.map(g => (
           <Link key={g.path} to={g.path} onClick={() => { if (currentUser) recordPlay(g.path, 'inhouse'); }}
             className="group relative rounded-xl overflow-hidden transition-all duration-200 text-center shrink-0 w-[140px] sm:w-[150px]"

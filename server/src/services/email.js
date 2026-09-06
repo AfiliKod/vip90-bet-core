@@ -2,6 +2,7 @@
 // Production'da gerçek SMTP env'leri tanımlı olmalı.
 
 import nodemailer from 'nodemailer';
+import { getSiteName } from '../branding/index.js';
 
 let _transporter = null;
 
@@ -22,7 +23,10 @@ function getTransporter() {
 
 // ─── Ortak mail görünümü (mail-güvenli: tablo tabanlı, inline CSS) ──────────
 const FONT = 'Arial,Helvetica,sans-serif';
-const SUPPORT_EMAIL = 'destek@vip90.bet';
+// E-posta domaini gerçek, teslim edilebilir bir adres olmalı — kozmetik marka
+// adından (siteName) BİLEREK bağımsız tutulur, SMTP_FROM ile aynı desende
+// env'den okunur (aşağıdaki 'noreply@vip90.bet' fallback'iyle tutarlı).
+const SUPPORT_EMAIL = process.env.SUPPORT_EMAIL || 'destek@vip90.bet';
 
 // Bulletproof CTA butonu — bgcolor fallback'li, Outlook dahil çalışır.
 function button(url, label, bg = '#00d4ff', fg = '#04121a') {
@@ -41,8 +45,9 @@ function fallbackLink(url) {
   return `<p style="margin:22px 0 0;font-family:${FONT};font-size:12px;line-height:1.7;color:#8b97ad;">Buton çalışmıyorsa bu bağlantıyı tarayıcınıza kopyalayın:<br><span style="color:#00d4ff;word-break:break-all;">${url}</span></p>`;
 }
 
-// Tüm mailleri saran çerçeve: neon şerit + VIP90 wordmark + kart + footer.
-function layout({ preheader = '', body }) {
+// Tüm mailleri saran çerçeve: neon şerit + marka wordmark'ı (admin panelinden
+// ayarlanan siteName) + kart + footer.
+function layout({ preheader = '', body, siteName = 'VIP90.bet' }) {
   const year = new Date().getFullYear();
   return `<!DOCTYPE html>
 <html lang="tr">
@@ -60,7 +65,7 @@ function layout({ preheader = '', body }) {
         <tr><td style="height:4px;background:#00d4ff;background:linear-gradient(90deg,#00d4ff,#7c3aed);border-radius:12px 12px 0 0;font-size:0;line-height:0;">&nbsp;</td></tr>
         <tr><td align="center" style="background:#12182a;padding:30px 24px 6px;">
           <div style="font-family:${FONT};font-size:26px;font-weight:800;color:#ffffff;letter-spacing:.5px;">
-            <span style="font-size:28px;">💎</span> VIP90.bet
+            <span style="font-size:28px;">💎</span> ${siteName}
           </div>
         </td></tr>
         <tr><td style="background:#12182a;padding:6px 32px 34px;font-family:${FONT};color:#e8edf7;">
@@ -68,7 +73,7 @@ function layout({ preheader = '', body }) {
         </td></tr>
         <tr><td align="center" style="background:#0d1220;padding:20px 24px;border-radius:0 0 12px 12px;">
           <p style="margin:0 0 6px;font-family:${FONT};font-size:12px;color:#6b7488;">Bu otomatik bir e-postadır, lütfen yanıtlamayın.</p>
-          <p style="margin:0;font-family:${FONT};font-size:12px;color:#6b7488;">© ${year} VIP90 BET · <a href="https://vip90.bet" style="color:#00d4ff;text-decoration:none;">vip90.bet</a></p>
+          <p style="margin:0;font-family:${FONT};font-size:12px;color:#6b7488;">© ${year} ${siteName}</p>
         </td></tr>
       </table>
     </td></tr>
@@ -85,10 +90,11 @@ const TEMPLATES = {
   'verify-email': (data) => ({
     subject: 'Email adresinizi doğrulayın',
     html: layout({
+      siteName: data.siteName,
       preheader: 'Hesabını aktifleştirmek için email adresini doğrula.',
       body: `
         <h1 style="${H1}">Hoş geldin, ${data.username}! 🎉</h1>
-        <p style="${P}">VIP90 BET'e kaydın alındı. Hesabını aktifleştirmek ve giriş yapabilmek için email adresini doğrulaman yeterli.</p>
+        <p style="${P}">${data.siteName}'e kaydın alındı. Hesabını aktifleştirmek ve giriş yapabilmek için email adresini doğrulaman yeterli.</p>
         ${button(data.verifyUrl, 'Emailimi Doğrula')}
         <p style="${NOTE}">Bu bağlantı <strong style="color:#c3cbdb;">24 saat</strong> geçerlidir.</p>
         ${fallbackLink(data.verifyUrl)}
@@ -98,6 +104,7 @@ const TEMPLATES = {
   'password-reset': (data) => ({
     subject: 'Şifre sıfırlama',
     html: layout({
+      siteName: data.siteName,
       preheader: 'Şifreni sıfırlamak için bağlantı.',
       body: `
         <h1 style="${H1}">Şifre sıfırlama talebi</h1>
@@ -112,6 +119,7 @@ const TEMPLATES = {
   'password-changed': (data) => ({
     subject: 'Şifreniz değiştirildi',
     html: layout({
+      siteName: data.siteName,
       preheader: 'Hesap şifren başarıyla değiştirildi.',
       body: `
         <h1 style="${H1}">Şifren değiştirildi</h1>
@@ -127,6 +135,7 @@ const TEMPLATES = {
   'welcome': (data) => ({
     subject: 'Hoş geldiniz!',
     html: layout({
+      siteName: data.siteName,
       preheader: 'İlk depozito bonusun seni bekliyor.',
       body: `
         <h1 style="${H1}">Hoş geldin, ${data.username}! 🎉</h1>
@@ -140,9 +149,10 @@ const TEMPLATES = {
 
 export async function sendEmail({ to, subject, template, data, html }) {
   const transporter = getTransporter();
+  const siteName = await getSiteName();
   let body = { subject, html };
   if (template && TEMPLATES[template]) {
-    body = TEMPLATES[template](data || {});
+    body = TEMPLATES[template]({ ...(data || {}), siteName });
   }
   if (!transporter) {
     // SMTP yok — development mode'da console.log + linki bas
@@ -152,7 +162,7 @@ export async function sendEmail({ to, subject, template, data, html }) {
     return { mock: true, verifyUrl: data?.verifyUrl, resetUrl: data?.resetUrl };
   }
   return transporter.sendMail({
-    from: `"VIP90 BET" <${process.env.SMTP_FROM || 'noreply@vip90.bet'}>`,
+    from: `"${siteName}" <${process.env.SMTP_FROM || 'noreply@vip90.bet'}>`,
     to,
     subject: body.subject,
     html: body.html,
