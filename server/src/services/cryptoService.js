@@ -1,8 +1,26 @@
 import { createHash } from 'crypto';
 import { HDNodeWallet, Mnemonic } from 'ethers';
 
-const TRONGRID   = 'https://api.trongrid.io';
-const USDT_TRC20 = 'TR7NHqjeKQxGTCi8q8ZY4pL8otSzgjLj6t'; // USDT mainnet TRC20
+// Network konfigürasyonu (mainnet / shasta / nile)
+const NETWORK = (process.env.TRON_NETWORK || 'mainnet').toLowerCase();
+
+const NETWORKS = {
+  mainnet: {
+    fullHost: 'https://api.trongrid.io',
+    usdtContract: 'TR7NHqjeKQxGTCi8q8ZY4pL8otSzgjLj6t',
+  },
+  shasta: {
+    fullHost: 'https://api.shasta.trongrid.io',
+    usdtContract: 'TG3XXyExBkPp9nzdajDZsozEu4BkaSJozs',
+  },
+  nile: {
+    fullHost: 'https://api.nile.trongrid.io',
+    usdtContract: 'TXYZopYRdj2D9XRtbG411XZZ3kM5VkAeBf',
+  },
+};
+
+const TRONGRID   = NETWORKS[NETWORK]?.fullHost || NETWORKS.mainnet.fullHost;
+const USDT_TRC20 = NETWORKS[NETWORK]?.usdtContract || NETWORKS.mainnet.usdtContract;
 
 const B58 = '123456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz';
 
