@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import api from '../../services/api';
-import { DEFAULT_SECTION_ORDER, SECTION_LABELS, resolveSectionOrder, resolveBanners } from '../home/pageContent';
+import { DEFAULT_SECTION_ORDER, getSectionLabel, resolveSectionOrder, resolveBanners } from '../home/pageContent';
 import { getPromoSlides, getHeroNavSlides } from '../home/promoSlides';
 import { useTranslation } from '../../i18n';
 
@@ -8,15 +8,17 @@ const SLIDE_IMAGE_MAX_BYTES = 500_000;
 
 // Kullanıcıya slayt id'sinden daha okunur bir başlık göstermek için —
 // resolveBanners()'ın kendi mantığına dokunmaz, salt UI etiketi.
-const SLIDE_LABELS = {
-  welcome: 'Hoş Geldiniz (gezinme)',
-  sports: 'Spor Bahisleri (gezinme)',
-  live: 'Canlı Bahis (gezinme)',
-  casino: 'Casino (gezinme)',
-  'deneme-bonusu': 'Deneme Bonusu (kampanya)',
-  'hosgeldin-bonusu': 'Hoşgeldin Bonusu (kampanya)',
-  'arkadasini-getir': 'Arkadaşını Getir (kampanya)',
-};
+function slideLabelKey(id) {
+  return {
+    welcome: 'admin.pages.slideLabels.welcome',
+    sports: 'admin.pages.slideLabels.sports',
+    live: 'admin.pages.slideLabels.live',
+    casino: 'admin.pages.slideLabels.casino',
+    'deneme-bonusu': 'admin.pages.slideLabels.trialBonus',
+    'hosgeldin-bonusu': 'admin.pages.slideLabels.welcomeBonus',
+    'arkadasini-getir': 'admin.pages.slideLabels.referFriend',
+  }[id];
+}
 
 function move(list, index, dir) {
   const to = index + dir;
@@ -65,7 +67,7 @@ export default function AdminPages() {
         const resolved = resolveBanners(ALL_SLIDES, content?.banners);
         setBanners(resolved.map(b => ({ id: b.id, title: b.title, desc: b.desc, cta: b.cta, image: b.image })));
       })
-      .catch(() => setNotice({ type: 'error', text: 'Sayfa içeriği yüklenemedi' }))
+      .catch(() => setNotice({ type: 'error', text: t('admin.pages.loadError') }))
       .finally(() => setLoading(false));
   }
 
@@ -103,11 +105,11 @@ export default function AdminPages() {
     e.target.value = ''; // aynı dosyayı tekrar seçebilmek için
     if (!file) return;
     if (!/^image\//.test(file.type || '')) {
-      setNotice({ type: 'error', text: 'Görsel dosyası olmalı (PNG, JPG, WEBP…)' });
+      setNotice({ type: 'error', text: t('admin.pages.imageMustBeImage') });
       return;
     }
     if (file.size > SLIDE_IMAGE_MAX_BYTES) {
-      setNotice({ type: 'error', text: `Dosya çok büyük (maks ${Math.round(SLIDE_IMAGE_MAX_BYTES / 1024)} KB)` });
+      setNotice({ type: 'error', text: t('admin.pages.imageTooLarge', { maxKb: Math.round(SLIDE_IMAGE_MAX_BYTES / 1024) }) });
       return;
     }
     try {
@@ -115,7 +117,7 @@ export default function AdminPages() {
       updateBannerText(id, 'image', dataUrl);
       setNotice(null);
     } catch {
-      setNotice({ type: 'error', text: 'Dosya okunamadı' });
+      setNotice({ type: 'error', text: t('admin.pages.imageReadError') });
     }
   }
 
@@ -124,9 +126,9 @@ export default function AdminPages() {
     setNotice(null);
     try {
       await api.patch('/admin/pages/home', { sectionOrder, banners });
-      setNotice({ type: 'ok', text: 'Kaydedildi' });
+      setNotice({ type: 'ok', text: t('admin.pages.saved') });
     } catch (e) {
-      setNotice({ type: 'error', text: e.response?.data?.error?.message || 'Kaydedilemedi' });
+      setNotice({ type: 'error', text: e.response?.data?.error?.message || t('admin.pages.saveError') });
     } finally {
       setSaving(false);
     }
@@ -137,8 +139,8 @@ export default function AdminPages() {
 
   return (
     <div className="max-w-3xl mx-auto px-4 py-6">
-      <h1 className="text-2xl font-bold text-text-1 mb-1">🎞️ Slider Düzenleme Aracı</h1>
-      <p className="text-text-3 text-sm mb-6">Ana sayfanın bölüm sırasını ve hero slider'ın tüm slaytlarını (görsel dahil) buradan yönetin.</p>
+      <h1 className="text-2xl font-bold text-text-1 mb-1">🎞️ {t('admin.pages.title')}</h1>
+      <p className="text-text-3 text-sm mb-6">{t('admin.pages.subtitle')}</p>
 
       {notice && (
         <div className={`mb-4 px-4 py-2 rounded-lg text-sm ${notice.type === 'ok' ? 'bg-green-500/15 text-green-300' : 'bg-red-500/15 text-red-300'}`}>
@@ -152,14 +154,14 @@ export default function AdminPages() {
         </div>
       ) : (
         <>
-          <h2 className="text-sm font-bold text-text-2 uppercase tracking-wide mb-2">Bölüm Sırası</h2>
+          <h2 className="text-sm font-bold text-text-2 uppercase tracking-wide mb-2">{t('admin.pages.sectionOrder')}</h2>
           <div className="space-y-2 mb-8">
             {sectionOrder.map((id, i) => (
               <div key={id} className="bg-bg-card border border-white/10 rounded-lg p-3 flex items-center gap-3">
-                <span className="flex-1 text-sm text-text-1">{SECTION_LABELS[id] || id}</span>
+                <span className="flex-1 text-sm text-text-1">{getSectionLabel(t, id)}</span>
                 <button onClick={() => moveSection(i, -1)} disabled={i === 0} className="text-text-3 hover:text-text-1 disabled:opacity-30 px-2">↑</button>
                 <button onClick={() => moveSection(i, 1)} disabled={i === sectionOrder.length - 1} className="text-text-3 hover:text-text-1 disabled:opacity-30 px-2">↓</button>
-                <button onClick={() => toggleSection(id)} className="text-xs text-red-300 hover:text-red-200 px-2">Gizle</button>
+                <button onClick={() => toggleSection(id)} className="text-xs text-red-300 hover:text-red-200 px-2">{t('admin.pages.hide')}</button>
               </div>
             ))}
           </div>
@@ -171,34 +173,34 @@ export default function AdminPages() {
                   onClick={() => toggleSection(id)}
                   className="text-xs bg-white/5 text-text-3 border border-white/10 rounded-full px-3 py-1 hover:text-text-1"
                 >
-                  + {SECTION_LABELS[id] || id}
+                  + {getSectionLabel(t, id)}
                 </button>
               ))}
             </div>
           )}
 
-          <h2 className="text-sm font-bold text-text-2 uppercase tracking-wide mb-2">Hero Slider Slaytları</h2>
+          <h2 className="text-sm font-bold text-text-2 uppercase tracking-wide mb-2">{t('admin.pages.heroSlides')}</h2>
           <div className="space-y-3 mb-4">
             {banners.map((b, i) => (
               <div key={b.id} className="bg-bg-card border border-white/10 rounded-xl p-4">
                 <div className="flex items-center gap-3 mb-3">
-                  <span className="flex-1 text-sm font-semibold text-text-1">{SLIDE_LABELS[b.id] || b.id}</span>
+                  <span className="flex-1 text-sm font-semibold text-text-1">{slideLabelKey(b.id) ? t(slideLabelKey(b.id)) : b.id}</span>
                   <button onClick={() => moveBanner(i, -1)} disabled={i === 0} className="text-text-3 hover:text-text-1 disabled:opacity-30 px-2">↑</button>
                   <button onClick={() => moveBanner(i, 1)} disabled={i === banners.length - 1} className="text-text-3 hover:text-text-1 disabled:opacity-30 px-2">↓</button>
-                  <button onClick={() => toggleBanner(b.id)} className="text-xs text-red-300 hover:text-red-200 px-2">Gizle</button>
+                  <button onClick={() => toggleBanner(b.id)} className="text-xs text-red-300 hover:text-red-200 px-2">{t('admin.pages.hide')}</button>
                 </div>
                 <div className="flex gap-3">
                   <div className="shrink-0">
                     {b.image && <img src={b.image} alt="" className="w-24 h-16 rounded-lg object-cover bg-white/5 border border-white/10 mb-1.5" />}
                     <label className="block text-center text-[11px] bg-bg-base border border-white/10 rounded-lg px-2 py-1.5 cursor-pointer text-text-2 hover:text-text-1">
-                      Görsel Seç
+                      {t('admin.pages.selectImage')}
                       <input type="file" accept="image/*" onChange={e => onImageChange(b.id, e)} className="hidden" />
                     </label>
                   </div>
                   <div className="grid sm:grid-cols-3 gap-2 flex-1">
-                    <input value={b.title} onChange={e => updateBannerText(b.id, 'title', e.target.value)} placeholder="Başlık" className="bg-bg-base border border-white/10 rounded-lg px-2 py-1.5 text-sm text-text-1" />
-                    <input value={b.desc} onChange={e => updateBannerText(b.id, 'desc', e.target.value)} placeholder="Açıklama" className="bg-bg-base border border-white/10 rounded-lg px-2 py-1.5 text-sm text-text-1 sm:col-span-1" />
-                    <input value={b.cta} onChange={e => updateBannerText(b.id, 'cta', e.target.value)} placeholder="Buton metni" className="bg-bg-base border border-white/10 rounded-lg px-2 py-1.5 text-sm text-text-1" />
+                    <input value={b.title} onChange={e => updateBannerText(b.id, 'title', e.target.value)} placeholder={t('admin.pages.titlePlaceholder')} className="bg-bg-base border border-white/10 rounded-lg px-2 py-1.5 text-sm text-text-1" />
+                    <input value={b.desc} onChange={e => updateBannerText(b.id, 'desc', e.target.value)} placeholder={t('admin.pages.descPlaceholder')} className="bg-bg-base border border-white/10 rounded-lg px-2 py-1.5 text-sm text-text-1 sm:col-span-1" />
+                    <input value={b.cta} onChange={e => updateBannerText(b.id, 'cta', e.target.value)} placeholder={t('admin.pages.ctaPlaceholder')} className="bg-bg-base border border-white/10 rounded-lg px-2 py-1.5 text-sm text-text-1" />
                   </div>
                 </div>
               </div>
@@ -212,7 +214,7 @@ export default function AdminPages() {
                   onClick={() => toggleBanner(b.id)}
                   className="text-xs bg-white/5 text-text-3 border border-white/10 rounded-full px-3 py-1 hover:text-text-1"
                 >
-                  + {SLIDE_LABELS[b.id] || b.id}
+                  + {slideLabelKey(b.id) ? t(slideLabelKey(b.id)) : b.id}
                 </button>
               ))}
             </div>
@@ -225,7 +227,7 @@ export default function AdminPages() {
         disabled={saving || loading}
         className="bg-primary text-black font-semibold px-5 py-2 rounded-lg disabled:opacity-40"
       >
-        {saving ? 'Kaydediliyor…' : 'Kaydet'}
+        {saving ? t('common.saving') : t('common.save')}
       </button>
     </div>
   );
