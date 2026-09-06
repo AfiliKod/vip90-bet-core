@@ -4,7 +4,8 @@ import { requireAuth } from '../middleware/auth.js';
 import User from '../models/User.js';
 import Transaction from '../models/Transaction.js';
 import CryptoDeposit from '../models/CryptoDeposit.js';
-import { deriveDepositAddress, fetchIncomingUSDT } from '../services/cryptoService.js';
+import { deriveDepositAddress, fetchIncomingUSDT, transferUSDT, getHotWalletBalance } from '../services/cryptoService.js';
+import { getSpendableBreakdown } from '../services/wagering.js';
 import { formatMoney } from '../currency/index.js';
 import { CRYPTO_SETTINGS, shouldAutoCredit, shouldAutoProcessWithdraw } from '../config/crypto.js';
 
@@ -146,10 +147,10 @@ r.post('/check-deposit', async (req, res, next) => {
 });
 
 // ── POST /api/crypto/withdraw-request ────────────────────────────────────────
-// Otomatik çekim: $15 altı otomatik işlenir, $15+ admin onayı bekler
+// Çekim: withdrawable bakiye kontrolü + hot wallet transfer
 r.post('/withdraw-request', async (req, res, next) => {
   try {
-    const { address, usdtAmount } = req.body;
+    const { address, usdtAmount, confirmForfeit } = req.body;
     if (!address || !usdtAmount || usdtAmount < CRYPTO_SETTINGS.minWithdraw) {
       return res.status(400).json({ error: `Geçersiz adres veya miktar (min ${CRYPTO_SETTINGS.minWithdraw} USDT)` });
     }
@@ -159,38 +160,86 @@ r.post('/withdraw-request', async (req, res, next) => {
 
     const rate      = parseFloat(process.env.USDT_TRY_RATE || '1');
     const tryNeeded = +(usdtAmount * rate).toFixed(2);
-    const autoProcess = shouldAutoProcessWithdraw(usdtAmount);
 
+    // 1. Withdrawable bakiye kontrolü
+    const breakdown = await getSpendableBreakdown(req.user.id);
+    if (breakdown.withdrawable < tryNeeded) {
+      // Aktif bonus varsa forfeit onayı iste
+      if (breakdown.locked > 0 && !confirmForfeit) {
+        const { previewForfeitAmount } = await import('../services/wagering.js');
+        const forfeitPreview = await previewForfeitAmount(req.user.id);
+        const predictedWithdrawable = Math.max(0, parseFloat((breakdown.balance - forfeitPreview).toFixed(2)));
+        return res.status(409).json({
+          error: 'ACTIVE_BONUS_LOCK',
+          locked: breakdown.locked,
+          withdrawable: breakdown.withdrawable,
+          predictedWithdrawable,
+          message: `${breakdown.locked}₺ bonus kilitli. Forfeit ederseniz ${predictedWithdrawable}₺ çekebilirsiniz. Devam etmek için confirmForfeit: true gönderin.`,
+        });
+      }
+      return res.status(400).json({
+        error: 'Yetersiz bakiye',
+        balance: breakdown.balance,
+        locked: breakdown.locked,
+        withdrawable: breakdown.withdrawable,
+      });
+    }
+
+    // 2. Bonus forfeit gerekli mi?
+    if (breakdown.locked > 0 && confirmForfeit) {
+      const { forfeitActiveWagerings } = await import('../services/wagering.js');
+      await forfeitActiveWagerings(req.user.id);
+    }
+
+    // 3. Hot wallet bakiyesini kontrol et
+    const hotWallet = await getHotWalletBalance();
+    if (hotWallet.usdt < usdtAmount) {
+      return res.status(503).json({
+        error: 'Hot wallet bakiyesi yetersiz',
+        hotWalletBalance: hotWallet.usdt,
+        requested: usdtAmount,
+      });
+    }
+
+    // 4. Bakiyeyi düş + transfer yap
     const session = await mongoose.startSession();
     session.startTransaction();
     try {
       const user = await User.findById(req.user.id).session(session);
-      if (user.balance < tryNeeded) {
-        await session.abortTransaction();
-        return res.status(400).json({ error: 'Yetersiz bakiye' });
-      }
-
       const balBefore = user.balance;
-      user.balance    = +(user.balance - tryNeeded).toFixed(2);
+      user.balance = +(user.balance - tryNeeded).toFixed(2);
       await user.save({ session });
 
+      const autoProcess = shouldAutoProcessWithdraw(usdtAmount);
+
       if (autoProcess) {
-        // Otomatik işlenir (şimdilik sadece bakiyeyi düş, gerçek transfer sonra yapılacak)
+        // Otomatik: hot wallet'tan gönder
+        const result = await transferUSDT(address, usdtAmount);
+        if (!result.success) {
+          await session.abortTransaction();
+          // Bakiyeyi iade et
+          user.balance = balBefore;
+          await user.save();
+          return res.status(500).json({ error: `Transfer başarısız: ${result.error}` });
+        }
+
         await Transaction.create([{
           userId: user._id,
           type: 'crypto_withdraw',
           amount: -tryNeeded,
           balanceBefore: balBefore,
           balanceAfter: user.balance,
-          note: `Çekim talebi: ${usdtAmount} USDT → ${address} (otomatik işlendi)`,
+          note: `${usdtAmount} USDT → ${address} (tx: ${result.txHash.slice(0, 12)}...)`,
           status: 'completed',
+          txHash: result.txHash,
         }], { session });
 
         await session.commitTransaction();
         res.json({
           newBalance: user.balance,
           autoProcessed: true,
-          message: `${usdtAmount} USDT çekiminiz otomatik olarak işlendi`,
+          txHash: result.txHash,
+          message: `${usdtAmount} USDT gönderildi`,
         });
       } else {
         // Admin onayına gönder
@@ -200,8 +249,10 @@ r.post('/withdraw-request', async (req, res, next) => {
           amount: -tryNeeded,
           balanceBefore: balBefore,
           balanceAfter: user.balance,
-          note: `Çekim talebi: ${usdtAmount} USDT → ${address} — Admin onayı bekliyor`,
+          note: `${usdtAmount} USDT → ${address} — Admin onayı bekliyor`,
           status: 'pending',
+          toAddress: address,
+          usdtAmount,
         }], { session });
 
         await session.commitTransaction();
@@ -217,6 +268,20 @@ r.post('/withdraw-request', async (req, res, next) => {
     } finally {
       session.endSession();
     }
+  } catch (e) { next(e); }
+});
+
+// ── GET /api/crypto/withdraw-preview ──────────────────────────────────────────
+// Kullanıcının çekilebilir bakiyesini gösterir
+r.get('/withdraw-preview', async (req, res, next) => {
+  try {
+    const breakdown = await getSpendableBreakdown(req.user.id);
+    const hotWallet = await getHotWalletBalance();
+    res.json({
+      ...breakdown,
+      hotWalletBalance: hotWallet.usdt,
+      minWithdraw: CRYPTO_SETTINGS.minWithdraw,
+    });
   } catch (e) { next(e); }
 });
 

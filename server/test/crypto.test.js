@@ -14,8 +14,10 @@ config({ path: join(__dirname, '..', '.env') });
 import User from '../src/models/User.js';
 import Transaction from '../src/models/Transaction.js';
 import CryptoDeposit from '../src/models/CryptoDeposit.js';
-import { deriveDepositAddress, fetchIncomingUSDT } from '../src/services/cryptoService.js';
+import BonusWagering from '../src/models/BonusWagering.js';
+import { deriveDepositAddress, fetchIncomingUSDT, getHotWalletAddress } from '../src/services/cryptoService.js';
 import { shouldAutoCredit, shouldAutoProcessWithdraw, CRYPTO_SETTINGS } from '../src/config/crypto.js';
+import { getSpendableBreakdown } from '../src/services/wagering.js';
 
 describe('Crypto Payment System - Shasta Testnet', () => {
   before(async () => {
@@ -263,6 +265,51 @@ describe('Crypto Payment System - Shasta Testnet', () => {
       assert.equal(CRYPTO_SETTINGS.withdraw.autoProcessLimit, 15);
       assert.equal(CRYPTO_SETTINGS.minWithdraw, 5);
       assert.ok(CRYPTO_SETTINGS.supportedCurrencies.includes('USDT'));
+    });
+  });
+
+  describe('Hot Wallet', () => {
+    it('should derive hot wallet address', () => {
+      const address = getHotWalletAddress();
+      assert.ok(address, 'Hot wallet address should be defined');
+      assert.match(address, /^T[A-Za-z0-9]{33}$/, 'Should be valid TRON address');
+    });
+  });
+
+  describe('Withdrawable Balance', () => {
+    it('should calculate withdrawable when no bonus', async () => {
+      const user = await User.create({
+        username: 'testuser_nobonus',
+        email: 'nobonus@test.com',
+        password: 'hashed_password',
+        balance: 500,
+      });
+
+      const breakdown = await getSpendableBreakdown(user._id);
+      assert.equal(breakdown.balance, 500);
+      assert.equal(breakdown.locked, 0);
+      assert.equal(breakdown.withdrawable, 500);
+    });
+
+    it('should calculate withdrawable with active bonus', async () => {
+      const user = await User.create({
+        username: 'testuser_bonus',
+        email: 'bonus@test.com',
+        password: 'hashed_password',
+        balance: 500,
+      });
+
+      await BonusWagering.create({
+        userId: user._id,
+        bonusAmount: 200,
+        wageringRequired: 7000,
+        status: 'active',
+      });
+
+      const breakdown = await getSpendableBreakdown(user._id);
+      assert.equal(breakdown.balance, 500);
+      assert.equal(breakdown.locked, 200);
+      assert.equal(breakdown.withdrawable, 300);
     });
   });
 });
