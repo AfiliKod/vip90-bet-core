@@ -2,11 +2,14 @@ import { useEffect, useState } from 'react';
 import api from '../../services/api';
 import { validateBrandingFile } from '../../branding/fileValidation';
 import { getChangedEntries } from '../../theme/editorLogic';
+import { useTranslation } from '../../i18n';
 
-const SOURCE_BADGE = {
-  db:      { label: 'Özelleştirildi', cls: 'bg-green-500/20 text-green-300 border-green-500/30' },
-  default: { label: 'Varsayılan',     cls: 'bg-white/5 text-text-3 border-white/10' },
-};
+/**
+ * Marka kimliği editörü (A3): logo, favicon, site adı, özel font — hepsi
+ * sunucuya SSH/FTP ile dosya kopyalamadan, panelden yüklenir. Dosyalar
+ * tarayıcıda data: URL'e çevrilip PATCH /admin/branding ile JSON gövdede
+ * gönderilir (bkz. server/src/app.js — bu uç için 1mb'lık ayrı body limiti).
+ */
 
 function readAsDataUrl(file) {
   return new Promise((resolve, reject) => {
@@ -17,24 +20,24 @@ function readAsDataUrl(file) {
   });
 }
 
-/**
- * Marka kimliği editörü (A3): logo, favicon, site adı, özel font — hepsi
- * sunucuya SSH/FTP ile dosya kopyalamadan, panelden yüklenir. Dosyalar
- * tarayıcıda data: URL'e çevrilip PATCH /admin/branding ile JSON gövdede
- * gönderilir (bkz. server/src/app.js — bu uç için 1mb'lık ayrı body limiti).
- */
 export default function AdminBranding() {
+  const { t } = useTranslation();
   const [fields, setFields] = useState([]);
   const [draft, setDraft] = useState({});
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [notice, setNotice] = useState(null);
 
+  const SOURCE_BADGE = {
+    db:      { label: t('admin.branding.sourceCustomized'), cls: 'bg-green-500/20 text-green-300 border-green-500/30' },
+    default: { label: t('admin.branding.sourceDefault'),     cls: 'bg-white/5 text-text-3 border-white/10' },
+  };
+
   function load() {
     setLoading(true);
     api.get('/admin/branding')
       .then(r => setFields(r.data.fields))
-      .catch(() => setNotice({ type: 'error', text: 'Marka ayarları yüklenemedi' }))
+      .catch(() => setNotice({ type: 'error', text: t('admin.branding.loadFailed') }))
       .finally(() => setLoading(false));
   }
 
@@ -58,14 +61,14 @@ export default function AdminBranding() {
       setDraft(d => ({ ...d, [field.id]: dataUrl }));
       setNotice(null);
     } catch {
-      setNotice({ type: 'error', text: 'Dosya okunamadı' });
+      setNotice({ type: 'error', text: t('admin.branding.fileReadFailed') });
     }
   }
 
   async function save() {
     const changed = getChangedEntries(fields, draft);
     if (!changed.length) {
-      setNotice({ type: 'ok', text: 'Değişiklik yok' });
+      setNotice({ type: 'ok', text: t('admin.branding.noChanges') });
       return;
     }
     setSaving(true);
@@ -76,9 +79,9 @@ export default function AdminBranding() {
       }
       setDraft({});
       load();
-      setNotice({ type: 'ok', text: `${changed.length} alan kaydedildi` });
+      setNotice({ type: 'ok', text: t('admin.branding.savedCount', { count: changed.length }) });
     } catch (e) {
-      setNotice({ type: 'error', text: e.response?.data?.error?.message || 'Kaydedilemedi' });
+      setNotice({ type: 'error', text: e.response?.data?.error?.message || t('admin.branding.saveFailed') });
     } finally {
       setSaving(false);
     }
@@ -88,9 +91,9 @@ export default function AdminBranding() {
 
   return (
     <div className="max-w-3xl mx-auto px-4 py-6">
-      <h1 className="text-2xl font-bold text-text-1 mb-1">🏷️ Marka Kimliği</h1>
+      <h1 className="text-2xl font-bold text-text-1 mb-1">🏷️ {t('admin.branding.pageTitle')}</h1>
       <p className="text-text-3 text-sm mb-6">
-        Logo, favicon, site adı ve özel font — sunucuya dosya kopyalamadan, doğrudan panelden.
+        {t('admin.branding.pageHint')}
       </p>
 
       {notice && (
@@ -131,7 +134,7 @@ export default function AdminBranding() {
                       <img src={current} alt={f.label} className="w-10 h-10 rounded object-contain bg-white/5" />
                     )}
                     <label className="text-sm bg-bg-base border border-white/10 rounded-lg px-3 py-2 cursor-pointer text-text-2 hover:text-text-1">
-                      Dosya seç
+                      {t('admin.branding.chooseFile')}
                       <input
                         type="file"
                         accept={f.type === 'image' ? 'image/*' : '.woff,.woff2,.ttf,.otf'}
@@ -153,7 +156,7 @@ export default function AdminBranding() {
           disabled={saving || !changedCount}
           className="bg-primary text-black font-semibold px-5 py-2 rounded-lg disabled:opacity-40"
         >
-          {saving ? 'Kaydediliyor…' : changedCount ? `Kaydet (${changedCount})` : 'Kaydet'}
+          {saving ? t('common.saving') : changedCount ? t('admin.branding.saveButtonCount', { count: changedCount }) : t('common.save')}
         </button>
       </div>
     </div>
