@@ -15,6 +15,7 @@ import User from '../src/models/User.js';
 import Transaction from '../src/models/Transaction.js';
 import CryptoDeposit from '../src/models/CryptoDeposit.js';
 import { deriveDepositAddress, fetchIncomingUSDT } from '../src/services/cryptoService.js';
+import { shouldAutoCredit, shouldAutoProcessWithdraw, CRYPTO_SETTINGS } from '../src/config/crypto.js';
 
 describe('Crypto Payment System - Shasta Testnet', () => {
   before(async () => {
@@ -229,6 +230,39 @@ describe('Crypto Payment System - Shasta Testnet', () => {
       assert.equal(tx.type, 'crypto_withdraw');
       assert.equal(tx.amount, -100);
       assert.equal(tx.status, 'pending');
+    });
+  });
+
+  describe('Auto Deposit/Withdrawal Limits', () => {
+    it('should auto credit deposit below $100', () => {
+      assert.ok(shouldAutoCredit(50), '50 USDT should auto credit');
+      assert.ok(shouldAutoCredit(99.99), '99.99 USDT should auto credit');
+      assert.ok(shouldAutoCredit(1), '1 USDT should auto credit');
+    });
+
+    it('should require approval for deposit above $100', () => {
+      assert.ok(!shouldAutoCredit(100), '100 USDT should require approval');
+      assert.ok(!shouldAutoCredit(150), '150 USDT should require approval');
+      assert.ok(!shouldAutoCredit(1000), '1000 USDT should require approval');
+    });
+
+    it('should auto process withdrawal below $15', () => {
+      assert.ok(shouldAutoProcessWithdraw(10), '10 USDT should auto process');
+      assert.ok(shouldAutoProcessWithdraw(14.99), '14.99 USDT should auto process');
+      assert.ok(shouldAutoProcessWithdraw(5), '5 USDT should auto process');
+    });
+
+    it('should require approval for withdrawal above $15', () => {
+      assert.ok(!shouldAutoProcessWithdraw(15), '15 USDT should require approval');
+      assert.ok(!shouldAutoProcessWithdraw(20), '20 USDT should require approval');
+      assert.ok(!shouldAutoProcessWithdraw(100), '100 USDT should require approval');
+    });
+
+    it('should have correct default settings', () => {
+      assert.equal(CRYPTO_SETTINGS.deposit.autoCreditLimit, 100);
+      assert.equal(CRYPTO_SETTINGS.withdraw.autoProcessLimit, 15);
+      assert.equal(CRYPTO_SETTINGS.minWithdraw, 5);
+      assert.ok(CRYPTO_SETTINGS.supportedCurrencies.includes('USDT'));
     });
   });
 });
