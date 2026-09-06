@@ -44,6 +44,7 @@ const AdminBranding = lazy(() => import('./pages/admin/Branding'));
 const AdminPages = lazy(() => import('./pages/admin/Pages'));
 const AdminGamesShowcase = lazy(() => import('./pages/admin/GamesShowcase'));
 const AdminGameSettings = lazy(() => import('./pages/admin/GameSettings'));
+const AdminModuleSettings = lazy(() => import('./pages/admin/ModuleSettings'));
 const AdminRoles = lazy(() => import('./pages/admin/Roles'));
 const AdminVip = lazy(() => import('./pages/admin/Vip'));
 const AdminPromotions = lazy(() => import('./pages/admin/Promotions'));
@@ -51,19 +52,7 @@ const AdminBots = lazy(() => import('./pages/admin/Bots'));
 const AdminStaticPages = lazy(() => import('./pages/admin/StaticPages'));
 const AdminTickets = lazy(() => import('./pages/admin/Tickets'));
 const PalaceGame = lazy(() => import('./pages/PalaceGame'));
-const Crash = lazy(() => import('./pages/games/Crash'));
-const Mines = lazy(() => import('./pages/games/Mines'));
-const Plinko = lazy(() => import('./pages/games/Plinko'));
-const Dice = lazy(() => import('./pages/games/Dice'));
-const Limbo = lazy(() => import('./pages/games/Limbo'));
-const Wheel = lazy(() => import('./pages/games/Wheel'));
-const Hilo = lazy(() => import('./pages/games/Hilo'));
-const Keno = lazy(() => import('./pages/games/Keno'));
-const Blackjack = lazy(() => import('./pages/games/Blackjack'));
-const Roulette = lazy(() => import('./pages/games/Roulette'));
-const Baccarat = lazy(() => import('./pages/games/Baccarat'));
-const VideoPoker = lazy(() => import('./pages/games/VideoPoker'));
-const DragonTiger = lazy(() => import('./pages/games/DragonTiger'));
+const InhouseGameLauncher = lazy(() => import('./pages/games/InhouseGameLauncher'));
 const HomePage = lazy(() => import('./pages/HomePage'));
 const Favorites = lazy(() => import('./pages/Favorites'));
 const RecentlyPlayed = lazy(() => import('./pages/RecentlyPlayed'));
@@ -153,19 +142,19 @@ export default function App() {
         <Route path="/events/:id" element={<Layout><ModuleGate module="betting"><Suspense fallback={<PageLoader />}><EventDetail /></Suspense></ModuleGate></Layout>} />
         <Route path="/casino" element={<Layout><ModuleGate module="casino-content"><Suspense fallback={<PageLoader />}><HomePage /></Suspense></ModuleGate></Layout>} />
         <Route path="/palace/:gameId" element={<ProtectedRoute><Suspense fallback={<PageLoader />}><PalaceGame /></Suspense></ProtectedRoute>} />
-        <Route path="/games/crash" element={<ProtectedRoute><Suspense fallback={<PageLoader />}><Crash /></Suspense></ProtectedRoute>} />
-        <Route path="/games/mines" element={<ProtectedRoute><Suspense fallback={<PageLoader />}><Mines /></Suspense></ProtectedRoute>} />
-        <Route path="/games/plinko" element={<ProtectedRoute><Suspense fallback={<PageLoader />}><Plinko /></Suspense></ProtectedRoute>} />
-        <Route path="/games/dice" element={<ProtectedRoute><Suspense fallback={<PageLoader />}><Dice /></Suspense></ProtectedRoute>} />
-        <Route path="/games/limbo" element={<ProtectedRoute><Suspense fallback={<PageLoader />}><Limbo /></Suspense></ProtectedRoute>} />
-        <Route path="/games/wheel" element={<ProtectedRoute><Suspense fallback={<PageLoader />}><Wheel /></Suspense></ProtectedRoute>} />
-        <Route path="/games/hilo" element={<ProtectedRoute><Suspense fallback={<PageLoader />}><Hilo /></Suspense></ProtectedRoute>} />
-        <Route path="/games/keno" element={<ProtectedRoute><Suspense fallback={<PageLoader />}><Keno /></Suspense></ProtectedRoute>} />
-        <Route path="/games/blackjack" element={<ProtectedRoute><Suspense fallback={<PageLoader />}><Blackjack /></Suspense></ProtectedRoute>} />
-        <Route path="/games/roulette" element={<ProtectedRoute><Suspense fallback={<PageLoader />}><Roulette /></Suspense></ProtectedRoute>} />
-        <Route path="/games/baccarat" element={<ProtectedRoute><Suspense fallback={<PageLoader />}><Baccarat /></Suspense></ProtectedRoute>} />
-        <Route path="/games/videopoker" element={<ProtectedRoute><Suspense fallback={<PageLoader />}><VideoPoker /></Suspense></ProtectedRoute>} />
-        <Route path="/games/dragontiger" element={<ProtectedRoute><Suspense fallback={<PageLoader />}><DragonTiger /></Suspense></ProtectedRoute>} />
+        <Route path="/games/crash" element={<ProtectedRoute><Suspense fallback={<PageLoader />}><InhouseGameLauncher gameId="crash" /></Suspense></ProtectedRoute>} />
+        <Route path="/games/mines" element={<ProtectedRoute><Suspense fallback={<PageLoader />}><InhouseGameLauncher gameId="mines" /></Suspense></ProtectedRoute>} />
+        <Route path="/games/plinko" element={<ProtectedRoute><Suspense fallback={<PageLoader />}><InhouseGameLauncher gameId="plinko" /></Suspense></ProtectedRoute>} />
+        <Route path="/games/dice" element={<ProtectedRoute><Suspense fallback={<PageLoader />}><InhouseGameLauncher gameId="dice" /></Suspense></ProtectedRoute>} />
+        <Route path="/games/limbo" element={<ProtectedRoute><Suspense fallback={<PageLoader />}><InhouseGameLauncher gameId="limbo" /></Suspense></ProtectedRoute>} />
+        <Route path="/games/wheel" element={<ProtectedRoute><Suspense fallback={<PageLoader />}><InhouseGameLauncher gameId="wheel" /></Suspense></ProtectedRoute>} />
+        <Route path="/games/hilo" element={<ProtectedRoute><Suspense fallback={<PageLoader />}><InhouseGameLauncher gameId="hilo" /></Suspense></ProtectedRoute>} />
+        <Route path="/games/keno" element={<ProtectedRoute><Suspense fallback={<PageLoader />}><InhouseGameLauncher gameId="keno" /></Suspense></ProtectedRoute>} />
+        <Route path="/games/blackjack" element={<ProtectedRoute><Suspense fallback={<PageLoader />}><InhouseGameLauncher gameId="blackjack" /></Suspense></ProtectedRoute>} />
+        <Route path="/games/roulette" element={<ProtectedRoute><Suspense fallback={<PageLoader />}><InhouseGameLauncher gameId="roulette" /></Suspense></ProtectedRoute>} />
+        <Route path="/games/baccarat" element={<ProtectedRoute><Suspense fallback={<PageLoader />}><InhouseGameLauncher gameId="baccarat" /></Suspense></ProtectedRoute>} />
+        <Route path="/games/videopoker" element={<ProtectedRoute><Suspense fallback={<PageLoader />}><InhouseGameLauncher gameId="videopoker" /></Suspense></ProtectedRoute>} />
+        <Route path="/games/dragontiger" element={<ProtectedRoute><Suspense fallback={<PageLoader />}><InhouseGameLauncher gameId="dragontiger" /></Suspense></ProtectedRoute>} />
         <Route path="/my-bets" element={<ProtectedRoute><Layout><Suspense fallback={<PageLoader />}><MyBets /></Suspense></Layout></ProtectedRoute>} />
         <Route path="/favorites" element={<ProtectedRoute><Layout><Suspense fallback={<PageLoader />}><Favorites /></Suspense></Layout></ProtectedRoute>} />
         <Route path="/recently-played" element={<ProtectedRoute><Layout><Suspense fallback={<PageLoader />}><RecentlyPlayed /></Suspense></Layout></ProtectedRoute>} />
@@ -187,6 +176,7 @@ export default function App() {
         <Route path="/admin/pages" element={<ProtectedRoute adminOnly><Suspense fallback={<PageLoader />}><AdminPages /></Suspense></ProtectedRoute>} />
         <Route path="/admin/games-showcase" element={<ProtectedRoute adminOnly><Suspense fallback={<PageLoader />}><AdminGamesShowcase /></Suspense></ProtectedRoute>} />
         <Route path="/admin/game-settings" element={<ProtectedRoute adminOnly><Suspense fallback={<PageLoader />}><AdminGameSettings /></Suspense></ProtectedRoute>} />
+        <Route path="/admin/module-settings" element={<ProtectedRoute adminOnly><Suspense fallback={<PageLoader />}><AdminModuleSettings /></Suspense></ProtectedRoute>} />
         <Route path="/admin/roles" element={<ProtectedRoute adminOnly><Suspense fallback={<PageLoader />}><AdminRoles /></Suspense></ProtectedRoute>} />
         <Route path="/admin/vip" element={<ProtectedRoute adminOnly><Suspense fallback={<PageLoader />}><AdminVip /></Suspense></ProtectedRoute>} />
         <Route path="/admin/promotions" element={<ProtectedRoute adminOnly><Suspense fallback={<PageLoader />}><AdminPromotions /></Suspense></ProtectedRoute>} />

@@ -326,3 +326,21 @@ export const updateBotSchema = z.object({
   }).optional(),
   notes: z.string().max(300).optional(),
 });
+
+// ─── Modül Ayarları (in-house provider / odds provider / Palace) ──────────
+export const updateInhouseProviderSettingsSchema = z.object({
+  supportedLanguages: z.array(z.string().min(2).max(5)).min(1).optional(),
+  defaultLanguage: z.string().min(2).max(5).optional(),
+  supportedCurrencies: z.array(z.string().min(3).max(5)).min(1).optional(),
+  defaultCurrency: z.string().min(3).max(5).optional(),
+});
+
+export const updateOddsProviderSettingsSchema = z.object({
+  language: z.string().min(2).max(5).optional(),
+  enabledCategories: z.array(z.string()).optional(),
+});
+
+export const updatePalaceModuleSettingsSchema = z.object({
+  language: z.string().min(2).max(5).optional(),
+  popularGameCodes: z.array(z.string()).optional(),
+});

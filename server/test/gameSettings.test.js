@@ -3,11 +3,17 @@ import assert from 'node:assert/strict';
 import mongoose from 'mongoose';
 import User from '../src/models/User.js';
 import GameSettings from '../src/models/GameSettings.js';
-import { initDefaultGameSettings, getGameSettings, getAllGameSettings, updateGameSettings, getCrashSettings, getRouletteSettings } from '../src/services/gameSettings.js';
+import { initDefaultGameSettings, getGameSettings, getAllGameSettings, updateGameSettings, getCrashSettingsForOperator, getRouletteSettingsForOperator } from '../src/services/gameSettings.js';
 
 describe('Game Settings', () => {
   before(async () => {
     await mongoose.connect(process.env.MONGODB_URI || 'mongodb://localhost:27017/betzone_test_gamesettings');
+    // Eski test DB'lerinde partial-olmayan `gameId_1` unique index kalıntısı
+    // olabilir (schema artık operatorId + iki partial unique index
+    // tanımlıyor, bkz. models/GameSettings.js) — production'daki
+    // scripts/migrations/add-operator-to-game-settings.mjs'nin test
+    // ortamındaki eşdeğeri.
+    await GameSettings.syncIndexes();
   });
 
   after(async () => {
@@ -169,23 +175,40 @@ describe('Game Settings', () => {
     });
   });
 
-  describe('getCrashSettings', () => {
-    it('should return crash settings', async () => {
-      await initDefaultGameSettings();
-      
-      const crash = await getCrashSettings();
+  describe('getCrashSettingsForOperator', () => {
+    it('should lazy-seed and return operator-scoped crash settings', async () => {
+      const mongoose = (await import('mongoose')).default;
+      const operatorId = new mongoose.Types.ObjectId();
+
+      const crash = await getCrashSettingsForOperator(operatorId);
       assert.ok(crash);
       assert.equal(crash.gameId, 'inhouse-crash');
+      assert.equal(String(crash.operatorId), String(operatorId));
+    });
+
+    it('should isolate settings between two operators', async () => {
+      const mongoose = (await import('mongoose')).default;
+      const opA = new mongoose.Types.ObjectId();
+      const opB = new mongoose.Types.ObjectId();
+
+      const crashA = await getCrashSettingsForOperator(opA);
+      crashA.crashHouseEdgePercent = 4;
+      await crashA.save();
+
+      const crashB = await getCrashSettingsForOperator(opB);
+      assert.equal(crashB.crashHouseEdgePercent, 20); // varsayılan, opA'nın değişikliğinden etkilenmemeli
     });
   });
 
-  describe('getRouletteSettings', () => {
-    it('should return roulette settings', async () => {
-      await initDefaultGameSettings();
-      
-      const roulette = await getRouletteSettings();
+  describe('getRouletteSettingsForOperator', () => {
+    it('should lazy-seed and return operator-scoped roulette settings', async () => {
+      const mongoose = (await import('mongoose')).default;
+      const operatorId = new mongoose.Types.ObjectId();
+
+      const roulette = await getRouletteSettingsForOperator(operatorId);
       assert.ok(roulette);
       assert.equal(roulette.gameId, 'inhouse-roulette');
+      assert.equal(String(roulette.operatorId), String(operatorId));
     });
   });
 

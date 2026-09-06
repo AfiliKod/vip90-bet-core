@@ -4,9 +4,10 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "dev": "concurrently \"npm run dev --prefix server\" \"npm run dev --prefix client\"",
-    "install:all": "npm i && npm i --prefix server && npm i --prefix client",
+    "dev": "concurrently \"npm run dev --prefix server\" \"npm run dev --prefix client\" \"npm run dev --prefix game-host\"",
+    "install:all": "npm i && npm i --prefix server && npm i --prefix client && npm i --prefix game-host",
     "build": "npm install --prefix client && npm run build --prefix client",
+    "build:game-host": "npm install --prefix game-host && npm run build --prefix game-host",
     "start": "npm run build && node server/src/server.js",
     "collect-session": "node server/scripts/collect-session.js",
     "test": "node --test server/test/*.test.js client/src/i18n/*.test.js",
