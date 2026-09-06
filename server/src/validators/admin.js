@@ -238,6 +238,23 @@ export const upsertVipLevelSchema = z.object({
   isActive: z.boolean().optional(),
 });
 
+// Kampanyalar/promosyonlar (Promotion modeli) — admin CRUD. Öncesinde tek
+// yaratım yolu tek seferlik bir script'ti (scripts/add-deneme-bonusu-promotion.mjs);
+// panelden yönetilebilir yüzey yoktu.
+export const upsertPromotionSchema = z.object({
+  id: z.string().min(1).optional(), // varsa güncelleme, yoksa yeni kayıt
+  type: z.enum(['welcome', 'freeBet', 'reload', 'trial']),
+  title: z.string().min(1).max(120),
+  description: z.string().max(1000).optional(),
+  amount: z.number().min(0),
+  minOdds: z.number().min(1).optional(),
+  wageringMultiplier: z.number().min(0).optional(),
+  deadlineDays: z.number().int().min(0).optional(),
+  expiresAt: z.string().datetime().optional().nullable(),
+  isActive: z.boolean().optional(),
+  gameWeights: z.record(z.string(), z.number()).optional(),
+});
+
 // P3 — bot oyuncular (User koleksiyonunda isBot:true)
 export const createBotSchema = z.object({
   username: z.string().min(3).max(30),
