@@ -47,6 +47,7 @@ import staticPagesRoutes from './routes/staticPages.js';
 import gamesRoutes from './routes/games.js';
 import providerRoutes from './provider/routes/index.js';
 import inhouseProviderProxyRoutes from './routes/inhouseProviderProxy.js';
+import adminModuleSettingsRoutes from './routes/adminModuleSettings.js';
 import { getAllOperatorOrigins } from './provider/services/operatorOriginCache.js';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
@@ -192,6 +193,7 @@ export function createApp() {
   app.use('/api/crypto', cryptoRoutes);
   app.use('/api/bank', bankRoutes);
   app.use('/api/admin/analytics', analyticsRoutes);
+  app.use('/api/admin', adminModuleSettingsRoutes);
   app.use('/api/auth/2fa', admin2faRoutes);
   app.use('/api/theme', themeRoutes);
   app.use('/api/branding', brandingRoutes);

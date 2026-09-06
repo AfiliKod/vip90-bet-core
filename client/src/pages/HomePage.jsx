@@ -98,6 +98,9 @@ export default function HomePage() {
   const currentUser = useAuthStore(s => s.user);
   const [pageContent, setPageContent] = useState(null);
   const [palaceGames, setPalaceGames] = useState([]);
+  // Admin'in Modül Ayarları'ndan seçtiği "Popüler Oyunlar" listesi (game_code
+  // dizisi) — boşsa aşağıda eski davranışa (ilk 10 oyun) düşülür.
+  const [popularGameCodes, setPopularGameCodes] = useState([]);
   // Sağlayıcı rayından bir sağlayıcı seçilince diğer oyun satırları
   // gizlenir, "Tüm Oyunlar" alanı yalnızca bu sağlayıcının oyunlarını
   // gösterir (bkz. AllGamesSection.jsx, ProviderRow.jsx).
@@ -128,15 +131,28 @@ export default function HomePage() {
     return () => { cancelled = true; };
   }, []);
 
+  useEffect(() => {
+    api.get('/palace/popular-games').then(({ data }) => setPopularGameCodes(data?.gameCodes || [])).catch(() => {});
+  }, []);
+
   const { popularGames, slotGames, newGames } = useMemo(() => {
     const slots = palaceGames.filter(g => g.category === 'Slots');
     const byDateDesc = [...palaceGames].sort((a, b) => new Date(b.reg_date) - new Date(a.reg_date));
+
+    // Admin curated bir liste seçtiyse (Modül Ayarları → Palace) o sırayla
+    // göster; hiç seçim yapılmamışsa eski davranışa (ilk 10 oyun) düş.
+    let curatedPopular = null;
+    if (popularGameCodes.length) {
+      const byCode = new Map(palaceGames.map(g => [g.game_code, g]));
+      curatedPopular = popularGameCodes.map(code => byCode.get(code)).filter(Boolean);
+    }
+
     return {
-      popularGames: palaceGames.slice(0, 10),
+      popularGames: curatedPopular?.length ? curatedPopular : palaceGames.slice(0, 10),
       slotGames: slots.slice(0, 10),
       newGames: byDateDesc.slice(0, 10),
     };
-  }, [palaceGames]);
+  }, [palaceGames, popularGameCodes]);
 
   // "Tüm Oyunlar" alanının varsayılan (sağlayıcı filtresi yokken) içeriği —
   // diğer satırlar gibi kürasyonlu değil, gerçekten rastgele bir örneklem.
