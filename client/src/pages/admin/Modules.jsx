@@ -1,5 +1,6 @@
 import { useEffect, useState, useCallback } from 'react';
 import api from '../../services/api';
+import { useTranslation } from '../../i18n';
 
 /**
  * M3 — Admin modül ekranı: aktivasyon, durum, yenileme.
@@ -9,17 +10,18 @@ import api from '../../services/api';
  * merkez erişilemiyor demektir — son bilinen durumla çalışılıyor.
  */
 
-const LICENSE_BADGE = {
-  live:   { label: 'Lisans: doğrulandı', cls: 'bg-green-500/20 text-green-300 border-green-500/30' },
-  cached: { label: 'Lisans: önbellek (merkez erişilemiyor)', cls: 'bg-yellow-500/20 text-yellow-300 border-yellow-500/30' },
-  closed: { label: 'Lisans: doğrulanamadı', cls: 'bg-red-500/20 text-red-300 border-red-500/30' },
-};
-
 export default function AdminModules() {
+  const { t } = useTranslation();
   const [modules, setModules] = useState([]);
   const [loading, setLoading] = useState(true);
   const [busyId, setBusyId] = useState(null);
   const [error, setError] = useState('');
+
+  const LICENSE_BADGE = {
+    live:   { label: t('admin.modules.licenseLive'), cls: 'bg-green-500/20 text-green-300 border-green-500/30' },
+    cached: { label: t('admin.modules.licenseCached'), cls: 'bg-yellow-500/20 text-yellow-300 border-yellow-500/30' },
+    closed: { label: t('admin.modules.licenseClosed'), cls: 'bg-red-500/20 text-red-300 border-red-500/30' },
+  };
 
   const load = useCallback(async () => {
     setError('');
@@ -27,11 +29,11 @@ export default function AdminModules() {
       const r = await api.get('/admin/modules');
       setModules(r.data.modules ?? []);
     } catch {
-      setError('Modül listesi alınamadı.');
+      setError(t('admin.modules.loadFailed'));
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [t]);
 
   useEffect(() => { load(); }, [load]);
 
@@ -42,7 +44,7 @@ export default function AdminModules() {
       const r = await api.patch(`/admin/modules/${m.id}`, { enabled: !m.enabled });
       setModules(r.data.modules ?? []);
     } catch {
-      setError(`"${m.title}" güncellenemedi.`);
+      setError(t('admin.modules.updateFailed', { title: m.title }));
     } finally {
       setBusyId(null);
     }
@@ -54,7 +56,7 @@ export default function AdminModules() {
       const r = await api.post('/admin/modules/refresh');
       setModules(r.data.modules ?? []);
     } catch {
-      setError('Yenileme başarısız.');
+      setError(t('admin.modules.refreshFailed'));
     } finally {
       setBusyId(null);
     }
@@ -63,19 +65,18 @@ export default function AdminModules() {
   return (
     <div className="p-6 max-w-4xl mx-auto">
       <div className="flex items-center justify-between mb-6">
-        <h1 className="text-2xl font-bold">Modüller</h1>
+        <h1 className="text-2xl font-bold">{t('admin.modules.title')}</h1>
         <button
           onClick={refresh}
           disabled={busyId === 'refresh'}
           className="px-4 py-2 rounded-lg bg-bg-card border border-white/10 hover:border-primary/40 transition text-sm disabled:opacity-50"
         >
-          {busyId === 'refresh' ? 'Yenileniyor…' : '↻ Durumu Yenile'}
+          {busyId === 'refresh' ? t('admin.modules.refreshing') : t('admin.modules.refreshButton')}
         </button>
       </div>
 
       <p className="text-text-3 text-sm mb-6">
-        Kapattığınız modülün menü ve sayfaları ziyaretçilere görünmez; çekirdek platform etkilenmez.
-        Değişiklikler anında uygulanır.
+        {t('admin.modules.hint')}
       </p>
 
       {error && (
@@ -85,7 +86,7 @@ export default function AdminModules() {
       )}
 
       {loading ? (
-        <div className="text-text-3">Yükleniyor…</div>
+        <div className="text-text-3">{t('common.loading')}</div>
       ) : (
         <div className="space-y-3">
           {modules.map(m => {
@@ -106,7 +107,7 @@ export default function AdminModules() {
                     </span>
                     {m.enabled && !m.licensed && (
                       <span className="text-xs px-2 py-0.5 rounded-full border bg-red-500/20 text-red-300 border-red-500/30">
-                        Lisanssız — ziyaretçilere kapalı
+                        {t('admin.modules.unlicensed')}
                       </span>
                     )}
                   </div>
@@ -117,7 +118,7 @@ export default function AdminModules() {
                   disabled={busyId === m.id}
                   role="switch"
                   aria-checked={m.enabled}
-                  aria-label={`${m.title} modülünü ${m.enabled ? 'kapat' : 'aç'}`}
+                  aria-label={t('admin.modules.toggleAriaLabel', { title: m.title, action: m.enabled ? t('admin.modules.toggleOff') : t('admin.modules.toggleOn') })}
                   className={`relative w-12 h-6 rounded-full transition shrink-0 disabled:opacity-50 ${
                     m.enabled ? 'bg-green-500/80' : 'bg-white/10'
                   }`}

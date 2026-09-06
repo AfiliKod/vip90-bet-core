@@ -1,8 +1,10 @@
 import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import api from '../../services/api';
+import { useTranslation } from '../../i18n';
 
 export default function AdminDashboard() {
+  const { t } = useTranslation();
   const [pendingBank, setPendingBank] = useState(0);
   const [openTickets, setOpenTickets] = useState(0);
   useEffect(() => {
@@ -15,17 +17,17 @@ export default function AdminDashboard() {
 
   return (
     <div className="max-w-5xl mx-auto px-4 py-6">
-      <h1 className="text-2xl font-bold text-text-1 mb-6">⚙️ Admin Paneli</h1>
+      <h1 className="text-2xl font-bold text-text-1 mb-6">⚙️ {t('admin.dashboard.pageTitle')}</h1>
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
         <Link to="/admin/users" className="bg-bg-card border border-white/10 rounded-xl p-5 hover:border-primary/30 transition text-center">
           <div className="text-3xl mb-2">👥</div>
-          <div className="font-semibold text-text-1">Kullanıcı Yönetimi</div>
-          <div className="text-text-3 text-sm mt-1">Bakiye düzenle, hesap askıya al</div>
+          <div className="font-semibold text-text-1">{t('admin.dashboard.users.title')}</div>
+          <div className="text-text-3 text-sm mt-1">{t('admin.dashboard.users.desc')}</div>
         </Link>
         <Link to="/admin/casino" className="bg-bg-card border border-white/10 rounded-xl p-5 hover:border-primary/30 transition text-center">
           <div className="text-3xl mb-2">📊</div>
-          <div className="font-semibold text-text-1">Casino İstatistikleri</div>
-          <div className="text-text-3 text-sm mt-1">GGR, oyuncu ve oyun analizi</div>
+          <div className="font-semibold text-text-1">{t('admin.dashboard.casino.title')}</div>
+          <div className="text-text-3 text-sm mt-1">{t('admin.dashboard.casino.desc')}</div>
         </Link>
         <Link to="/admin/bank" className="bg-bg-card border border-white/10 rounded-xl p-5 hover:border-accent/30 transition text-center relative">
           {pendingBank > 0 && (
@@ -34,38 +36,38 @@ export default function AdminDashboard() {
             </span>
           )}
           <div className="text-3xl mb-2">🏦</div>
-          <div className="font-semibold text-text-1">Banka Talepleri</div>
-          <div className="text-text-3 text-sm mt-1">Yatırma/Çekme onayla</div>
+          <div className="font-semibold text-text-1">{t('admin.dashboard.bank.title')}</div>
+          <div className="text-text-3 text-sm mt-1">{t('admin.dashboard.bank.desc')}</div>
         </Link>
         <Link to="/admin/analytics" className="bg-bg-card border border-white/10 rounded-xl p-5 hover:border-accent/30 transition text-center">
           <div className="text-3xl mb-2">📈</div>
-          <div className="font-semibold text-text-1">Analitik</div>
-          <div className="text-text-3 text-sm mt-1">Detaylı istatistik ve grafikler</div>
+          <div className="font-semibold text-text-1">{t('admin.dashboard.analytics.title')}</div>
+          <div className="text-text-3 text-sm mt-1">{t('admin.dashboard.analytics.desc')}</div>
         </Link>
         <Link to="/admin/settings" className="bg-bg-card border border-white/10 rounded-xl p-5 hover:border-accent/30 transition text-center">
           <div className="text-3xl mb-2">⚙️</div>
-          <div className="font-semibold text-text-1">Sistem Ayarları</div>
-          <div className="text-text-3 text-sm mt-1">Para birimi, saat dilimi, alarm kanalları</div>
+          <div className="font-semibold text-text-1">{t('admin.dashboard.settingsCard.title')}</div>
+          <div className="text-text-3 text-sm mt-1">{t('admin.dashboard.settingsCard.desc')}</div>
         </Link>
         <Link to="/admin/modules" className="bg-bg-card border border-white/10 rounded-xl p-5 hover:border-primary/30 transition text-center">
           <div className="text-3xl mb-2">🧩</div>
-          <div className="font-semibold text-text-1">Modüller</div>
-          <div className="text-text-3 text-sm mt-1">Bahis, casino modüllerini aç/kapat</div>
+          <div className="font-semibold text-text-1">{t('admin.dashboard.modules.title')}</div>
+          <div className="text-text-3 text-sm mt-1">{t('admin.dashboard.modules.desc')}</div>
         </Link>
         <Link to="/admin/theme" className="bg-bg-card border border-white/10 rounded-xl p-5 hover:border-accent/30 transition text-center">
           <div className="text-3xl mb-2">🎨</div>
-          <div className="font-semibold text-text-1">Tema Editörü</div>
-          <div className="text-text-3 text-sm mt-1">Renk, yazı tipi, köşe — canlı önizleme</div>
+          <div className="font-semibold text-text-1">{t('admin.dashboard.theme.title')}</div>
+          <div className="text-text-3 text-sm mt-1">{t('admin.dashboard.theme.desc')}</div>
         </Link>
         <Link to="/admin/branding" className="bg-bg-card border border-white/10 rounded-xl p-5 hover:border-accent/30 transition text-center">
           <div className="text-3xl mb-2">🏷️</div>
-          <div className="font-semibold text-text-1">Marka Kimliği</div>
-          <div className="text-text-3 text-sm mt-1">Logo, favicon, site adı, font</div>
+          <div className="font-semibold text-text-1">{t('admin.dashboard.branding.title')}</div>
+          <div className="text-text-3 text-sm mt-1">{t('admin.dashboard.branding.desc')}</div>
         </Link>
         <Link to="/admin/pages" className="bg-bg-card border border-white/10 rounded-xl p-5 hover:border-accent/30 transition text-center">
           <div className="text-3xl mb-2">🧩</div>
-          <div className="font-semibold text-text-1">Sayfa Düzenleyici</div>
-          <div className="text-text-3 text-sm mt-1">Bölüm sırası, kampanya banner'ları</div>
+          <div className="font-semibold text-text-1">{t('admin.dashboard.pages.title')}</div>
+          <div className="text-text-3 text-sm mt-1">{t('admin.dashboard.pages.desc')}</div>
         </Link>
         <Link to="/admin/promotions" className="bg-bg-card border border-white/10 rounded-xl p-5 hover:border-primary/30 transition text-center">
           <div className="text-3xl mb-2">🎁</div>
@@ -74,33 +76,33 @@ export default function AdminDashboard() {
         </Link>
         <Link to="/admin/games-showcase" className="bg-bg-card border border-white/10 rounded-xl p-5 hover:border-accent/30 transition text-center">
           <div className="text-3xl mb-2">⭐</div>
-          <div className="font-semibold text-text-1">Oyun Vitrini</div>
-          <div className="text-text-3 text-sm mt-1">Öne çıkan oyunlar, sıralama</div>
+          <div className="font-semibold text-text-1">{t('admin.dashboard.gamesShowcase.title')}</div>
+          <div className="text-text-3 text-sm mt-1">{t('admin.dashboard.gamesShowcase.desc')}</div>
         </Link>
         <Link to="/admin/game-settings" className="bg-bg-card border border-white/10 rounded-xl p-5 hover:border-primary/30 transition text-center">
           <div className="text-3xl mb-2">🎛️</div>
-          <div className="font-semibold text-text-1">Oyun Ayarları</div>
-          <div className="text-text-3 text-sm mt-1">RTP, house edge, bahis limitleri</div>
+          <div className="font-semibold text-text-1">{t('admin.dashboard.gameSettings.title')}</div>
+          <div className="text-text-3 text-sm mt-1">{t('admin.dashboard.gameSettings.desc')}</div>
         </Link>
         <Link to="/admin/roles" className="bg-bg-card border border-white/10 rounded-xl p-5 hover:border-primary/30 transition text-center">
           <div className="text-3xl mb-2">🔑</div>
-          <div className="font-semibold text-text-1">Roller ve Yetkiler</div>
-          <div className="text-text-3 text-sm mt-1">Kademeli yönetici izinleri</div>
+          <div className="font-semibold text-text-1">{t('admin.dashboard.roles.title')}</div>
+          <div className="text-text-3 text-sm mt-1">{t('admin.dashboard.roles.desc')}</div>
         </Link>
         <Link to="/admin/vip" className="bg-bg-card border border-white/10 rounded-xl p-5 hover:border-primary/30 transition text-center">
           <div className="text-3xl mb-2">💎</div>
-          <div className="font-semibold text-text-1">VIP Seviyeleri</div>
-          <div className="text-text-3 text-sm mt-1">XP eşikleri, ödüller, cashback</div>
+          <div className="font-semibold text-text-1">{t('admin.dashboard.vip.title')}</div>
+          <div className="text-text-3 text-sm mt-1">{t('admin.dashboard.vip.desc')}</div>
         </Link>
         <Link to="/admin/bots" className="bg-bg-card border border-white/10 rounded-xl p-5 hover:border-primary/30 transition text-center">
           <div className="text-3xl mb-2">🏆</div>
-          <div className="font-semibold text-text-1">Son Kazananlar Simülasyonu</div>
-          <div className="text-text-3 text-sm mt-1">Kozmetik kazanan akışı + çevrimiçi sayaç</div>
+          <div className="font-semibold text-text-1">{t('admin.dashboard.bots.title')}</div>
+          <div className="text-text-3 text-sm mt-1">{t('admin.dashboard.bots.desc')}</div>
         </Link>
         <Link to="/admin/static-pages" className="bg-bg-card border border-white/10 rounded-xl p-5 hover:border-primary/30 transition text-center">
           <div className="text-3xl mb-2">📄</div>
-          <div className="font-semibold text-text-1">Statik Sayfalar</div>
-          <div className="text-text-3 text-sm mt-1">Footer, Hakkımızda, Yasal metinler</div>
+          <div className="font-semibold text-text-1">{t('admin.dashboard.staticPages.title')}</div>
+          <div className="text-text-3 text-sm mt-1">{t('admin.dashboard.staticPages.desc')}</div>
         </Link>
         <Link to="/admin/tickets" className="bg-bg-card border border-white/10 rounded-xl p-5 hover:border-accent/30 transition text-center relative">
           {openTickets > 0 && (
@@ -109,8 +111,8 @@ export default function AdminDashboard() {
             </span>
           )}
           <div className="text-3xl mb-2">🎫</div>
-          <div className="font-semibold text-text-1">Destek Talepleri</div>
-          <div className="text-text-3 text-sm mt-1">Yardım Merkezi ticket'ları</div>
+          <div className="font-semibold text-text-1">{t('admin.dashboard.tickets.title')}</div>
+          <div className="text-text-3 text-sm mt-1">{t('admin.dashboard.tickets.desc')}</div>
         </Link>
       </div>
     </div>

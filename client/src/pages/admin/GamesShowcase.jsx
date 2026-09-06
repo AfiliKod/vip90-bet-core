@@ -1,5 +1,6 @@
 import { useEffect, useState, useMemo } from 'react';
 import api from '../../services/api';
+import { useTranslation } from '../../i18n';
 
 function move(list, index, dir) {
   const to = index + dir;
@@ -21,6 +22,7 @@ function move(list, index, dir) {
  * edilmedi.
  */
 export default function AdminGamesShowcase() {
+  const { t } = useTranslation();
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [notice, setNotice] = useState(null);
@@ -39,7 +41,7 @@ export default function AdminGamesShowcase() {
       const byCode = Object.fromEntries(games.map(g => [g.game_code, g]));
       const codes = featuredRes.data?.codes || [];
       setFeatured(codes.map(code => byCode[code] || { game_code: code, game_name: code, provider_id: '?' }));
-    }).catch(() => setNotice({ type: 'error', text: 'Yüklenemedi' }))
+    }).catch(() => setNotice({ type: 'error', text: t('admin.gamesShowcase.loadFailed') }))
       .finally(() => setLoading(false));
   }
 
@@ -74,9 +76,9 @@ export default function AdminGamesShowcase() {
     setNotice(null);
     try {
       await api.patch('/admin/games/featured', { codes: featured.map(g => g.game_code) });
-      setNotice({ type: 'ok', text: 'Kaydedildi' });
+      setNotice({ type: 'ok', text: t('admin.gamesShowcase.saved') });
     } catch (e) {
-      setNotice({ type: 'error', text: e.response?.data?.error?.message || 'Kaydedilemedi' });
+      setNotice({ type: 'error', text: e.response?.data?.error?.message || t('admin.gamesShowcase.saveFailed') });
     } finally {
       setSaving(false);
     }
@@ -84,9 +86,9 @@ export default function AdminGamesShowcase() {
 
   return (
     <div className="max-w-3xl mx-auto px-4 py-6">
-      <h1 className="text-2xl font-bold text-text-1 mb-1">⭐ Oyun Vitrini</h1>
+      <h1 className="text-2xl font-bold text-text-1 mb-1">⭐ {t('admin.gamesShowcase.pageTitle')}</h1>
       <p className="text-text-3 text-sm mb-6">
-        "Öne Çıkanlar" kategorisinde görünecek oyunları seçin ve sıralayın.
+        {t('admin.gamesShowcase.pageHint')}
       </p>
 
       {notice && (
@@ -105,7 +107,7 @@ export default function AdminGamesShowcase() {
             <input
               value={query}
               onChange={e => setQuery(e.target.value)}
-              placeholder="Oyun ara (isim veya kod)…"
+              placeholder={t('admin.gamesShowcase.searchPlaceholder')}
               className="w-full bg-bg-base border border-white/10 rounded-lg px-3 py-2 text-sm text-text-1"
             />
             {searchResults.length > 0 && (
@@ -126,7 +128,7 @@ export default function AdminGamesShowcase() {
 
           <div className="space-y-2 mb-6">
             {featured.length === 0 && (
-              <p className="text-text-3 text-sm">Henüz oyun eklenmedi — yukarıdan arayıp ekleyin.</p>
+              <p className="text-text-3 text-sm">{t('admin.gamesShowcase.emptyState')}</p>
             )}
             {featured.map((g, i) => (
               <div key={g.game_code} className="bg-bg-card border border-white/10 rounded-lg p-3 flex items-center gap-3">
@@ -134,7 +136,7 @@ export default function AdminGamesShowcase() {
                 <span className="text-text-3 text-xs">{g.provider_id}</span>
                 <button onClick={() => moveGame(i, -1)} disabled={i === 0} className="text-text-3 hover:text-text-1 disabled:opacity-30 px-2">↑</button>
                 <button onClick={() => moveGame(i, 1)} disabled={i === featured.length - 1} className="text-text-3 hover:text-text-1 disabled:opacity-30 px-2">↓</button>
-                <button onClick={() => removeGame(g.game_code)} className="text-xs text-red-300 hover:text-red-200 px-2">Kaldır</button>
+                <button onClick={() => removeGame(g.game_code)} className="text-xs text-red-300 hover:text-red-200 px-2">{t('admin.gamesShowcase.remove')}</button>
               </div>
             ))}
           </div>
@@ -146,7 +148,7 @@ export default function AdminGamesShowcase() {
         disabled={saving || loading}
         className="bg-primary text-black font-semibold px-5 py-2 rounded-lg disabled:opacity-40"
       >
-        {saving ? 'Kaydediliyor…' : 'Kaydet'}
+        {saving ? t('common.saving') : t('common.save')}
       </button>
     </div>
   );
