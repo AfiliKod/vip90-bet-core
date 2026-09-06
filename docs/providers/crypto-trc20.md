@@ -59,10 +59,9 @@ Seed Phrase (CRYPTO_SEED_PHRASE)
 
 ### Admin Erişimi ve Custodial Model
 
-**Önemli:** Bu model **custodial** (emanetçidir). Seed phrase adminde olduğu için:
+**Bu model custodial'dır (emanetçi).** Seed phrase adminde olduğu için:
 - Admin tüm kullanıcıların cüzdan adreslerini türetebilir
-- Admin tüm cüzdanlardaki bakiyelerin sahibidir
-- Admin tek taraflı olarak USDT çekebilir
+- Admin deposit adreslerinden USDT çekebilir
 
 ```javascript
 import { deriveDepositAddress } from '../services/cryptoService.js';
@@ -77,15 +76,27 @@ const user100Address = deriveDepositAddress(100); // Kullanıcı #100
 2. Admin bu index'i bilir → `deriveDepositAddress(index)` ile adresi türetir
 3. TronGrid public API ile bakiye sorgulanabilir
 
-**Güven riski:**
-- Seed phrase sızarsa TÜM cüzdanlar tehlikede
-- Admin malicious ise tüm bakiyeleri çalabilir
-- Kullanıcıların kendi özel anahtarları yok
+**Akış ve para sahipliği:**
+```
+Kullanıcı USDT gönderir → Blockchain'de deposit adresinde bekler
+        ↓
+Admin/Auto check-deposit → Kullanıcı hesabına bakiye yazılır
+        ↓
+Artık USDT platformun malıdır → Admin hot wallet'a çeker
+        ↓
+Kullanıcı platform bakiyesi ile oynar
+```
 
-**Alternatif modeller (gelecek için):**
-- **Non-custodial:** Kullanıcı kendi key'ini tutar (zor ama güvenli)
-- **Multi-sig:** Birden fazla imza gerekir (guaclidean güvenlik)
-- **MPC (Multi-Party Computation):** Anahtar parçalara ayrılır
+- **Pending期间:** USDT blockchain'de deposit adresindedir, henüz kimsenin değildir (confirmasyon beklenir)
+- **Bakiye yazıldıktan sonra:** USDT platformun malıdır, kullanıcı sadece platform bakiyesine sahiptir
+- **Admin çekimi:** Ticari zorunluluktur — platform kendi hot/cold wallet'ına çekmeli ki likidite sağlayabilsin
+
+**Bu model tüm borsalar ve gambling platformları tarafından kullanılır.** Kullanıcılar platforma güvenir, platform ise kullanıcı bakiyelerini yönetir.
+
+**Seed phrase güvenliği:**
+- Sadece `.env` dosyasında saklanır
+- Git'e commit edilmez
+- Production'da sadece yetkili kişiler erişebilir
 
 ## API Endpointler
 
