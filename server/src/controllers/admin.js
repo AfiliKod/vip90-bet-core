@@ -1309,7 +1309,6 @@ export async function toggleStaticPage(req, res, next) {
 
 // ─── Crypto Ödeme Ağ Geçidi — admin işlemleri ───────────────────────────────
 import CryptoDeposit from '../models/CryptoDeposit.js';
-import Transaction from '../models/Transaction.js';
 import { CRYPTO_SETTINGS } from '../config/crypto.js';
 import { transferUSDT, getHotWalletBalance } from '../services/cryptoService.js';
 
