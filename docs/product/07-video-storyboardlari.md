@@ -1,224 +1,192 @@
-# Video Kütüphanesi — Storyboard'lar
+# Video Library — Storyboards
 
-> **Durum notu:** Bu belge D2 kartının (15-20 kısa video) çekim temelidir
-> ve **eksiksiz** olarak tamamlanmıştır — 18 storyboard'un tamamı sahne
-> sahne yazılmıştır. Gerçek video kaydı/kurgusu yapılmadı — bu bilinçli
-> bir kapsam kararı: hangi aracın (ekran kaydı + ses üstü anlatım
-> üretebilen bir araç, ya da metinden video üretebilen bir model)
-> kullanılacağına dair araştırma, geliştirme akışının sonunda yapılacak.
-> Storyboard yazımı bu araştırmayı beklemedi; her sahne, o aracı elinize
-> aldığınızda doğrudan çekime/üretime verilebilecek netlikte.
+> **Status note:** This document is the filming foundation for the D2 card (15-20 short videos) and is **complete** — all 18 storyboards are written scene by scene. Actual video recording/editing has not been done — this is a deliberate scope decision: research on which tool to use (a tool that can produce screen recording + voice-over narration, or a model that can generate video from text) will be done at the end of the development flow. Storyboard writing didn't wait for that research; each scene is clear enough to hand directly to filming/production when you get your hands on the tool.
 >
-> Bazı storyboard'lar, henüz `feat/integration`'a merge
-> edilmemiş ama koddaki karta ait ekranları tarif eder (K2, M3, O6 —
-> hepsi ilgili `feat/akis-*` dalında tamamlandı). Bu, storyboard'un
-> eksik olduğu anlamına gelmez — o dallar merge edildiğinde ekranlar
-> tarif edildiği gibi orada olacak, storyboard bugünden hazır.
+> Some storyboards describe screens from cards not yet merged into `feat/integration` but belonging to code on the relevant `feat/akis-*` branch (K2, M3, O6 — all completed on their respective branches). This doesn't mean the storyboard is incomplete — when those branches are merged, the screens will be there as described, the storyboard is ready from today.
 
-## Format kuralı
+## Format rule
 
-Her video: **60-120 saniye**, ekran kaydı + ses üstü anlatım (voice-over),
-alt yazı Türkçe + İngilizce (i18n altyapısı hazır, metin dosyaları ayrı
-tutulacak). Her storyboard şu yapıyı takip eder:
+Each video: **60-120 seconds**, screen recording + voice-over narration, subtitles in Turkish + English (i18n infrastructure is ready, text files will be kept separate). Each storyboard follows this structure:
 
-- **Sahne** — ekranda ne görünüyor (saniye aralığıyla)
-- **Anlatım** — voice-over metni
-- **Ekran metni** — varsa vurgulanan başlık/callout
+- **Scene** — what's on screen (with time range)
+- **Narration** — voice-over text
+- **On-screen text** — highlighted title/callout if any
 
 ---
 
-## Grup 1 — Kurulum (3 video)
+## Group 1 — Installation (3 videos)
 
-### V1.1 — "VIP90.bet'u 5 Dakikada Kurmak" (90 sn)
+### V1.1 — "Setting Up VIP90.bet in 5 Minutes" (90 sec)
 
-| Sahne | Anlatım |
+| Scene | Narration |
 |---|---|
-| 0-10s: Terminal ekranı, boş bir VPS | "VIP90.bet'u kurmak için tek ihtiyacınız bir VPS ve beş dakika." |
-| 10-30s: `npm run install:all` çalışıyor | "Önce bağımlılıkları kuruyoruz — tek komut, hem sunucu hem istemci." |
-| 30-55s: `.env` dosyası düzenleniyor, zorunlu alanlar vurgulanıyor | "Sonra `.env` dosyasında veritabanı adresinizi ve güvenlik anahtarlarınızı giriyoruz." |
-| 55-75s: `npm run build && npm start` | "Derleyip başlatıyoruz." |
-| 75-90s: Tarayıcıda çalışan site | "İşte bu kadar — VIP90.bet artık çalışıyor." |
+| 0-10s: Terminal screen, an empty VPS | "All you need to set up VIP90.bet is a VPS and five minutes." |
+| 10-30s: `npm run install:all` running | "First we install the dependencies — a single command, for both server and client." |
+| 30-55s: `.env` file being edited, required fields highlighted | "Then we enter your database address and security keys in the `.env` file." |
+| 55-75s: `npm run build && npm start` | "We build and start." |
+| 75-90s: Site running in browser | "That's it — VIP90.bet is now running." |
 
-**Ekran metni:** "01 — Kurulum · docs/product/01-kurulum.md"
+**On-screen text:** "01 — Installation · docs/product/01-kurulum.md"
 
-### V1.2 — "Docker ile Tek Komut Kurulum" — **K1 tamamlandı, çekilebilir**
+### V1.2 — "One-Command Docker Installation" — **K1 completed, ready to film**
 
-Docker Compose + Caddy ters vekil akışını gösterir: `docker compose up`,
-otomatik SSL sertifikası, servislerin ayağa kalkışı.
+Shows the Docker Compose + Caddy reverse proxy flow: `docker compose up`, automatic SSL certificate, services coming up.
 
-### V1.3 — "Kurulum Sihirbazı" — **K2 tamamlandı (feat/akis-k), merge sonrası çekilebilir** (95 sn)
+### V1.3 — "Setup Wizard" — **K2 completed (feat/akis-k), ready to film after merge** (95 sec)
 
-| Sahne | Anlatım |
+| Scene | Narration |
 |---|---|
-| 0-10s: Tarayıcıda kurulum sihirbazının ilk ekranı (`/install`) açılıyor | "Terminale hiç dokunmadan da kurabilirsiniz — tarayıcınızda kurulum sihirbazını açın." |
-| 10-30s: Veritabanı bağlantı adımı, bağlantı testi yeşil onay veriyor | "Önce veritabanı adresinizi girip bağlantıyı test ediyoruz." |
-| 30-55s: Yönetici hesabı adımı — kullanıcı adı, e-posta, şifre | "Sonra ilk yönetici hesabınızı oluşturuyoruz." |
-| 55-75s: Site adı ve para birimi adımı | "Site adınızı ve para biriminizi seçiyoruz." |
-| 75-90s: "Kurulumu Tamamla" butonuna basılıyor, `.env` otomatik üretiliyor, ilerleme çubuğu | "Sihirbaz `.env` dosyanızı sizin için üretir — hiçbir satırı elle düzenlemenize gerek yok." |
-| 90-95s: Kurulum tamamlandı ekranı, admin paneline yönlendirme | "Kurulum tamam — doğrudan admin panelinize giriyorsunuz." |
+| 0-10s: Browser opens the setup wizard's first screen (`/install`) | "You can also set up without touching the terminal at all — open the setup wizard in your browser." |
+| 10-30s: Database connection step, connection test shows green confirmation | "First we enter your database address and test the connection." |
+| 30-55s: Admin account step — username, email, password | "Then we create your first admin account." |
+| 55-75s: Site name and currency step | "We choose your site name and currency." |
+| 75-90s: "Complete Setup" button is clicked, `.env` is auto-generated, progress bar | "The wizard generates your `.env` file for you — no need to edit a single line manually." |
+| 90-95s: Setup complete screen, redirect to admin panel | "Setup is done — you go straight to your admin panel." |
 
-**Ekran metni:** "Terminal Gerekmez · Web Tabanlı Kurulum Sihirbazı"
+**On-screen text:** "No Terminal Needed · Web-Based Setup Wizard"
 
 ---
 
-## Grup 2 — İlk Yapılandırma (3 video)
+## Group 2 — Initial Configuration (3 videos)
 
-### V2.1 — "İlk Giriş ve Admin Paneline Genel Bakış" (100 sn)
+### V2.1 — "First Login and Admin Panel Overview" (100 sec)
 
-| Sahne | Anlatım |
+| Scene | Narration |
 |---|---|
-| 0-15s: Giriş ekranı, admin hesabıyla giriş | "Kurulumdan sonra admin hesabınızla giriş yapın." |
-| 15-40s: Admin panel ana ekranı, sol menü gezintisi | "Sol menüde kullanıcılar, etkinlikler, casino istatistikleri ve ayarlar bulunuyor." |
-| 40-70s: Ayarlar sayfası, panelden yönetilen değerler | "Bazı ayarlar `.env` dosyasında, bazıları panelden anında değiştirilebiliyor — tema rengi gibi." |
-| 70-100s: Genel gösterge paneli, analitik grafikleri | "Ana panelde günlük istatistikleri görürsünüz." |
+| 0-15s: Login screen, login with admin account | "After setup, log in with your admin account." |
+| 15-40s: Admin panel main screen, left menu navigation | "The left menu has users, events, casino statistics, and settings." |
+| 40-70s: Settings page, panel-managed values | "Some settings are in the `.env` file, some can be changed instantly from the panel — like the theme color." |
+| 70-100s: Main dashboard, analytics charts | "On the main panel you see daily statistics." |
 
-### V2.2 — "Ortam Değişkenlerini Anlamak" (110 sn)
+### V2.2 — "Understanding Environment Variables" (110 sec)
 
-`.env` dosyasındaki her bölümü (MongoDB, JWT, SMTP, Casino sağlayıcı)
-tek tek gösterip açıklar — [02 — Yapılandırma](02-yapilandirma.md)'nın
-görsel karşılığı.
+Goes through each section in the `.env` file (MongoDB, JWT, SMTP, Casino provider) one by one with explanations — the visual counterpart of [02 — Configuration](02-yapilandirma.md).
 
-### V2.3 — "Site Adı, Logo ve İlk Marka Ayarları" — **A3 tamamlandı, çekilebilir**
+### V2.3 — "Site Name, Logo, and Initial Brand Settings" — **A3 completed, ready to film**
 
-Panelden logo/favicon/site adı/font yükleme akışı.
+Logo/favicon/site name/font upload flow from the panel.
 
 ---
 
-## Grup 3 — Tema Editörü (3 video) — **A1/A2 tamamlandı, hepsi çekilebilir**
+## Group 3 — Theme Editor (3 videos) — **A1/A2 completed, all ready to film**
 
-### V3.1 — "Renk Temasını Değiştirmek" (75 sn)
+### V3.1 — "Changing the Color Theme" (75 sec)
 
-| Sahne | Anlatım |
+| Scene | Narration |
 |---|---|
-| 0-10s: Admin panel, Tema sekmesi açılıyor | "Tema editörüne admin panelden ulaşırsınız." |
-| 10-40s: Birincil renk değiştiriliyor, canlı önizleme | "Rengi değiştirdiğinizde, sağdaki önizleme anında güncelleniyor." |
-| 40-60s: Kaydet'e basılıyor, siteye geçiliyor, aynı renk her yerde | "Kaydedince değişiklik kod yazmadan tüm siteye yayılıyor." |
-| 60-75s: Kapanış | "Hiçbir yeniden derleme gerekmiyor." |
+| 0-10s: Admin panel, Theme tab opens | "You access the theme editor from the admin panel." |
+| 10-40s: Primary color being changed, live preview | "When you change the color, the preview on the right updates instantly." |
+| 40-60s: Save is clicked, site is visited, same color everywhere | "Once saved, the change propagates across the entire site without writing code." |
+| 60-75s: Closing | "No recompilation needed." |
 
-### V3.2 — "Üç Hazır Tema Arasında Geçiş" — **A6 tamamlandı**
+### V3.2 — "Switching Between Three Ready Themes" — **A6 completed**
 
-Hazır tema paketlerinin (varsayılan + 2 alternatif) arasında geçişi gösterir.
+Shows switching between the ready theme packages (default + 2 alternatives).
 
-### V3.3 — "Ana Sayfa Düzenini Değiştirmek" — **A4 tamamlandı**
+### V3.3 — "Changing the Homepage Layout" — **A4 completed**
 
-Banner, kampanya bloğu ve bölüm sırasının panelden düzenlenmesi.
+Editing the banner, campaign block, and section order from the panel.
 
 ---
 
-## Grup 4 — Modül Aktivasyonu (2 video) — **M2/M3 tamamlandı (feat/akis-m), merge sonrası çekilebilir**
+## Group 4 — Module Activation (2 videos) — **M2/M3 completed (feat/akis-m), ready to film after merge**
 
-### V4.1 — "Modüller Nedir, Nasıl Çalışır" (90 sn)
+### V4.1 — "What Modules Are, How They Work" (90 sec)
 
-| Sahne | Anlatım |
+| Scene | Narration |
 |---|---|
-| 0-15s: [03 — Modül Sistemi](03-modul-sistemi.md)'deki üç modülün basit bir şeması (Çekirdek / Bahis / Casino İçeriği / Canlı Casino) | "VIP90.bet'da çekirdek platform her zaman açıktır — üç ek modül ayrı satılır/lisanslanır." |
-| 15-40s: Admin panel → Modüller ekranı açılıyor, üç modül kartı listeleniyor (durum rozetleriyle) | "Hangi modülün açık, hangisinin kapalı olduğunu tek ekrandan görürsünüz." |
-| 40-65s: Kapalı bir modülün etkilendiği sayfaya (ör. `/casino`) gidiliyor, menüden kalkmış/nazik bir mesaj gösteriliyor | "Bir modül kapalıyken sitenin geri kalanı hiç etkilenmez — o bölüm sadece nazikçe kaybolur." |
-| 65-90s: Kapanış, modül sisteminin özet faydası | "Operatör olarak yalnızca lisansladığınız kadarını açık tutarsınız." |
+| 0-15s: Simple diagram of the three modules from [03 — Module System](03-modul-sistemi.md) (Core / Betting / Casino Content / Live Casino) | "In VIP90.bet, the core platform is always enabled — three additional modules are sold/licensed separately." |
+| 15-40s: Admin panel → Modules screen opens, three module cards listed (with status badges) | "You can see which module is on and which is off from a single screen." |
+| 40-65s: Navigates to a page affected by a disabled module (e.g., `/casino`), menu item is gone / graceful message shown | "When a module is disabled, the rest of the site is completely unaffected — that section just gracefully disappears." |
+| 65-90s: Closing, summary benefit of the module system | "As an operator, you only keep enabled what you've licensed." |
 
-**Ekran metni:** "03 — Modül Sistemi · docs/product/03-modul-sistemi.md"
+**On-screen text:** "03 — Module System · docs/product/03-modul-sistemi.md"
 
-### V4.2 — "Bir Modülü Etkinleştirmek" (80 sn)
+### V4.2 — "Enabling a Module" (80 sec)
 
-| Sahne | Anlatım |
+| Scene | Narration |
 |---|---|
-| 0-10s: Admin panel → Modüller ekranı, "Casino İçeriği" modülü kapalı durumda | "Bir modülü açmak tek bir tıkla oluyor." |
-| 10-35s: Aktivasyon anahtarına tıklanıyor, kısa bir "kontrol ediliyor" durumu, ardından yeşil "Aktif" rozeti | "Sistem lisans/abonelik durumunu kontrol eder, uygunsa modül anında açılır." |
-| 35-55s: Menüye dönülüyor, az önce kapalı olan bölüm artık görünür | "Menüde az önce kayıp olan bölüm şimdi geri geldi." |
-| 55-80s: Aynı ekranda modülün "yenileme/süre" bilgisi gösteriliyor | "Abonelik süresi dolmadan önce panelden uyarı alırsınız — internet kesilse bile kısa bir tolerans penceresi modülü açık tutar." |
+| 0-10s: Admin panel → Modules screen, "Casino Content" module in disabled state | "Enabling a module is just a single click." |
+| 10-35s: Toggle is clicked, brief "checking" status, then green "Active" badge | "The system checks the license/subscription status; if valid, the module enables instantly." |
+| 35-55s: Return to menu, the section that was just hidden is now visible | "The section that was missing from the menu is now back." |
+| 55-80s: Same screen shows the module's "renewal/period" info | "You get a panel warning before the subscription period expires — even if the internet goes down, a short tolerance window keeps the module enabled." |
 
-**Ekran metni:** "Panelden Aç/Kapat · Abonelik Durumu Anlık Görünür"
+**On-screen text:** "Toggle from Panel · Subscription Status Visible Instantly"
 
 ---
 
-## Grup 5 — Oyun Ayarları (2 video) — **O6 tamamlandı (feat/akis-bc), merge sonrası çekilebilir**
+## Group 5 — Game Settings (2 videos) — **O6 completed (feat/akis-bc), ready to film after merge**
 
-### V5.1 — "House Edge ve Bahis Limitlerini Ayarlamak" (95 sn)
+### V5.1 — "Setting House Edge and Bet Limits" (95 sec)
 
-| Sahne | Anlatım |
+| Scene | Narration |
 |---|---|
-| 0-15s: Admin panel → Oyun Ayarları, Crash satırı seçiliyor | "Her in-house oyunun matematiğini panelden ayarlarsınız — kod değiştirmeden." |
-| 15-45s: House edge yüzdesi kaydırıcıyla değiştiriliyor (ör. %20'den %15'e), min/max bahis alanları güncelleniyor | "House edge, minimum ve maksimum bahis — hepsi burada. Roulette için de aynı ekran, kendi oranıyla." |
-| 45-70s: Kaydet'e basılıyor, "Aktif" durumu ve son güncelleyen bilgisi görünüyor | "Değişiklik kaydedilince anında canlıya geçer, kim değiştirdiği denetim kaydında tutulur." |
-| 70-95s: Oyunun kendisine geçiliyor (Crash ekranı), yeni ayarların round'a yansıdığı gösteriliyor | "Oyuncu tarafında yeni ayar bir sonraki round'da devrede." |
+| 0-15s: Admin panel → Game Settings, Crash row selected | "You adjust the mathematics of every in-house game from the panel — without changing code." |
+| 15-45s: House edge percentage being changed with a slider (e.g., from 20% to 15%), min/max bet fields updated | "House edge, minimum and maximum bet — all here. Same screen for Roulette, with its own ratio." |
+| 45-70s: Save is clicked, "Active" status and last-updater info shown | "Once saved, the change goes live instantly; who changed it is recorded in the audit log." |
+| 70-95s: Navigate to the game itself (Crash screen), new settings reflected in the next round | "On the player side, the new setting takes effect on the next round." |
 
-**Ekran metni:** "House Edge · Bahis Limitleri · Panelden, Anlık"
+**On-screen text:** "House Edge · Bet Limits · From Panel, Instantly"
 
-### V5.2 — "Oyun Matematiğini Anlamak (Provably Fair)" (100 sn) — **bugün çekilebilir**
+### V5.2 — "Understanding Game Mathematics (Provably Fair)" (100 sec) — **ready to film today**
 
-| Sahne | Anlatım |
+| Scene | Narration |
 |---|---|
-| 0-20s: Bir Crash round'u oynanıyor | "Her round, önceden belirlenemeyen bir sunucu tohumuyla hesaplanır." |
-| 20-60s: [04 — Oyun Matematiği](04-oyun-matematigi.md)'ndeki HMAC formülü ekranda, basitleştirilmiş anlatım | "HMAC-SHA256 ile hash'lenen bu tohum, sonucu belirler — kimse önceden bilemez." |
-| 60-100s: House edge tablosu gösteriliyor | "Her oyunun house edge değeri belgelerde açık şekilde yazılı." |
+| 0-20s: A Crash round being played | "Each round is calculated with a server seed that cannot be predetermined." |
+| 20-60s: HMAC formula from [04 — Game Mathematics](04-oyun-matematigi.md) on screen, simplified explanation | "This seed, hashed with HMAC-SHA256, determines the result — no one can know it in advance." |
+| 60-100s: House edge table shown | "Each game's house edge value is clearly documented." |
 
 ---
 
-## Grup 6 — Ödeme Akışı (2 video) — **bugün çekilebilir**
+## Group 6 — Payment Flow (2 videos) — **ready to film today**
 
-### V6.1 — "Banka Havalesi ile Para Yatırma" (85 sn)
+### V6.1 — "Depositing via Bank Transfer" (85 sec)
 
-Oyuncu tarafı: yatırma talebi oluşturma. Admin tarafı: talebi onaylama,
-bakiyenin güncellenmesi.
+Player side: creating a deposit request. Admin side: approving the request, balance being updated.
 
-### V6.2 — "USDT-TRC20 ile Kripto Yatırma" (85 sn)
+### V6.2 — "Depositing Crypto via USDT-TRC20" (85 sec)
 
-Cüzdan adresi gösterimi, işlem takibi, otomatik onay akışı.
+Wallet address display, transaction tracking, automatic approval flow.
 
 ---
 
-## Grup 7 — Destek Araçları (3 video) — **D3/D5 tamamlandı, hepsi çekilebilir**
+## Group 7 — Support Tools (3 videos) — **D3/D5 completed, all ready to film**
 
-### V7.1 — "Yardım Asistanına Soru Sormak" (70 sn)
+### V7.1 — "Asking a Question to the Help Assistant" (70 sec)
 
-Chatbot widget'ı açılır, bir kurulum sorusu sorulur, dokümana dayalı
-cevap gösterilir. Ardından bilinmeyen bir konu sorulup asistanın
-"destek talebi açın" yönlendirmesi gösterilir — D3'ün kabul kriterinin
-görsel kanıtı.
+Chatbot widget opens, a setup question is asked, document-based answer is shown. Then an unknown topic is asked and the assistant's "open a support ticket" redirect is shown — visual proof of D3's acceptance criteria.
 
-### V7.2 — "Destek Talebi Açmak" (75 sn) — **istemci ekranı henüz yok, çekim için önce eklenmeli**
+### V7.2 — "Opening a Support Ticket" (75 sec) — **client screen not yet added, must be added before filming**
 
-Ticket API'si (`POST /api/tickets/mine`, `GET /api/tickets/mine`,
-`GET /api/tickets/mine/:id`, `POST /api/tickets/mine/:id/reply`) hazır
-ve çalışıyor — eksik olan yalnızca oyuncuya dönük ekran. Storyboard,
-o ekran eklendiğinde doğrudan kullanılabilecek şekilde tam yazıldı:
+The Ticket API (`POST /api/tickets/mine`, `GET /api/tickets/mine`, `GET /api/tickets/mine/:id`, `POST /api/tickets/mine/:id/reply`) is ready and functional — the only missing piece is the player-facing screen. The storyboard is fully written to be used directly when that screen is added:
 
-| Sahne | Anlatım |
+| Scene | Narration |
 |---|---|
-| 0-10s: Chatbot'un "destek talebi açın" yönlendirmesinden ticket formuna geçiliyor | "Asistan yardımcı olamadığında, tek tıkla destek talebi açabilirsiniz." |
-| 10-35s: Konu ve açıklama alanları dolduruluyor, gönder butonuna basılıyor | "Konunuzu kısaca yazın, ekibimiz en kısa sürede döner." |
-| 35-55s: "Taleplerim" listesi, yeni açılan tiketin durumu ("Açık") görünüyor | "Tüm taleplerinizi ve durumlarını tek yerden takip edersiniz." |
-| 55-75s: Bir yanıt geldiğinde bildirim, tikete girip yanıtı okuma/cevap yazma | "Yanıt geldiğinde bildirim alırsınız, aynı ekrandan cevap yazabilirsiniz." |
+| 0-10s: From chatbot's "open a support ticket" redirect to ticket form | "When the assistant can't help, you can open a support ticket with a single click." |
+| 10-35s: Subject and description fields are filled, submit button clicked | "Write your subject briefly, our team will get back to you as soon as possible." |
+| 35-55s: "My Requests" list, new ticket's status ("Open") shown | "You can track all your requests and their statuses from one place." |
+| 55-75s: Notification when a reply arrives, entering ticket to read reply/write response | "You get a notification when a reply arrives; you can write back from the same screen." |
 
-**Ekran metni:** "Destek Talebi · Takip · Yanıt — Tek Ekranda"
-**Çekim notu:** Bu video, oyuncu-tarafı ticket ekranı eklenene kadar
-kayda alınamaz — storyboard hazır, ekran eklendiğinde sırada bekliyor.
+**On-screen text:** "Support Ticket · Tracking · Reply — On a Single Screen"
+**Filming note:** This video cannot be recorded until the player-side ticket screen is added — the storyboard is ready, waiting in line when the screen is added.
 
-### V7.3 — "Admin Panelinden Tikete Yanıt Vermek" (70 sn)
+### V7.3 — "Replying to a Ticket from the Admin Panel" (70 sec)
 
-Admin tarafında tiket listesi, yanıtlama, durum değiştirme.
+Admin side: ticket list, replying, changing status.
 
 ---
 
-## Özet tablo
+## Summary table
 
-| Grup | Video sayısı | Storyboard durumu | Çekim için beklenen |
+| Group | Video count | Storyboard status | Waiting for filming |
 |---|---|---|---|
-| Kurulum | 3 | 3/3 tam yazıldı | K2'nin `feat/integration`'a merge'i |
-| İlk Yapılandırma | 3 | 3/3 tam yazıldı | — (bugün çekilebilir) |
-| Tema Editörü | 3 | 3/3 tam yazıldı | — (bugün çekilebilir) |
-| Modül Aktivasyonu | 2 | 2/2 tam yazıldı | M2/M3'ün merge'i |
-| Oyun Ayarları | 2 | 2/2 tam yazıldı | O6'nın merge'i |
-| Ödeme Akışı | 2 | 2/2 tam yazıldı | — (bugün çekilebilir) |
-| Destek Araçları | 3 | 3/3 tam yazıldı | V7.2 için oyuncu-tarafı ticket ekranının eklenmesi |
-| **Toplam** | **18** | **18/18 tam yazıldı** | |
+| Installation | 3 | 3/3 fully written | K2's merge into `feat/integration` |
+| Initial Configuration | 3 | 3/3 fully written | — (ready to film today) |
+| Theme Editor | 3 | 3/3 fully written | — (ready to film today) |
+| Module Activation | 2 | 2/2 fully written | M2/M3 merge |
+| Game Settings | 2 | 2/2 fully written | O6 merge |
+| Payment Flow | 2 | 2/2 fully written | — (ready to film today) |
+| Support Tools | 3 | 3/3 fully written | V7.2: player-side ticket screen addition |
+| **Total** | **18** | **18/18 fully written** | |
 
-D2'nin istediği 15-20 aralığında **18 storyboard'un tamamı** sahne sahne
-yazıldı — hiçbiri eksik/kavramsal bırakılmadı. 13'ü bugün itibarıyla
-doğrudan çekilebilir; 4'ü (K2/M2/M3/O6'ya bağlı olanlar) ilgili dallar
-`feat/integration`'a merge edildiğinde, 1'i (V7.2) oyuncu-tarafı
-ticket ekranı eklendiğinde çekilebilir hale gelir. Hangi araçla
-(ekran kaydı + ses üstü anlatım üreten bir araç, ya da metinden video
-üreten bir model) çekileceğinin araştırması, kullanıcının kararıyla
-geliştirme akışının sonuna bırakıldı — bu belge o karardan bağımsız,
-şimdiden tamamlanmış bir temeldir.
+All **18 storyboards** requested by D2 in the 15-20 range are written scene by scene — none were left incomplete/conceptual. 13 are ready to film as of today; 4 (those dependent on K2/M2/M3/O6) when the relevant branches are merged into `feat/integration`, and 1 (V7.2) when the player-side ticket screen is added. Which tool will be used for filming (a tool producing screen recording + voice-over, or a model generating video from text) was left to the end of the development flow per the user's decision — this document is a completed foundation independent of that decision.

@@ -1,217 +1,137 @@
-# Yapılandırma
+# Configuration
 
-İki katman var: **`.env` dosyası** (yeniden başlatma gerektirir, sunucu
-kurulumuna dair) ve **panelden yönetilen ayarlar** (anında etkili,
-operatörün günlük işi — veritabanında tutulur).
+There are two layers: **`.env` file** (requires restart, server setup) and **panel-managed settings** (effective immediately, operator's daily work — stored in the database).
 
-## `.env` değişkenleri
+## `.env` variables
 
-`server/.env.example` dosyasındaki tüm anahtarların açıklaması:
+Description of all keys in the `server/.env.example` file:
 
-### Veritabanı
+### Database
 
-| Değişken | Zorunlu mu | Ne işe yarar |
+| Variable | Required | What it does |
 |---|---|---|
-| `MONGODB_URI` | Evet | Veritabanı bağlantı adresi |
-| `MONGO_MAX_POOL_SIZE` / `MONGO_MIN_POOL_SIZE` | Hayır | Bağlantı havuzu ayarı, varsayılan (20/5) çoğu kurulum için yeterli |
+| `MONGODB_URI` | Yes | Database connection address |
+| `MONGO_MAX_POOL_SIZE` / `MONGO_MIN_POOL_SIZE` | No | Connection pool settings, default (20/5) is sufficient for most setups |
 
-### Sunucu / oturum
+### Server / session
 
-| Değişken | Zorunlu mu | Ne işe yarar |
+| Variable | Required | What it does |
 |---|---|---|
-| `PORT` | Hayır (varsayılan 3001) | API sunucusunun dinlediği port |
-| `NODE_ENV` | Evet (`production`) | Geliştirme/üretim davranış farkı (rate limit, cookie güvenliği vb.) |
-| `CLIENT_URL` | Evet | Kendi alan adınız — CORS ve e-posta linklerinde kullanılır |
-| `JWT_SECRET` / `JWT_REFRESH_SECRET` | Evet | Oturum token imzalama anahtarları — üretime almadan önce mutlaka değiştirin (`openssl rand -base64 64`) |
-| `EMAIL_VERIFICATION_CUTOFF` | Hayır | ISO 8601 tarih — bu tarihten önce kayıt olan kullanıcılar e-posta doğrulama zorunluluğundan muaf (grandfathering). Boşsa koddaki varsayılana düşer |
+| `PORT` | No (default 3001) | Port the API server listens on |
+| `NODE_ENV` | Yes (`production`) | Development/production behavior difference (rate limit, cookie security, etc.) |
+| `CLIENT_URL` | Yes | Your own domain — used in CORS and email links |
+| `JWT_SECRET` / `JWT_REFRESH_SECRET` | Yes | Session token signing keys — must be changed before going to production (`openssl rand -base64 64`) |
+| `EMAIL_VERIFICATION_CUTOFF` | No | ISO 8601 date — users who registered before this date are exempt from email verification (grandfathering). If empty, falls back to the code default |
 
 ### Rate limiting
 
-| Değişken | Zorunlu mu | Ne işe yarar |
+| Variable | Required | What it does |
 |---|---|---|
-| `RATE_LIMIT_WINDOW_MS` | Hayır | Genel rate-limit penceresi (ms), varsayılan 900000 (15 dk) |
-| `RATE_LIMIT_MAX` | Hayır | Pencere başına genel istek sınırı, varsayılan 200 |
-| `AUTH_RATE_LIMIT_MAX` | Hayır | Giriş/kayıt uçları için ayrı, daha sıkı sınır (varsayılan 5) |
-| `FINANCIAL_RATE_LIMIT_MAX` | Hayır | Para yatırma/çekme uçları için ayrı sınır (varsayılan 10) |
+| `RATE_LIMIT_WINDOW_MS` | No | General rate-limit window (ms), default 900000 (15 min) |
+| `RATE_LIMIT_MAX` | No | General request limit per window, default 200 |
+| `AUTH_RATE_LIMIT_MAX` | No | Stricter limit for login/register endpoints (default 5) |
+| `FINANCIAL_RATE_LIMIT_MAX` | No | Separate limit for deposit/withdraw endpoints (default 10) |
 
-### Casino sağlayıcısı (Palace)
+### Casino provider (Palace)
 
-| Değişken | Zorunlu mu | Ne işe yarar |
+| Variable | Required | What it does |
 |---|---|---|
-| `PALACE_API_BASE` / `PALACE_API_TOKEN` / `PALACE_CALLBACK_TOKEN` | Casino modülü kullanılacaksa | Casino içerik sağlayıcısı erişim bilgileri (bkz. [03 — Modül Sistemi](03-modul-sistemi.md)) |
+| `PALACE_API_BASE` / `PALACE_API_TOKEN` / `PALACE_CALLBACK_TOKEN` | If casino module will be used | Casino content provider access credentials (see [03 — Module System](03-modul-sistemi.md)) |
 
-### Ödeme / kripto
+### Payment / crypto
 
-| Değişken | Zorunlu mu | Ne işe yarar |
+| Variable | Required | What it does |
 |---|---|---|
-| `USDT_TRY_RATE` | Kripto ödeme kullanılacaksa | USDT→TRY sabit kur (otomatik piyasa fiyatı çekilmiyor, elle güncellenir) |
-| `TRONGRID_API_KEY` | Hayır | TronGrid'e istek sınırını artırır; boşsa USDT-TRC20 takibi düşük limitle çalışmaya devam eder |
+| `USDT_TRY_RATE` | If crypto payment will be used | USDT→TRY fixed rate (market price is not fetched automatically, updated manually) |
+| `TRONGRID_API_KEY` | No | Increases request limit to TronGrid; if empty, USDT-TRC20 tracking continues with low limits |
 
-### Yapay zeka destek asistanı
+### AI support assistant
 
-| Değişken | Zorunlu mu | Ne işe yarar |
+| Variable | Required | What it does |
 |---|---|---|
-| `AI_HELP_BASE_URL` | Hayır (varsayılan OpenRouter) | Destek chatbot'unun konuştuğu LLM API adresi |
-| `AI_HELP_API_KEY` | Hayır | Boşsa chatbot "şu an bakımda, ticket açın" yanıtı döner — çökmez |
-| `AI_HELP_MODEL` | Hayır (varsayılan `meta-llama/llama-3.1-8b-instruct:free`) | Kullanılacak model kimliği |
+| `AI_HELP_BASE_URL` | No (default OpenRouter) | The LLM API address the support chatbot talks to |
+| `AI_HELP_API_KEY` | No | If empty, chatbot returns "currently under maintenance, open a ticket" — doesn't crash |
+| `AI_HELP_MODEL` | No (default `meta-llama/llama-3.1-8b-instruct:free`) | Model ID to use |
 
-Bu üçlü, `docs/product/*.md` ve `CHANGELOG.md`'yi okuyup parçalayan
-gerçek bir doküman-temelli chatbot'u besler — bkz.
-[06 — SSS](06-sss.md).
+This trio powers a real document-based chatbot that reads and parses `docs/product/*.md` and `CHANGELOG.md` — see [06 — FAQ](06-sss.md).
 
-### E-posta
+### Email
 
-| Değişken | Zorunlu mu | Ne işe yarar |
+| Variable | Required | What it does |
 |---|---|---|
-| `SMTP_HOST` / `SMTP_PORT` / `SMTP_SECURE` / `SMTP_USER` / `SMTP_PASS` / `SMTP_FROM` | Evet | E-posta doğrulama ve şifre sıfırlama e-postaları için |
+| `SMTP_HOST` / `SMTP_PORT` / `SMTP_SECURE` / `SMTP_USER` / `SMTP_PASS` / `SMTP_FROM` | Yes | For email verification and password reset emails |
 
-### İzleme / uyarı
+### Monitoring / alerts
 
-| Değişken | Zorunlu mu | Ne işe yarar |
+| Variable | Required | What it does |
 |---|---|---|
-| `SENTRY_DSN` | Hayır (önerilir) | Hata izleme |
-| `ALERT_WEBHOOK_URL` | Hayır (önerilir) | Operasyonel uyarılar (ör. Slack webhook) |
+| `SENTRY_DSN` | No (recommended) | Error tracking |
+| `ALERT_WEBHOOK_URL` | No (recommended) | Operational alerts (e.g., Slack webhook) |
 
-### Güvenlik / bot koruması
+### Security / bot protection
 
-| Değişken | Zorunlu mu | Ne işe yarar |
+| Variable | Required | What it does |
 |---|---|---|
-| `TURNSTILE_SITE_KEY` / `TURNSTILE_SECRET` | Hayır | Cloudflare Turnstile bot koruması |
-| `DISABLE_TURNSTILE` | Hayır | `true` ise Turnstile kontrolü atlanır (geliştirme için) |
-| `ADMIN_ALLOWED_IPS` | Hayır | Admin paneline IP kısıtlaması, virgülle ayrılmış liste |
-| `LEGAL_VERSION` | Hayır | Kullanım şartları sürüm etiketi, kayıt formunda gösterilir |
+| `TURNSTILE_SITE_KEY` / `TURNSTILE_SECRET` | No | Cloudflare Turnstile bot protection |
+| `DISABLE_TURNSTILE` | No | If `true`, skips Turnstile check (for development) |
+| `ADMIN_ALLOWED_IPS` | No | IP restriction for admin panel, comma-separated list |
+| `LEGAL_VERSION` | No | Terms of service version label, shown on registration form |
 
-### Sosyal giriş
+### Social login
 
-| Değişken | Zorunlu mu | Ne işe yarar |
+| Variable | Required | What it does |
 |---|---|---|
-| `GOOGLE_CLIENT_ID` / `GOOGLE_CLIENT_SECRET` / `GOOGLE_REDIRECT_URI` | Google ile giriş kullanılacaksa | Google Cloud Console'da oluşturulan OAuth 2.0 istemcisi |
-| `TELEGRAM_LOGIN_BOT_TOKEN` / `TELEGRAM_BOT_USERNAME` | Telegram ile giriş kullanılacaksa | Login Widget'a özel bot — admin bildirim botundan (panelden ayarlanır) **farklı** olmalı, BotFather'da `/setdomain` ile prod domain'e kayıtlı olması gerekir |
+| `GOOGLE_CLIENT_ID` / `GOOGLE_CLIENT_SECRET` / `GOOGLE_REDIRECT_URI` | If Google login will be used | OAuth 2.0 client created in Google Cloud Console |
+| `TELEGRAM_LOGIN_BOT_TOKEN` / `TELEGRAM_BOT_USERNAME` | If Telegram login will be used | Bot for the Login Widget — must be **different** from the admin notification bot (configured in the panel), must be registered with the production domain via `/setdomain` in BotFather |
 
-Web3 cüzdan girişi (MetaMask vb.) için ayrı bir env değişkeni yoktur —
-imza doğrulama sunucu tarafında (`ethers`) yapılır, dış kimlik bilgisi
-gerekmez.
+There is no separate env variable for Web3 wallet login (MetaMask, etc.) — signature verification is done server-side (`ethers`), no external identity information is required.
 
-### Lisans (opsiyonel modül denetimi)
+### License (optional module control)
 
-| Değişken | Zorunlu mu | Ne işe yarar |
+| Variable | Required | What it does |
 |---|---|---|
-| `LICENSE_SERVER_URL` / `LICENSE_KEY` | Hayır | Tanımlıysa modül açık/kapalı durumu merkezi bir lisans sunucusundan da doğrulanır. **Tanımlı değilse ürün "yönetimsiz" modda çalışır: tanımlı üç modülün (bahis, casino içeriği, canlı casino) hepsi lisanslı sayılır** — pazardan indirilen ürün kutudan çıktığı gibi çalışsın diye bilinçli varsayılan budur |
+| `LICENSE_SERVER_URL` / `LICENSE_KEY` | No | If defined, module enabled/disabled status is also verified against a central license server. **If not defined, the product runs in "unmanaged" mode: all three defined modules (betting, casino content, live casino) are considered licensed** — this is a deliberate default so the product works out of the box as delivered |
 
-Bu iki değişken `server/.env.example`'da **yer almaz** —
-`server/src/services/licensing/index.js`'te doğrudan `process.env`'den
-okunur. Bir lisans sunucunuz yoksa hiç dokunmanıza gerek yok.
+These two variables are **not** in `server/.env.example` — they are read directly from `process.env` in `server/src/services/licensing/index.js`. If you don't have a license server, you don't need to touch them.
 
-### Odds (spor bahis) kaynağı
+### Odds (sports betting) source
 
-| Değişken | Zorunlu mu | Ne işe yarar |
+| Variable | Required | What it does |
 |---|---|---|
-| `ODDS_PROVIDER` | Hayır (varsayılan `oddsSource`) | Aktif odds sağlayıcısını seçer — `theoddsapi` yapılırsa lisanslı The Odds API'ye geçilir |
-| `ODDS_API_KEY` / `ODDS_API_SPORT` | `ODDS_PROVIDER=theoddsapi` ise zorunlu | The Odds API erişim anahtarı ve spor kodu (bkz. [05 — API Referansı](05-api-referansi.md)) |
-| `ODDS_SOURCE_HOST_TEMPLATE` | oddsSource kullanılacaksa | Kaynağın mirror domain'lerinin ortak öneki — boşsa domain keşfi hiçbir şey bulamaz |
-| `ODDS_SOURCE_PROXY_URL` | Hayır | Bazı barındırma bölgelerinde Cloudflare'in kaynağın origin'ine ulaşamadığı durumlar için HTTP proxy relay |
-| `ODDS_SOURCE_COOKIES` | Hayır | Elle export edilmiş çerezler (öncelik `cookies.json` dosyasında; bu env yalnızca dosya yoksa okunur) |
-| `ODDS_SOURCE_SCAN_AHEAD` / `ODDS_SOURCE_WIDE_SCAN_AHEAD` / `ODDS_SOURCE_DNS_CONCURRENCY` | Hayır | Domain keşfi tarama pencereleri — yalnızca keşif sürekli başarısız oluyorsa değiştirin |
+| `ODDS_PROVIDER` | No (default `oddsSource`) | Selects the active odds provider — if set to `theoddsapi`, switches to the licensed The Odds API |
+| `ODDS_API_KEY` / `ODDS_API_SPORT` | Required if `ODDS_PROVIDER=theoddsapi` | The Odds API access key and sport code (see [05 — API Reference](05-api-referansi.md)) |
+| `ODDS_SOURCE_HOST_TEMPLATE` | If oddsSource will be used | Common prefix for the source's mirror domains — if empty, domain discovery finds nothing |
+| `ODDS_SOURCE_PROXY_URL` | No | HTTP proxy relay for hosting regions where Cloudflare can't reach the source origin |
+| `ODDS_SOURCE_COOKIES` | No | Manually exported cookies (priority is in the `cookies.json` file; this env is only read if the file doesn't exist) |
+| `ODDS_SOURCE_SCAN_AHEAD` / `ODDS_SOURCE_WIDE_SCAN_AHEAD` / `ODDS_SOURCE_DNS_CONCURRENCY` | No | Domain discovery scan windows — only change if discovery is continuously failing |
 
-> Düzeltme notu: bu belgenin önceki sürümü `ODDS_API_KEY`'i kullanılmayan
-> bir kalıntı olarak işaretlemişti — o zaman doğruydu, artık değil.
-> T2 kartıyla birlikte gerçek bir sağlayıcıya (The Odds API) bağlandı.
+> Correction note: a previous version of this document marked `ODDS_API_KEY` as unused — that was true at the time, no longer. With the T2 card, a real provider (The Odds API) has been connected.
 
-> **Bilinen sınır:** `ODDS_PROVIDER` yukarıdaki tablonun ima ettiğinin
-> aksine canlı/fikstür senkronizasyon job'larının HANGİSİNİN çalışacağını
-> seçmiyor — `server.js`, `startOddsSourceLiveSync`/`startOddsSourceUpcomingSync`'i
-> bu ayardan bağımsız, koşulsuz başlatıyor. Bu job'lar her zaman OddsSource'in
-> ayna domain'ini keşfedip WebSocket'le bağlanır; `ODDS_PROVIDER=theoddsapi`
-> yapmak yalnızca ayrıştırma mantığını etkiler, bu trafiği durdurmaz. Tam
-> sağlayıcı değişimi — theoddsapi için yeni bir senkronizasyon job'ı yazmak
-> ve `server.js`'i aktif sağlayıcıya göre doğru job'ı başlatacak şekilde
-> güncellemek — ayrı, henüz yapılmamış bir mühendislik kartı gerektiriyor.
+> **Known limitation:** Contrary to what the table above implies, `ODDS_PROVIDER` does NOT select which live/fixtures sync jobs run — `server.js` starts `startOddsSourceLiveSync`/`startOddsSourceUpcomingSync` unconditionally regardless of this setting. These jobs always discover the OddsSource mirror domain and connect via WebSocket; setting `ODDS_PROVIDER=theoddsapi` only affects the parsing logic, it doesn't stop this traffic. A full provider switch — writing a new sync job for theoddsapi and updating `server.js` to start the right job based on the active provider — requires a separate, not-yet-done engineering card.
 
-## Panelden yönetilen ayarlar
+## Panel-managed settings
 
-Bu ayarlar `.env`'de **değil**, veritabanında (`Setting` koleksiyonu,
-`key`/`value` çiftleri) tutulur ve admin panelinden anında değiştirilebilir
-— sunucu yeniden başlatmaya gerek yoktur (çoğu değer 30 saniyelik bir
-önbellek gecikmesiyle yayılır, `invalidate*()` fonksiyonları çağrıldığında
-anında):
+These settings are **not** in `.env` but stored in the database (`Setting` collection, `key`/`value` pairs) and can be changed instantly from the admin panel — no server restart needed (most values propagate with a 30-second cache delay, instantly when `invalidate*()` functions are called):
 
-- **Alarm kanalları** — Telegram bot token/chat id, webhook URL, uyarı
-  e-postası. `/admin/settings`.
-- **Tema token'ları** (`theme.<id>` anahtarları) — birincil renk, vurgu
-  rengi ve ilgili görsel değerler. `GET /api/theme` üzerinden istemciye
-  enjekte edilir, değişiklik tüm arayüze anında yansır. Kaynak:
-  `server/src/theme/index.js`.
-- **Marka kimliği** (`branding.<id>` anahtarları) — site adı, logo,
-  favicon, yazı tipi ailesi/dosyası. Kaynak: `server/src/branding/index.js`.
-- **Aktif para birimi** (`currency.code` anahtarı) — bkz. aşağıdaki
-  "Para birimi" bölümü.
-- **Modül durumu** (`module.<id>.enabled` anahtarları) — bahis, casino
-  içeriği, canlı casino modüllerini admin panelindeki **Modüller**
-  ekranından (`client/src/pages/admin/Modules.jsx`) açıp kapatabilirsiniz;
-  `PATCH /admin/modules/:id` anında uygular, sayfa yeniden başlatma
-  gerekmez. Kapalı bir modülün sayfaları ziyaretçiye `ModuleGate`
-  bileşeniyle nazikçe gizlenir ("Bu bölüm şu anda kapalı" mesajı),
-  çekirdek platform etkilenmez. Bir modül ayrıca lisanslı olmalıdır —
-  `LICENSE_SERVER_URL`/`LICENSE_KEY` tanımlı değilse hepsi otomatik
-  lisanslı sayılır (bkz. yukarıdaki "Lisans" bölümü). *(Not: bu ekran
-  [03 — Modül Sistemi](03-modul-sistemi.md)'nin "henüz yok" dediği
-  panelden aç/kapa özelliğidir — o belge henüz güncellenmedi.)*
-- **Oyun ekonomisi ayarları** — 13 in-house oyunun (Crash, Roulette,
-  Mines, Dice, Limbo, Hi-Lo, Dragon Tiger, Plinko, Wheel, Keno,
-  Baccarat, Blackjack, Video Poker) her biri için house edge/payout
-  faktörü, min/max bahis, zamanlama (bekleme/animasyon süresi) gibi
-  gerçek RTP'yi belirleyen değişkenler `GameSettings` koleksiyonunda
-  tutulur ve admin panelindeki **Oyun Ayarları** ekranından
-  (`client/src/pages/admin/GameSettings.jsx`, `PATCH
-  /admin/game-settings/:gameId`) değiştirilebilir. Her değişiklik
-  `changeLog` alanına kim/ne zaman/eski-yeni değer olarak kaydedilir.
-  Kaynak: `server/src/models/GameSettings.js`,
-  `server/src/services/gameSettings.js`.
-- **VIP seviyeleri** — seviye eşiği (XP), cashback yüzdesi, tek seferlik
-  ödül, renk/ikon `/admin/vip-levels` uçlarından yönetilir. Kaynak:
-  `server/src/models/VipLevel.js`.
-- **Sahte kazananlar havuzu** ("Son Kazananlar" simülasyonu) —
-  havuz büyüklüğü aralığı, kazanç tutarı aralığı, tetiklenme sıklığı
-  aralığı, casino kazançlarının dahil edilip edilmeyeceği
-  `/admin/fake-winners` uçlarından ayarlanır. Bu **gerçek kullanıcı,
-  bahis ya da bakiye değişimi içermez** — yalnızca gerçek kazananlarla
-  aynı `winners:new` socket olayını yayınlar. Casino kazançları yalnızca
-  ilgili modül (`casino-content`) açıkken gösterilir. Kaynak:
-  `server/src/services/fakeWinners.js`.
+- **Alert channels** — Telegram bot token/chat id, webhook URL, alert email. `/admin/settings`.
+- **Theme tokens** (`theme.<id>` keys) — primary color, accent color, and related visual values. Injected to the client via `GET /api/theme`, changes reflect across the entire UI instantly. Source: `server/src/theme/index.js`.
+- **Brand identity** (`branding.<id>` keys) — site name, logo, favicon, font family/file. Source: `server/src/branding/index.js`.
+- **Active currency** (`currency.code` key) — see the "Currency" section below.
+- **Module status** (`module.<id>.enabled` keys) — you can enable/disable the betting, casino content, and live casino modules from the **Modules** screen in the admin panel (`client/src/pages/admin/Modules.jsx`); `PATCH /admin/modules/:id` applies instantly, no page restart needed. A disabled module's pages are gracefully hidden from visitors with the `ModuleGate` component ("This section is currently closed" message), the core platform is unaffected. A module must also be licensed — if `LICENSE_SERVER_URL`/`LICENSE_KEY` is not defined, all are automatically considered licensed (see the "License" section above). *(Note: This is the panel on/off feature that [03 — Module System](03-modul-sistemi.md) says "doesn't exist yet" — that document hasn't been updated yet.)*
+- **Game economy settings** — 13 in-house games (Crash, Roulette, Mines, Dice, Limbo, Hi-Lo, Dragon Tiger, Plinko, Wheel, Keno, Baccarat, Blackjack, Video Poker) each have house edge/payout factor, min/max bet, timing (wait/animation duration) and other variables that determine the real RTP stored in the `GameSettings` collection and changeable from the **Game Settings** screen in the admin panel (`client/src/pages/admin/GameSettings.jsx`, `PATCH /admin/game-settings/:gameId`). Each change is logged to the `changeLog` field with who/when/old-new value. Source: `server/src/models/GameSettings.js`, `server/src/services/gameSettings.js`.
+- **VIP levels** — level threshold (XP), cashback percentage, one-time reward, color/icon managed via `/admin/vip-levels` endpoints. Source: `server/src/models/VipLevel.js`.
+- **Fake winners pool** ("Last Winners" simulation) — pool size range, win amount range, trigger frequency range, whether casino wins are included configurable via `/admin/fake-winners` endpoints. This contains **no real users, bets, or balance changes** — it only publishes the same `winners:new` socket event as real winners. Casino wins are only shown when the relevant module (`casino-content`) is enabled. Source: `server/src/services/fakeWinners.js`.
 
-## Para birimi
+## Currency
 
-Site genelinde **tek bir aktif para birimi** vardır (kullanıcı başına
-çoklu para birimi cüzdanı değildir — `User.balance` tek bir `Number`
-alanıdır). Admin panelinden `TRY`, `USD`, `EUR` arasından seçilebilir
-(`currency.code` anahtarı, `Setting` koleksiyonunda); seçim, sembolü ve
-locale biçimlendirmesini (`₺`/`tr-TR`, `$`/`en-US`, `€`/`de-DE`)
-değiştirir. Herkese açık `GET /api/currency` ucu aktif para birimini ve
-desteklenen listeyi döner. Kaynak: `server/src/currency/registry.js`,
-`server/src/currency/index.js`, `server/src/routes/currency.js`.
+There is a **single active currency** across the site (not a per-user multi-currency wallet — `User.balance` is a single `Number` field). It can be selected from `TRY`, `USD`, `EUR` in the admin panel (`currency.code` key in the `Setting` collection); the selection changes the symbol and locale formatting (`₺`/`tr-TR`, `$`/`en-US`, `€`/`de-DE`). The public `GET /api/currency` endpoint returns the active currency and supported list. Source: `server/src/currency/registry.js`, `server/src/currency/index.js`, `server/src/routes/currency.js`.
 
-## Çok dilli destek (i18n)
+## Multi-language support (i18n)
 
-İki sözlük dosyası: `client/src/i18n/dictionaries/tr.js` (varsayılan
-dil, `DEFAULT_LOCALE = 'tr'`, aynı zamanda fallback — `tr`'de olmayan bir
-anahtar hiçbir dilde bulunamaz) ve `dictionaries/en.js`. Her ikisi de
-~1490 anahtar içerir. Yeni bir dil eklemek: `dictionaries/` altına dosya
-+ `client/src/i18n/index.js`'te `dictionaries` nesnesine kayıt.
+Two dictionary files: `client/src/i18n/dictionaries/tr.js` (default language, `DEFAULT_LOCALE = 'tr'`, also the fallback — a key not in `tr` can't be found in any language) and `dictionaries/en.js`. Both contain ~1490 keys. To add a new language: add a file under `dictionaries/` + register in the `dictionaries` object in `client/src/i18n/index.js`.
 
-Dil değiştirici (`LanguageSwitcher`) global gezinme çubuğunda
-(`Navbar.jsx`) yer alır, yani sitenin her yerinden erişilebilir — önceki
-sürümlerde yalnızca giriş ekranında vardı. 67 sayfa bileşeninden 59'u
-`useTranslation()`/`t()` üzerinden sözlükten okuyor. Ama **çeviri hâlâ
-tam değil**: `HomePage.jsx`, `Bahis.jsx`, `Live.jsx`,
-`CasinoRedesign.jsx`, `Profile.jsx` gibi büyük sayfalarda hâlâ
-doğrudan gömülü Türkçe metin var (kod içinde arama yapıp kontrol
-edebilirsiniz). Kısacası: altyapı ve gezinme geneli tamam, sayfa
-içerikleri kısmen çevrilmiş, aktif bir geliştirme akışı.
+The language switcher (`LanguageSwitcher`) is in the global navigation bar (`Navbar.jsx`), so it's accessible from everywhere on the site — in previous versions it was only on the login screen. 59 of 67 page components read from the dictionary via `useTranslation()`/`t()`. But **the translation is still incomplete**: large pages like `HomePage.jsx`, `Bahis.jsx`, `Live.jsx`, `CasinoRedesign.jsx`, `Profile.jsx` still have directly embedded Turkish text (you can search in the code to verify). In short: the infrastructure and navigation are mostly done, page contents are partially translated — an active development flow.
 
-## Casino sağlayıcısı
+## Casino provider
 
-Casino oyun kataloğu, `CASINO_AGGREGATOR` ortam değişkeniyle seçilen bir
-sağlayıcı üzerinden gelir (varsayılan: `palace`). Bugün yalnızca Palace
-adaptörü mevcut; ikinci bir sağlayıcı eklemek (Evolution, Pragmatic,
-lisanslı bir aggregator) yeni bir adaptör yazıp kayıt defterine
-eklemekten ibarettir — mevcut route/kontrol kodu değişmez.
+The casino game catalog comes through a provider selected with the `CASINO_AGGREGATOR` environment variable (default: `palace`). Today only the Palace adapter is available; adding a second provider (Evolution, Pragmatic, a licensed aggregator) is just writing a new adapter and adding it to the registry — existing route/control code doesn't change.

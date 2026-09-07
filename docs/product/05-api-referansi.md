@@ -1,159 +1,132 @@
-# API Referansı
+# API Reference
 
-Tüm uçlar `/api` altında toplanır (kurulum sihirbazı hariç, o `/install`
-altındadır). Bu belge önce uç nokta **gruplarını** özetler, ardından her
-grup için gerçek route dosyalarından çıkarılmış **uç nokta listesini**
-verir. Tam parametre/dönüş tipleri için nihai kaynak yine kodun kendisidir
-(`server/src/routes/`), bu belge oraya giden ayrıntılı bir haritadır.
+All endpoints are grouped under `/api` (except the setup wizard, which is under `/install`). This document first summarizes the endpoint **groups**, then provides the **endpoint list** extracted from the real route files for each group. The ultimate source for full parameter/return types is the code itself (`server/src/routes/`), this document is a detailed map leading there.
 
-| Grup | Taban yol | Ne içerir |
+| Group | Base path | What it contains |
 |---|---|---|
-| Kimlik doğrulama | `/api/auth` | Kayıt, giriş, oturum yenileme, e-posta doğrulama, şifre sıfırlama |
-| Web3 cüzdan girişi | `/api/auth/wallet` | MetaMask/WalletConnect vb. ile giriş, hesaba cüzdan bağlama |
-| Sosyal giriş | `/api/auth` (google/telegram) | Google ve Telegram OAuth ile giriş/hesap bağlama |
-| 2FA | `/api/auth/2fa` | Yönetici hesapları için iki faktörlü doğrulama |
-| Etkinlikler | `/api/events` | Spor bahis etkinlik listesi, detay — **betting modülü kapısı** |
-| Bahisler | `/api/bets` | Kupon oluşturma, bahis detayı — **betting modülü kapısı** |
-| Kullanıcılar | `/api/users` | Profil, bakiye, favoriler/son oynananlar, şifre/email değişimi, KVKK veri dışa aktarımı, hesap silme, sorumlu oyun limitleri |
-| İşlemler | `/api/transactions` | Basit para yatırma/çekme kayıtları |
-| Promosyonlar | `/api/promotions` | Bonus talep etme, aktif promosyonlar, wagering dönüşümü |
-| Casino | `/api/casino` | Aggregator-agnostik spin/bakiye ucu — **casino-content modülü kapısı** |
-| Palace | `/api/palace` | Casino aggregator'ına özel uçlar (oyun listesi, oturum, callback) — **modül kapısı YOK** |
-| In-house oyunlar | `/api/inhouse` | 13 oyunun kendi uçları (`/inhouse/crash/*`, `/inhouse/mines/*` vb.) — çekirdek platform, hiçbir modül kapısı yok |
-| Yardım | `/api/help` | AI destek asistanı (chatbot) |
-| Kripto | `/api/crypto` | USDT-TRC20 yatırma adresi/takibi + çekim talebi |
-| Banka | `/api/bank` | Havale ile yatırma/çekme talepleri + admin onay akışı |
-| Destek talepleri | `/api/tickets` | Kullanıcı destek ticket'ları + admin yanıt/durum |
-| Sohbet | `/api/chat` | Canlı sohbet odaları + admin moderasyon |
-| Tema | `/api/theme` | Panelden yönetilen görsel token'lar (herkese açık) |
-| Marka | `/api/branding` | Logo, favicon, site adı, font (herkese açık) |
-| Sayfa içerikleri | `/api/pages` | Ana sayfa bölüm sırası + banner'lar (herkese açık) |
-| Statik sayfalar | `/api/static-pages` | Hakkımızda/Kariyer/Yasal vb. footer sayfaları (herkese açık) |
-| Oyunlar | `/api/games` | Öne çıkan oyun kodları listesi (herkese açık) |
-| Para birimi | `/api/currency` | Aktif/desteklenen para birimleri (herkese açık) |
-| Yerel ayar | `/api/locale-config` | Operatör saat dilimi (herkese açık) |
-| Modüller | `/api/modules` | İstemci menüsü için modül açık/kapalı durumu (herkese açık) |
-| VIP | `/api/vip` | Kullanıcının VIP seviyesi/ilerlemesi |
-| Admin | `/api/admin` | Kullanıcı/etkinlik/oyun/tema/marka/rol/VIP/bot yönetimi — yönetici yetkisi gerektirir |
-| Admin analitik | `/api/admin/analytics` | Gösterge paneli istatistikleri |
-| Kurulum | `/install` | Tek sayfalık kurulum sihirbazı (ilk deploy, terminal gerektirmez) |
+| Authentication | `/api/auth` | Registration, login, session refresh, email verification, password reset |
+| Web3 wallet login | `/api/auth/wallet` | Login via MetaMask/WalletConnect etc., linking wallet to account |
+| Social login | `/api/auth` (google/telegram) | Login/account linking via Google and Telegram OAuth |
+| 2FA | `/api/auth/2fa` | Two-factor authentication for admin accounts |
+| Events | `/api/events` | Sports betting event list, details — **betting module gate** |
+| Bets | `/api/bets` | Coupon creation, bet details — **betting module gate** |
+| Users | `/api/users` | Profile, balance, favorites/recently played, password/email change, KVKK data export, account deletion, responsible gaming limits |
+| Transactions | `/api/transactions` | Simple deposit/withdrawal records |
+| Promotions | `/api/promotions` | Bonus claiming, active promotions, wagering conversion |
+| Casino | `/api/casino` | Aggregator-agnostic spin/balance endpoint — **casino-content module gate** |
+| Palace | `/api/palace` | Casino aggregator-specific endpoints (game list, session, callback) — **no module gate** |
+| In-house games | `/api/inhouse` | Each of the 13 games' own endpoints (`/inhouse/crash/*`, `/inhouse/mines/*`, etc.) — core platform, no module gate |
+| Help | `/api/help` | AI support assistant (chatbot) |
+| Crypto | `/api/crypto` | USDT-TRC20 deposit address/tracking + withdrawal request |
+| Bank | `/api/bank` | Bank transfer deposit/withdrawal requests + admin approval flow |
+| Support tickets | `/api/tickets` | User support tickets + admin reply/status |
+| Chat | `/api/chat` | Live chat rooms + admin moderation |
+| Theme | `/api/theme` | Panel-managed visual tokens (public) |
+| Branding | `/api/branding` | Logo, favicon, site name, font (public) |
+| Page content | `/api/pages` | Homepage section order + banners (public) |
+| Static pages | `/api/static-pages` | About/Careers/Legal etc. footer pages (public) |
+| Games | `/api/games` | Featured game code list (public) |
+| Currency | `/api/currency` | Active/supported currencies (public) |
+| Locale | `/api/locale-config` | Operator timezone (public) |
+| Modules | `/api/modules` | Module on/off status for client menu (public) |
+| VIP | `/api/vip` | User's VIP level/progress |
+| Admin | `/api/admin` | User/event/game/theme/brand/role/VIP/bot management — requires admin privileges |
+| Admin analytics | `/api/admin/analytics` | Dashboard statistics |
+| Setup | `/install` | Single-page setup wizard (first deploy, no terminal needed) |
 
-## Kimlik doğrulama modeli
+## Authentication model
 
-- Erişim token'ı: kısa ömürlü JWT, `Authorization: Bearer <token>` header'ında.
-- Yenileme token'ı: `httpOnly` cookie, `/api/auth/refresh` ile yeni erişim
-  token'ı alınır.
-- **Misafir uçları** (`/auth/register`, `/auth/login`, `/auth/forgot-password`,
-  `/auth/reset-password`, `/auth/wallet/login`, `/auth/google`,
-  `/auth/telegram`) `guestOnly` middleware'inden geçer — aktif oturumda
-  `403 ALREADY_AUTHENTICATED` döner, açık oturumlu bir kullanıcı bu uçları
-  çağıramaz.
-- Admin uçları iki katmanlı kontrol ister: `requireAuth` (geçerli JWT) +
-  `requireAdmin` (`role: 'admin'`). `/api/auth/2fa/*` istisnadır — yalnızca
-  `requireAuth` middleware'i vardır, admin kontrolü handler içinde manuel
-  yapılır (`NOT_ADMIN` 403).
-- **Demo admin kısıtı**: `isDemoAdmin: true` işaretli yönetici hesapları,
-  `blockDemoAdmin` middleware'i uygulanan yıkıcı uçlarda (kullanıcı/bakiye
-  silme, event settle, rol/VIP/bot silme, chat/ticket moderasyonu vb.)
-  isteği reddeder — vitrin/demo ortamında geri döndürülemez hasar önlenir.
+- Access token: short-lived JWT, in the `Authorization: Bearer <token>` header.
+- Refresh token: `httpOnly` cookie, new access token obtained via `/api/auth/refresh`.
+- **Guest endpoints** (`/auth/register`, `/auth/login`, `/auth/forgot-password`, `/auth/reset-password`, `/auth/wallet/login`, `/auth/google`, `/auth/telegram`) go through `guestOnly` middleware — return `403 ALREADY_AUTHENTICATED` if there's an active session, a user with an open session can't call these endpoints.
+- Admin endpoints require two-layer control: `requireAuth` (valid JWT) + `requireAdmin` (`role: 'admin'`). `/api/auth/2fa/*` is the exception — it only has `requireAuth` middleware, admin control is done manually inside the handler (`NOT_ADMIN` 403).
+- **Demo admin restriction**: admin accounts marked with `isDemoAdmin: true` are rejected by the `blockDemoAdmin` middleware on destructive endpoints (user/balance deletion, event settlement, role/VIP/bot deletion, chat/ticket moderation, etc.) — prevents irreversible damage in a showcase/demo environment.
 
-## Hata biçimi
+## Error format
 
-Standart hatalar aynı zarfta döner:
+Standard errors return in the same envelope:
 
 ```json
-{ "error": { "code": "INVALID_CREDENTIALS", "message": "Kullanıcı adı veya şifre hatalı" } }
+{ "error": { "code": "INVALID_CREDENTIALS", "message": "Username or password is incorrect" } }
 ```
 
-`code` alanı programatik kontrol için, `message` kullanıcıya gösterilebilir
-Türkçe metin için.
+The `code` field is for programmatic checking, `message` is user-facing text (Turkish in the current codebase).
 
-**Not (operatörler için önemli):** Bu zarf tutarlı biçimde yalnızca
-`createError()` kullanan yeni nesil route'larda (auth, users, admin, ticket,
-chat, module gate) uygulanır. Daha eski/basit route'lar (`inhouse.js`,
-`casino.js`, `crypto.js`, `palace.js`, `bank.js`'in bazı uçları) hâlâ düz
-`{ "error": "mesaj metni" }` biçiminde string hata döndürebiliyor. Bir
-istemci/entegrasyon yazarken her iki biçimi de (`error` string veya
-`error.code`/`error.message` nesnesi) ele almak gerekir.
+**Note (important for operators):** This envelope is consistently applied only in newer-generation routes using `createError()` (auth, users, admin, ticket, chat, module gate). Older/simpler routes (`inhouse.js`, `casino.js`, `crypto.js`, `palace.js`, some endpoints of `bank.js`) may still return flat `{ "error": "message text" }` string errors. When writing a client/integration, you need to handle both formats (`error` string or `error.code`/`error.message` object).
 
-## Hız sınırlama
+## Rate limiting
 
-Aşağıdaki limiter'lar `express-rate-limit` ile tanımlıdır (test modunda
-devre dışıdır — `NODE_ENV=test` veya `E2E_TEST=true`):
+The following limiters are defined with `express-rate-limit` (disabled in test mode — `NODE_ENV=test` or `E2E_TEST=true`):
 
-| Limiter | Pencere | Limit | Uygulandığı uçlar |
+| Limiter | Window | Limit | Applied to |
 |---|---|---|---|
-| `globalLimiter` | 15 dk | 1200 istek/IP | Tüm `/api/*` (health uçları hariç) |
-| `authLimiter` | 15 dk | 5 istek/IP | `/auth/register`, `/auth/login`, `/auth/forgot-password`, `/auth/reset-password`, `/auth/resend-verification`, `/auth/wallet/nonce`, `/auth/wallet/login`, `/auth/google`, `/auth/telegram`, `/auth/telegram/widget-state` |
-| `financialLimiter` | 60 dk | 10 istek/IP | `/bank/deposit`, `/bank/withdraw` |
-| `spinLimiter` | 60 sn | 60 istek/IP | `/casino/spin` |
-| `adminLimiter` | 15 dk | 50 istek/IP | `/auth/2fa/setup`, `/auth/2fa/verify`, `/auth/2fa/disable` |
-| `palaceCallbackLimiter`, `chatLimiter`, `bonusLimiter` | — | — | Tanımlı ama şu an hiçbir route'a bağlanmamış (kod tabanında hazır, kullanılmıyor) |
+| `globalLimiter` | 15 min | 1200 requests/IP | All `/api/*` (except health endpoints) |
+| `authLimiter` | 15 min | 5 requests/IP | `/auth/register`, `/auth/login`, `/auth/forgot-password`, `/auth/reset-password`, `/auth/resend-verification`, `/auth/wallet/nonce`, `/auth/wallet/login`, `/auth/google`, `/auth/telegram`, `/auth/telegram/widget-state` |
+| `financialLimiter` | 60 min | 10 requests/IP | `/bank/deposit`, `/bank/withdraw` |
+| `spinLimiter` | 60 sec | 60 requests/IP | `/casino/spin` |
+| `adminLimiter` | 15 min | 50 requests/IP | `/auth/2fa/setup`, `/auth/2fa/verify`, `/auth/2fa/disable` |
+| `palaceCallbackLimiter`, `chatLimiter`, `bonusLimiter` | — | — | Defined but not currently connected to any route (ready in codebase, unused) |
 
-Ayrıca kimlik doğrulama uçlarında `/auth/login` art arda başarısız deneme
-sonrası `429 TOO_MANY_ATTEMPTS` döner (login lockout, `LOGIN_LOCKOUT_MINUTES`
-env'i ile ayarlanır — auth limiter'dan bağımsız, kullanıcı bazlı bir
-kilit).
+Additionally, on authentication endpoints, `/auth/login` returns `429 TOO_MANY_ATTEMPTS` after consecutive failed attempts (login lockout, configurable with `LOGIN_LOCKOUT_MINUTES` env — independent of the auth limiter, per-user lockout).
 
 ---
 
-## Uç Nokta Detayları
+## Endpoint Details
 
-### Kimlik doğrulama — `/api/auth` (`routes/auth.js`)
+### Authentication — `/api/auth` (`routes/auth.js`)
 
-| Method + Path | Auth | Body şeması | Notlar / hata kodları |
+| Method + Path | Auth | Body schema | Notes / error codes |
 |---|---|---|---|
-| `POST /register` | Misafir (`guestOnly`) + `authLimiter` | `registerSchema`: `username` (3-30, `[a-zA-Z0-9_]`), `email`, `password` (8-128, ≥1 büyük harf + ≥1 rakam), `referredBy?`, **`acceptedTerms: true` (zorunlu)**, **`acceptedKvkk: true` (zorunlu)**, `consentVersion?`, `turnstileToken?` | `409 USER_EXISTS` |
-| `POST /login` | Misafir + `authLimiter` | `loginSchema`: `username`, `password`, `turnstileToken?` | `429 TOO_MANY_ATTEMPTS`, `401 INVALID_CREDENTIALS`, `403 ACCOUNT_BANNED`, `403 EMAIL_NOT_VERIFIED` |
+| `POST /register` | Guest (`guestOnly`) + `authLimiter` | `registerSchema`: `username` (3-30, `[a-zA-Z0-9_]`), `email`, `password` (8-128, ≥1 uppercase + ≥1 digit), `referredBy?`, **`acceptedTerms: true` (required)**, **`acceptedKvkk: true` (required)**, `consentVersion?`, `turnstileToken?` | `409 USER_EXISTS` |
+| `POST /login` | Guest + `authLimiter` | `loginSchema`: `username`, `password`, `turnstileToken?` | `429 TOO_MANY_ATTEMPTS`, `401 INVALID_CREDENTIALS`, `403 ACCOUNT_BANNED`, `403 EMAIL_NOT_VERIFIED` |
 | `POST /refresh` | Public (refresh cookie) | — | `401 NO_REFRESH_TOKEN` / `USER_NOT_FOUND` / `TOKEN_REVOKED` / `INVALID_REFRESH_TOKEN` |
-| `POST /logout` | Public | — | Refresh cookie temizler |
+| `POST /logout` | Public | — | Clears refresh cookie |
 | `GET /verify-email` | Public | Query: `token` | `400 INVALID_TOKEN` |
 | `POST /verify-email` | Public | `emailVerifySchema`: `token` (10-200) | `400 INVALID_TOKEN` |
 | `POST /resend-verification` | `authLimiter` | `resendVerificationSchema`: `email` | |
-| `POST /forgot-password` | Misafir + `authLimiter` | `passwordResetRequestSchema`: `email`, `turnstileToken?` | |
-| `POST /reset-password` | Misafir + `authLimiter` | `passwordResetConfirmSchema`: `token`, `newPassword` (8-128, büyük harf+rakam) | `400 INVALID_TOKEN` |
+| `POST /forgot-password` | Guest + `authLimiter` | `passwordResetRequestSchema`: `email`, `turnstileToken?` | |
+| `POST /reset-password` | Guest + `authLimiter` | `passwordResetConfirmSchema`: `token`, `newPassword` (8-128, uppercase+digit) | `400 INVALID_TOKEN` |
 
-### Web3 cüzdan girişi — `/api/auth/wallet` (`routes/web3Auth.js`)
+### Web3 wallet login — `/api/auth/wallet` (`routes/web3Auth.js`)
 
-| Method + Path | Auth | Body şeması | Notlar |
+| Method + Path | Auth | Body schema | Notes |
 |---|---|---|---|
-| `POST /nonce` | `authLimiter` | `walletNonceSchema`: `address` (`0x` + 40 hex) | Hem giriş hem hesaba bağlama akışı için ortak, auth gerektirmez |
-| `POST /login` | Misafir + `authLimiter` | `walletAuthSchema`: `address`, `signature`, `message`, `walletType?` (metamask/walletconnect/coinbase/injected/unknown), `chainId?` | Yeni kullanıcıysa otomatik hesap oluşturur |
-| `POST /link` | Kullanıcı | `walletAuthSchema` (yukarıdaki gibi) | Mevcut hesaba cüzdan bağlar |
-| `DELETE /` | Kullanıcı | — | Cüzdan bağını kaldırır |
+| `POST /nonce` | `authLimiter` | `walletNonceSchema`: `address` (`0x` + 40 hex) | Shared for both login and account linking flows, no auth required |
+| `POST /login` | Guest + `authLimiter` | `walletAuthSchema`: `address`, `signature`, `message`, `walletType?` (metamask/walletconnect/coinbase/injected/unknown), `chainId?` | Creates account automatically if new user |
+| `POST /link` | User | `walletAuthSchema` (same as above) | Links wallet to existing account |
+| `DELETE /` | User | — | Removes wallet link |
 
-### Sosyal giriş — `/api/auth` (`routes/socialAuth.js`, Google/Telegram)
+### Social login — `/api/auth` (`routes/socialAuth.js`, Google/Telegram)
 
-| Method + Path | Auth | Notlar |
+| Method + Path | Auth | Notes |
 |---|---|---|
-| `GET /google` | Misafir + `authLimiter` | Google OAuth URL'ine redirect |
-| `GET /google/callback` | Public | Query `linkGoogleSchema` (`code`,`state`); başarısızsa client'a `?error=` ile redirect |
-| `POST /google/link` | Kullanıcı | Bağlama URL'i döner |
-| `GET /google/link/callback` | Kullanıcı | Hesaba Google bağlar |
-| `DELETE /google` | Kullanıcı | Google bağını kaldırır |
-| `GET /telegram` | Misafir + `authLimiter` | Telegram OAuth URL'ine redirect |
-| `GET /telegram/widget-state` | `authLimiter` | Telegram Login Widget için taze `state` + bot kullanıcı adı |
+| `GET /google` | Guest + `authLimiter` | Redirects to Google OAuth URL |
+| `GET /google/callback` | Public | Query `linkGoogleSchema` (`code`,`state`); redirects to client with `?error=` on failure |
+| `POST /google/link` | User | Returns linking URL |
+| `GET /google/link/callback` | User | Links Google to account |
+| `DELETE /google` | User | Removes Google link |
+| `GET /telegram` | Guest + `authLimiter` | Redirects to Telegram OAuth URL |
+| `GET /telegram/widget-state` | `authLimiter` | Fresh `state` + bot username for Telegram Login Widget |
 | `GET /telegram/callback` | Public | Query `linkTelegramSchema` (`id`,`auth_date`,`hash`,`state`,...) |
-| `POST /telegram/link` | Kullanıcı | Bağlama URL'i döner |
-| `GET /telegram/link/callback` | Kullanıcı | Hesaba Telegram bağlar |
-| `DELETE /telegram` | Kullanıcı | Telegram bağını kaldırır |
-| `GET /accounts` | Kullanıcı | Bağlı sosyal hesapların listesi |
+| `POST /telegram/link` | User | Returns linking URL |
+| `GET /telegram/link/callback` | User | Links Telegram to account |
+| `DELETE /telegram` | User | Removes Telegram link |
+| `GET /accounts` | User | List of linked social accounts |
 
 ### 2FA — `/api/auth/2fa` (`routes/admin2fa.js`)
 
-Sadece `requireAuth` uygulanır; admin kontrolü handler içinde yapılır
-(`403 NOT_ADMIN` eğer `role !== 'admin'`).
+Only `requireAuth` is applied; admin control is done inside the handler (`403 NOT_ADMIN` if `role !== 'admin'`).
 
-| Method + Path | Auth | Body | Notlar |
+| Method + Path | Auth | Body | Notes |
 |---|---|---|---|
-| `POST /setup` | Kullanıcı + `adminLimiter` | `{ password }` | QR + 10 yedek kod üretir; `400 ALREADY_ENABLED`, `401 WRONG_PASSWORD` |
-| `POST /verify` | Kullanıcı + `adminLimiter` | `{ token }` | TOTP veya yedek kod kabul eder; `400 NOT_SETUP`, `401 INVALID_TOKEN` |
-| `POST /disable` | Kullanıcı + `adminLimiter` | `{ password, token }` | `400 NOT_ENABLED`, `401 WRONG_PASSWORD`/`INVALID_TOKEN` |
-| `GET /status` | Kullanıcı | — | `{ enabled, isAdmin }` |
+| `POST /setup` | User + `adminLimiter` | `{ password }` | Generates QR + 10 backup codes; `400 ALREADY_ENABLED`, `401 WRONG_PASSWORD` |
+| `POST /verify` | User + `adminLimiter` | `{ token }` | Accepts TOTP or backup code; `400 NOT_SETUP`, `401 INVALID_TOKEN` |
+| `POST /disable` | User + `adminLimiter` | `{ password, token }` | `400 NOT_ENABLED`, `401 WRONG_PASSWORD`/`INVALID_TOKEN` |
+| `GET /status` | User | — | `{ enabled, isAdmin }` |
 
-### Etkinlikler — `/api/events` (`routes/events.js`) — **betting modülü kapısı**
+### Events — `/api/events` (`routes/events.js`) — **betting module gate**
 
-Modül kapalıysa tüm bu uçlar `503 { error: { code: 'MODULE_DISABLED', module: 'betting' } }` döner.
+If the module is disabled, all these endpoints return `503 { error: { code: 'MODULE_DISABLED', module: 'betting' } }`.
 
 | Method + Path | Auth |
 |---|---|
@@ -161,197 +134,197 @@ Modül kapalıysa tüm bu uçlar `503 { error: { code: 'MODULE_DISABLED', module
 | `GET /summary` | Public |
 | `GET /:id` | Public |
 
-### Bahisler — `/api/bets` (`routes/bets.js`) — **betting modülü kapısı**
+### Bets — `/api/bets` (`routes/bets.js`) — **betting module gate**
 
-| Method + Path | Auth | Body şeması |
+| Method + Path | Auth | Body schema |
 |---|---|---|
-| `POST /` | Kullanıcı | `placeBetSchema`: `selections[]` (1-10 adet, her biri `eventId`, `marketType`, `oddId`, `oddLabel`, `oddValue` ≥1.01, `eventLabel`), `type`: `single`\|`combo`, `stake` (1-50000) |
-| `GET /:id` | Kullanıcı | — |
+| `POST /` | User | `placeBetSchema`: `selections[]` (1-10 items, each with `eventId`, `marketType`, `oddId`, `oddLabel`, `oddValue` ≥1.01, `eventLabel`), `type`: `single`|`combo`, `stake` (1-50000) |
+| `GET /:id` | User | — |
 
-### Kullanıcılar — `/api/users` (`routes/users.js`) — tümü kullanıcı girişi gerektirir
+### Users — `/api/users` (`routes/users.js`) — all require user login
 
-| Method + Path | Body şeması | Notlar |
+| Method + Path | Body schema | Notes |
 |---|---|---|
-| `GET /me` | — | Profil |
+| `GET /me` | — | Profile |
 | `GET /me/bets` | — | |
 | `GET /me/transactions` | — | |
 | `GET /me/preferences` / `PUT /me/preferences` | — | |
 | `GET /me/favorites` | — | |
-| `POST /me/favorites/toggle` | `gameActivitySchema`: `gameId` (1-200), `kind`: `palace`\|`inhouse` | |
-| `GET /me/recently-played` / `POST /me/recently-played` | `gameActivitySchema` (POST için) | |
-| `PUT /me/password` | `changePasswordSchema`: `currentPassword`, `newPassword` (8-128, büyük harf+rakam) | |
+| `POST /me/favorites/toggle` | `gameActivitySchema`: `gameId` (1-200), `kind`: `palace`|`inhouse` | |
+| `GET /me/recently-played` / `POST /me/recently-played` | `gameActivitySchema` (for POST) | |
+| `PUT /me/password` | `changePasswordSchema`: `currentPassword`, `newPassword` (8-128, uppercase+digit) | |
 | `PUT /me/email` | `changeEmailSchema`: `password`, `newEmail` | |
-| `GET /me/data-export` | `dataExportRequestSchema`: `password` | KVKK md.11 self-service veri dışa aktarımı |
-| `DELETE /me` | `accountDeletionRequestSchema`: `password`, `confirm: true` | 30 günlük "vazgeçme" süresi ile hesap silme talebi |
-| `POST /me/cancel-deletion` | — | Silme talebini iptal eder |
-| `GET /me/limits` / `PUT /me/limits` | — | Sorumlu oyun (kayıp/yatırım/oturum) limitleri |
+| `GET /me/data-export` | `dataExportRequestSchema`: `password` | KVKK art.11 self-service data export |
+| `DELETE /me` | `accountDeletionRequestSchema`: `password`, `confirm: true` | Account deletion request with 30-day "regret" period |
+| `POST /me/cancel-deletion` | — | Cancels deletion request |
+| `GET /me/limits` / `PUT /me/limits` | — | Responsible gaming (loss/deposit/session) limits |
 
-### İşlemler — `/api/transactions` (`routes/transactions.js`) — kullanıcı girişi gerektirir
+### Transactions — `/api/transactions` (`routes/transactions.js`) — requires user login
 
-| Method + Path | Body şeması |
+| Method + Path | Body schema |
 |---|---|
 | `POST /deposit` | `depositSchema`: `amount` (10-50000) |
-| `POST /withdraw` | `withdrawSchema`: `amount` (20-50000), `iban` (TR + 24 hane, mod-97 checksum), `fullName` (3-100), `confirmForfeit?` (varsayılan `false`) |
+| `POST /withdraw` | `withdrawSchema`: `amount` (20-50000), `iban` (TR + 24 digits, mod-97 checksum), `fullName` (3-100), `confirmForfeit?` (default `false`) |
 
-### Promosyonlar — `/api/promotions` (`routes/promotions.js`)
+### Promotions — `/api/promotions` (`routes/promotions.js`)
 
 | Method + Path | Auth |
 |---|---|
 | `GET /` | Public |
-| `GET /my-wagerings` | Kullanıcı |
-| `POST /:id/claim` | Kullanıcı |
-| `POST /:id/wagerings/:wid/convert` | Kullanıcı |
+| `GET /my-wagerings` | User |
+| `POST /:id/claim` | User |
+| `POST /:id/wagerings/:wid/convert` | User |
 
-### Casino — `/api/casino` (`routes/casino.js`) — **casino-content modülü kapısı**
+### Casino — `/api/casino` (`routes/casino.js`) — **casino-content module gate**
 
-| Method + Path | Auth | Body | Hata kodları |
+| Method + Path | Auth | Body | Error codes |
 |---|---|---|---|
-| `POST /spin` | Kullanıcı + `spinLimiter` | `{ bet, payout, gameId?, gameTitle?, provider? }` | `400 INVALID_BET`, `400 INVALID_PAYOUT`, `404 NOT_FOUND`, `400 INSUFFICIENT_BALANCE` |
+| `POST /spin` | User + `spinLimiter` | `{ bet, payout, gameId?, gameTitle?, provider? }` | `400 INVALID_BET`, `400 INVALID_PAYOUT`, `404 NOT_FOUND`, `400 INSUFFICIENT_BALANCE` |
 
-### Palace (casino aggregator) — `/api/palace` (`routes/palace.js`) — **modül kapısı yok**
+### Palace (casino aggregator) — `/api/palace` (`routes/palace.js`) — **no module gate**
 
-`PALACE_API_TOKEN` env tanımlı değilse tüm uçlar `503 { error: 'Palace Casino API henüz yapılandırılmadı' }` döner. Not: Bu route grubu `requireCasinoContent` gate'inin **dışındadır** — casino-content modülü kapansa bile Palace uçları çalışmaya devam eder (yalnızca `/api/casino/spin` geneleştirilmiş ucu ve casino katalog sayfası kapanır).
+If `PALACE_API_TOKEN` env is not defined, all endpoints return `503 { error: 'Palace Casino API is not configured yet' }`. Note: This route group is **outside** the `requireCasinoContent` gate — even if the casino-content module is disabled, Palace endpoints continue to work (only the generalized `/api/casino/spin` endpoint and casino catalog page are disabled).
 
-| Method + Path | Auth | Notlar |
+| Method + Path | Auth | Notes |
 |---|---|---|
-| `GET /agent/info` | Kullanıcı | Agent bakiye/RTP/currency |
-| `POST /agent/rtp` | Admin | `{ rtp }` 75-95 arası |
+| `GET /agent/info` | User | Agent balance/RTP/currency |
+| `POST /agent/rtp` | Admin | `{ rtp }` between 75-95 |
 | `POST /agent/callback-test` | Admin | |
-| `POST /user/create` | Kullanıcı | `{ name }` 2-50 karakter |
-| `POST /user/info` | Kullanıcı | `{ user_code }` |
+| `POST /user/create` | User | `{ name }` 2-50 characters |
+| `POST /user/info` | User | `{ user_code }` |
 | `POST /user/deposit` | Admin | `{ user_code, amount }` |
 | `POST /user/withdraw` | Admin | `{ user_code, amount }` |
 | `POST /user/withdraw-all` | Admin | `{ user_code }` |
-| `POST /providers` | Public | Statik katalog, misafire açık |
+| `POST /providers` | Public | Static catalog, open to guests |
 | `POST /games` | Public | `{ provider_id, lang }` |
 | `POST /game/all` | Public | |
-| `GET /game/popular` | Public | Son 7 gün en çok oynanan (agregat) |
-| `POST /game/url` | Kullanıcı | `{ user_code, provider_id, game_code|game_symbol, win_ratio?, language?, return_url? }` |
-| `POST /game/launch` | Kullanıcı | Local bakiyeyi Palace'a transfer edip oyun açar; `409 SESSION_ACTIVE`, `400 INSUFFICIENT_BALANCE`, `503 PALACE_BALANCE_UNAVAILABLE`, `400 PALACE_DEPOSIT_FAILED` |
-| `POST /game/close` | Kullanıcı | Oturumu kapatıp bakiyeyi geri çeker |
-| `GET /game/session` | Kullanıcı | Aktif oturum kontrolü |
-| `POST /game/online` | Kullanıcı | |
-| `POST /game/call-config` | Kullanıcı | |
+| `GET /game/popular` | Public | Most played in last 7 days (aggregated) |
+| `POST /game/url` | User | `{ user_code, provider_id, game_code|game_symbol, win_ratio?, language?, return_url? }` |
+| `POST /game/launch` | User | Transfers local balance to Palace and opens game; `409 SESSION_ACTIVE`, `400 INSUFFICIENT_BALANCE`, `503 PALACE_BALANCE_UNAVAILABLE`, `400 PALACE_DEPOSIT_FAILED` |
+| `POST /game/close` | User | Closes session and pulls balance back |
+| `GET /game/session` | User | Active session check |
+| `POST /game/online` | User | |
+| `POST /game/call-config` | User | |
 | `POST /bonus/start` | Admin | `{ gplay_id, set_point?, type?, memo? }` |
 | `POST /bonus/cancel` | Admin | `{ call_id }` |
-| `POST /transactions` | Kullanıcı | `{ start_time, end_time, offset, limit }` |
-| `POST /round-details` | Kullanıcı | `{ transaction_id }` |
+| `POST /transactions` | User | `{ start_time, end_time, offset, limit }` |
+| `POST /round-details` | User | `{ transaction_id }` |
 | `POST /statistics/user` | Admin | |
-| `POST /callback` | Provider (özel `callback-token` header) | Bet/Win/BetCancel/BonusCall/Deposit/Withdraw işleme; round_id bazlı tekrar-önleme (5dk TTL) |
+| `POST /callback` | Provider (special `callback-token` header) | Processes Bet/Win/BetCancel/BonusCall/Deposit/Withdraw; round_id-based replay prevention (5min TTL) |
 
-### In-house oyunlar — `/api/inhouse` (`routes/inhouse.js`) — çekirdek platform, hiçbir modül kapısı yok
+### In-house games — `/api/inhouse` (`routes/inhouse.js`) — core platform, no module gate
 
-`GET /recent-winners` hariç tümü kullanıcı girişi gerektirir. Her oyunun kendi admin-ayarlanabilir min/max bahis + aktiflik kontrolü vardır (`checkBetAllowed` — kapalıysa `503 GAME_DISABLED`, limit dışıysa `400`).
+All require user login except `GET /recent-winners`. Each game has its own admin-adjustable min/max bet + activity control (`checkBetAllowed` — returns `503 GAME_DISABLED` if disabled, `400` if out of limits).
 
-| Oyun | Uçlar |
+| Game | Endpoints |
 |---|---|
-| Ortak | `GET /recent-winners` (public) |
+| Common | `GET /recent-winners` (public) |
 | Mines | `POST /mines/start`, `POST /mines/reveal`, `POST /mines/cashout` |
 | Plinko | `POST /plinko/drop` (`{ amount, risk?, rows? }`) |
 | Dice | `POST /dice/roll` (`{ amount, target, over? }`) |
 | Limbo | `POST /limbo/play` (`{ amount, target }`) |
 | Wheel | `POST /wheel/spin` (`{ amount, risk? }`) |
 | HiLo | `POST /hilo/start`, `POST /hilo/guess` (`{ guess }`), `POST /hilo/cashout` |
-| Keno | `POST /keno/play` (`{ amount, picks[] }`, 1-10 seçim) |
+| Keno | `POST /keno/play` (`{ amount, picks[] }`, 1-10 selections) |
 | Blackjack | `POST /blackjack/deal`, `POST /blackjack/hit`, `POST /blackjack/stand`, `POST /blackjack/double` |
 | European Roulette | `POST /roulette/spin` (`{ amount, bets[] }`) |
 | Baccarat | `POST /baccarat/deal` (`{ amount, bet: 'player'|'banker'|'tie' }`) |
 | Video Poker | `POST /videopoker/deal`, `POST /videopoker/draw` (`{ holds[] }`) |
 | Dragon Tiger | `POST /dragontiger/deal` (`{ amount, bet: 'dragon'|'tiger'|'tie' }`) |
 
-### Yardım — `/api/help` (`routes/help.js`)
+### Help — `/api/help` (`routes/help.js`)
 
-| Method + Path | Auth | Body | Notlar |
+| Method + Path | Auth | Body | Notes |
 |---|---|---|---|
-| `POST /chat` | Kullanıcı | `{ messages: [{role, content}, ...] }` | Köklenmiş (RAG) AI destek asistanı; `AI_HELP_API_KEY` yoksa sabit "bakımda" cevabı döner |
+| `POST /chat` | User | `{ messages: [{role, content}, ...] }` | RAG-grounded AI support assistant; returns a fixed "under maintenance" response if `AI_HELP_API_KEY` is not defined |
 
-### Kripto — `/api/crypto` (`routes/crypto.js`) — tümü kullanıcı girişi gerektirir
+### Crypto — `/api/crypto` (`routes/crypto.js`) — all require user login
 
-| Method + Path | Body | Notlar |
+| Method + Path | Body | Notes |
 |---|---|---|
-| `GET /deposit-address` | — | Kullanıcıya özel TRC20 USDT adresi; `CRYPTO_SEED_PHRASE` yoksa `503` |
-| `POST /check-deposit` | — | TronGrid sorgular, gelen USDT'yi `USDT_TRY_RATE` ile TRY'ye çevirip bakiyeye ekler |
-| `POST /withdraw-request` | `{ address, usdtAmount }` (min 5, `T` + 33 karakter TRC20 adresi) | Manuel/admin onaylı çekim talebi oluşturur |
+| `GET /deposit-address` | — | User-specific TRC20 USDT address; returns `503` if `CRYPTO_SEED_PHRASE` not set |
+| `POST /check-deposit` | — | Queries TronGrid, converts incoming USDT to TRY at `USDT_TRY_RATE` and adds to balance |
+| `POST /withdraw-request` | `{ address, usdtAmount }` (min 5, `T` + 33 character TRC20 address) | Creates manual/admin-approved withdrawal request |
 
-### Banka — `/api/bank` (`routes/bank.js`)
+### Bank — `/api/bank` (`routes/bank.js`)
 
-| Method + Path | Auth | Body şeması |
+| Method + Path | Auth | Body schema |
 |---|---|---|
 | `GET /info` | Public | — |
-| `POST /deposit` | Kullanıcı + `financialLimiter` | `depositSchema` |
-| `POST /withdraw` | Kullanıcı + `financialLimiter` | `withdrawSchema` |
-| `GET /requests` | Kullanıcı | — |
+| `POST /deposit` | User + `financialLimiter` | `depositSchema` |
+| `POST /withdraw` | User + `financialLimiter` | `withdrawSchema` |
+| `GET /requests` | User | — |
 | `GET /admin/pending` | Admin | — |
 | `PATCH /admin/pending/:id/approve` | Admin | — |
 | `PATCH /admin/pending/:id/reject` | Admin | — |
 
-### Destek talepleri — `/api/tickets` (`routes/ticket.js`) — modül kapısı yok
+### Support tickets — `/api/tickets` (`routes/ticket.js`) — no module gate
 
-| Method + Path | Auth | Body şeması |
+| Method + Path | Auth | Body schema |
 |---|---|---|
-| `POST /mine` | Kullanıcı | `createTicketSchema`: `subject` (1-200), `message` (1-4000) |
-| `GET /mine` | Kullanıcı | — |
-| `GET /mine/:id` | Kullanıcı | — |
-| `POST /mine/:id/reply` | Kullanıcı | `replySchema`: `message` (1-4000) |
+| `POST /mine` | User | `createTicketSchema`: `subject` (1-200), `message` (1-4000) |
+| `GET /mine` | User | — |
+| `GET /mine/:id` | User | — |
+| `POST /mine/:id/reply` | User | `replySchema`: `message` (1-4000) |
 | `GET /` | Admin | — |
 | `GET /:id` | Admin | — |
-| `POST /:id/reply` | Admin (demo admin engellenir) | `replySchema` |
-| `PATCH /:id/status` | Admin (demo admin engellenir) | `setStatusSchema`: `status`: `open`\|`in_progress`\|`resolved`\|`closed` |
+| `POST /:id/reply` | Admin (demo admin blocked) | `replySchema` |
+| `PATCH /:id/status` | Admin (demo admin blocked) | `setStatusSchema`: `status`: `open`|`in_progress`|`resolved`|`closed` |
 
-### Sohbet — `/api/chat` (`routes/chat.js`) — modül kapısı yok
+### Chat — `/api/chat` (`routes/chat.js`) — no module gate
 
-| Method + Path | Auth | Body şeması |
+| Method + Path | Auth | Body schema |
 |---|---|---|
-| `GET /rooms` | Kullanıcı | — |
-| `GET /rooms/:slug/messages` | Kullanıcı | — |
+| `GET /rooms` | User | — |
+| `GET /rooms/:slug/messages` | User | — |
 | `GET /admin/rooms` | Admin | — |
-| `POST /admin/rooms` | Admin (demo engellenir) | `createRoomSchema`: `name`, `description?`, `icon?`, `color?`, `isPublic?`, `minLevel?`, `maxUsers?`, `slowMode?` (0-300 sn), `rainSettings?` |
-| `PATCH /admin/rooms/:id` | Admin (demo engellenir) | `updateRoomSchema` (yukarıdakine ek `isActive?`, `rain*` düz alanlar) |
-| `DELETE /admin/rooms/:id` | Admin (demo engellenir) | — |
-| `POST /admin/rooms/:id/ban` | Admin (demo engellenir) | `banUserSchema`: `userId` |
-| `DELETE /admin/rooms/:id/ban/:userId` | Admin (demo engellenir) | — |
-| `POST /admin/rooms/:id/mute` | Admin (demo engellenir) | `muteUserSchema`: `userId`, `duration` (1-86400 sn), `reason?` |
-| `DELETE /admin/rooms/:id/mute/:userId` | Admin (demo engellenir) | — |
-| `DELETE /admin/messages/:id` | Admin (demo engellenir) | — |
+| `POST /admin/rooms` | Admin (demo blocked) | `createRoomSchema`: `name`, `description?`, `icon?`, `color?`, `isPublic?`, `minLevel?`, `maxUsers?`, `slowMode?` (0-300 sec), `rainSettings?` |
+| `PATCH /admin/rooms/:id` | Admin (demo blocked) | `updateRoomSchema` (adds `isActive?`, `rain*` flat fields to the above) |
+| `DELETE /admin/rooms/:id` | Admin (demo blocked) | — |
+| `POST /admin/rooms/:id/ban` | Admin (demo blocked) | `banUserSchema`: `userId` |
+| `DELETE /admin/rooms/:id/ban/:userId` | Admin (demo blocked) | — |
+| `POST /admin/rooms/:id/mute` | Admin (demo blocked) | `muteUserSchema`: `userId`, `duration` (1-86400 sec), `reason?` |
+| `DELETE /admin/rooms/:id/mute/:userId` | Admin (demo blocked) | — |
+| `DELETE /admin/messages/:id` | Admin (demo blocked) | — |
 
-### Görsel/istatik uçlar (hepsi herkese açık, `Cache-Control: public, max-age=30`)
+### Visual/static endpoints (all public, `Cache-Control: public, max-age=30`)
 
-| Method + Path | Route dosyası | Döner |
+| Method + Path | Route file | Returns |
 |---|---|---|
-| `GET /api/theme` | `theme.js` | `{ vars }` — CSS token'ları |
-| `GET /api/branding` | `branding.js` | `{ values }` — logo/favicon/site adı/font |
-| `GET /api/pages/home` | `pages.js` | `{ content }` — ana sayfa bölüm sırası + banner override'ları |
-| `GET /api/static-pages` | `staticPages.js` | `{ pages }` — footer sayfa listesi |
-| `GET /api/static-pages/:slug` | `staticPages.js` | `{ page }` — `404 NOT_FOUND` kapalı/yok ise |
-| `GET /api/games/featured` | `games.js` | `{ codes }` — öne çıkan oyun kodları |
+| `GET /api/theme` | `theme.js` | `{ vars }` — CSS tokens |
+| `GET /api/branding` | `branding.js` | `{ values }` — logo/favicon/site name/font |
+| `GET /api/pages/home` | `pages.js` | `{ content }` — homepage section order + banner overrides |
+| `GET /api/static-pages` | `staticPages.js` | `{ pages }` — footer page list |
+| `GET /api/static-pages/:slug` | `staticPages.js` | `{ page }` — `404 NOT_FOUND` if disabled/missing |
+| `GET /api/games/featured` | `games.js` | `{ codes }` — featured game codes |
 | `GET /api/currency` | `currency.js` | `{ active, supported }` |
 | `GET /api/locale-config` | `localeConfig.js` | `{ timezone }` |
-| `GET /api/modules` | `modules.js` | `{ modules: [{ id, title, description, available }] }` — lisans kaynağı sızmaz |
+| `GET /api/modules` | `modules.js` | `{ modules: [{ id, title, description, available }] }` — license source doesn't leak |
 
 ### VIP — `/api/vip` (`routes/vip.js`)
 
 | Method + Path | Auth |
 |---|---|
-| `GET /status` | Kullanıcı — güncel VIP seviyesi/ilerlemesi |
+| `GET /status` | User — current VIP level/progress |
 
-### Admin — `/api/admin` (`routes/admin.js`) — tümü `requireAuth` + `requireAdmin` + audit log
+### Admin — `/api/admin` (`routes/admin.js`) — all require `requireAuth` + `requireAdmin` + audit log
 
-Yıkıcı/finansal etkili uçlarda ek olarak `blockDemoAdmin` uygulanır (aşağıda **[demo engelli]** ile işaretlendi) — `isDemoAdmin: true` hesaplar bu uçlarda `403` alır.
+Destructive/financial endpoints additionally apply `blockDemoAdmin` (marked below as **[demo blocked]**) — `isDemoAdmin: true` accounts get `403` on these endpoints.
 
-**Kullanıcılar**
+**Users**
 - `GET /users`, `POST /users` (`createUserSchema`: `username`,`email`,`password`,`role?`,`referredBy?`)
 - `PATCH /users/:id`
-- `DELETE /users/:id` **[demo engelli]**
-- `PATCH /users/:id/balance` **[demo engelli]** (`updateBalanceSchema`: `amount` (pozitif), `type`: `credit`\|`debit`\|`bonus`, `note?`)
+- `DELETE /users/:id` **[demo blocked]**
+- `PATCH /users/:id/balance` **[demo blocked]** (`updateBalanceSchema`: `amount` (positive), `type`: `credit`|`debit`|`bonus`, `note?`)
 - `GET /users/:id/referrals`, `GET /users/:id/referral-tree`, `GET /users/:id/transactions`
 
-**Etkinlikler**
+**Events**
 - `GET /events/archived`
 - `POST /events` (`createEventSchema`: `sport`,`league`,`homeTeam`,`awayTeam`,`startTime`,`markets[]`)
 - `PATCH /events/:id`
-- `POST /events/:id/settle` **[demo engelli]** (`settleEventSchema`: `results` — oddId veya oddId dizisi, `score?`)
+- `POST /events/:id/settle` **[demo blocked]** (`settleEventSchema`: `results` — oddId or array of oddIds, `score?`)
 
-**İstatistik / Görevler**
+**Statistics / Tasks**
 - `GET /stats`, `GET /tasks`, `PATCH /tasks/:id`
 
 **Casino**
@@ -361,65 +334,65 @@ Yıkıcı/finansal etkili uçlarda ek olarak `blockDemoAdmin` uygulanır (aşağ
 - `GET /palace/agent/info`, `POST /palace/user/create`, `POST /palace/game/launch`, `POST /palace/game/list`
 - `GET /palace/test-users`, `POST /palace/withdraw-test-users`, `POST /palace/rtp`, `POST /palace/bonus/start`, `POST /palace/bonus/cancel`, `GET /palace/bonus/config`, `GET /palace/summary`
 
-**Hata günlüğü**
-- `GET /errors/recent`, `GET /errors/status`, `POST /errors/clear` **[demo engelli]**
+**Error log**
+- `GET /errors/recent`, `GET /errors/status`, `POST /errors/clear` **[demo blocked]**
 
-**Tema / Marka / Sayfa / Oyun vitrini**
+**Theme / Branding / Pages / Game showcase**
 - `GET /theme`, `PATCH /theme` (`updateThemeSchema`: `id`, `value`)
 - `GET /theme/presets`, `POST /theme/apply-preset` (`applyThemePresetSchema`: `id`)
-- `GET /branding`, `PATCH /branding` (`updateBrandingSchema`: `id`, `value` — görsel/font alanlar `data:` URL, boyut sınırı tanıma göre değişir)
+- `GET /branding`, `PATCH /branding` (`updateBrandingSchema`: `id`, `value` — image/font fields `data:` URL, size limit varies by definition)
 - `GET /pages/home`, `PATCH /pages/home` (`updateHomeContentSchema`: `sectionOrder[]`, `banners[]`)
-- `GET /games/featured`, `PATCH /games/featured` (`updateFeaturedGamesSchema`: `codes[]`, en fazla 60)
+- `GET /games/featured`, `PATCH /games/featured` (`updateFeaturedGamesSchema`: `codes[]`, max 60)
 
-**Oyun ayarları (RTP/limit/house edge — 13 in-house oyun)**
+**Game settings (RTP/limit/house edge — 13 in-house games)**
 - `GET /game-settings`
-- `PATCH /game-settings/:gameId` **[demo engelli]** (`updateGameSettingsSchema` — oyuna göre `*MinBet`/`*MaxBet`/`*HouseEdgePercent`/`*PayoutFactor`/`*Mult` alanları, `isActive?`, `reason?`)
-- `POST /game-settings/:gameId/simulate-rtp` (`simulateRtpSchema` — yalnızca blackjack/video poker alanları + `hands?` 20000-500000)
+- `PATCH /game-settings/:gameId` **[demo blocked]** (`updateGameSettingsSchema` — game-dependent `*MinBet`/`*MaxBet`/`*HouseEdgePercent`/`*PayoutFactor`/`*Mult` fields, `isActive?`, `reason?`)
+- `POST /game-settings/:gameId/simulate-rtp` (`simulateRtpSchema` — only blackjack/video poker fields + `hands?` 20000-500000)
 
-**Alarm ayarları**
+**Alert settings**
 - `GET /settings/alerts`, `PUT /settings/alerts`, `POST /settings/alerts/test`
 
-**Saat dilimi / Para birimi**
+**Timezone / Currency**
 - `GET /settings/timezone`, `PUT /settings/timezone` (`updateTimezoneSchema`: `timezone`)
-- `GET /currency`, `PUT /currency` **[demo engelli]** (`updateCurrencySchema`: `code` — yalnızca tanımlı para birimleri)
+- `GET /currency`, `PUT /currency` **[demo blocked]** (`updateCurrencySchema`: `code` — only defined currencies)
 
-**Roller / izinler**
+**Roles / Permissions**
 - `GET /roles`
-- `POST /roles` **[demo engelli]** (`createRoleSchema`: `name` (küçük harf/rakam/_), `displayName`, `description?`, `permissions[]?`, `priority?` 0-99)
-- `PUT /roles/:id` **[demo engelli]** (`updateRoleSchema`)
-- `DELETE /roles/:id` **[demo engelli]**
+- `POST /roles` **[demo blocked]** (`createRoleSchema`: `name` (lowercase/digit/_), `displayName`, `description?`, `permissions[]?`, `priority?` 0-99)
+- `PUT /roles/:id` **[demo blocked]** (`updateRoleSchema`)
+- `DELETE /roles/:id` **[demo blocked]**
 - `GET /permissions`
-- `POST /users/:id/roles` **[demo engelli]** (`assignRoleSchema`: `roleId`)
-- `DELETE /users/:id/roles/:roleId` **[demo engelli]**
+- `POST /users/:id/roles` **[demo blocked]** (`assignRoleSchema`: `roleId`)
+- `DELETE /users/:id/roles/:roleId` **[demo blocked]**
 
-**VIP seviyeleri**
+**VIP levels**
 - `GET /vip-levels`
-- `POST /vip-levels` **[demo engelli]** (`upsertVipLevelSchema`: `level` 1-20, `name`, `xpRequired`, `cashbackPercent?`, `rewardAmount?`, `rewardType?`, `benefits[]?`, `color?`, `icon?`, `isActive?`)
-- `DELETE /vip-levels/:level` **[demo engelli]**
+- `POST /vip-levels` **[demo blocked]** (`upsertVipLevelSchema`: `level` 1-20, `name`, `xpRequired`, `cashbackPercent?`, `rewardAmount?`, `rewardType?`, `benefits[]?`, `color?`, `icon?`, `isActive?`)
+- `DELETE /vip-levels/:level` **[demo blocked]**
 
-**Bot oyuncular**
+**Bot players**
 - `GET /bots`
-- `POST /bots` **[demo engelli]** (`createBotSchema`: `username`,`email`,`password?`,`botType?`,`behavior?`,`limits?`,`notes?`)
+- `POST /bots` **[demo blocked]** (`createBotSchema`: `username`,`email`,`password?`,`botType?`,`behavior?`,`limits?`,`notes?`)
 - `GET /bots/:id`
-- `PATCH /bots/:id` **[demo engelli]** (`updateBotSchema`)
-- `DELETE /bots/:id` **[demo engelli]**
-- `POST /bots/start-all` **[demo engelli]**, `POST /bots/stop-all` **[demo engelli]**
+- `PATCH /bots/:id` **[demo blocked]** (`updateBotSchema`)
+- `DELETE /bots/:id` **[demo blocked]**
+- `POST /bots/start-all` **[demo blocked]**, `POST /bots/stop-all` **[demo blocked]**
 
-**Sahte kazananlar (kozmetik, gerçek bakiye kullanmaz)**
+**Fake winners (cosmetic, uses no real balance)**
 - `GET /fake-winners`
-- `PUT /fake-winners` **[demo engelli]** (`updateFakeWinnersSchema`: `enabled?`,`poolMin?`,`poolMax?`,`intervalMinMs?`,`intervalMaxMs?`,`amountMin?`,`amountMax?`,`includeCasinoWins?`,`includeBettingWins?` — min/max çiftleri karşılıklı doğrulanır)
+- `PUT /fake-winners` **[demo blocked]** (`updateFakeWinnersSchema`: `enabled?`,`poolMin?`,`poolMax?`,`intervalMinMs?`,`intervalMaxMs?`,`amountMin?`,`amountMax?`,`includeCasinoWins?`,`includeBettingWins?` — min/max pairs are cross-validated)
 
-**Statik sayfalar (footer)**
+**Static pages (footer)**
 - `GET /static-pages`
-- `PUT /static-pages/:slug` **[demo engelli]** (`upsertStaticPageSchema`: `title`,`intro?`,`sections[]`)
-- `PATCH /static-pages/:slug/toggle` **[demo engelli]** (`toggleStaticPageSchema`: `isEnabled`)
+- `PUT /static-pages/:slug` **[demo blocked]** (`upsertStaticPageSchema`: `title`,`intro?`,`sections[]`)
+- `PATCH /static-pages/:slug/toggle` **[demo blocked]** (`toggleStaticPageSchema`: `isEnabled`)
 
-**Modüller** (`/api/admin/modules` — ayrı alt router, `controllers/modules.js`)
-- `GET /` — modül listesi (durum + lisans birleşik)
-- `PATCH /:id` — `{ enabled: boolean }` ile aç/kapa
-- `POST /refresh` — modül + lisans önbelleğini tazeler
+**Modules** (`/api/admin/modules` — separate sub-router, `controllers/modules.js`)
+- `GET /` — module list (status + license combined)
+- `PATCH /:id` — toggle with `{ enabled: boolean }`
+- `POST /refresh` — refreshes module + license cache
 
-### Admin analitik — `/api/admin/analytics` (`routes/analytics.js`) — admin
+### Admin analytics — `/api/admin/analytics` (`routes/analytics.js`) — admin
 
 | Method + Path |
 |---|
@@ -429,18 +402,18 @@ Yıkıcı/finansal etkili uçlarda ek olarak `blockDemoAdmin` uygulanır (aşağ
 | `GET /finance` |
 | `GET /sports` |
 
-### Kurulum — `/install` (`routes/install.js`) — `/api` altında değil
+### Setup — `/install` (`routes/install.js`) — not under `/api`
 
-| Method + Path | Notlar |
+| Method + Path | Notes |
 |---|---|
-| `GET /install` | Build gerektirmeyen tek sayfalık kurulum formu |
-| `GET /install/api/status` | DB bağlantısı + kurulum durumu |
-| `POST /install/api/run` | İlk yönetici + site ayarlarını oluşturur, `.env` içeriği üretir; `409` zaten kurulmuşsa, `400` doğrulama hatasında |
+| `GET /install` | Build-free single-page setup form |
+| `GET /install/api/status` | DB connection + setup status |
+| `POST /install/api/run` | Creates first admin + site settings, generates `.env` content; returns `409` if already installed, `400` on validation error |
 
-### Sağlık / yardımcı uçlar (`app.js` içinde, route dosyası yok)
+### Health / utility endpoints (inside `app.js`, no route file)
 
-| Method + Path | Auth | Notlar |
+| Method + Path | Auth | Notes |
 |---|---|---|
 | `GET /api/health` | Public | `{ ok: true, env }` — uptime monitoring |
-| `GET /api/health/status` | Public | `{ api, db, palace, oddsSource, payment, onlineCount, sync }` — derin sağlık, cache'lenmez |
-| `GET /api/img?url=` | Public | Hotlink korumalı CDN görsel proxy'si (yalnızca `image/*` content-type kabul eder) |
+| `GET /api/health/status` | Public | `{ api, db, palace, oddsSource, payment, onlineCount, sync }` — deep health, not cached |
+| `GET /api/img?url=` | Public | Hotlink-protected CDN image proxy (only accepts `image/*` content-type) |

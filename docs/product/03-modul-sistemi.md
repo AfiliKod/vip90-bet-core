@@ -1,83 +1,47 @@
-# Modül Sistemi
+# Module System
 
-VIP90.bet'un çekirdek platformu (13 in-house oyun, kullanıcı yönetimi,
-bonus/çevrim motoru, temel admin paneli) her zaman açıktır — bir satın
-alma sonrası tamamen çalışır durumdadır, ek bir şey gerekmez.
+VIP90.bet's core platform (13 in-house games, user management, bonus/wagering engine, basic admin panel) is always enabled — it's fully functional after purchase, no additional steps needed.
 
-Üç ek modül **ayrı satılır/lisanslanır**:
+Three additional modules are **sold/licensed separately**:
 
-| Modül | ID | Ne sağlar | API'de neyi kapatır |
+| Module | ID | What it provides | What it blocks in the API |
 |---|---|---|---|
-| **Bahis** | `betting` | Spor + canlı bahis: oran akışı, kupon, otomatik sonuçlandırma | `/api/events`, `/api/bets` |
-| **Casino İçeriği** | `casino-content` | Slot ve masa oyunları, bir aggregator üzerinden | `/api/casino` |
-| **Canlı Casino** | `live-casino` | Gerçek krupiyeli masa ve video oyunları | *(henüz bağlı bir route yok — bkz. aşağıda)* |
+| **Betting** | `betting` | Sports + live betting: odds feed, coupon, automatic settlement | `/api/events`, `/api/bets` |
+| **Casino Content** | `casino-content` | Slot and table games via an aggregator | `/api/casino` |
+| **Live Casino** | `live-casino` | Real dealer table and video games | *(no connected route yet — see below)* |
 
-## Bugünkü durum
+## Current state
 
-Bu artık bir mimari niyetten ibaret değil — panelden gerçekten
-açılıp kapatılabilen, API seviyesinde gerçekten uygulanan bir sistem.
-Dört parçadan oluşur:
+This is no longer just an architectural intent — it's a real system that can actually be toggled from the panel and is enforced at the API level. It consists of four parts:
 
-### 1. Modül kayıt defteri ve anahtarı
+### 1. Module registry and key
 
-`server/src/modules/registry.js`, üç modülü (`MODULE_DEFINITIONS`) ve
-her biri için fail-closed bir `moduleStore` tanımlar: DB okunamazsa
-**tüm modüller kapalı sayılır** ("bir ödeme/bahis modülünün ölçülemez
-şekilde açık kalması, yanlışlıkla kapalı görünmesinden daha kötü bir
-hatadır" — dosyadaki yorum).
+`server/src/modules/registry.js` defines three modules (`MODULE_DEFINITIONS`) and a fail-closed `moduleStore` for each: if the DB can't be read, **all modules are considered closed** ("a payment/betting module staying open in an immeasurable way is worse than appearing accidentally closed" — comment in the file).
 
-`server/src/modules/index.js` bu deftere gerçek bir DB bağlantısı
-kurar: her modülün açık/kapalı durumu mevcut `Setting` koleksiyonunda
-`module.<id>.enabled` anahtarıyla saklanır (yeni bir şema açılmadı).
-`setModuleEnabled(id, enabled, updatedBy)` bu anahtarı yazar ve
-30 saniyelik TTL cache'i geçersiz kılar.
+`server/src/modules/index.js` establishes a real DB connection to this registry: each module's enabled/disabled status is stored in the existing `Setting` collection under the `module.<id>.enabled` key (no new schema was opened). `setModuleEnabled(id, enabled, updatedBy)` writes this key and invalidates the 30-second TTL cache.
 
-### 2. Lisans doğrulama servisi
+### 2. License validation service
 
-`server/src/services/licensing/` iki dosyadan oluşur:
+`server/src/services/licensing/` consists of two files:
 
-- `registry.js` — `createLicenseStore()`: modül store'unun aynı
-  DI/TTL desenini kullanır ama **fail yönü kasıtlı olarak tersinedir**.
-  Modüller fail-**closed**'dır (DB yoksa hepsi kapalı); lisans ise
-  fail-**tolerant**'tır — merkezi lisans sunucusuna geçici olarak
-  ulaşılamazsa son bilinen geçerli durum `graceMs` (varsayılan 72 saat)
-  boyunca korunur. Gerekçe: geçici bir ağ kesintisi operatörün tüm
-  modüllerini kapatmamalı. Buna karşın lisansın `expiresAt` süresi
-  dolduysa modül **yerel olarak** (ağ gerekmeden) kapanır.
-- `index.js` — üretim bağlantısı. `LICENSE_SERVER_URL` ve
-  `LICENSE_KEY` env değişkenleri tanımlıysa merkez sunucudan
-  `GET {LICENSE_SERVER_URL}/license?key=...` ile
-  `{ "<modülId>": { valid, expiresAt } }` biçiminde durum çekilir.
-  **Tanımlı DEĞİLSE ürün "yönetimsiz mod"da çalışır: tanımlı tüm
-  modüller otomatik olarak geçerli sayılır.** Bu bilinçli bir tasarım
-  kararıdır (kod içi yorum: *"pazarda satılan ürün kutudan
-  çıktığı gibi çalışmalıdır; merkezi zorunluluk yalnızca operatör bir
-  lisans sunucusuna bağlanmak isterse devreye girer"*) — yani bu
-  depoyu satın alıp `LICENSE_SERVER_URL`/`LICENSE_KEY` hiç
-  tanımlamadan çalıştırırsanız, lisans kapısı sizi hiç engellemez;
-  tek kapı admin panelindeki aç/kapa anahtarı olur.
+- `registry.js` — `createLicenseStore()`: uses the same DI/TTL pattern as the module store but **the failure direction is intentionally reversed**. Modules are fail-**closed** (if DB is down, all are closed); the license is fail-**tolerant** — if the central license server is temporarily unreachable, the last known valid state is preserved for `graceMs` (default 72 hours). Rationale: a temporary network outage shouldn't close all of an operator's modules. However, if the license's `expiresAt` has expired, the module closes **locally** (without needing the network).
+- `index.js` — production connection. If `LICENSE_SERVER_URL` and `LICENSE_KEY` env variables are defined, status is fetched from the central server via `GET {LICENSE_SERVER_URL}/license?key=...` in the form `{ "<moduleId>": { valid, expiresAt } }`. **If NOT defined, the product runs in "unmanaged mode": all defined modules are automatically considered valid.** This is a deliberate design decision (code comment: *"The installed product must work out of the box; central enforcement only kicks in when an operator wants to connect to a license server"*) — so if you buy this repo and run it without ever defining `LICENSE_SERVER_URL`/`LICENSE_KEY`, the license gate never blocks you; the only gate is the on/off switch in the admin panel.
 
-  `isModuleUsable(id)` iki kapıyı birden sorar: modül **hem** panel
-  anahtarında açık **hem de** lisanslı olmalı
-  (`moduleStore.isEnabled(id) && licenseStore.isLicensed(id)`). Mongo
-  bağlı değilse sorguya bile girmeden `false` döner.
+  `isModuleUsable(id)` checks both gates: a module must be **both** enabled on the panel **and** licensed (`moduleStore.isEnabled(id) && licenseStore.isLicensed(id)`). If Mongo isn't connected, it returns `false` without even entering the query.
 
-### 3. API kapısı: `moduleGate`
+### 3. API gate: `moduleGate`
 
-`server/src/middleware/moduleGate.js`, bir modül kapalıyken ilgili
-route grubunun **404 değil**, anlamlı bir 503 dönmesini sağlar:
+`server/src/middleware/moduleGate.js` ensures that when a module is disabled, the relevant route group returns a meaningful 503 instead of 404:
 
 ```js
 res.status(503).json({
-  error: { code: 'MODULE_DISABLED', module: moduleId, message: 'Bu bölüm şu anda kullanılamıyor.' }
+  error: { code: 'MODULE_DISABLED', module: moduleId, message: 'This section is currently unavailable.' }
 });
 ```
 
-`isUsable()` çağrısı hata fırlatırsa (ör. DB'ye erişilemedi) kapı
-güvenli tarafta kalır ve yine 503 döner — asla "belirsizken aç"
-davranmaz.
+If the `isUsable()` call throws an error (e.g., DB inaccessible), the gate stays on the safe side and still returns 503 — it never behaves as "open when uncertain".
 
-Bu kapı bugün `server/src/app.js` içinde şu şekilde bağlanmış durumda:
+This gate is currently wired in `server/src/app.js` as follows:
 
 ```js
 const requireBetting       = createModuleGate({ isUsable: isModuleUsable, moduleId: 'betting' });
@@ -88,65 +52,29 @@ app.use('/api/bets',   requireBetting, betsRoutes);
 app.use('/api/casino', requireCasinoContent, casinoRoutes);
 ```
 
-Yani örneğin admin panelden `betting` modülünü kapatırsanız, o andan
-itibaren `/api/events/*` ve `/api/bets/*` altındaki **her** istek
-(zaten oturum açmış kullanıcılar dahil) `503 MODULE_DISABLED` alır;
-çekirdek platformun geri kalanı (in-house oyunlar, bonus, cüzdan)
-etkilenmez.
+So for example, if you disable the `betting` module from the admin panel, from that moment on **every** request under `/api/events/*` and `/api/bets/*` (including already logged-in users) gets `503 MODULE_DISABLED`; the rest of the core platform (in-house games, bonus, wallet) is unaffected.
 
-**Bilinen boşluk:** `live-casino` modül ID'si kayıt defterinde
-tanımlı ve lisans/panel anahtarı sorgulanabilir durumda, ama bugün
-onu gerçekten kapatacak bir route/özellik yok — depoda gerçek
-krupiyeli canlı casino entegrasyonu henüz yazılmadı, dolayısıyla
-`requireLiveCasino` gibi bir kapı da yok. Panelde bu modülü kapatmak
-şu an hiçbir API davranışını değiştirmez.
+**Known gap:** The `live-casino` module ID is defined in the registry and the license/panel key is queryable, but today there is no route/feature that actually disables it — the real dealer live casino integration hasn't been written in the repo yet, so there's no `requireLiveCasino` gate either. Disabling this module in the panel currently doesn't change any API behavior.
 
-### 4. Admin ekranı
+### 4. Admin screen
 
-`client/src/pages/admin/Modules.jsx`, `GET /admin/modules` (liste),
-`PATCH /admin/modules/:id` (`{ enabled }` gövdesiyle aç/kapa) ve
-`POST /admin/modules/refresh` (her iki cache'i de geçersiz kılıp
-tazeler) uç noktalarını kullanan gerçek bir toggle ekranıdır
-(`server/src/controllers/modules.js`).
+`client/src/pages/admin/Modules.jsx` is a real toggle screen using the `GET /admin/modules` (list), `PATCH /admin/modules/:id` (toggle with `{ enabled }` body), and `POST /admin/modules/refresh` (invalidates both caches and refreshes) endpoints (`server/src/controllers/modules.js`).
 
-Akış:
+Flow:
 
-1. Ekran açıldığında `GET /admin/modules` çağrılır; yanıt her modül
-   için `{ id, title, description, enabled, licensed, licenseSource,
-   licenseExpiresAt }` döner — `enabled` panel anahtarı, `licensed`
-   lisans servisinin sonucudur.
-2. Her satırda bir switch (`role="switch"`) vardır; tıklanınca
-   `PATCH /admin/modules/:id { enabled: !enabled }` gönderilir ve
-   yanıt doğrudan ekranı günceller (ayrı bir yeniden yükleme yok).
-3. Bir lisans rozeti gösterilir — üç durumdan biri:
-   - **"Lisans: doğrulandı"** (yeşil, `source: 'live'`) — merkez
-     sunucudan taze veri geldi (ya da yönetimsiz moddaysanız, tüm
-     modüller varsayılan olarak bu durumdadır).
-   - **"Lisans: önbellek — merkez erişilemiyor"** (sarı,
-     `source: 'cached'`) — merkeze ulaşılamıyor ama grace penceresi
-     içinde son bilinen geçerli durumla çalışılıyor.
-   - **"Lisans: doğrulanamadı"** (kırmızı, `source: 'closed'`) — ne
-     taze ne önbellekte geçerli bir durum var; modül lisans
-     tarafından kapalı sayılır.
-4. Panel anahtarı açık ama lisans kapalıysa ayrıca kırmızı bir
-   **"Lisanssız — ziyaretçilere kapalı"** rozeti belirir — yani
-   `enabled=true, licensed=false` durumunda API kapısı yine de
-   kapalıdır (`isModuleUsable` iki kapıyı birden ister).
-5. **"↻ Durumu Yenile"** butonu `POST /admin/modules/refresh`
-   çağırır; bu, hem modül hem lisans TTL cache'ini anında geçersiz
-   kılar (örn. lisans sunucusunda bir değişiklik yapıldıysa 30
-   saniye beklemeden yansıtmak için kullanışlıdır).
+1. When the screen opens, `GET /admin/modules` is called; the response returns `{ id, title, description, enabled, licensed, licenseSource, licenseExpiresAt }` for each module — `enabled` is the panel key, `licensed` is the result of the license service.
+2. Each row has a switch (`role="switch"`); on click, `PATCH /admin/modules/:id { enabled: !enabled }` is sent and the response directly updates the screen (no separate reload).
+3. A license badge is shown — one of three states:
+   - **"License: verified"** (green, `source: 'live'`) — fresh data came from the central server (or if you're in unmanaged mode, all modules default to this state).
+   - **"License: cached — central server unreachable"** (yellow, `source: 'cached'`) — the central server can't be reached but the system is operating with the last known valid state within the grace window.
+   - **"License: unverified"** (red, `source: 'closed'`) — neither fresh nor cached valid state exists; the module is considered closed by the license.
+4. If the panel key is enabled but the license is closed, an additional red **"Unlicensed — closed to visitors"** badge appears — meaning in the `enabled=true, licensed=false` state the API gate is still closed (`isModuleUsable` requires both gates).
+5. The **"↻ Refresh Status"** button calls `POST /admin/modules/refresh`; this instantly invalidates both module and license TTL caches (useful e.g., if a change was made on the license server and you want to reflect it without waiting 30 seconds).
 
-## Tedarik modeli
+## Supply model
 
-Bahis ve casino modülleri, üçüncü taraf veri/içerik sağlayıcılarına
-bağımlıdır — bu nedenle platformun kendisinden ayrı bir ticari ilişki
-gerektirir. Lisanslı bir operatör içinseniz doğrudan bir aggregator ile
-sözleşme yapmanız beklenir; lisans süreci devam ediyorsa alternatif
-tedarik seçenekleri için satış ekibiyle görüşün.
+The betting and casino modules depend on third-party data/content providers — therefore require a separate commercial relationship from the platform itself. If you're a licensed operator, you're expected to contract directly with an aggregator; if the licensing process is ongoing, discuss alternative supply options with the sales team.
 
-## Daha fazlası
+## More
 
-Modül sisteminin kapsamadığı (KYC akışı, acente sistemi, çok
-kademeli affiliate, VIP cashback gibi) bilinen ürün kısıtları için
-bkz. [09 — Bilinen Kısıtlar](09-bilinen-kisitlar.md).
+For known product limitations not covered by the module system (KYC flow, agent system, multi-tier affiliate, VIP cashback, etc.), see [09 — Known Limitations](09-bilinen-kisitlar.md).

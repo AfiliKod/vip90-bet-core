@@ -1,65 +1,45 @@
-# Bilinen Kısıtlar
+# Known Limitations
 
-Bu belge, kod tabanında **tanımlı ama uçtan uca bağlı olmayan** ya da
-**kısmi çalışan** özellikleri listeler. Amaç, operatörün "panelde bir
-alan/servis görüyorum ama davranış beklediğim gibi değil" durumuyla
-karşılaşmadan önce bunu bilmesidir. Her madde, ilgili kodun okunmasıyla
-doğrulanmıştır.
+This document lists features that are **defined but not end-to-end connected** or **partially functional** in the codebase. The goal is for the operator to be aware of this before encountering a situation where "I see a field/service in the panel but the behavior isn't what I expected." Each item has been verified by reading the relevant code.
 
-## KYC belge inceleme akışı uçtan uca bağlı değil
+## KYC document review flow is not end-to-end connected
 
-`server/src/services/kyc.js` tam bir servis olarak yazılmış:
-`submitKycDocuments`, `approveKyc`, `rejectKyc`, `checkKycRequired`,
-`requireKyc`, `expireOldKyc`. Ama bu fonksiyonlar **hiçbir route veya
-controller'dan çağrılmıyor**:
+`server/src/services/kyc.js` is written as a complete service: `submitKycDocuments`, `approveKyc`, `rejectKyc`, `checkKycRequired`, `requireKyc`, `expireOldKyc`. But these functions are **not called from any route or controller**:
 
 ```
 grep -rn "requireKyc\|submitKycDocuments" server/src/routes server/src/controllers
-# (boş sonuç)
+# (empty result)
 ```
 
-Kullanıcı tarafında belge yükleme sayfası/route'u yok — bir oyuncu
-kimlik belgesi yükleyemez. Admin panelinde gerçekte çalışan tek şey,
-`client/src/pages/admin/components/UserSlideOver.jsx` içindeki ham bir
-`kycVerified` checkbox'ıdır; bu, `server/src/controllers/admin.js`
-içindeki `updateUser`'ın izin verdiği alan listesiyle sınırlıdır:
+There's no document upload page/route on the user side — a player can't upload an identity document. The only thing that actually works in the admin panel is a raw `kycVerified` checkbox in `client/src/pages/admin/components/UserSlideOver.jsx`; this is limited to the field list allowed by `updateUser` in `server/src/controllers/admin.js`:
 
 ```js
 const allowed = ['isActive', 'kycVerified'];
 ```
 
-Yani admin bir kullanıcıyı elle "KYC doğrulandı" olarak işaretleyebilir,
-ama bunun dayanacağı bir belge inceleme/onay/red iş akışı yoktur.
+So an admin can manually mark a user as "KYC verified," but there's no document review/approval/rejection workflow to back it up.
 
-## Acente (reseller) sistemi yok
+## No agent (reseller) system
 
-`server/src/models/User.js` şemasında acente ilişkisi için iki alan
-tanımlı:
+The `server/src/models/User.js` schema defines two fields for an agent relationship:
 
 ```js
 agentId: { type: mongoose.Schema.Types.ObjectId, ref: 'Agent', default: null },
 isAgent: { type: Boolean, default: false },
 ```
 
-Ama bu alanları okuyan/yazan hiçbir route, controller ya da admin UI
-yok:
+But there's no route, controller, or admin UI that reads or writes these fields:
 
 ```
 grep -rln "isAgent\|agentId" server/src/routes server/src/controllers client/src/pages
-# (boş sonuç)
+# (empty result)
 ```
 
-Ayrıca referans edilen `Agent` modeli de yok. Bu iki alan şemada
-bırakılmış bir iskelet; bugün acente/reseller hiyerarşisi, acente
-komisyonu ya da acente paneli diye bir şey çalışmıyor.
+Additionally, the referenced `Agent` model doesn't exist. These two fields are skeleton entries left in the schema; today there's no functioning agent/reseller hierarchy, agent commission, or agent panel.
 
-## Affiliate/referans sistemi tek kademeli
+## Affiliate/referral system is single-tier
 
-`server/src/services/referralCommission.js` (37 satır) tek bir
-fonksiyon içerir: `payReferralCommission(userId, houseProfit)`. Bir
-kullanıcı bahis/oyun oynayıp ev kârı ürettiğinde, **yalnızca o
-kullanıcıyı doğrudan davet eden kişiye** ev kârının sabit **%10**'u
-ödenir:
+`server/src/services/referralCommission.js` (37 lines) contains a single function: `payReferralCommission(userId, houseProfit)`. When a user plays bets/games and generates house profit, a fixed **10%** of the house profit is paid **only to the person who directly invited that user**:
 
 ```js
 const commission = parseFloat((houseProfit * 0.10).toFixed(2));
@@ -71,16 +51,11 @@ const referrer = await User.findByIdAndUpdate(
 );
 ```
 
-`bettor.referredBy` zincirinde yukarı çıkıp 2. veya 3. kademe
-referansçılara da pay veren bir mekanizma yoktur — sistem tek
-kademeli düz bir "sen getirdin, sen kazanırsın" modelidir. Çok
-kademeli bir affiliate/MLM yapısı arıyorsanız bu, ek geliştirme
-gerektirir.
+There's no mechanism to walk up the `bettor.referredBy` chain and also pay 2nd or 3rd tier referrers — the system is a flat single-tier "you brought them, you earn" model. If you're looking for a multi-tier affiliate/MLM structure, this requires additional development.
 
-## VIP cashback tanımlı ama hiç ödenmiyor
+## VIP cashback is defined but never paid
 
-`server/src/services/vip.js`'deki varsayılan VIP seviyelerinde her
-seviye için bir `cashbackPercent` alanı var:
+The default VIP levels in `server/src/services/vip.js` have a `cashbackPercent` field for each level:
 
 ```js
 { level: 2, name: 'Silver',   cashbackPercent: 2,  rewardAmount: 10,  ... },
@@ -89,28 +64,15 @@ seviye için bir `cashbackPercent` alanı var:
 { level: 5, name: 'Diamond',  cashbackPercent: 12, rewardAmount: 500, ... },
 ```
 
-Ama bu alan yalnızca **tanımlanıyor**, hiçbir yerde **okunup
-işlenmiyor**:
+But this field is only **defined**, never **read or processed** anywhere:
 
 ```
 grep -n "cashbackPercent" server/src/services/vip.js server/src/jobs/*.js
-# yalnızca yukarıdaki tanım satırları eşleşir — hesaplama/ödeme yok
+# only the definition lines above match — no calculation/payment
 ```
 
-Gerçekte işleyen tek mekanizma, bir kullanıcı bir üst VIP seviyesine
-geçtiğinde **tek seferlik** ödenen `rewardAmount`'tır (`vip.js`
-içinde ~102-134. satırlar arası, seviye atlama anında balance'a
-ekleniyor). Yani "her ay/hafta kayıptan otomatik geri ödeme" anlamında
-bir cashback motoru yoktur — `cashbackPercent` alanı bugün için
-kararmış (dead) bir alandır; ileride bir periyodik iş (cron/job) bu
-değeri okuyup gerçek cashback hesaplayacak şekilde genişletilebilir
-ama bu iş bugün yazılmamıştır.
+The only mechanism that actually works is the one-time `rewardAmount` paid when a user levels up to the next VIP tier (around lines 102-134 in `vip.js`, added to balance at the moment of leveling up). So there's no "automatic monthly/weekly lossback" cashback engine — the `cashbackPercent` field is currently dead; in the future, a periodic job (cron/job) could be extended to read this value and calculate real cashback, but that job hasn't been written today.
 
-## Modül sistemiyle ilgili ek not
+## Additional note on the module system
 
-`live-casino` modül ID'si kayıt defterinde (`server/src/modules/registry.js`)
-tanımlı ve panelden aç/kapa yapılabilir, lisans durumu sorgulanabilir —
-ama onu API seviyesinde gerçekten kapatacak bir route yok (gerçek
-krupiyeli canlı casino entegrasyonu henüz yazılmadı). Ayrıntı için
-[03 — Modül Sistemi](03-modul-sistemi.md) içindeki "Bilinen boşluk"
-notuna bakın.
+The `live-casino` module ID is defined in the registry (`server/src/modules/registry.js`), can be toggled from the panel, and its license status is queryable — but there's no route that actually disables it at the API level (the real dealer live casino integration hasn't been written yet). For details, see the "Known gap" note in [03 — Module System](03-modul-sistemi.md).
