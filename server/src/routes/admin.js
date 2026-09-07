@@ -136,5 +136,14 @@ r.get('/static-pages',              ctrl.listStaticPages);
 r.put('/static-pages/:slug',        blockDemoAdmin, validate(upsertStaticPageSchema), ctrl.upsertStaticPage);
 r.patch('/static-pages/:slug/toggle', blockDemoAdmin, validate(toggleStaticPageSchema), ctrl.toggleStaticPage);
 
+// Crypto Ödeme Ağ Geçidi — admin ayarları ve onay/reddet
+r.get('/crypto/pending-deposits',    ctrl.getCryptoPendingDeposits);
+r.get('/crypto/pending-withdrawals', ctrl.getCryptoPendingWithdrawals);
+r.put('/crypto/settings',            ctrl.updateCryptoSettings);
+r.post('/crypto/deposits/:id/approve', ctrl.approveCryptoDeposit);
+r.post('/crypto/deposits/:id/reject',  ctrl.rejectCryptoDeposit);
+r.post('/crypto/withdrawals/:id/approve', ctrl.approveCryptoWithdrawal);
+r.post('/crypto/withdrawals/:id/reject',  ctrl.rejectCryptoWithdrawal);
+
 export default r;
 

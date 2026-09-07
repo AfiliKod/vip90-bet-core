@@ -194,7 +194,6 @@ export function createApp() {
   app.use('/api/provider/v1', providerRoutes);
   app.use('/api/inhouse-provider', inhouseProviderProxyRoutes);
   app.use('/api/help', helpRoutes);
-  app.use('/api/crypto', cryptoRoutes);
   app.use('/api/bank', bankRoutes);
   app.use('/api/admin/analytics', analyticsRoutes);
   app.use('/api/admin', adminModuleSettingsRoutes);
@@ -218,10 +217,12 @@ export function createApp() {
   // inhouse = çekirdek platform (M1), asla gate'lenmez.
   const requireBetting = createModuleGate({ isUsable: isModuleUsable, moduleId: 'betting' });
   const requireCasinoContent = createModuleGate({ isUsable: isModuleUsable, moduleId: 'casino-content' });
+  const requireCryptoPayment = createModuleGate({ isUsable: isModuleUsable, moduleId: 'crypto-payment' });
   app.use('/api/modules', modulesRoutes); // herkese açık — istemci menü/yönlendirme
   app.use('/api/events', requireBetting, eventsRoutes);
   app.use('/api/bets', requireBetting, betsRoutes);
   app.use('/api/casino', requireCasinoContent, casinoRoutes);
+  app.use('/api/crypto', requireCryptoPayment, cryptoRoutes);
   app.use('/api/tickets', ticketRoutes);
   app.use('/api/chat', chatRoutes);
 

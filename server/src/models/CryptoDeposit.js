@@ -7,7 +7,7 @@ const schema = new mongoose.Schema({
   toAddress:    { type: String, required: true },
   usdtAmount:   { type: Number, required: true },   // 6 decimal USDT
   creditedTRY:  { type: Number, required: true },   // balance'a eklenen miktar
-  status:       { type: String, enum: ['confirmed', 'credited'], default: 'confirmed' },
+  status:       { type: String, enum: ['confirmed', 'credited', 'pending_approval'], default: 'confirmed' },
   creditedAt:   { type: Date, default: null },
 }, { timestamps: true });
 

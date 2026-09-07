@@ -291,4 +291,13 @@ r.get('/settings', (req, res) => {
   res.json(CRYPTO_SETTINGS);
 });
 
+// ── GET /api/crypto/hot-wallet-balance ────────────────────────────────────────
+// Hot wallet bakiyesini döndür (admin paneli için)
+r.get('/hot-wallet-balance', async (req, res, next) => {
+  try {
+    const balance = await getHotWalletBalance();
+    res.json(balance);
+  } catch (e) { next(e); }
+});
+
 export default r;

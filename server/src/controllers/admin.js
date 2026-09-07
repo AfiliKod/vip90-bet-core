@@ -1306,3 +1306,156 @@ export async function toggleStaticPage(req, res, next) {
     res.json({ page });
   } catch (e) { next(e); }
 }
+
+// ─── Crypto Ödeme Ağ Geçidi — admin işlemleri ───────────────────────────────
+import CryptoDeposit from '../models/CryptoDeposit.js';
+import Transaction from '../models/Transaction.js';
+import { CRYPTO_SETTINGS } from '../config/crypto.js';
+import { transferUSDT, getHotWalletBalance } from '../services/cryptoService.js';
+
+export async function getCryptoPendingDeposits(req, res, next) {
+  try {
+    const deposits = await CryptoDeposit.find({ status: 'pending_approval' })
+      .populate('userId', 'username email')
+      .sort({ createdAt: -1 });
+    res.json(deposits);
+  } catch (e) { next(e); }
+}
+
+export async function getCryptoPendingWithdrawals(req, res, next) {
+  try {
+    const withdrawals = await Transaction.find({ type: 'crypto_withdraw', status: 'pending' })
+      .populate('userId', 'username email')
+      .sort({ createdAt: -1 });
+    res.json(withdrawals);
+  } catch (e) { next(e); }
+}
+
+export async function updateCryptoSettings(req, res, next) {
+  try {
+    const { deposit, withdraw } = req.body;
+    if (deposit) {
+      CRYPTO_SETTINGS.deposit.autoCreditLimit = deposit.autoCreditLimit ?? CRYPTO_SETTINGS.deposit.autoCreditLimit;
+      CRYPTO_SETTINGS.deposit.requireApprovalAbove = deposit.requireApprovalAbove ?? CRYPTO_SETTINGS.deposit.requireApprovalAbove;
+    }
+    if (withdraw) {
+      CRYPTO_SETTINGS.withdraw.autoProcessLimit = withdraw.autoProcessLimit ?? CRYPTO_SETTINGS.withdraw.autoProcessLimit;
+      CRYPTO_SETTINGS.withdraw.requireApprovalAbove = withdraw.requireApprovalAbove ?? CRYPTO_SETTINGS.withdraw.requireApprovalAbove;
+    }
+    res.json(CRYPTO_SETTINGS);
+  } catch (e) { next(e); }
+}
+
+export async function approveCryptoDeposit(req, res, next) {
+  const session = await mongoose.startSession();
+  session.startTransaction();
+  try {
+    const deposit = await CryptoDeposit.findById(req.params.id).session(session);
+    if (!deposit) return res.status(404).json({ error: 'Yatırma bulunamadı' });
+    if (deposit.status !== 'pending_approval') return res.status(400).json({ error: 'Bu yatırma zaten işlenmiş' });
+
+    const user = await User.findById(deposit.userId).session(session);
+    const balBefore = user.balance;
+    user.balance = +(user.balance + deposit.creditedTRY).toFixed(2);
+    await user.save({ session });
+
+    await Transaction.create([{
+      userId: user._id,
+      type: 'crypto_deposit',
+      amount: deposit.creditedTRY,
+      balanceBefore: balBefore,
+      balanceAfter: user.balance,
+      note: `USDT TRC20 ${deposit.usdtAmount} USDT — Admin onayı ile eklendi`,
+      status: 'completed',
+    }], { session });
+
+    deposit.status = 'credited';
+    deposit.creditedAt = new Date();
+    await deposit.save({ session });
+
+    await session.commitTransaction();
+    res.json({ ok: true, newBalance: user.balance });
+  } catch (e) {
+    await session.abortTransaction();
+    next(e);
+  } finally {
+    session.endSession();
+  }
+}
+
+export async function rejectCryptoDeposit(req, res, next) {
+  try {
+    const deposit = await CryptoDeposit.findById(req.params.id);
+    if (!deposit) return res.status(404).json({ error: 'Yatırma bulunamadı' });
+    if (deposit.status !== 'pending_approval') return res.status(400).json({ error: 'Bu yatırma zaten işlenmiş' });
+
+    deposit.status = 'rejected';
+    await deposit.save();
+
+    res.json({ ok: true });
+  } catch (e) { next(e); }
+}
+
+export async function approveCryptoWithdrawal(req, res, next) {
+  try {
+    const tx = await Transaction.findById(req.params.id);
+    if (!tx) return res.status(404).json({ error: 'Çekim bulunamadı' });
+    if (tx.status !== 'pending') return res.status(400).json({ error: 'Bu çekim zaten işlenmiş' });
+
+    // not'tan adres ve miktarı parse et
+    const addrMatch = tx.note?.match(/→ ([T][A-Za-z0-9]{33})/);
+    const amtMatch = tx.note?.match(/([\d.]+) USDT/);
+    if (!addrMatch || !amtMatch) return res.status(400).json({ error: 'Çekim detayları parse edilemedi' });
+
+    const toAddress = addrMatch[1];
+    const usdtAmount = parseFloat(amtMatch[1]);
+
+    const result = await transferUSDT(toAddress, usdtAmount);
+    if (!result.success) return res.status(500).json({ error: `Transfer başarısız: ${result.error}` });
+
+    tx.status = 'completed';
+    tx.note = `${tx.note} — txHash: ${result.txHash}`;
+    await tx.save();
+
+    res.json({ ok: true, txHash: result.txHash });
+  } catch (e) { next(e); }
+}
+
+export async function rejectCryptoWithdrawal(req, res, next) {
+  const session = await mongoose.startSession();
+  session.startTransaction();
+  try {
+    const tx = await Transaction.findById(req.params.id).session(session);
+    if (!tx) return res.status(404).json({ error: 'Çekim bulunamadı' });
+    if (tx.status !== 'pending') return res.status(400).json({ error: 'Bu çekim zaten işlenmiş' });
+
+    // Bakiyeyi iade et
+    const user = await User.findById(tx.userId).session(session);
+    const refundAmount = Math.abs(tx.amount);
+    const balBefore = user.balance;
+    user.balance = +(user.balance + refundAmount).toFixed(2);
+    await user.save({ session });
+
+    await Transaction.create([{
+      userId: user._id,
+      type: 'crypto_withdraw',
+      amount: refundAmount,
+      balanceBefore: balBefore,
+      balanceAfter: user.balance,
+      note: 'Çekim reddedildi — bakiye iade edildi',
+      status: 'completed',
+    }], { session });
+
+    tx.status = 'rejected';
+    tx.note = `${tx.note} — Reddedildi, bakiye iade edildi`;
+    await tx.save({ session });
+
+    await session.commitTransaction();
+    res.json({ ok: true, newBalance: user.balance });
+  } catch (e) {
+    await session.abortTransaction();
+    next(e);
+  } finally {
+    session.endSession();
+  }
+}
