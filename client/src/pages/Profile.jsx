@@ -48,13 +48,24 @@ function CryptoDeposit({ onBalanceUpdate }) {
   const { t } = useTranslation();
   const [address, setAddress]   = useState(null);
   const [checking, setChecking] = useState(false);
+  const [moduleDisabled, setModuleDisabled] = useState(false);
   const addToast = useToastStore(s => s.add);
 
   useEffect(() => {
     api.get('/crypto/deposit-address')
       .then(r => setAddress(r.data.address))
-      .catch(() => {});
+      .catch((e) => {
+        if (e.response?.status === 503) setModuleDisabled(true);
+      });
   }, []);
+
+  if (moduleDisabled) return (
+    <div className="text-center py-12 space-y-3">
+      <div className="text-4xl">🔒</div>
+      <div className="text-text-2 text-sm font-medium">{t('profile.cryptoModuleDisabled') || 'Kripto para yatırma şu anda aktif değil'}</div>
+      <div className="text-text-3 text-xs">{t('profile.cryptoModuleDisabledHint') || 'Admin panelden Crypto Ödeme Ağ Geçidi modülü açılmalıdır'}</div>
+    </div>
+  );
 
   const checkDeposit = async () => {
     setChecking(true);
@@ -110,6 +121,21 @@ function CryptoWithdraw({ onBalanceUpdate }) {
   const { t } = useTranslation();
   const { register, handleSubmit, reset, formState: { isSubmitting, errors } } = useForm();
   const addToast = useToastStore(s => s.add);
+  const [moduleDisabled, setModuleDisabled] = useState(false);
+
+  useEffect(() => {
+    api.get('/crypto/settings').catch((e) => {
+      if (e.response?.status === 503) setModuleDisabled(true);
+    });
+  }, []);
+
+  if (moduleDisabled) return (
+    <div className="text-center py-12 space-y-3">
+      <div className="text-4xl">🔒</div>
+      <div className="text-text-2 text-sm font-medium">{t('profile.cryptoModuleDisabled') || 'Kripto para çekme şu anda aktif değil'}</div>
+      <div className="text-text-3 text-xs">{t('profile.cryptoModuleDisabledHint') || 'Admin panelden Crypto Ödeme Ağ Geçidi modülü açılmalıdır'}</div>
+    </div>
+  );
 
   const onSubmit = async (data) => {
     try {
