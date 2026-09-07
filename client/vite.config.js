@@ -63,36 +63,14 @@ export default defineConfig({
         ],
       },
       workbox: {
+        // material-symbols-outlined.woff2 (~4MB, tüm ikon setini kapsıyor)
+        // service-worker precache'ine dahil edilmiyor — normal HTTP cache
+        // (uzun max-age) yeterli, precache manifest'i şişirmesin.
         globPatterns: ['**/*.{js,css,html,ico,png,svg,woff2}'],
+        globIgnores: ['fonts/material-symbols-outlined.woff2'],
+        // Fontlar artık self-hosted (bkz. client/public/fonts/) — Google Fonts'a
+        // özel runtime-cache kuralları kaldırıldı, gerek kalmadı.
         runtimeCaching: [
-          {
-            urlPattern: /^https:\/\/fonts\.googleapis\.com\/.*/i,
-            handler: 'CacheFirst',
-            options: {
-              cacheName: 'google-fonts-cache',
-              expiration: {
-                maxEntries: 10,
-                maxAgeSeconds: 60 * 60 * 24 * 365 // 1 year
-              },
-              cacheableResponse: {
-                statuses: [0, 200]
-              }
-            }
-          },
-          {
-            urlPattern: /^https:\/\/fonts\.gstatic\.com\/.*/i,
-            handler: 'CacheFirst',
-            options: {
-              cacheName: 'gstatic-fonts-cache',
-              expiration: {
-                maxEntries: 10,
-                maxAgeSeconds: 60 * 60 * 24 * 365
-              },
-              cacheableResponse: {
-                statuses: [0, 200]
-              }
-            }
-          },
           {
             urlPattern: /\/api\/.*/i,
             handler: 'NetworkFirst',
