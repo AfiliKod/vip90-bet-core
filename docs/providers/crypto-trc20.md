@@ -1,28 +1,28 @@
 # Crypto Payment Provider — TRC20 USDT
 
-## Genel Bakış
+## Overview
 
-| Özellik | Değer |
+| Feature | Value |
 |---------|-------|
-| **Ağ** | TRON (TRC20) |
-| **Desteklenen Tokenlar** | USDT, USDC, TRX |
-| **Komisyon** | 0 (sadece gas ücreti) |
-| **Chargeback** | Yok |
-| **Gambling Lisansı** | Gerekmez |
-| **Onboarding** | Anında |
-| **Settlement** | Anında (blockchain onayı) |
+| **Network** | TRON (TRC20) |
+| **Supported Tokens** | USDT, USDC, TRX |
+| **Commission** | 0 (gas fee only) |
+| **Chargeback** | None |
+| **Gambling License** | Not required |
+| **Onboarding** | Instant |
+| **Settlement** | Instant (blockchain confirmation) |
 
-## Mimari
+## Architecture
 
 ```
 ┌─────────────────────────────────────────────┐
 │              Admin Panel                      │
-│  - Ödeme açma/kapama toggle                   │
-│  - Cüzdan adresi yönetimi                     │
-│  - Currency dönüşüm oranları                  │
-│  - Otomatik limit ayarları                    │
+│  - Payment enable/disable toggle              │
+│  - Wallet address management                  │
+│  - Currency conversion rates                  │
+│  - Auto-limit settings                        │
 │  - Transaction monitoring                     │
-│  - Pending onay/reddet                         │
+│  - Pending approval/rejection                 │
 └──────────────────┬──────────────────────────┘
                    │
 ┌──────────────────▼──────────────────────────┐
@@ -41,208 +41,208 @@
 └────────┘   └────────┘   └────────┘
 ```
 
-## HD Wallet Yapısı
+## HD Wallet Structure
 
 ### BIP44 Derived Addresses
 
 ```
 Seed Phrase (CRYPTO_SEED_PHRASE)
     │
-    ├── m/44'/195'/0'/0/0  →  Kullanıcı #0 adresi
-    ├── m/44'/195'/0'/0/1  →  Kullanıcı #1 adresi
-    ├── m/44'/195'/0'/0/2  →  Kullanıcı #2 adresi
+    ├── m/44'/195'/0'/0/0  →  User #0 address
+    ├── m/44'/195'/0'/0/1  →  User #1 address
+    ├── m/44'/195'/0'/0/2  →  User #2 address
     └── ...
 ```
 
 - **Coin Type:** 195 (TRX)
-- **Adres Formatı:** Base58Check (T ile başlar, 34 karakter)
-- **Güvenlik:** Seed phrase sadece sunucuda saklanır
+- **Address Format:** Base58Check (starts with T, 34 characters)
+- **Security:** Seed phrase stored server-side only
 
-### Admin Erişimi ve Custodial Model
+### Admin Access and Custodial Model
 
-**Bu model custodial'dır (emanetçi).** Seed phrase adminde olduğu için:
-- Admin tüm kullanıcıların cüzdan adreslerini türetebilir
-- Admin deposit adreslerinden USDT çekebilir
+**This is a custodial model.** Since the admin holds the seed phrase:
+- Admin can derive any user's wallet address
+- Admin can withdraw USDT from deposit addresses
 
 ```javascript
 import { deriveDepositAddress } from '../services/cryptoService.js';
 
-// Herhangi bir kullanıcının adresini türet
-const user5Address = deriveDepositAddress(5);   // Kullanıcı #5
-const user100Address = deriveDepositAddress(100); // Kullanıcı #100
+// Derive any user's address
+const user5Address = deriveDepositAddress(5);   // User #5
+const user100Address = deriveDepositAddress(100); // User #100
 ```
 
-**Nasıl çalışır:**
-1. `User.cryptoDepositIndex` DB'de saklanır (sıralı: 0, 1, 2, ...)
-2. Admin bu index'i bilir → `deriveDepositAddress(index)` ile adresi türetir
-3. TronGrid public API ile bakiye sorgulanabilir
+**How it works:**
+1. `User.cryptoDepositIndex` is stored in DB (sequential: 0, 1, 2, ...)
+2. Admin knows the index → derives address via `deriveDepositAddress(index)`
+3. Balance can be queried via TronGrid public API
 
-## Tam İş Akışları
+## Complete Workflows
 
-### Deposit (Para Yatırma) İş Akışı
+### Deposit Flow
 
 ```
-Kullanıcı "Para Yatır" der
+User clicks "Deposit"
         │
         ▼
 GET /api/crypto/deposit-address
-        │  Kullanıcıya özel TRC20 adresi döndür
+        │  Returns user-specific TRC20 address
         │  (HD wallet: m/44'/195'/0'/0/{index})
         │
         ▼
-Kullanıcı USDT'yi bu adrese gönderir
-        │  (TronLink, MetaMask vb.)
+User sends USDT to this address
+        │  (via TronLink, MetaMask, etc.)
         │
         ▼
 POST /api/crypto/check-deposit
-        │  TronGrid API sorgulanır
-        │  Yeni gelen TX'ler kontrol edilir
+        │  Queries TronGrid API
+        │  Checks for new incoming TXs
         │
         ▼
-    ┌───USDT geldi mi?
+    ┌───USDT received?
     │       │
-    │  HAYIR → Boş response dön
+    │  NO → Return empty response
     │       │
-    │  EVET ↓
+    │  YES ↓
     │
-    Miktar < $100 mı?
+    Amount < $100?
     │       │
-    │  EVET → OTOMATİK HESABA EKLE
+    │  YES → AUTO-CREDIT TO BALANCE
     │       │  balance += tryAmount
     │       │  status: 'completed'
     │       │
-    │  HAYIR → ADMIN ONAYINA GÖNDER
+    │  NO → SEND TO ADMIN APPROVAL
     │       │  status: 'pending_approval'
-    │       │  balance değişmez
+    │       │  balance unchanged
     │       │
     ▼
-Kullanıcı hesabında bakiye görünür
+Balance appears in user account
 ```
 
-**Deposit Durumları:**
-| Durum | Anlamı |
-|-------|--------|
-| `credited` | Otomatik onaylandı, bakiyeye eklendi |
-| `pending_approval` | Admin onayı bekliyor |
+**Deposit Statuses:**
+| Status | Meaning |
+|--------|---------|
+| `credited` | Auto-approved, added to balance |
+| `pending_approval` | Awaiting admin approval |
 
-### Withdrawal (Para Çekme) İş Akışı
+### Withdrawal Flow
 
 ```
-Kullanıcı "Çek" der (adres + miktar girer)
+User clicks "Withdraw" (enters address + amount)
         │
         ▼
 POST /api/crypto/withdraw-request
         │
         ▼
-    Adres geçerli mi? (TRC20 format)
+    Address valid? (TRC20 format)
     │       │
-    │  HAYIR → HATA dön
+    │  NO → Return error
     │       │
-    │  EVET ↓
+    │  YES ↓
     │
-    Withdrawable bakiye hesapla
+    Calculate withdrawable balance
     withdrawable = balance - locked (bonus wagering)
     │       │
     │       ▼
-    ┌───withdrawable ≥ istenen miktar?
+    ┌───withdrawable ≥ requested amount?
     │       │
-    │  HAYIR →
-    │       │  Aktif bonus var mı?
+    │  NO →
+    │       │  Active bonus exists?
     │       │      │
-    │       │  EVET → 409 ACTIVE_BONUS_LOCK dön
-    │       │         (Kullanıcıya "bonusunu forfeit et" de)
+    │       │  YES → Return 409 ACTIVE_BONUS_LOCK
+    │       │         (Tell user to forfeit bonus)
     │       │      │
-    │       │  HAYIR → "Yetersiz bakiye" hatası
+    │       │  NO → "Insufficient balance" error
     │       │
-    │  EVET ↓
+    │  YES ↓
     │
-    Miktar < $15 mı?
+    Amount < $15?
     │       │
-    │  EVET → OTOMATİK İŞLE
-    │       │  Hot wallet'tan kullanıcıya USDT gönder
-    │       │  txHash dön
-    │       │  balance - miktar
+    │  YES → AUTO-PROCESS
+    │       │  Send USDT from hot wallet to user
+    │       │  Return txHash
+    │       │  Deduct from balance
     │       │
-    │  HAYIR → ADMIN ONAYINA GÖNDER
+    │  NO → SEND TO ADMIN APPROVAL
     │       │  status: 'pending'
-    │       │  balance - miktar (kilitli)
+    │       │  Deduct from balance (locked)
     │       │
     ▼
-Admin panelinde "Pending Çekimler" görünür
+"Pending Withdrawals" appears in admin panel
         │
         ▼
-    Admin onaylar/reddeder
+    Admin approves/rejects
     │       │
-    │  ONAY → Hot wallet'tan USDT gönder
-    │         txHash dön
+    │  APPROVE → Send USDT from hot wallet
+    │         Return txHash
     │         status: 'completed'
     │       │
-    │  REDDET → Bakiyeyi iade et
+    │  REJECT → Refund balance
     │           status: 'rejected'
 ```
 
-**Withdrawal Durumları:**
-| Durum | Anlamı |
-|-------|--------|
-| `pending` | Admin onayı bekliyor |
-| `processing` | Transfer yapılıyor |
-| `completed` | Transfer tamamlandı, txHash var |
-| `rejected` | Admin reddetti, bakiye iade edildi |
+**Withdrawal Statuses:**
+| Status | Meaning |
+|--------|---------|
+| `pending` | Awaiting admin approval |
+| `processing` | Transfer in progress |
+| `completed` | Transfer completed, txHash available |
+| `rejected` | Admin rejected, balance refunded |
 
-### Bonus Forfeit Akışı
+### Bonus Forfeit Flow
 
 ```
-Kullanıcı çekim yapmak istiyor ama bonus kilitli
+User wants to withdraw but bonus is locked
         │
         ▼
-409 ACTIVE_BONUS_LOCK dön
+Return 409 ACTIVE_BONUS_LOCK
 {
   error: "ACTIVE_BONUS_LOCK",
   locked: 200,
-  message: "200₺ bonus kilitli. Forfeit etmek ister misiniz?"
+  message: "200₺ bonus locked. Do you want to forfeit?"
 }
         │
         ▼
-Kullanıcı confirmForfeit: true ile tekrar gönderir
+User resends with confirmForfeit: true
         │
         ▼
-    BonusWagering'leri forfeit et
+    Forfeit BonusWagerings
     │  status: 'forfeited'
     │  balance -= lockedAmount
     │
     ▼
-    Withdrawable yeniden hesapla
-    withdrawable = balance - yeniLocked
+    Recalculate withdrawable
+    withdrawable = balance - newLocked
     │
     ▼
-    Çekim devam eder...
+    Withdrawal continues...
 ```
 
-## Bakiye Hesaplama
+## Balance Calculation
 
-### Modeller
+### Models
 
 ```
-user.balance (tek havuz)
+user.balance (single pool)
     │
-    ├── Gerçek para (deposit, kazanç)
+    ├── Real money (deposits, winnings)
     │
-    └── Bonus para (wagering ile kilitli)
+    └── Bonus money (locked by wagering)
             │
             └── BonusWagering.status: 'active'
-                └── bonusAmount = kilitli miktar
+                └── bonusAmount = locked amount
 ```
 
-### Formüller
+### Formulas
 
 ```javascript
-// Kilitli miktar (bonus wagering)
+// Locked amount (bonus wagering)
 locked = sum(BonusWagering.bonusAmount WHERE status = 'active')
 
-// Çekilebilir bakiye
+// Withdrawable balance
 withdrawable = max(0, user.balance - locked)
 
-// Forfeit sonrası
+// After forfeit
 newBalance = user.balance - locked
 newLocked = 0
 newWithdrawable = newBalance
@@ -251,36 +251,36 @@ newWithdrawable = newBalance
 ### Example
 
 ```
-Kullanıcı: balance = 1000₺, aktif bonus wagering = 200₺
+User: balance = 1000₺, active bonus wagering = 200₺
 locked = 200
 withdrawable = 800
 
-Kullanıcı 500₺ çekmek istiyor:
-  500 ≤ 800 → İzin ver
+User wants to withdraw 500₺:
+  500 ≤ 800 → Allowed
 
-Kullanıcı 900₺ çekmek istiyor:
-  900 > 800 → Bonus forfeit onayı iste
-  Forfeit: 200₺ bonus silinir
-  Yeni balance: 800₺
-  Yeni withdrawable: 800₺
-  900 > 800 → "Yetersiz bakiye"
+User wants to withdraw 900₺:
+  900 > 800 → Request bonus forfeit approval
+  Forfeit: 200₺ bonus removed
+  New balance: 800₺
+  New withdrawable: 800₺
+  900 > 800 → "Insufficient balance"
 ```
 
-## Otomatik Limitler
+## Auto-Limits
 
-### Deposit (Yatırma)
+### Deposit
 
-| Miktar | Durum |
-|--------|-------|
-| < $100 | Otomatik hesaba eklenir |
-| ≥ $100 | Admin onayı bekler |
+| Amount | Status |
+|--------|--------|
+| < $100 | Auto-credited to balance |
+| ≥ $100 | Requires admin approval |
 
-### Withdrawal (Çekim)
+### Withdrawal
 
-| Miktar | Durum |
-|--------|-------|
-| < $15 | Otomatik işlenir (hot wallet'tan transfer) |
-| ≥ $15 | Admin onayı bekler |
+| Amount | Status |
+|--------|--------|
+| < $15 | Auto-processed (hot wallet transfer) |
+| ≥ $15 | Requires admin approval |
 
 ### Configuration
 
@@ -301,44 +301,44 @@ export const CRYPTO_SETTINGS = {
 
 ## Hot Wallet Transfer
 
-### Nasıl Çalışır
+### How It Works
 
 ```
-Seed Phrase → HD Wallet → Özel Anahtar
+Seed Phrase → HD Wallet → Private Key
         │
         ▼
-TRC20 Transfer İmzala
+Sign TRC20 Transfer
   - from: hot wallet address
-  - to: kullanıcı adresi
-  - amount: USDT miktarı
+  - to: user address
+  - amount: USDT amount
   - contract: USDT TRC20
         │
         ▼
 TronGrid API → Broadcast Transaction
         │
         ▼
-txHash dön → Kullanıcıya bildir
+Return txHash → Notify user
 ```
 
-### Güvenlik
+### Security
 
-- Hot wallet private key'i `.env`'de saklanır
-- Sadece yetkili endpoint'ler transfer yapabilir
-- Her transfer loglanır
-- Multi-sig önerilir (yüksek miktarlar için)
+- Hot wallet private key stored in `.env`
+- Only authorized endpoints can transfer
+- Every transfer is logged
+- Multi-sig recommended for large amounts
 
-## Currency Dönüşüm
+## Currency Conversion
 
-### Desteklenen Çiftler
+### Supported Pairs
 
-| Çift | Varsayılan Oran |
-|------|-----------------|
+| Pair | Default Rate |
+|------|-------------|
 | USDT_TRY | 1 |
 | USDT_EUR | 0.92 |
 | USDT_GBP | 0.79 |
 | USDT_USD | 1 |
 
-### Kullanım
+### Usage
 
 ```javascript
 import { CURRENCY_RATES } from '../config/crypto.js';
@@ -347,97 +347,97 @@ const rate = CURRENCY_RATES.USDT_TRY;
 const tryAmount = usdtAmount * rate;
 ```
 
-## API Endpointler
+## API Endpoints
 
 ### Deposit
 
-| Endpoint | Yöntem | Açıklama |
-|----------|--------|----------|
-| `GET /api/crypto/deposit-address` | GET | Kullanıcıya özel adres döndür |
-| `POST /api/crypto/check-deposit` | POST | TronGrid sorgula, bakiye ekle |
+| Endpoint | Method | Description |
+|----------|--------|-------------|
+| `GET /api/crypto/deposit-address` | GET | Return user-specific address |
+| `POST /api/crypto/check-deposit` | POST | Query TronGrid, credit balance |
 
 ### Withdrawal
 
-| Endpoint | Yöntem | Açıklama |
-|----------|--------|----------|
-| `POST /api/crypto/withdraw-request` | POST | Çekim talebi oluştur |
-| `GET /api/crypto/withdraw-preview` | GET | Çekilebilir bakiyeyi göster |
+| Endpoint | Method | Description |
+|----------|--------|-------------|
+| `POST /api/crypto/withdraw-request` | POST | Create withdrawal request |
+| `GET /api/crypto/withdraw-preview` | GET | Show withdrawable balance |
 
 ### Settings
 
-| Endpoint | Yöntem | Açıklama |
-|----------|--------|----------|
-| `GET /api/crypto/settings` | GET | Mevcut ayarları döndür |
+| Endpoint | Method | Description |
+|----------|--------|-------------|
+| `GET /api/crypto/settings` | GET | Return current settings |
 
 ## Testnet (Shasta)
 
-### Konfigürasyon
+### Configuration
 
 ```env
 TRON_NETWORK=shasta
 ```
 
-### Testnet Bilgileri
+### Testnet Info
 
-| Özellik | Değer |
+| Feature | Value |
 |---------|-------|
 | **API** | `https://api.shasta.trongrid.io` |
 | **USDT Contract** | `TG3XXyExBkPp9nzdajDZsozEu4BkaSJozs` |
 | **Faucet** | `https://shasta.tronex.io/join/getJoinPage` |
 | **Explorer** | `https://shasta.tronscan.org` |
 
-### Test Akışı
+### Test Flow
 
-1. Faucet'ten USDT al
-2. Deposit adresine gönder
-3. `check-deposit` ile doğrula
-4. Çekilebilir bakiyeyi kontrol et
-5. Withdrawal talebi oluştur
+1. Get USDT from faucet
+2. Send to deposit address
+3. Verify with `check-deposit`
+4. Check withdrawable balance
+5. Create withdrawal request
 
-## Güvenlik
+## Security
 
 ### Seed Phrase
 
-- Sadece `.env` dosyasında saklanır
-- Git'e commit edilmez (`.gitignore`'da)
-- Production'da environment variable olarak girilir
+- Stored in `.env` file only
+- Not committed to git (in `.gitignore`)
+- Set as environment variable in production
 
-### Adres Doğrulama
+### Address Validation
 
 ```javascript
-// TRC20 adres formatı: T ile başlar, 34 karakter
+// TRC20 address format: starts with T, 34 characters
 const isValid = /^T[A-Za-z0-9]{33}$/.test(address);
 ```
 
 ### Rate Limiting
 
-- TronGrid API: 10 saniye timeout
-- IP rate limiting mevcut
+- TronGrid API: 10 second timeout
+- IP rate limiting available
 
-## Env Değişkenleri
+## Environment Variables
 
 ```env
 CRYPTO_SEED_PHRASE=your mnemonic phrase here
 USDT_TRY_RATE=1
-TRON_NETWORK=mainnet  # veya shasta/nile
+TRON_NETWORK=mainnet  # or shasta/nile
 HOT_WALLET_PRIVATE_KEY=optional_separate_hot_wallet_key
 ```
 
-## Bilinen Sınırlamalar
+## Known Limitations
 
-1. **Tek Ağ:** Sadece TRON (TRC20) destekleniyor
-2. **Fiyat Sabit:** USDT sabit coin, ama oranlar admin tarafından ayarlanmalı
-3. **Multi-sig Yok:** Yüksek miktarlar için ek güvenlik gerekli
+1. **Single Network:** Only TRON (TRC20) supported
+2. **Fixed Price:** USDT is a stablecoin, but rates should be configured by admin
+3. **No Multi-sig:** Additional security needed for large amounts
 
-## İlgili Dosyalar
+## Related Files
 
-| Dosya | Açıklama |
-|-------|----------|
-| `server/src/config/crypto.js` | Ayarlar ve limitler |
-| `server/src/services/cryptoService.js` | HD wallet ve TronGrid API |
-| `server/src/routes/crypto.js` | API endpointleri |
-| `server/src/models/CryptoDeposit.js` | Deposit modeli |
-| `server/src/models/Transaction.js` | İşlem geçmişi |
-| `server/src/services/wagering.js` | Bonus/kilitli bakiye hesaplama |
-| `server/test/crypto.test.js` | Unit testler |
-| `server/scripts/test-crypto-testnet.mjs` | Testnet test scripti |
+| File | Description |
+|------|-------------|
+| `server/src/config/crypto.js` | Settings and limits |
+| `server/src/services/cryptoService.js` | HD wallet and TronGrid API |
+| `server/src/routes/crypto.js` | API endpoints |
+| `server/src/models/CryptoDeposit.js` | Deposit model |
+| `server/src/models/Transaction.js` | Transaction history |
+| `server/src/services/wagering.js` | Bonus/locked balance calculation |
+| `server/test/crypto.test.js` | Unit tests |
+| `server/scripts/test-crypto-testnet.mjs` | Testnet test script |
