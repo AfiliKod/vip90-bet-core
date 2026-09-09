@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback } from 'react';
 import { useToastStore } from '../../store/toastStore';
 import api from '../../services/api';
 import { useFormatters } from '../../i18n/useFormatters.jsx';
+import { useTranslation } from '../../i18n';
 
 const STATUS_TABS = [
   { key: 'all', label: 'Tümü' },
@@ -25,6 +26,7 @@ function WalletBadge({ label, value, color }) {
 }
 
 function TxDetail({ tx, onAction, saving }) {
+  const { t } = useTranslation();
   const [detail, setDetail] = useState(null);
   const [loading, setLoading] = useState(true);
   const [rejectReason, setRejectReason] = useState('');
@@ -123,10 +125,10 @@ function TxDetail({ tx, onAction, saving }) {
       {detail.cryptoDeposit && tx.type === 'crypto_deposit' && (
         <div className="text-[10px] text-text-3 space-y-1.5">
           <div className="flex flex-wrap gap-x-3 gap-y-0.5">
-            <span>Tx: <span className="text-text-2 font-mono">{detail.cryptoDeposit.txHash?.slice(0, 20)}…</span></span>
-            <span>Durum: <span className="text-text-2">{detail.cryptoDeposit.status}</span></span>
+            <span>{t('admin.crypto.tx')} <span className="text-text-2 font-mono">{detail.cryptoDeposit.txHash?.slice(0, 20)}…</span></span>
+            <span>{t('admin.crypto.status')} <span className="text-text-2">{detail.cryptoDeposit.status}</span></span>
             {detail.cryptoDeposit.toAddress && (
-              <span>Adres: <span className="text-text-2 font-mono">{detail.cryptoDeposit.toAddress?.slice(0, 16)}…</span></span>
+              <span>{t('admin.crypto.address')} <span className="text-text-2 font-mono">{detail.cryptoDeposit.toAddress?.slice(0, 16)}…</span></span>
             )}
           </div>
 
@@ -140,7 +142,7 @@ function TxDetail({ tx, onAction, saving }) {
                   : 'bg-red-500/10 border border-red-500/20'
             }`}>
               <div>
-                <span className="text-text-3">Cüzdan Bakiyesi: </span>
+                <span className="text-text-3">{t('admin.crypto.walletBalance')} </span>
                 <span className={`font-bold ${
                   detail.depositWallet.usdt >= tryAmt ? 'text-green-300' :
                   detail.depositWallet.usdt > 0 ? 'text-yellow-300' : 'text-red-300'
@@ -151,11 +153,11 @@ function TxDetail({ tx, onAction, saving }) {
                 <span className="text-text-2">{detail.depositWallet.trx?.toFixed(2)}</span>
               </div>
               {detail.depositWallet.usdt >= tryAmt ? (
-                <span className="text-green-300 font-semibold">✓ Yeterli — Onaylanabilir</span>
+                <span className="text-green-300 font-semibold">{t('admin.crypto.sufficient')}</span>
               ) : detail.depositWallet.usdt > 0 ? (
-                <span className="text-yellow-300">⚠ Kısmi — {detail.depositWallet.usdt?.toFixed(2)} / {tryAmt}₺</span>
+                <span className="text-yellow-300">{t('admin.crypto.partial', { current: detail.depositWallet.usdt?.toFixed(2), needed: tryAmt })}</span>
               ) : (
-                <span className="text-red-300">✗ Adres boş — transfer henüz gerçekleşmemiş</span>
+                <span className="text-red-300">{t('admin.crypto.empty')}</span>
               )}
             </div>
           )}
@@ -168,11 +170,11 @@ function TxDetail({ tx, onAction, saving }) {
                   onClick={() => verifyBlockchain(detail.cryptoDeposit.txHash)}
                   className="text-[10px] px-2 py-1 rounded bg-blue-500/20 border border-blue-500/30 text-blue-300 hover:bg-blue-500/30 transition"
                 >
-                  🔍 Blockchain'de Doğrula
+                  {t('admin.crypto.verifyBlockchain')}
                 </button>
               )}
               {verifying && (
-                <span className="text-[10px] text-blue-300 animate-pulse">Doğrulanıyor…</span>
+                <span className="text-[10px] text-blue-300 animate-pulse">{t('admin.crypto.verifying')}</span>
               )}
               {blockchain && !verifying && (
                 <div className={`text-[10px] px-2 py-1 rounded ${
@@ -180,15 +182,15 @@ function TxDetail({ tx, onAction, saving }) {
                   blockchain.found ? 'bg-yellow-500/10 text-yellow-300' :
                   'bg-red-500/10 text-red-300'
                 }`}>
-                  {blockchain.confirmed && `✅ Blockchain'de onaylandı (Block: ${blockchain.blockNumber})`}
-                  {blockchain.found && !blockchain.confirmed && `⏳ Transaction bulundu, onay bekleniyor (${blockchain.contractRet})`}
-                  {!blockchain.found && `❌ Blockchain'de bulunamadı${blockchain.error ? ': ' + blockchain.error : ''}`}
+                  {blockchain.confirmed && t('admin.crypto.confirmed', { block: blockchain.blockNumber })}
+                  {blockchain.found && !blockchain.confirmed && t('admin.crypto.pendingConfirm', { status: blockchain.contractRet })}
+                  {!blockchain.found && t('admin.crypto.notFound', { error: blockchain.error ? ': ' + blockchain.error : '' })}
                 </div>
               )}
             </div>
           )}
           {tx.status !== 'completed' && detail.cryptoDeposit.txHash?.startsWith('seed_') && (
-            <div className="text-[10px] text-yellow-300/60">⚠️ Seed test txHash — blockchain'de doğrulanamaz</div>
+            <div className="text-[10px] text-yellow-300/60">{t('admin.crypto.seedWarning')}</div>
           )}
         </div>
       )}
@@ -201,13 +203,13 @@ function TxDetail({ tx, onAction, saving }) {
             disabled={saving}
             className="text-xs px-3 py-1.5 rounded-lg bg-green-500/20 border border-green-500/30 text-green-300 hover:bg-green-500/30 transition disabled:opacity-50"
           >
-            ✅ Onayla
+            ✅ {t('admin.crypto.approve')}
           </button>
           <input
             type="text"
             value={rejectReason}
             onChange={e => setRejectReason(e.target.value)}
-            placeholder="Red sebebi (isteğe bağlı)"
+            placeholder={t('admin.crypto.reject')}
             className="flex-1 text-xs bg-black/30 border border-white/10 rounded-lg px-2.5 py-1.5 text-text-1 placeholder:text-text-3/50"
           />
           <button
@@ -215,7 +217,7 @@ function TxDetail({ tx, onAction, saving }) {
             disabled={saving}
             className="text-xs px-3 py-1.5 rounded-lg bg-red-500/20 border border-red-500/30 text-red-300 hover:bg-red-500/30 transition disabled:opacity-50"
           >
-            ❌ Reddet
+            ❌ {t('admin.crypto.reject')}
           </button>
         </div>
       )}
@@ -225,6 +227,7 @@ function TxDetail({ tx, onAction, saving }) {
 
 export default function AdminCrypto() {
   const fmt = useFormatters();
+  const { t } = useTranslation();
   const addToast = useToastStore(s => s.add);
   const [type, setType] = useState('deposit');
   const [status, setStatus] = useState('all');
@@ -373,7 +376,7 @@ export default function AdminCrypto() {
                       {statusLabel(tx.status)}
                     </span>
                     {tx.status === 'pending' && (
-                      <span className="text-[10px] text-text-3">▸ detay</span>
+                      <span className="text-[10px] text-text-3">{t('admin.crypto.detail')}</span>
                     )}
                   </div>
                   <div className="flex items-center gap-3">
@@ -381,7 +384,7 @@ export default function AdminCrypto() {
                       {tx.amount > 0 ? '+' : ''}{tx.amount?.toFixed(2)} TRY
                     </span>
                     <span className="text-xs text-text-3">
-                      {tx.type === 'crypto_deposit' ? 'Yatırma' : 'Çekim'}
+                      {tx.type === 'crypto_deposit' ? t('admin.crypto.deposit') : t('admin.crypto.withdraw')}
                     </span>
                   </div>
                   <div className="text-xs text-text-3 mt-1 truncate max-w-md">{tx.note}</div>
@@ -393,11 +396,11 @@ export default function AdminCrypto() {
                   <div className="flex gap-1 shrink-0">
                     <button onClick={(e) => { e.stopPropagation(); handleAction(tx, 'approve'); }} disabled={saving}
                       className="text-[10px] px-2 py-1 rounded bg-green-500/20 border border-green-500/30 text-green-300 hover:bg-green-500/30 transition disabled:opacity-50">
-                      Onayla
+                      {t('admin.crypto.approve')}
                     </button>
                     <button onClick={(e) => { e.stopPropagation(); handleAction(tx, 'reject'); }} disabled={saving}
                       className="text-[10px] px-2 py-1 rounded bg-red-500/20 border border-red-500/30 text-red-300 hover:bg-red-500/30 transition disabled:opacity-50">
-                      Reddet
+                      {t('admin.crypto.reject')}
                     </button>
                   </div>
                 )}
