@@ -1093,4 +1093,551 @@ describe('Crypto Payment System - Shasta Testnet', () => {
       });
     });
   });
+
+  // ── Admin panel: onay/red + Transaction History + bonus etkisi ──────────────
+  describe('Admin Panel: Approve/Reject + Transaction History + Bonus', () => {
+    const TRC20_ADDR = 'TTestWa11etAddressForCoreTests1111';
+
+    // ── Admin Transaction History ────────────────────────────────────────────
+    describe('Admin Transaction History', () => {
+      it('admin should see all own transactions in history', async () => {
+        const admin = await User.create({
+          username: 'admin_history',
+          email: 'admin_history@test.com',
+          password: 'hashed_password',
+          role: 'admin',
+          balance: 5000,
+        });
+
+        // Admin kendi işlemlerini yapsın
+        await simulateAutoCreditDeposit(admin, {
+          usdtAmount: 80,
+          txHash: 'admin_dep_' + Date.now(),
+          fromAddress: 'TFromAdmin1',
+        });
+        await simulateAutoProcessWithdraw(admin, {
+          usdtAmount: 10,
+          txHash: 'admin_wd_' + Date.now(),
+        });
+
+        const history = await getTransactionHistory(admin._id);
+        assert.ok(history.length >= 2, 'Admin should see at least 2 transactions');
+
+        const depTx = history.find(t => t.type === 'crypto_deposit');
+        const wdTx = history.find(t => t.type === 'crypto_withdraw');
+        assert.ok(depTx, 'Should have deposit in history');
+        assert.ok(wdTx, 'Should have withdrawal in history');
+        assert.equal(depTx.status, 'completed');
+        assert.equal(wdTx.status, 'completed');
+      });
+
+      it('admin should see pending transactions in their history', async () => {
+        const admin = await User.create({
+          username: 'admin_pending_hist',
+          email: 'admin_pending_hist@test.com',
+          password: 'hashed_password',
+          role: 'admin',
+          balance: 3000,
+        });
+
+        await simulatePendingDeposit(admin, {
+          usdtAmount: 150,
+          txHash: 'admin_pending_dep_' + Date.now(),
+          fromAddress: 'TFromAdminP1',
+        });
+
+        const history = await getTransactionHistory(admin._id);
+        const pendingTx = history.find(t => t.type === 'crypto_deposit' && t.status === 'pending');
+        assert.ok(pendingTx, 'Admin should see pending deposit in their history');
+        assert.ok(pendingTx.note.includes('Admin onayı'), 'Should indicate admin approval needed');
+      });
+    });
+
+    // ── Admin: Yatırma Onayı ─────────────────────────────────────────────────
+    describe('Admin Approve Deposit', () => {
+      it('should credit user balance and mark deposit as credited', async () => {
+        const user = await User.create({
+          username: 'admin_dep_user',
+          email: 'admin_dep_user@test.com',
+          password: 'hashed_password',
+          balance: 500,
+          cryptoDepositIndex: 0,
+        });
+
+        const usdtAmount = 150;
+        const txHash = 'admin_approve_dep_' + Date.now();
+
+        const { tryAmount } = await simulatePendingDeposit(user, { usdtAmount, txHash, fromAddress: 'TFromAdminA1' });
+
+        // Admin onayı öncesi bakiye
+        assert.equal((await User.findById(user._id)).balance, 500, 'Balance unchanged before approval');
+
+        // Pending deposit'ı bul
+        const deposit = await CryptoDeposit.findOne({ txHash, status: 'pending_approval' });
+        assert.ok(deposit, 'Should have pending deposit');
+
+        // Admin onayı: balance credited, CryptoDeposit → 'credited', Transaction → 'completed'
+        const balBefore = user.balance;
+        user.balance = +(user.balance + deposit.creditedTRY).toFixed(2);
+        await user.save();
+
+        deposit.status = 'credited';
+        deposit.creditedAt = new Date();
+        await deposit.save();
+
+        // Transaction'ı güncelle
+        const pendingTx = await Transaction.findOne({ userId: user._id, type: 'crypto_deposit', status: 'pending' });
+        pendingTx.status = 'completed';
+        pendingTx.balanceAfter = user.balance;
+        pendingTx.note = `USDT TRC20 ${usdtAmount} USDT — Admin onayı ile eklendi`;
+        await pendingTx.save();
+
+        // Doğrulama
+        const afterUser = await User.findById(user._id);
+        assert.equal(afterUser.balance, +(500 + tryAmount).toFixed(2), 'Balance should increase after approval');
+
+        const afterDeposit = await CryptoDeposit.findOne({ txHash });
+        assert.equal(afterDeposit.status, 'credited', 'Deposit should be credited');
+        assert.ok(afterDeposit.creditedAt, 'creditedAt should be set');
+
+        const afterTx = await Transaction.findOne({ userId: user._id, type: 'crypto_deposit', status: 'completed' });
+        assert.ok(afterTx, 'Should have completed deposit transaction');
+        assert.ok(afterTx.note.includes('Admin onayı'), 'Note should mention admin approval');
+
+        // History'de görünmeli
+        const history = await getTransactionHistory(user._id);
+        const histTx = history.find(t => t.type === 'crypto_deposit' && t.status === 'completed');
+        assert.ok(histTx, 'Approved deposit should appear in transaction history');
+      });
+
+      it('should credit user balance WITH active bonus (bonus does not block deposit)', async () => {
+        const user = await User.create({
+          username: 'admin_dep_bonus',
+          email: 'admin_dep_bonus@test.com',
+          password: 'hashed_password',
+          balance: 500,
+          cryptoDepositIndex: 0,
+        });
+
+        // Aktif bonus var — yatırma bonus kilidinden etkilenmemeli
+        await BonusWagering.create({
+          userId: user._id,
+          bonusAmount: 200,
+          wageringRequired: 7000,
+          status: 'active',
+        });
+
+        const breakdown = await getSpendableBreakdown(user._id);
+        assert.equal(breakdown.locked, 200, 'Bonus locked');
+        assert.equal(breakdown.withdrawable, 300, 'Only 300₺ withdrawable');
+
+        const usdtAmount = 120;
+        const txHash = 'admin_dep_bonus_' + Date.now();
+
+        const { tryAmount } = await simulatePendingDeposit(user, { usdtAmount, txHash, fromAddress: 'TFromAdminB1' });
+
+        // Admin onayı
+        const deposit = await CryptoDeposit.findOne({ txHash, status: 'pending_approval' });
+        user.balance = +(user.balance + deposit.creditedTRY).toFixed(2);
+        await user.save();
+        deposit.status = 'credited';
+        deposit.creditedAt = new Date();
+        await deposit.save();
+
+        const pendingTx = await Transaction.findOne({ userId: user._id, type: 'crypto_deposit', status: 'pending' });
+        pendingTx.status = 'completed';
+        pendingTx.balanceAfter = user.balance;
+        await pendingTx.save();
+
+        // Doğrulama: bakiye arttı, bonus hala aktif
+        const afterUser = await User.findById(user._id);
+        assert.equal(afterUser.balance, +(500 + tryAmount).toFixed(2), 'Balance should increase');
+
+        const afterBreakdown = await getSpendableBreakdown(user._id);
+        assert.equal(afterBreakdown.locked, 200, 'Bonus still locked');
+        assert.equal(afterBreakdown.withdrawable, +(500 + tryAmount - 200).toFixed(2), 'Withdrawable = balance - locked');
+
+        // Bonus wagering hala aktif
+        const wagering = await BonusWagering.findOne({ userId: user._id, status: 'active' });
+        assert.ok(wagering, 'Bonus wagering should still be active');
+      });
+
+      it('should reject deposit without changing balance', async () => {
+        const user = await User.create({
+          username: 'admin_rej_dep',
+          email: 'admin_rej_dep@test.com',
+          password: 'hashed_password',
+          balance: 500,
+          cryptoDepositIndex: 0,
+        });
+
+        const txHash = 'admin_reject_dep_' + Date.now();
+        await simulatePendingDeposit(user, {
+          usdtAmount: 200,
+          txHash,
+          fromAddress: 'TFromAdminR1',
+        });
+
+        const deposit = await CryptoDeposit.findOne({ txHash, status: 'pending_approval' });
+        deposit.status = 'rejected';
+        await deposit.save();
+
+        const afterUser = await User.findById(user._id);
+        assert.equal(afterUser.balance, 500, 'Balance should NOT change on rejection');
+
+        const afterDeposit = await CryptoDeposit.findOne({ txHash });
+        assert.equal(afterDeposit.status, 'rejected', 'Deposit should be rejected');
+
+        // History'de pending olarak kalmalı (red separately İşlenmemiş olarak görünür)
+        const history = await getTransactionHistory(user._id);
+        const tx = history.find(t => t.type === 'crypto_deposit');
+        assert.ok(tx, 'Rejected deposit should still appear in history');
+      });
+    });
+
+    // ── Admin: Çekim Onayı ───────────────────────────────────────────────────
+    describe('Admin Approve Withdrawal', () => {
+      it('should complete withdrawal and update transaction status', async () => {
+        const user = await User.create({
+          username: 'admin_wd_user',
+          email: 'admin_wd_user@test.com',
+          password: 'hashed_password',
+          balance: 1000,
+        });
+
+        const usdtAmount = 50;
+        const { tryNeeded } = await simulatePendingWithdraw(user, {
+          usdtAmount,
+          toAddress: TRC20_ADDR,
+        });
+
+        // Pending transaction'ı bul
+        const pendingTx = await Transaction.findOne({
+          userId: user._id,
+          type: 'crypto_withdraw',
+          status: 'pending',
+        });
+        assert.ok(pendingTx, 'Should have pending withdrawal');
+
+        // Admin onayı: status → completed
+        pendingTx.status = 'completed';
+        pendingTx.note = `${pendingTx.note} — Onaylandı`;
+        await pendingTx.save();
+
+        const afterTx = await Transaction.findById(pendingTx._id);
+        assert.equal(afterTx.status, 'completed', 'Withdrawal should be completed');
+
+        // Bakiye zaten düşülmüştü (withdrawal request anında)
+        const afterUser = await User.findById(user._id);
+        assert.equal(afterUser.balance, +(1000 - tryNeeded).toFixed(2), 'Balance should remain decreased');
+      });
+
+      it('should complete withdrawal WITH active bonus (bonus does not block approved withdrawal)', async () => {
+        const user = await User.create({
+          username: 'admin_wd_bonus',
+          email: 'admin_wd_bonus@test.com',
+          password: 'hashed_password',
+          balance: 1000,
+        });
+
+        await BonusWagering.create({
+          userId: user._id,
+          bonusAmount: 100,
+          wageringRequired: 3500,
+          status: 'active',
+        });
+
+        const breakdown = await getSpendableBreakdown(user._id);
+        assert.equal(breakdown.withdrawable, 900, 'Withdrawable: 1000 - 100 = 900');
+
+        const usdtAmount = 50;
+        const { tryNeeded } = await simulatePendingWithdraw(user, {
+          usdtAmount,
+          toAddress: TRC20_ADDR,
+        });
+
+        // Admin onayı
+        const pendingTx = await Transaction.findOne({
+          userId: user._id,
+          type: 'crypto_withdraw',
+          status: 'pending',
+        });
+        pendingTx.status = 'completed';
+        await pendingTx.save();
+
+        // Bonus hala aktif — sadece withdrawable kısım çekildi
+        const afterBreakdown = await getSpendableBreakdown(user._id);
+        assert.equal(afterBreakdown.locked, 100, 'Bonus still locked');
+        assert.equal(afterBreakdown.withdrawable, +(900 - tryNeeded).toFixed(2), 'Withdrawable decreased by tryNeeded');
+      });
+
+      it('should reject withdrawal and refund balance', async () => {
+        const user = await User.create({
+          username: 'admin_rej_wd',
+          email: 'admin_rej_wd@test.com',
+          password: 'hashed_password',
+          balance: 1000,
+        });
+
+        const usdtAmount = 50;
+        const { tryNeeded } = await simulatePendingWithdraw(user, {
+          usdtAmount,
+          toAddress: TRC20_ADDR,
+        });
+
+        // Bakiye düşmüş olmalı
+        assert.equal((await User.findById(user._id)).balance, +(1000 - tryNeeded).toFixed(2), 'Balance decreased');
+
+        // Admin reddi: bakiyeyi iade et
+        const pendingTx = await Transaction.findOne({
+          userId: user._id,
+          type: 'crypto_withdraw',
+          status: 'pending',
+        });
+
+        const refundAmount = Math.abs(pendingTx.amount);
+        const userBefore = await User.findById(user._id);
+        const balBefore = userBefore.balance;
+        userBefore.balance = +(userBefore.balance + refundAmount).toFixed(2);
+        await userBefore.save();
+
+        await Transaction.create({
+          userId: user._id,
+          type: 'crypto_withdraw',
+          amount: refundAmount,
+          balanceBefore: balBefore,
+          balanceAfter: userBefore.balance,
+          note: 'Çekim reddedildi — bakiye iade edildi',
+          status: 'completed',
+        });
+
+        pendingTx.status = 'rejected';
+        await pendingTx.save();
+
+        // Doğrulama: bakiye iade edildi
+        const afterUser = await User.findById(user._id);
+        assert.equal(afterUser.balance, 1000, 'Balance should be refunded to original');
+
+        const refundTx = await Transaction.findOne({
+          userId: user._id,
+          type: 'crypto_withdraw',
+          status: 'completed',
+          note: 'Çekim reddedildi — bakiye iade edildi',
+        });
+        assert.ok(refundTx, 'Should have refund transaction');
+        assert.equal(refundTx.amount, tryNeeded, 'Refund amount should match');
+      });
+
+      it('should reject withdrawal WITH active bonus and restore full withdrawable', async () => {
+        const user = await User.create({
+          username: 'admin_rej_wd_bonus',
+          email: 'admin_rej_wd_bonus@test.com',
+          password: 'hashed_password',
+          balance: 1000,
+        });
+
+        await BonusWagering.create({
+          userId: user._id,
+          bonusAmount: 200,
+          wageringRequired: 7000,
+          status: 'active',
+        });
+
+        const breakdownBefore = await getSpendableBreakdown(user._id);
+        assert.equal(breakdownBefore.withdrawable, 800, 'Withdrawable: 1000 - 200 = 800');
+
+        const usdtAmount = 50;
+        const { tryNeeded } = await simulatePendingWithdraw(user, {
+          usdtAmount,
+          toAddress: TRC20_ADDR,
+        });
+
+        // Admin reddi
+        const pendingTx = await Transaction.findOne({
+          userId: user._id,
+          type: 'crypto_withdraw',
+          status: 'pending',
+        });
+        const refundAmount = Math.abs(pendingTx.amount);
+        const userBefore = await User.findById(user._id);
+        const balBefore = userBefore.balance;
+        userBefore.balance = +(userBefore.balance + refundAmount).toFixed(2);
+        await userBefore.save();
+
+        await Transaction.create({
+          userId: user._id,
+          type: 'crypto_withdraw',
+          amount: refundAmount,
+          balanceBefore: balBefore,
+          balanceAfter: userBefore.balance,
+          note: 'Çekim reddedildi — bakiye iade edildi',
+          status: 'completed',
+        });
+
+        pendingTx.status = 'rejected';
+        await pendingTx.save();
+
+        // Doğrulama: bakiye iade, bonus hala aktif
+        const afterUser = await User.findById(user._id);
+        assert.equal(afterUser.balance, 1000, 'Balance restored');
+
+        const afterBreakdown = await getSpendableBreakdown(user._id);
+        assert.equal(afterBreakdown.locked, 200, 'Bonus still locked');
+        assert.equal(afterBreakdown.withdrawable, 800, 'Withdrawable restored to 800');
+      });
+    });
+
+    // ── Admin: Bonus ile karma senaryolar ────────────────────────────────────
+    describe('Bonus Impact on Admin Operations', () => {
+      it('deposit approval increases balance but bonus lock remains', async () => {
+        const user = await User.create({
+          username: 'bonus_dep_lock',
+          email: 'bonus_dep_lock@test.com',
+          password: 'hashed_password',
+          balance: 200,
+          cryptoDepositIndex: 0,
+        });
+
+        await BonusWagering.create({
+          userId: user._id,
+          bonusAmount: 150,
+          wageringRequired: 5250,
+          status: 'active',
+        });
+
+        // Yatırma: $120 (pending)
+        const txHash = 'bonus_dep_lock_' + Date.now();
+        const { tryAmount } = await simulatePendingDeposit(user, {
+          usdtAmount: 120,
+          txHash,
+          fromAddress: 'TFromBonusD1',
+        });
+
+        // Admin onayı
+        const deposit = await CryptoDeposit.findOne({ txHash, status: 'pending_approval' });
+        user.balance = +(user.balance + deposit.creditedTRY).toFixed(2);
+        await user.save();
+        deposit.status = 'credited';
+        deposit.creditedAt = new Date();
+        await deposit.save();
+
+        const pendingTx = await Transaction.findOne({ userId: user._id, type: 'crypto_deposit', status: 'pending' });
+        pendingTx.status = 'completed';
+        pendingTx.balanceAfter = user.balance;
+        await pendingTx.save();
+
+        const afterBreakdown = await getSpendableBreakdown(user._id);
+        assert.equal(afterBreakdown.balance, +(200 + tryAmount).toFixed(2), 'Balance includes deposit');
+        assert.equal(afterBreakdown.locked, 150, 'Bonus lock unchanged');
+        assert.equal(afterBreakdown.withdrawable, +(200 + tryAmount - 150).toFixed(2), 'Withdrawable = balance - locked');
+      });
+
+      it('withdrawal rejection restores balance, bonus lock unaffected', async () => {
+        const user = await User.create({
+          username: 'bonus_wd_reject',
+          email: 'bonus_wd_reject@test.com',
+          password: 'hashed_password',
+          balance: 800,
+        });
+
+        await BonusWagering.create({
+          userId: user._id,
+          bonusAmount: 200,
+          wageringRequired: 7000,
+          status: 'active',
+        });
+
+        const breakdownBefore = await getSpendableBreakdown(user._id);
+        assert.equal(breakdownBefore.withdrawable, 600, 'Withdrawable: 800 - 200 = 600');
+
+        const usdtAmount = 50;
+        const { tryNeeded } = await simulatePendingWithdraw(user, {
+          usdtAmount,
+          toAddress: TRC20_ADDR,
+        });
+
+        // Bakiye düşmüş olmalı
+        assert.equal((await User.findById(user._id)).balance, +(800 - tryNeeded).toFixed(2));
+
+        // Admin reddi → bakiye iade
+        const pendingTx = await Transaction.findOne({
+          userId: user._id,
+          type: 'crypto_withdraw',
+          status: 'pending',
+        });
+        const refundAmount = Math.abs(pendingTx.amount);
+        const userBefore = await User.findById(user._id);
+        const balBefore = userBefore.balance;
+        userBefore.balance = +(userBefore.balance + refundAmount).toFixed(2);
+        await userBefore.save();
+
+        await Transaction.create({
+          userId: user._id,
+          type: 'crypto_withdraw',
+          amount: refundAmount,
+          balanceBefore: balBefore,
+          balanceAfter: userBefore.balance,
+          note: 'Çekim reddedildi — bakiye iade edildi',
+          status: 'completed',
+        });
+
+        pendingTx.status = 'rejected';
+        await pendingTx.save();
+
+        const afterBreakdown = await getSpendableBreakdown(user._id);
+        assert.equal(afterBreakdown.balance, 800, 'Balance fully restored');
+        assert.equal(afterBreakdown.locked, 200, 'Bonus lock unaffected');
+        assert.equal(afterBreakdown.withdrawable, 600, 'Withdrawable restored');
+      });
+
+      it('multiple users: admin operations on one user should not affect another', async () => {
+        const user1 = await User.create({
+          username: 'multi_user_1',
+          email: 'multi1@test.com',
+          password: 'hashed_password',
+          balance: 500,
+          cryptoDepositIndex: 0,
+        });
+        const user2 = await User.create({
+          username: 'multi_user_2',
+          email: 'multi2@test.com',
+          password: 'hashed_password',
+          balance: 800,
+        });
+
+        // User1: pending deposit
+        const txHash1 = 'multi_dep1_' + Date.now();
+        await simulatePendingDeposit(user1, {
+          usdtAmount: 150,
+          txHash: txHash1,
+          fromAddress: 'TFromMulti1',
+        });
+
+        // User2: pending withdrawal
+        await simulatePendingWithdraw(user2, {
+          usdtAmount: 30,
+          toAddress: TRC20_ADDR,
+        });
+
+        // Admin: User1'in yatırmasını onayla
+        const deposit = await CryptoDeposit.findOne({ txHash: txHash1, status: 'pending_approval' });
+        user1.balance = +(user1.balance + deposit.creditedTRY).toFixed(2);
+        await user1.save();
+        deposit.status = 'credited';
+        deposit.creditedAt = new Date();
+        await deposit.save();
+
+        const tx1 = await Transaction.findOne({ userId: user1._id, type: 'crypto_deposit', status: 'pending' });
+        tx1.status = 'completed';
+        tx1.balanceAfter = user1.balance;
+        await tx1.save();
+
+        // User2 etkilenmemeli
+        const user2After = await User.findById(user2._id);
+        const user2Breakdown = await getSpendableBreakdown(user2._id);
+        assert.equal(user2After.balance, +(800 - 30).toFixed(2), 'User2 balance unchanged by User1 approval');
+        assert.equal(user2Breakdown.withdrawable, +(800 - 30).toFixed(2), 'User2 withdrawable unchanged');
+      });
+    });
+  });
 });

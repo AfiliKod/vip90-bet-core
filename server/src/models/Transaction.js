@@ -7,7 +7,7 @@ const schema = new mongoose.Schema({
   balanceBefore: { type: Number, required: true },
   balanceAfter:  { type: Number, required: true },
   referenceId:   mongoose.Schema.Types.ObjectId,
-  status:        { type: String, enum: ['pending','completed','failed'], default: 'completed' },
+  status:        { type: String, enum: ['pending','completed','failed','rejected'], default: 'completed' },
   note:          { type: String, default: '' },
   createdBy:     { type: mongoose.Schema.Types.ObjectId, ref: 'User', default: null },
 }, { timestamps: true });
