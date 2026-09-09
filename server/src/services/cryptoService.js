@@ -3,6 +3,10 @@ import { HDNodeWallet, Mnemonic, Wallet } from 'ethers';
 import TronWebPkg from 'tronweb';
 const { TronWeb } = TronWebPkg;
 
+// CRYPTO_SETTINGS — admin panelinden değiştirilen ayarları kullan
+// ESM hoisting: config/crypto.js bu dosyadan bağımsız, circular risk yok
+import { CRYPTO_SETTINGS } from '../config/crypto.js';
+
 // Network konfigürasyonu — ESM hoisting sorunu nedeniyle lazy getter
 const NETWORKS = {
   mainnet: {
@@ -23,8 +27,9 @@ const NETWORKS = {
 };
 
 // Lazy getter — .env yüklendikten sonra çağrılmalı
+// CRYPTO_SETTINGS.network admin panelinden değiştirilebilir
 function getNetworkConfig() {
-  const network = (process.env.TRON_NETWORK || 'mainnet').toLowerCase();
+  const network = (CRYPTO_SETTINGS.network || process.env.TRON_NETWORK || 'mainnet').toLowerCase();
   return {
     network,
     tronGrid: NETWORKS[network]?.fullHost || NETWORKS.mainnet.fullHost,

@@ -19,7 +19,8 @@
 │              Admin Panel                      │
 │  - Payment enable/disable toggle              │
 │  - Wallet address management                  │
-│  - Currency conversion rates                  │
+│  - Currency conversion rate (USDT↔TRY)       │
+│  - Network selection (Mainnet/Testnet)        │
 │  - Auto-limit settings                        │
 │  - Transaction monitoring                     │
 │  - Pending approval/rejection                 │
@@ -288,14 +289,18 @@ User wants to withdraw 900₺:
 // server/src/config/crypto.js
 export const CRYPTO_SETTINGS = {
   deposit: {
-    autoCreditLimit: 100,
+    autoCreditLimit: 100,       // Admin panelinden değiştirilebilir
     requireApprovalAbove: 100,
   },
   withdraw: {
-    autoProcessLimit: 15,
+    autoProcessLimit: 15,       // Admin panelinden değiştirilebilir
     requireApprovalAbove: 15,
   },
   minWithdraw: 5,
+
+  // Admin panelinden değiştirilebilir
+  usdtTryRate: 1,               // 1 USDT = X TRY dönüşüm oranı
+  network: 'mainnet',           // mainnet | shasta | nile
 };
 ```
 
@@ -331,21 +336,24 @@ Return txHash → Notify user
 
 ### Supported Pairs
 
-| Pair | Default Rate |
-|------|-------------|
-| USDT_TRY | 1 |
-| USDT_EUR | 0.92 |
-| USDT_GBP | 0.79 |
-| USDT_USD | 1 |
+| Pair | Default Rate | Admin Panel |
+|------|-------------|-------------|
+| USDT_TRY | 1 | ✅ Değiştirilebilir |
+| USDT_EUR | 0.92 | — |
+| USDT_GBP | 0.79 | — |
+| USDT_USD | 1 | — |
 
 ### Usage
 
 ```javascript
-import { CURRENCY_RATES } from '../config/crypto.js';
+import { CRYPTO_SETTINGS } from '../config/crypto.js';
 
-const rate = CURRENCY_RATES.USDT_TRY;
+// Admin panelinden değiştirilen oran kullanılır
+const rate = CRYPTO_SETTINGS.usdtTryRate;
 const tryAmount = usdtAmount * rate;
 ```
+
+> **Not:** Dönüşüm oranı `Modül Ayarları > Crypto Ödeme Ağ Geçidi`面板inden değiştirilebilir. Varsayılan değer `.env` dosyasındaki `USDT_TRY_RATE` değişkenidir.
 
 ## API Endpoints
 
@@ -368,14 +376,25 @@ const tryAmount = usdtAmount * rate;
 | Endpoint | Method | Description |
 |----------|--------|-------------|
 | `GET /api/crypto/settings` | GET | Return current settings |
+| `PUT /api/admin/crypto/settings` | PUT | Update settings (network, rate, limits) |
 
 ## Testnet (Shasta)
 
 ### Configuration
 
 ```env
-TRON_NETWORK=shasta
+TRON_NETWORK=shasta    # .env dosyasından VARSAYILAN
 ```
+
+> **Not:** Ağ seçimi artık `Modül Ayarları > Crypto Ödeme Ağ Geçidi`面板inden de değiştirilebilir. Admin panelinden yapılan değişiklikler `CRYPTO_SETTINGS.network` objesini günceller. Ancak **hot wallet private key** ve **seed phrase** ortam değişkenlerinden okunduğu için, testnet'ten mainnet'e geçiş sunucuyu yeniden başlatmayı gerektirir.
+
+### Admin Panelinden Ağ Değişimi
+
+| Ağ | Seçenek | Durum |
+|----|---------|-------|
+| Mainnet | `mainnet` | 🔴 Üretim |
+| Shasta | `shasta` | 🟡 Testnet |
+| Nile | `nile` | 🔵 Testnet |
 
 ### Testnet Info
 
@@ -418,15 +437,17 @@ const isValid = /^T[A-Za-z0-9]{33}$/.test(address);
 
 ```env
 CRYPTO_SEED_PHRASE=your mnemonic phrase here
-USDT_TRY_RATE=1
-TRON_NETWORK=mainnet  # or shasta/nile
+USDT_TRY_RATE=1              # Varsayılan dönüşüm oranı (admin panelinden değiştirilebilir)
+TRON_NETWORK=mainnet          # Varsayılan ağ (admin panelinden değiştirilebilir)
 HOT_WALLET_PRIVATE_KEY=optional_separate_hot_wallet_key
 ```
+
+> **Not:** `USDT_TRY_RATE` ve `TRON_NETWORK` artık admin panelinden değiştirilebilir. `.env` değerleri sadece başlangıç (default) olarak kullanılır.
 
 ## Known Limitations
 
 1. **Single Network:** Only TRON (TRC20) supported
-2. **Fixed Price:** USDT is a stablecoin, but rates should be configured by admin
+2. **Rate Persistence:** Dönüşüm oranı ve ağ seçimi in-memory saklanır, sunucu restart'ta `.env` değerlerine döner
 3. **No Multi-sig:** Additional security needed for large amounts
 
 ## Related Files

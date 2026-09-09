@@ -56,7 +56,7 @@ r.post('/check-deposit', async (req, res, next) => {
 
     const address  = deriveDepositAddress(user.cryptoDepositIndex);
     const txList   = await fetchIncomingUSDT(address);
-    const rate     = parseFloat(process.env.USDT_TRY_RATE || '1');
+    const rate     = CRYPTO_SETTINGS.usdtTryRate;
     const credited = [];
     const pendingApproval = [];
 
@@ -162,7 +162,7 @@ r.post('/withdraw-request', async (req, res, next) => {
       return res.status(400).json({ error: 'Geçersiz TRC20 adresi' });
     }
 
-    const rate      = parseFloat(process.env.USDT_TRY_RATE || '1');
+    const rate      = CRYPTO_SETTINGS.usdtTryRate;
     const tryNeeded = +(usdtAmount * rate).toFixed(2);
 
     // 1. Withdrawable bakiye kontrolü

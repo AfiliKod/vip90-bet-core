@@ -1,5 +1,4 @@
-// Crypto ödeme ayarları — admin panelinden değiştirilecek (şimdilik placeholder)
-// Merge sonrası admin/module-settings'e eklenecek
+// Crypto ödeme ayarları — admin panelinden değiştirilebilir
 export const CRYPTO_SETTINGS = {
   // Otomatik yatırma (deposit) limitleri
   deposit: {
@@ -21,14 +20,12 @@ export const CRYPTO_SETTINGS = {
 
   // Minimum çekim miktarı (USDT)
   minWithdraw: 5,
-};
 
-// Para birimi dönüşüm oranları (placeholder — admin panelinden değiştirilecek)
-export const CURRENCY_RATES = {
-  USDT_TRY: 1,    // 1 USDT = 1 TRY (test)
-  USDT_EUR: 0.92, // 1 USDT = 0.92 EUR (placeholder)
-  USDT_GBP: 0.79, // 1 USDT = 0.79 GBP (placeholder)
-  USDT_USD: 1,    // 1 USDT = 1 USD
+  // USDT ↔ TRY dönüşüm oranı (admin panelinden değiştirilebilir)
+  usdtTryRate: parseFloat(process.env.USDT_TRY_RATE || '1'),
+
+  // Ağ seçimi: mainnet | shasta | nile (admin panelinden değiştirilebilir)
+  network: process.env.TRON_NETWORK || 'mainnet',
 };
 
 // Admin onay eşiği kontrolü

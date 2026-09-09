@@ -1546,7 +1546,7 @@ export async function verifyCryptoTx(req, res, next) {
 
 export async function updateCryptoSettings(req, res, next) {
   try {
-    const { deposit, withdraw } = req.body;
+    const { deposit, withdraw, usdtTryRate, network } = req.body;
     if (deposit) {
       CRYPTO_SETTINGS.deposit.autoCreditLimit = deposit.autoCreditLimit ?? CRYPTO_SETTINGS.deposit.autoCreditLimit;
       CRYPTO_SETTINGS.deposit.requireApprovalAbove = deposit.requireApprovalAbove ?? CRYPTO_SETTINGS.deposit.requireApprovalAbove;
@@ -1554,6 +1554,12 @@ export async function updateCryptoSettings(req, res, next) {
     if (withdraw) {
       CRYPTO_SETTINGS.withdraw.autoProcessLimit = withdraw.autoProcessLimit ?? CRYPTO_SETTINGS.withdraw.autoProcessLimit;
       CRYPTO_SETTINGS.withdraw.requireApprovalAbove = withdraw.requireApprovalAbove ?? CRYPTO_SETTINGS.withdraw.requireApprovalAbove;
+    }
+    if (usdtTryRate !== undefined) {
+      CRYPTO_SETTINGS.usdtTryRate = Math.max(0, Number(usdtTryRate) || 1);
+    }
+    if (network && ['mainnet', 'shasta', 'nile'].includes(network)) {
+      CRYPTO_SETTINGS.network = network;
     }
     res.json(CRYPTO_SETTINGS);
   } catch (e) { next(e); }
