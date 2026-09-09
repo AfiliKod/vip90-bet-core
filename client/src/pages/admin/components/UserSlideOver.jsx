@@ -35,6 +35,10 @@ export default function UserSlideOver({ user, onClose, onUpdated }) {
   const TX_LABELS = {
     deposit: t('admin.userSlideOver.txDeposit'), withdraw: t('admin.userSlideOver.txWithdraw'), bet: t('admin.userSlideOver.txBet'),
     win: t('admin.userSlideOver.txWin'), bonus: t('admin.userSlideOver.txBonus'), refund: t('admin.userSlideOver.txRefund'), admin_adjustment: t('admin.userSlideOver.txAdmin'),
+    crypto_deposit: 'Crypto Yatırma', crypto_withdraw: 'Crypto Çekim',
+    casino_return: 'Casino Dönüşü', bonus_forfeit: 'Bonus Forfeit', referral_commission: 'Referral Komisyon',
+    bonus_conversion: 'Bonus Dönüşüm', agent_transfer_in: 'Agent Transfer Giriş', agent_transfer_out: 'Agent Transfer Çıkış',
+    tip_sent: 'Bahşiş Gönderildi', tip_received: 'Bahşiş Alındı', rain: 'Rain',
   };
 
   useEffect(() => {

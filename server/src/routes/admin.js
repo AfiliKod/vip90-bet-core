@@ -150,6 +150,8 @@ r.post('/kyc/submissions/:id/under-review', ctrl.setKycSubmissionUnderReview);
 // Crypto Ödeme Ağ Geçidi — admin ayarları ve onay/reddet
 r.get('/crypto/pending-deposits',    ctrl.getCryptoPendingDeposits);
 r.get('/crypto/pending-withdrawals', ctrl.getCryptoPendingWithdrawals);
+r.get('/crypto/all-deposits',        ctrl.getAllCryptoDeposits);
+r.get('/crypto/all-withdrawals',     ctrl.getAllCryptoWithdrawals);
 r.put('/crypto/settings',            ctrl.updateCryptoSettings);
 r.post('/crypto/deposits/:id/approve', ctrl.approveCryptoDeposit);
 r.post('/crypto/deposits/:id/reject',  ctrl.rejectCryptoDeposit);

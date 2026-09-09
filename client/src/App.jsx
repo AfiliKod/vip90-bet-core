@@ -53,6 +53,7 @@ const AdminBots = lazy(() => import('./pages/admin/Bots'));
 const AdminStaticPages = lazy(() => import('./pages/admin/StaticPages'));
 const AdminTickets = lazy(() => import('./pages/admin/Tickets'));
 const AdminKycReview = lazy(() => import('./pages/admin/KycReview'));
+const AdminCrypto = lazy(() => import('./pages/admin/Crypto'));
 const PalaceGame = lazy(() => import('./pages/PalaceGame'));
 const InhouseGameLauncher = lazy(() => import('./pages/games/InhouseGameLauncher'));
 const HomePage = lazy(() => import('./pages/HomePage'));
@@ -187,6 +188,7 @@ export default function App() {
         <Route path="/admin/static-pages" element={<ProtectedRoute adminOnly><Suspense fallback={<PageLoader />}><AdminStaticPages /></Suspense></ProtectedRoute>} />
         <Route path="/admin/tickets" element={<ProtectedRoute adminOnly><Suspense fallback={<PageLoader />}><AdminTickets /></Suspense></ProtectedRoute>} />
         <Route path="/admin/kyc" element={<ProtectedRoute adminOnly><Suspense fallback={<PageLoader />}><AdminKycReview /></Suspense></ProtectedRoute>} />
+        <Route path="/admin/crypto" element={<ProtectedRoute adminOnly><Suspense fallback={<PageLoader />}><AdminCrypto /></Suspense></ProtectedRoute>} />
         {/* Legal pages (public) — kendi TOC sidebar'ını (LegalLayout) korur, Layout'un
             HomeSidebar'ı ile çakışmasın diye Layout.jsx bu rotaları hariç tutar. */}
         <Route path="/legal/terms" element={<Layout><Suspense fallback={<PageLoader />}><Terms /></Suspense></Layout>} />

@@ -6,12 +6,17 @@ import { useTranslation } from '../../i18n';
 export default function AdminDashboard() {
   const { t } = useTranslation();
   const [pendingBank, setPendingBank] = useState(0);
+  const [pendingCrypto, setPendingCrypto] = useState(0);
   const [openTickets, setOpenTickets] = useState(0);
   useEffect(() => {
     Promise.all([
       api.get('/bank/admin/pending?type=deposit'),
       api.get('/bank/admin/pending?type=withdraw'),
     ]).then(([d, w]) => setPendingBank(d.data.requests.length + w.data.requests.length)).catch(() => {});
+    Promise.all([
+      api.get('/admin/crypto/pending-deposits').catch(() => ({ data: [] })),
+      api.get('/admin/crypto/pending-withdrawals').catch(() => ({ data: [] })),
+    ]).then(([d, w]) => setPendingCrypto(d.data.length + w.data.length)).catch(() => {});
     api.get('/tickets', { params: { status: 'open' } }).then(({ data }) => setOpenTickets(data.length)).catch(() => {});
   }, []);
 
@@ -38,6 +43,16 @@ export default function AdminDashboard() {
           <div className="text-3xl mb-2">🏦</div>
           <div className="font-semibold text-text-1">{t('admin.dashboard.bank.title')}</div>
           <div className="text-text-3 text-sm mt-1">{t('admin.dashboard.bank.desc')}</div>
+        </Link>
+        <Link to="/admin/crypto" className="bg-bg-card border border-white/10 rounded-xl p-5 hover:border-accent/30 transition text-center relative">
+          {pendingCrypto > 0 && (
+            <span className="absolute top-3 right-3 bg-yellow-500 text-white text-[10px] font-black rounded-full w-5 h-5 flex items-center justify-center">
+              {pendingCrypto}
+            </span>
+          )}
+          <div className="text-3xl mb-2">💰</div>
+          <div className="font-semibold text-text-1">Crypto İşlemleri</div>
+          <div className="text-text-3 text-sm mt-1">TRC20 USDT yatırma/çekim yönetimi</div>
         </Link>
         <Link to="/admin/analytics" className="bg-bg-card border border-white/10 rounded-xl p-5 hover:border-accent/30 transition text-center">
           <div className="text-3xl mb-2">📈</div>

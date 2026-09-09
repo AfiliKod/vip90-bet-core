@@ -1416,6 +1416,34 @@ export async function getCryptoPendingWithdrawals(req, res, next) {
   } catch (e) { next(e); }
 }
 
+export async function getAllCryptoDeposits(req, res, next) {
+  try {
+    const { status, page = 1, limit = 50 } = req.query;
+    const filter = { type: 'crypto_deposit' };
+    if (status) filter.status = status;
+    const skip = (+page - 1) * +limit;
+    const [transactions, total] = await Promise.all([
+      Transaction.find(filter).populate('userId', 'username email').sort({ createdAt: -1 }).skip(skip).limit(+limit),
+      Transaction.countDocuments(filter),
+    ]);
+    res.json({ transactions, total, page: +page, limit: +limit });
+  } catch (e) { next(e); }
+}
+
+export async function getAllCryptoWithdrawals(req, res, next) {
+  try {
+    const { status, page = 1, limit = 50 } = req.query;
+    const filter = { type: 'crypto_withdraw' };
+    if (status) filter.status = status;
+    const skip = (+page - 1) * +limit;
+    const [transactions, total] = await Promise.all([
+      Transaction.find(filter).populate('userId', 'username email').sort({ createdAt: -1 }).skip(skip).limit(+limit),
+      Transaction.countDocuments(filter),
+    ]);
+    res.json({ transactions, total, page: +page, limit: +limit });
+  } catch (e) { next(e); }
+}
+
 export async function updateCryptoSettings(req, res, next) {
   try {
     const { deposit, withdraw } = req.body;
