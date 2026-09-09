@@ -28,6 +28,8 @@ function TxDetail({ tx, onAction, saving }) {
   const [detail, setDetail] = useState(null);
   const [loading, setLoading] = useState(true);
   const [rejectReason, setRejectReason] = useState('');
+  const [blockchain, setBlockchain] = useState(null);
+  const [verifying, setVerifying] = useState(false);
 
   useEffect(() => {
     setLoading(true);
@@ -36,6 +38,20 @@ function TxDetail({ tx, onAction, saving }) {
       .catch(() => setDetail(null))
       .finally(() => setLoading(false));
   }, [tx._id]);
+
+  // Blockchain doğrulama — sadece pending yatırımlar için
+  const verifyBlockchain = useCallback(async (txHash) => {
+    if (!txHash) return;
+    setVerifying(true);
+    try {
+      const res = await api.get(`/admin/crypto/tx-verify/${txHash}`);
+      setBlockchain(res.data);
+    } catch {
+      setBlockchain({ confirmed: false, found: false, error: 'Doğrulama başarısız' });
+    } finally {
+      setVerifying(false);
+    }
+  }, []);
 
   if (loading) return <div className="text-xs text-text-3 py-2">Bakiye bilgisi yükleniyor…</div>;
   if (!detail) return <div className="text-xs text-red-400 py-2">Bakiye bilgisi alınamadı</div>;
@@ -92,11 +108,88 @@ function TxDetail({ tx, onAction, saving }) {
         </div>
       )}
 
+      {/* Hot Wallet Bakiye Kontrolü (çekim pending ise) */}
+      {isWithdrawal && isPending && detail.hotWallet && (
+        <div className={`text-[10px] px-2 py-1 rounded ${
+          detail.hotWallet.usdt >= tryAmt ? 'bg-green-500/10 text-green-300' : 'bg-red-500/10 text-red-300'
+        }`}>
+          {detail.hotWallet.usdt >= tryAmt
+            ? `✅ Hot wallet yeterli: ${detail.hotWallet.usdt} USDT ≥ ${tryAmt} USDT`
+            : `❌ Hot wallet yetersiz: ${detail.hotWallet.usdt} USDT < ${tryAmt} USDT`}
+        </div>
+      )}
+
       {/* cryptoDeposit detayı (yatırma ise) */}
       {detail.cryptoDeposit && tx.type === 'crypto_deposit' && (
-        <div className="text-[10px] text-text-3">
-          Tx Hash: <span className="text-text-2 font-mono">{detail.cryptoDeposit.txHash?.slice(0, 20)}…</span>
-          {' | '}Durum: <span className="text-text-2">{detail.cryptoDeposit.status}</span>
+        <div className="text-[10px] text-text-3 space-y-1.5">
+          <div className="flex flex-wrap gap-x-3 gap-y-0.5">
+            <span>Tx: <span className="text-text-2 font-mono">{detail.cryptoDeposit.txHash?.slice(0, 20)}…</span></span>
+            <span>Durum: <span className="text-text-2">{detail.cryptoDeposit.status}</span></span>
+            {detail.cryptoDeposit.toAddress && (
+              <span>Adres: <span className="text-text-2 font-mono">{detail.cryptoDeposit.toAddress?.slice(0, 16)}…</span></span>
+            )}
+          </div>
+
+          {/* Yatırma Adresi Bakiyesi — blockchain'den canlı sorgu */}
+          {isPending && detail.depositWallet && (
+            <div className={`flex items-center gap-3 px-2 py-1.5 rounded-lg ${
+              detail.depositWallet.usdt >= tryAmt
+                ? 'bg-green-500/10 border border-green-500/20'
+                : detail.depositWallet.usdt > 0
+                  ? 'bg-yellow-500/10 border border-yellow-500/20'
+                  : 'bg-red-500/10 border border-red-500/20'
+            }`}>
+              <div>
+                <span className="text-text-3">Cüzdan Bakiyesi: </span>
+                <span className={`font-bold ${
+                  detail.depositWallet.usdt >= tryAmt ? 'text-green-300' :
+                  detail.depositWallet.usdt > 0 ? 'text-yellow-300' : 'text-red-300'
+                }`}>{detail.depositWallet.usdt?.toFixed(2)} USDT</span>
+              </div>
+              <div>
+                <span className="text-text-3">TRX: </span>
+                <span className="text-text-2">{detail.depositWallet.trx?.toFixed(2)}</span>
+              </div>
+              {detail.depositWallet.usdt >= tryAmt ? (
+                <span className="text-green-300 font-semibold">✓ Yeterli — Onaylanabilir</span>
+              ) : detail.depositWallet.usdt > 0 ? (
+                <span className="text-yellow-300">⚠ Kısmi — {detail.depositWallet.usdt?.toFixed(2)} / {tryAmt}₺</span>
+              ) : (
+                <span className="text-red-300">✗ Adres boş — transfer henüz gerçekleşmemiş</span>
+              )}
+            </div>
+          )}
+
+          {/* Blockchain Doğrulama */}
+          {tx.status !== 'completed' && detail.cryptoDeposit.txHash && !detail.cryptoDeposit.txHash.startsWith('seed_') && (
+            <div className="flex items-center gap-2">
+              {blockchain === null && !verifying && (
+                <button
+                  onClick={() => verifyBlockchain(detail.cryptoDeposit.txHash)}
+                  className="text-[10px] px-2 py-1 rounded bg-blue-500/20 border border-blue-500/30 text-blue-300 hover:bg-blue-500/30 transition"
+                >
+                  🔍 Blockchain'de Doğrula
+                </button>
+              )}
+              {verifying && (
+                <span className="text-[10px] text-blue-300 animate-pulse">Doğrulanıyor…</span>
+              )}
+              {blockchain && !verifying && (
+                <div className={`text-[10px] px-2 py-1 rounded ${
+                  blockchain.confirmed ? 'bg-green-500/10 text-green-300' :
+                  blockchain.found ? 'bg-yellow-500/10 text-yellow-300' :
+                  'bg-red-500/10 text-red-300'
+                }`}>
+                  {blockchain.confirmed && `✅ Blockchain'de onaylandı (Block: ${blockchain.blockNumber})`}
+                  {blockchain.found && !blockchain.confirmed && `⏳ Transaction bulundu, onay bekleniyor (${blockchain.contractRet})`}
+                  {!blockchain.found && `❌ Blockchain'de bulunamadı${blockchain.error ? ': ' + blockchain.error : ''}`}
+                </div>
+              )}
+            </div>
+          )}
+          {tx.status !== 'completed' && detail.cryptoDeposit.txHash?.startsWith('seed_') && (
+            <div className="text-[10px] text-yellow-300/60">⚠️ Seed test txHash — blockchain'de doğrulanamaz</div>
+          )}
         </div>
       )}
 
@@ -142,6 +235,7 @@ export default function AdminCrypto() {
   const [saving, setSaving] = useState(false);
   const [expanded, setExpanded] = useState(null);
   const [hotWallet, setHotWallet] = useState(null);
+  const [pendingCounts, setPendingCounts] = useState({ deposit: 0, withdraw: 0 });
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -149,13 +243,16 @@ export default function AdminCrypto() {
       const endpoint = type === 'deposit' ? '/admin/crypto/all-deposits' : '/admin/crypto/all-withdrawals';
       const params = { page, limit: 30 };
       if (status !== 'all') params.status = status;
-      const [txRes, hwRes] = await Promise.all([
+      const [txRes, hwRes, pendDep, pendWd] = await Promise.all([
         api.get(endpoint, { params }),
         api.get('/crypto/hot-wallet-balance').catch(() => ({ data: null })),
+        api.get('/admin/crypto/all-deposits', { params: { status: 'pending', limit: 1 } }).catch(() => ({ data: { total: 0 } })),
+        api.get('/admin/crypto/all-withdrawals', { params: { status: 'pending', limit: 1 } }).catch(() => ({ data: { total: 0 } })),
       ]);
       setTransactions(txRes.data.transactions);
       setTotal(txRes.data.total);
       setHotWallet(hwRes.data);
+      setPendingCounts({ deposit: pendDep.data.total, withdraw: pendWd.data.total });
     } catch {
       addToast('Crypto işlemleri yüklenemedi.', 'error');
     } finally {
@@ -228,12 +325,20 @@ export default function AdminCrypto() {
 
       {/* Type Tabs */}
       <div className="flex gap-1 bg-bg-card border border-white/10 rounded-lg p-1 w-fit mb-3">
-        {TYPE_TABS.map(tab => (
-          <button key={tab.key} onClick={() => setType(tab.key)}
-            className={`px-4 py-2 rounded-md text-sm font-medium transition ${type === tab.key ? 'bg-accent text-white' : 'text-text-3 hover:text-text-1'}`}>
-            {tab.label}
-          </button>
-        ))}
+        {TYPE_TABS.map(tab => {
+          const pendingCount = pendingCounts[tab.key] || 0;
+          return (
+            <button key={tab.key} onClick={() => setType(tab.key)}
+              className={`px-4 py-2 rounded-md text-sm font-medium transition flex items-center gap-1.5 ${type === tab.key ? 'bg-accent text-white' : 'text-text-3 hover:text-text-1'}`}>
+              {tab.label}
+              {pendingCount > 0 && (
+                <span className={`text-[10px] px-1.5 py-0.5 rounded-full font-bold ${type === tab.key ? 'bg-white/20 text-white' : 'bg-yellow-500/20 text-yellow-300'}`}>
+                  {pendingCount}
+                </span>
+              )}
+            </button>
+           );
+        })}
       </div>
 
       {/* Status Tabs */}

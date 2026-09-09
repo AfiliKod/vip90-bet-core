@@ -1459,8 +1459,27 @@ export async function getCryptoTxDetail(req, res, next) {
 
     let cryptoDeposit = null;
     if (tx.type === 'crypto_deposit') {
-      cryptoDeposit = await CryptoDeposit.findOne({ userId: user._id, status: { $in: ['pending_approval', 'credited'] } })
-        .sort({ createdAt: -1 });
+      cryptoDeposit = tx.cryptoDepositId
+        ? await CryptoDeposit.findById(tx.cryptoDepositId)
+        : await CryptoDeposit.findOne({ userId: user._id, status: { $in: ['pending_approval', 'credited'] } }).sort({ createdAt: -1 });
+    }
+
+    // Hot wallet bakiyesi (çekim pending ise)
+    let hotWallet = null;
+    if (tx.type === 'crypto_withdraw' && tx.status === 'pending') {
+      try {
+        const { getHotWalletBalance } = await import('../services/cryptoService.js');
+        hotWallet = await getHotWalletBalance();
+      } catch { hotWallet = null; }
+    }
+
+    // Yatırma adresi bakiyesi (yatırım pending ise — blockchain'den doğrulama)
+    let depositWallet = null;
+    if (tx.type === 'crypto_deposit' && tx.status === 'pending' && cryptoDeposit?.toAddress) {
+      try {
+        const { getWalletBalance } = await import('../services/cryptoService.js');
+        depositWallet = await getWalletBalance(cryptoDeposit.toAddress);
+      } catch { depositWallet = null; }
     }
 
     res.json({
@@ -1475,6 +1494,52 @@ export async function getCryptoTxDetail(req, res, next) {
         activeWagerings: wagerings,
       },
       cryptoDeposit,
+      hotWallet,
+      depositWallet,
+    });
+  } catch (e) { next(e); }
+}
+
+/**
+ * GET /admin/crypto/tx-verify/:txHash — Blockchain'de txHash doğrulaması
+ */
+export async function verifyCryptoTx(req, res, next) {
+  try {
+    const { txHash } = req.params;
+    if (!txHash || txHash.length < 10) {
+      return res.status(400).json({ error: 'Geçersiz txHash' });
+    }
+
+    const { getNetworkConfig } = await import('../services/cryptoService.js');
+    const cfg = getNetworkConfig();
+
+    const resp = await fetch(`${cfg.tronGrid}/v1/transactions/${txHash}`, {
+      headers: { 'Accept': 'application/json' },
+      signal: AbortSignal.timeout(10000),
+    });
+
+    if (!resp.ok) {
+      return res.json({ confirmed: false, found: false, error: `TronGrid: ${resp.status}` });
+    }
+
+    const data = await resp.json();
+    const tx = data.data?.[0];
+
+    if (!tx) {
+      return res.json({ confirmed: false, found: false });
+    }
+
+    const contractRet = tx.ret?.[0]?.contractRet;
+    const blockNumber = tx.block_number;
+    const confirmed = contractRet === 'SUCCESS';
+
+    res.json({
+      confirmed,
+      found: true,
+      blockNumber,
+      contractRet,
+      energyUsed: tx.energy_usage_total,
+      timestamp: tx.raw_data?.timestamp,
     });
   } catch (e) { next(e); }
 }
@@ -1498,8 +1563,14 @@ export async function approveCryptoDeposit(req, res, next) {
   const session = await mongoose.startSession();
   session.startTransaction();
   try {
-    const deposit = await CryptoDeposit.findById(req.params.id).session(session);
-    if (!deposit) return res.status(404).json({ error: 'Yatırma bulunamadı' });
+    const tx = await Transaction.findById(req.params.id).session(session);
+    if (!tx || tx.type !== 'crypto_deposit') return res.status(404).json({ error: 'Yatırma bulunamadı' });
+    if (tx.status !== 'pending') return res.status(400).json({ error: 'Bu yatırma zaten işlenmiş' });
+
+    const deposit = tx.cryptoDepositId
+      ? await CryptoDeposit.findById(tx.cryptoDepositId).session(session)
+      : await CryptoDeposit.findOne({ userId: tx.userId, status: 'pending_approval' }).sort({ createdAt: -1 }).session(session);
+    if (!deposit) return res.status(404).json({ error: 'Yatırma detayı bulunamadı' });
     if (deposit.status !== 'pending_approval') return res.status(400).json({ error: 'Bu yatırma zaten işlenmiş' });
 
     const user = await User.findById(deposit.userId).session(session);
@@ -1507,15 +1578,10 @@ export async function approveCryptoDeposit(req, res, next) {
     user.balance = +(user.balance + deposit.creditedTRY).toFixed(2);
     await user.save({ session });
 
-    await Transaction.create([{
-      userId: user._id,
-      type: 'crypto_deposit',
-      amount: deposit.creditedTRY,
-      balanceBefore: balBefore,
-      balanceAfter: user.balance,
-      note: `USDT TRC20 ${deposit.usdtAmount} USDT — Admin onayı ile eklendi`,
-      status: 'completed',
-    }], { session });
+    tx.status = 'completed';
+    tx.balanceAfter = user.balance;
+    tx.note = `USDT TRC20 ${deposit.usdtAmount} USDT — Admin onayı ile eklendi`;
+    await tx.save({ session });
 
     deposit.status = 'credited';
     deposit.creditedAt = new Date();
@@ -1533,12 +1599,21 @@ export async function approveCryptoDeposit(req, res, next) {
 
 export async function rejectCryptoDeposit(req, res, next) {
   try {
-    const deposit = await CryptoDeposit.findById(req.params.id);
-    if (!deposit) return res.status(404).json({ error: 'Yatırma bulunamadı' });
-    if (deposit.status !== 'pending_approval') return res.status(400).json({ error: 'Bu yatırma zaten işlenmiş' });
+    const tx = await Transaction.findById(req.params.id);
+    if (!tx || tx.type !== 'crypto_deposit') return res.status(404).json({ error: 'Yatırma bulunamadı' });
+    if (tx.status !== 'pending') return res.status(400).json({ error: 'Bu yatırma zaten işlenmiş' });
+
+    const deposit = tx.cryptoDepositId
+      ? await CryptoDeposit.findById(tx.cryptoDepositId)
+      : await CryptoDeposit.findOne({ userId: tx.userId, status: 'pending_approval' }).sort({ createdAt: -1 });
+    if (!deposit) return res.status(404).json({ error: 'Yatırma detayı bulunamadı' });
 
     deposit.status = 'rejected';
     await deposit.save();
+
+    tx.status = 'rejected';
+    tx.note = (tx.note || '') + ' — Reddedildi';
+    await tx.save();
 
     res.json({ ok: true });
   } catch (e) { next(e); }

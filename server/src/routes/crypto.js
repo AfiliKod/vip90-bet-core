@@ -13,6 +13,7 @@ const r = Router();
 r.use(requireAuth);
 
 // Kullanıcı başına index sayacı — DB'de sequential sayaç için
+// Index 0 hot wallet'a ait, kullanıcı deposit adresleri 1'den başlar
 async function assignDepositIndex(user) {
   if (user.cryptoDepositIndex !== null && user.cryptoDepositIndex !== undefined) {
     return user.cryptoDepositIndex;
@@ -21,7 +22,8 @@ async function assignDepositIndex(user) {
     { cryptoDepositIndex: { $ne: null } },
     { cryptoDepositIndex: 1 }
   ).sort({ cryptoDepositIndex: -1 });
-  const nextIndex = (last?.cryptoDepositIndex ?? -1) + 1;
+  // Hot wallet index 0'ı kullanır, kullanıcı adresleri 1'den başlar
+  const nextIndex = Math.max(1, (last?.cryptoDepositIndex ?? 0) + 1);
   user.cryptoDepositIndex = nextIndex;
   await user.save();
   return nextIndex;
@@ -82,17 +84,7 @@ r.post('/check-deposit', async (req, res, next) => {
           fresh.balance = +(fresh.balance + tryAmount).toFixed(2);
           await fresh.save({ session });
 
-          await Transaction.create([{
-            userId: fresh._id,
-            type: 'crypto_deposit',
-            amount: tryAmount,
-            balanceBefore: balBefore,
-            balanceAfter: fresh.balance,
-            note: `USDT TRC20 ${usdtAmount.toFixed(2)} USDT (tx: ${txHash.slice(0, 12)}...)`,
-            status: 'completed',
-          }], { session });
-
-          await CryptoDeposit.create([{
+          const [dep] = await CryptoDeposit.create([{
             userId: fresh._id,
             txHash,
             fromAddress: tx.from,
@@ -103,13 +95,24 @@ r.post('/check-deposit', async (req, res, next) => {
             creditedAt: new Date(),
           }], { session });
 
+          await Transaction.create([{
+            userId: fresh._id,
+            type: 'crypto_deposit',
+            amount: tryAmount,
+            balanceBefore: balBefore,
+            balanceAfter: fresh.balance,
+            note: `USDT TRC20 ${usdtAmount.toFixed(2)} USDT (tx: ${txHash.slice(0, 12)}...)`,
+            status: 'completed',
+            cryptoDepositId: dep._id,
+          }], { session });
+
           await session.commitTransaction();
           user.balance = fresh.balance;
           credited.push({ txHash, usdtAmount, tryAmount });
           console.log(`[crypto] ${fresh._id} → +${await formatMoney(tryAmount)} (${usdtAmount} USDT, tx:${txHash.slice(0,12)})`);
         } else {
           // Admin onayına gönder
-          await CryptoDeposit.create([{
+          const [dep] = await CryptoDeposit.create([{
             userId: fresh._id,
             txHash,
             fromAddress: tx.from,
@@ -128,6 +131,7 @@ r.post('/check-deposit', async (req, res, next) => {
             balanceAfter: balBefore,  // Bakiye değişmedi
             note: `Bekleyen yatırma: ${usdtAmount.toFixed(2)} USDT (tx: ${txHash.slice(0, 12)}...) — Admin onayı bekliyor`,
             status: 'pending',
+            cryptoDepositId: dep._id,
           }], { session });
 
           await session.commitTransaction();

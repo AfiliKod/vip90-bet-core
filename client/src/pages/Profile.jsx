@@ -808,7 +808,7 @@ const handleBankSubmit = async (confirmForfeit = false) => {
               <div>
                 <span className="text-text-2">{txLabel(t, tx.type)}</span>
                 {tx.note && <div className="text-text-3 text-xs truncate max-w-[100px] sm:max-w-[200px]">{tx.note}</div>}
-                <div className="text-text-3 text-xs">{fmt.formatDate(tx.createdAt)}</div>
+                <div className="text-text-3 text-xs">{fmt.formatDateTime(tx.createdAt)}</div>
               </div>
               <div className="text-right">
                 <span className={`font-medium ${tx.amount > 0 ? 'text-success' : 'text-danger'}`}>
