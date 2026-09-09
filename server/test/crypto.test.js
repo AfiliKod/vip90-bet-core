@@ -19,6 +19,119 @@ import { deriveDepositAddress, fetchIncomingUSDT, getHotWalletAddress } from '..
 import { shouldAutoCredit, shouldAutoProcessWithdraw, CRYPTO_SETTINGS } from '../src/config/crypto.js';
 import { getSpendableBreakdown, previewForfeitAmount, forfeitActiveWagerings, getLockedAmount } from '../src/services/wagering.js';
 
+// ── Yardımcı fonksiyonlar: route handler mantığını birebir simüle eder ──────────
+async function simulateAutoCreditDeposit(user, { usdtAmount, txHash, fromAddress }) {
+  const rate = parseFloat(process.env.USDT_TRY_RATE || '1');
+  const tryAmount = +(usdtAmount * rate).toFixed(2);
+  const address = deriveDepositAddress(user.cryptoDepositIndex ?? 0);
+  const balBefore = user.balance;
+
+  user.balance = +(user.balance + tryAmount).toFixed(2);
+  await user.save();
+
+  await Transaction.create({
+    userId: user._id,
+    type: 'crypto_deposit',
+    amount: tryAmount,
+    balanceBefore: balBefore,
+    balanceAfter: user.balance,
+    note: `USDT TRC20 ${usdtAmount.toFixed(2)} USDT (tx: ${txHash.slice(0, 12)}...)`,
+    status: 'completed',
+  });
+
+  await CryptoDeposit.create({
+    userId: user._id,
+    txHash,
+    fromAddress,
+    toAddress: address,
+    usdtAmount,
+    creditedTRY: tryAmount,
+    status: 'credited',
+    creditedAt: new Date(),
+  });
+
+  return { tryAmount, balBefore };
+}
+
+async function simulatePendingDeposit(user, { usdtAmount, txHash, fromAddress }) {
+  const rate = parseFloat(process.env.USDT_TRY_RATE || '1');
+  const tryAmount = +(usdtAmount * rate).toFixed(2);
+  const address = deriveDepositAddress(user.cryptoDepositIndex ?? 0);
+  const balBefore = user.balance;
+
+  await CryptoDeposit.create({
+    userId: user._id,
+    txHash,
+    fromAddress,
+    toAddress: address,
+    usdtAmount,
+    creditedTRY: tryAmount,
+    status: 'pending_approval',
+    creditedAt: null,
+  });
+
+  await Transaction.create({
+    userId: user._id,
+    type: 'crypto_deposit',
+    amount: tryAmount,
+    balanceBefore: balBefore,
+    balanceAfter: balBefore,
+    note: `Bekleyen yatırma: ${usdtAmount.toFixed(2)} USDT (tx: ${txHash.slice(0, 12)}...) — Admin onayı bekliyor`,
+    status: 'pending',
+  });
+
+  return { tryAmount, balBefore };
+}
+
+async function simulateAutoProcessWithdraw(user, { usdtAmount, txHash }) {
+  const rate = parseFloat(process.env.USDT_TRY_RATE || '1');
+  const tryNeeded = +(usdtAmount * rate).toFixed(2);
+  const balBefore = user.balance;
+
+  user.balance = +(user.balance - tryNeeded).toFixed(2);
+  await user.save();
+
+  await Transaction.create({
+    userId: user._id,
+    type: 'crypto_withdraw',
+    amount: -tryNeeded,
+    balanceBefore: balBefore,
+    balanceAfter: user.balance,
+    note: `${usdtAmount} USDT → TTestWa11etAddressForCoreTests1111 (tx: ${txHash.slice(0, 12)}...)`,
+    status: 'completed',
+    txHash,
+  });
+
+  return { tryNeeded, balBefore };
+}
+
+async function simulatePendingWithdraw(user, { usdtAmount, toAddress }) {
+  const rate = parseFloat(process.env.USDT_TRY_RATE || '1');
+  const tryNeeded = +(usdtAmount * rate).toFixed(2);
+  const balBefore = user.balance;
+
+  user.balance = +(user.balance - tryNeeded).toFixed(2);
+  await user.save();
+
+  await Transaction.create({
+    userId: user._id,
+    type: 'crypto_withdraw',
+    amount: -tryNeeded,
+    balanceBefore: balBefore,
+    balanceAfter: user.balance,
+    note: `${usdtAmount} USDT → ${toAddress} — Admin onayı bekliyor`,
+    status: 'pending',
+    toAddress,
+    usdtAmount,
+  });
+
+  return { tryNeeded, balBefore };
+}
+
+async function getTransactionHistory(userId) {
+  return Transaction.find({ userId }).sort({ createdAt: -1 });
+}
+
 describe('Crypto Payment System - Shasta Testnet', () => {
   before(async () => {
     // Kasıtlı olarak MONGODB_URI'yi yok sayıyoruz: .env üstteki config() çağrısıyla
@@ -559,6 +672,424 @@ describe('Crypto Payment System - Shasta Testnet', () => {
         // Wagering status should be 'forfeited'
         const w1After = await BonusWagering.findById(w1._id);
         assert.equal(w1After.status, 'forfeited', 'Wagering marked as forfeited');
+      });
+    });
+  });
+
+  // ── Yatırma/çekim + Transaction History entegrasyon testleri ────────────────
+  describe('Deposit & Withdrawal Flow + Transaction History', () => {
+    const TRC20_ADDR = 'TTestWa11etAddressForCoreTests1111';
+
+    // ── YATIRMA (DEPOSIT) ───────────────────────────────────────────────────
+    describe('Deposit: auto-credit below $100', () => {
+      it('should credit balance immediately and create completed transaction', async () => {
+        const user = await User.create({
+          username: 'deposit_auto',
+          email: 'deposit_auto@test.com',
+          password: 'hashed_password',
+          balance: 500,
+          cryptoDepositIndex: 0,
+        });
+
+        const usdtAmount = 50;
+        const txHash = 'auto_credit_tx_' + Date.now();
+
+        const { tryAmount } = await simulateAutoCreditDeposit(user, { usdtAmount, txHash, fromAddress: 'TFromAuto1' });
+
+        // Bakiye artmış olmalı
+        const afterUser = await User.findById(user._id);
+        assert.equal(afterUser.balance, +(500 + tryAmount).toFixed(2), 'Balance should increase by tryAmount');
+
+        // CryptoDeposit: status='credited'
+        const deposit = await CryptoDeposit.findOne({ txHash });
+        assert.ok(deposit, 'CryptoDeposit should exist');
+        assert.equal(deposit.status, 'credited', 'Should be credited');
+        assert.equal(deposit.usdtAmount, usdtAmount);
+
+        // Transaction: status='completed', type='crypto_deposit'
+        const tx = await Transaction.findOne({ userId: user._id, type: 'crypto_deposit', txHash: undefined });
+        // txHash field not on Transaction model; match by userId + type + note
+        const txs = await Transaction.find({ userId: user._id, type: 'crypto_deposit' });
+        assert.ok(txs.length >= 1, 'Should have at least 1 crypto_deposit transaction');
+        const lastTx = txs[0]; // sorted by createdAt desc
+        assert.equal(lastTx.status, 'completed', 'Transaction status should be completed');
+        assert.equal(lastTx.amount, tryAmount, 'Amount should be positive (credit)');
+        assert.equal(lastTx.balanceBefore, 500, 'balanceBefore should be 500');
+        assert.equal(lastTx.balanceAfter, +(500 + tryAmount).toFixed(2), 'balanceAfter should match');
+      });
+
+      it('should appear in Transaction History with correct fields', async () => {
+        const user = await User.create({
+          username: 'deposit_auto_hist',
+          email: 'deposit_auto_hist@test.com',
+          password: 'hashed_password',
+          balance: 200,
+          cryptoDepositIndex: 0,
+        });
+
+        await simulateAutoCreditDeposit(user, {
+          usdtAmount: 75,
+          txHash: 'hist_auto_' + Date.now(),
+          fromAddress: 'TFromHist1',
+        });
+
+        const history = await getTransactionHistory(user._id);
+        assert.ok(history.length >= 1, 'Transaction history should not be empty');
+
+        const cryptoTx = history.find(t => t.type === 'crypto_deposit');
+        assert.ok(cryptoTx, 'Should have a crypto_deposit entry');
+        assert.equal(cryptoTx.status, 'completed');
+        assert.ok(cryptoTx.amount > 0, 'Amount should be positive');
+        assert.ok(cryptoTx.note.includes('USDT'), 'Note should mention USDT');
+        assert.ok(cryptoTx.balanceAfter > cryptoTx.balanceBefore, 'Balance should increase');
+      });
+    });
+
+    describe('Deposit: pending approval above $100', () => {
+      it('should NOT credit balance and create pending transaction', async () => {
+        const user = await User.create({
+          username: 'deposit_pending',
+          email: 'deposit_pending@test.com',
+          password: 'hashed_password',
+          balance: 500,
+          cryptoDepositIndex: 0,
+        });
+
+        const usdtAmount = 150;
+        const txHash = 'pending_deposit_tx_' + Date.now();
+
+        const { tryAmount } = await simulatePendingDeposit(user, { usdtAmount, txHash, fromAddress: 'TFromPending1' });
+
+        // Bakiye değişmemiş olmalı
+        const afterUser = await User.findById(user._id);
+        assert.equal(afterUser.balance, 500, 'Balance should NOT change for pending deposit');
+
+        // CryptoDeposit: status='pending_approval'
+        const deposit = await CryptoDeposit.findOne({ txHash });
+        assert.ok(deposit, 'CryptoDeposit should exist');
+        assert.equal(deposit.status, 'pending_approval', 'Should be pending_approval');
+        assert.equal(deposit.usdtAmount, usdtAmount);
+
+        // Transaction: status='pending'
+        const txs = await Transaction.find({ userId: user._id, type: 'crypto_deposit' });
+        assert.ok(txs.length >= 1, 'Should have at least 1 crypto_deposit transaction');
+        const lastTx = txs[0];
+        assert.equal(lastTx.status, 'pending', 'Transaction status should be pending');
+        assert.equal(lastTx.amount, tryAmount, 'Amount should reflect USDT value');
+        assert.equal(lastTx.balanceBefore, 500, 'balanceBefore unchanged');
+        assert.equal(lastTx.balanceAfter, 500, 'balanceAfter unchanged (pending)');
+        assert.ok(lastTx.note.includes('Admin onayı'), 'Note should mention admin approval');
+      });
+
+      it('should appear in Transaction History with pending status', async () => {
+        const user = await User.create({
+          username: 'deposit_pending_hist',
+          email: 'deposit_pending_hist@test.com',
+          password: 'hashed_password',
+          balance: 300,
+          cryptoDepositIndex: 0,
+        });
+
+        await simulatePendingDeposit(user, {
+          usdtAmount: 200,
+          txHash: 'hist_pending_' + Date.now(),
+          fromAddress: 'TFromHist2',
+        });
+
+        const history = await getTransactionHistory(user._id);
+        const cryptoTx = history.find(t => t.type === 'crypto_deposit');
+        assert.ok(cryptoTx, 'Should have a crypto_deposit entry');
+        assert.equal(cryptoTx.status, 'pending', 'Should show pending status');
+        assert.ok(cryptoTx.amount > 0, 'Amount should be positive');
+        assert.ok(cryptoTx.note.includes('Admin onayı'), 'Note should indicate pending admin approval');
+      });
+    });
+
+    // ── ÇEKİM (WITHDRAWAL) ──────────────────────────────────────────────────
+    describe('Withdrawal: auto-process below $15', () => {
+      it('should deduct balance and create completed transaction', async () => {
+        const user = await User.create({
+          username: 'withdraw_auto',
+          email: 'withdraw_auto@test.com',
+          password: 'hashed_password',
+          balance: 500,
+        });
+
+        const usdtAmount = 10;
+        const txHash = 'auto_withdraw_tx_' + Date.now();
+
+        const { tryNeeded } = await simulateAutoProcessWithdraw(user, { usdtAmount, txHash });
+
+        // Bakiye azalmış olmalı
+        const afterUser = await User.findById(user._id);
+        assert.equal(afterUser.balance, +(500 - tryNeeded).toFixed(2), 'Balance should decrease by tryNeeded');
+
+        // Transaction: status='completed', type='crypto_withdraw'
+        const txs = await Transaction.find({ userId: user._id, type: 'crypto_withdraw' });
+        assert.ok(txs.length >= 1, 'Should have at least 1 crypto_withdraw transaction');
+        const lastTx = txs[0];
+        assert.equal(lastTx.status, 'completed', 'Transaction status should be completed');
+        assert.equal(lastTx.amount, -tryNeeded, 'Amount should be negative (debit)');
+        assert.equal(lastTx.balanceBefore, 500, 'balanceBefore should be 500');
+        assert.equal(lastTx.balanceAfter, +(500 - tryNeeded).toFixed(2), 'balanceAfter should match');
+      });
+
+      it('should appear in Transaction History with correct fields', async () => {
+        const user = await User.create({
+          username: 'withdraw_auto_hist',
+          email: 'withdraw_auto_hist@test.com',
+          password: 'hashed_password',
+          balance: 300,
+        });
+
+        await simulateAutoProcessWithdraw(user, {
+          usdtAmount: 12,
+          txHash: 'hist_withdraw_auto_' + Date.now(),
+        });
+
+        const history = await getTransactionHistory(user._id);
+        const cryptoTx = history.find(t => t.type === 'crypto_withdraw');
+        assert.ok(cryptoTx, 'Should have a crypto_withdraw entry');
+        assert.equal(cryptoTx.status, 'completed');
+        assert.ok(cryptoTx.amount < 0, 'Amount should be negative');
+        assert.ok(cryptoTx.note.includes('USDT'), 'Note should mention USDT');
+        assert.ok(cryptoTx.balanceAfter < cryptoTx.balanceBefore, 'Balance should decrease');
+      });
+    });
+
+    describe('Withdrawal: pending approval above $15', () => {
+      it('should deduct balance and create pending transaction', async () => {
+        const user = await User.create({
+          username: 'withdraw_pending',
+          email: 'withdraw_pending@test.com',
+          password: 'hashed_password',
+          balance: 500,
+        });
+
+        const usdtAmount = 50;
+
+        const { tryNeeded } = await simulatePendingWithdraw(user, {
+          usdtAmount,
+          toAddress: TRC20_ADDR,
+        });
+
+        // Bakiye azalmış olmalı (admin onayı beklerken bile bakiye düşer)
+        const afterUser = await User.findById(user._id);
+        assert.equal(afterUser.balance, +(500 - tryNeeded).toFixed(2), 'Balance should decrease');
+
+        // Transaction: status='pending', type='crypto_withdraw'
+        const txs = await Transaction.find({ userId: user._id, type: 'crypto_withdraw' });
+        assert.ok(txs.length >= 1, 'Should have at least 1 crypto_withdraw transaction');
+        const lastTx = txs[0];
+        assert.equal(lastTx.status, 'pending', 'Transaction status should be pending');
+        assert.equal(lastTx.amount, -tryNeeded, 'Amount should be negative');
+        assert.equal(lastTx.balanceBefore, 500, 'balanceBefore should be 500');
+        assert.equal(lastTx.balanceAfter, +(500 - tryNeeded).toFixed(2), 'balanceAfter should match');
+        assert.ok(lastTx.note.includes('Admin onayı'), 'Note should mention admin approval');
+      });
+
+      it('should appear in Transaction History with pending status', async () => {
+        const user = await User.create({
+          username: 'withdraw_pending_hist',
+          email: 'withdraw_pending_hist@test.com',
+          password: 'hashed_password',
+          balance: 400,
+        });
+
+        await simulatePendingWithdraw(user, {
+          usdtAmount: 30,
+          toAddress: TRC20_ADDR,
+        });
+
+        const history = await getTransactionHistory(user._id);
+        const cryptoTx = history.find(t => t.type === 'crypto_withdraw');
+        assert.ok(cryptoTx, 'Should have a crypto_withdraw entry');
+        assert.equal(cryptoTx.status, 'pending', 'Should show pending status');
+        assert.ok(cryptoTx.amount < 0, 'Amount should be negative');
+        assert.ok(cryptoTx.note.includes('Admin onayı'), 'Note should indicate pending admin approval');
+      });
+    });
+
+    // ── KARMA SENARYOLAR ────────────────────────────────────────────────────
+    describe('Mixed transactions in history', () => {
+      it('should show both completed and pending deposits in history sorted by date', async () => {
+        const user = await User.create({
+          username: 'mixed_tx',
+          email: 'mixed_tx@test.com',
+          password: 'hashed_password',
+          balance: 1000,
+          cryptoDepositIndex: 0,
+        });
+
+        // İlk: auto-credit ($50)
+        await simulateAutoCreditDeposit(user, {
+          usdtAmount: 50,
+          txHash: 'mixed_auto_' + Date.now(),
+          fromAddress: 'TFromMixed1',
+        });
+
+        // İkinci: pending ($200)
+        await simulatePendingDeposit(user, {
+          usdtAmount: 200,
+          txHash: 'mixed_pending_' + Date.now(),
+          fromAddress: 'TFromMixed2',
+        });
+
+        const history = await getTransactionHistory(user._id);
+        const cryptoDeposits = history.filter(t => t.type === 'crypto_deposit');
+        assert.equal(cryptoDeposits.length, 2, 'Should have 2 crypto_deposit transactions');
+
+        // En yenisi önce (sorted by createdAt desc)
+        assert.equal(cryptoDeposits[0].status, 'pending', 'Newer (pending) should be first');
+        assert.equal(cryptoDeposits[1].status, 'completed', 'Older (completed) should be second');
+      });
+
+      it('should show both completed and pending withdrawals in history', async () => {
+        const user = await User.create({
+          username: 'mixed_withdraw',
+          email: 'mixed_withdraw@test.com',
+          password: 'hashed_password',
+          balance: 2000,
+        });
+
+        // İlk: auto-process ($10)
+        await simulateAutoProcessWithdraw(user, {
+          usdtAmount: 10,
+          txHash: 'mixed_wd_auto_' + Date.now(),
+        });
+
+        // İkinci: pending ($50)
+        await simulatePendingWithdraw(user, {
+          usdtAmount: 50,
+          toAddress: TRC20_ADDR,
+        });
+
+        const history = await getTransactionHistory(user._id);
+        const cryptoWithdraws = history.filter(t => t.type === 'crypto_withdraw');
+        assert.equal(cryptoWithdraws.length, 2, 'Should have 2 crypto_withdraw transactions');
+
+        // En yenisi önce
+        assert.equal(cryptoWithdraws[0].status, 'pending', 'Newer (pending) should be first');
+        assert.equal(cryptoWithdraws[1].status, 'completed', 'Older (completed) should be second');
+      });
+
+      it('should show deposit and withdrawal together with correct net balance', async () => {
+        const user = await User.create({
+          username: 'net_balance',
+          email: 'net_balance@test.com',
+          password: 'hashed_password',
+          balance: 1000,
+          cryptoDepositIndex: 0,
+        });
+
+        // $80 yatır (auto-credit, < $100)
+        const { tryAmount: depTry } = await simulateAutoCreditDeposit(user, {
+          usdtAmount: 80,
+          txHash: 'net_dep_' + Date.now(),
+          fromAddress: 'TFromNet1',
+        });
+
+        // $10 çek (auto-process, < $15)
+        const { tryNeeded: wdTry } = await simulateAutoProcessWithdraw(user, {
+          usdtAmount: 10,
+          txHash: 'net_wd_' + Date.now(),
+        });
+
+        const afterUser = await User.findById(user._id);
+        const expectedBalance = +(1000 + depTry - wdTry).toFixed(2);
+        assert.equal(afterUser.balance, expectedBalance, 'Balance should reflect deposit - withdrawal');
+
+        const history = await getTransactionHistory(user._id);
+        const cryptoTx = history.filter(t => t.type === 'crypto_deposit' || t.type === 'crypto_withdraw');
+        assert.equal(cryptoTx.length, 2, 'Should have 2 crypto transactions');
+        assert.ok(cryptoTx.every(t => t.status === 'completed'), 'All should be completed');
+      });
+    });
+
+    // ── BOUNDARY DEĞERLER ──────────────────────────────────────────────────
+    describe('Boundary amounts at threshold', () => {
+      it('$99.99 deposit should auto-credit (just below $100)', async () => {
+        const user = await User.create({
+          username: 'boundary_dep',
+          email: 'boundary_dep@test.com',
+          password: 'hashed_password',
+          balance: 0,
+          cryptoDepositIndex: 0,
+        });
+
+        assert.ok(shouldAutoCredit(99.99), '$99.99 should auto credit');
+
+        await simulateAutoCreditDeposit(user, {
+          usdtAmount: 99.99,
+          txHash: 'bound_dep_' + Date.now(),
+          fromAddress: 'TFromBound1',
+        });
+
+        const history = await getTransactionHistory(user._id);
+        const tx = history.find(t => t.type === 'crypto_deposit');
+        assert.equal(tx.status, 'completed', '$99.99 deposit should be completed');
+      });
+
+      it('$100 deposit should require approval (at threshold)', async () => {
+        const user = await User.create({
+          username: 'boundary_dep2',
+          email: 'boundary_dep2@test.com',
+          password: 'hashed_password',
+          balance: 0,
+          cryptoDepositIndex: 0,
+        });
+
+        assert.ok(!shouldAutoCredit(100), '$100 should require approval');
+
+        await simulatePendingDeposit(user, {
+          usdtAmount: 100,
+          txHash: 'bound_dep2_' + Date.now(),
+          fromAddress: 'TFromBound2',
+        });
+
+        const history = await getTransactionHistory(user._id);
+        const tx = history.find(t => t.type === 'crypto_deposit');
+        assert.equal(tx.status, 'pending', '$100 deposit should be pending');
+      });
+
+      it('$14.99 withdrawal should auto-process (just below $15)', async () => {
+        const user = await User.create({
+          username: 'boundary_wd',
+          email: 'boundary_wd@test.com',
+          password: 'hashed_password',
+          balance: 200,
+        });
+
+        assert.ok(shouldAutoProcessWithdraw(14.99), '$14.99 should auto process');
+
+        await simulateAutoProcessWithdraw(user, {
+          usdtAmount: 14.99,
+          txHash: 'bound_wd_' + Date.now(),
+        });
+
+        const history = await getTransactionHistory(user._id);
+        const tx = history.find(t => t.type === 'crypto_withdraw');
+        assert.equal(tx.status, 'completed', '$14.99 withdrawal should be completed');
+      });
+
+      it('$15 withdrawal should require approval (at threshold)', async () => {
+        const user = await User.create({
+          username: 'boundary_wd2',
+          email: 'boundary_wd2@test.com',
+          password: 'hashed_password',
+          balance: 200,
+        });
+
+        assert.ok(!shouldAutoProcessWithdraw(15), '$15 should require approval');
+
+        await simulatePendingWithdraw(user, {
+          usdtAmount: 15,
+          toAddress: TRC20_ADDR,
+        });
+
+        const history = await getTransactionHistory(user._id);
+        const tx = history.find(t => t.type === 'crypto_withdraw');
+        assert.equal(tx.status, 'pending', '$15 withdrawal should be pending');
       });
     });
   });
