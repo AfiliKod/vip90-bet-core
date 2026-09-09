@@ -27,6 +27,7 @@ const Live = lazy(() => import('./pages/Live'));
 const EventDetail = lazy(() => import('./pages/EventDetail'));
 const MyBets = lazy(() => import('./pages/MyBets'));
 const Profile = lazy(() => import('./pages/Profile'));
+const Kyc = lazy(() => import('./pages/Kyc'));
 const Promotions = lazy(() => import('./pages/Promotions'));
 const Settings = lazy(() => import('./pages/Settings'));
 const AdminDashboard = lazy(() => import('./pages/admin/Dashboard'));
@@ -51,6 +52,7 @@ const AdminPromotions = lazy(() => import('./pages/admin/Promotions'));
 const AdminBots = lazy(() => import('./pages/admin/Bots'));
 const AdminStaticPages = lazy(() => import('./pages/admin/StaticPages'));
 const AdminTickets = lazy(() => import('./pages/admin/Tickets'));
+const AdminKycReview = lazy(() => import('./pages/admin/KycReview'));
 const PalaceGame = lazy(() => import('./pages/PalaceGame'));
 const InhouseGameLauncher = lazy(() => import('./pages/games/InhouseGameLauncher'));
 const HomePage = lazy(() => import('./pages/HomePage'));
@@ -159,6 +161,7 @@ export default function App() {
         <Route path="/favorites" element={<ProtectedRoute><Layout><Suspense fallback={<PageLoader />}><Favorites /></Suspense></Layout></ProtectedRoute>} />
         <Route path="/recently-played" element={<ProtectedRoute><Layout><Suspense fallback={<PageLoader />}><RecentlyPlayed /></Suspense></Layout></ProtectedRoute>} />
         <Route path="/profile" element={<ProtectedRoute><Layout><Suspense fallback={<PageLoader />}><Profile /></Suspense></Layout></ProtectedRoute>} />
+        <Route path="/kyc" element={<ProtectedRoute><Layout><Suspense fallback={<PageLoader />}><Kyc /></Suspense></Layout></ProtectedRoute>} />
         <Route path="/settings" element={<ProtectedRoute><Layout><Suspense fallback={<PageLoader />}><Settings /></Suspense></Layout></ProtectedRoute>} />
         <Route path="/promotions" element={<ProtectedRoute><Layout><Suspense fallback={<PageLoader />}><Promotions /></Suspense></Layout></ProtectedRoute>} />
         <Route path="/admin" element={<ProtectedRoute adminOnly><Suspense fallback={<PageLoader />}><AdminDashboard /></Suspense></ProtectedRoute>} />
@@ -183,6 +186,7 @@ export default function App() {
         <Route path="/admin/bots" element={<ProtectedRoute adminOnly><Suspense fallback={<PageLoader />}><AdminBots /></Suspense></ProtectedRoute>} />
         <Route path="/admin/static-pages" element={<ProtectedRoute adminOnly><Suspense fallback={<PageLoader />}><AdminStaticPages /></Suspense></ProtectedRoute>} />
         <Route path="/admin/tickets" element={<ProtectedRoute adminOnly><Suspense fallback={<PageLoader />}><AdminTickets /></Suspense></ProtectedRoute>} />
+        <Route path="/admin/kyc" element={<ProtectedRoute adminOnly><Suspense fallback={<PageLoader />}><AdminKycReview /></Suspense></ProtectedRoute>} />
         {/* Legal pages (public) — kendi TOC sidebar'ını (LegalLayout) korur, Layout'un
             HomeSidebar'ı ile çakışmasın diye Layout.jsx bu rotaları hariç tutar. */}
         <Route path="/legal/terms" element={<Layout><Suspense fallback={<PageLoader />}><Terms /></Suspense></Layout>} />

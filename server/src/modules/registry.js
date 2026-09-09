@@ -19,6 +19,7 @@ export const MODULE_DEFINITIONS = [
   { id: 'casino-content', title: 'Casino İçeriği', description: 'Slot ve masa oyunları, aggregator üzerinden.' },
   { id: 'live-casino', title: 'Canlı Casino', description: 'Gerçek krupiyeli masa ve video oyunları.' },
   { id: 'crypto-payment', title: 'Crypto Ödeme Ağ Geçidi', description: 'TRC20 USDT ile para yatırma ve çekme.' },
+  { id: 'kyc-verification', title: 'KYC Kimlik Doğrulama', description: 'Manuel belge inceleme veya Sumsub ile otomatik doğrulama.' },
 ];
 
 const TTL_MS = 30 * 1000;

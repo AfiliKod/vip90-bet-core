@@ -136,6 +136,17 @@ r.get('/static-pages',              ctrl.listStaticPages);
 r.put('/static-pages/:slug',        blockDemoAdmin, validate(upsertStaticPageSchema), ctrl.upsertStaticPage);
 r.patch('/static-pages/:slug/toggle', blockDemoAdmin, validate(toggleStaticPageSchema), ctrl.toggleStaticPage);
 
+// KYC Kimlik Doğrulama — admin ayarları ve inceleme
+r.get('/kyc-settings', ctrl.getKycSettings);
+r.put('/kyc-settings', ctrl.updateKycSettings);
+r.post('/kyc-settings/test', ctrl.testKycConnection);
+r.get('/kyc/submissions', ctrl.getKycSubmissions);
+r.get('/kyc/stats', ctrl.getKycStatsAdmin);
+r.get('/kyc/submissions/:id', ctrl.getKycSubmissionDetail);
+r.post('/kyc/submissions/:id/approve', ctrl.approveKycSubmission);
+r.post('/kyc/submissions/:id/reject', ctrl.rejectKycSubmission);
+r.post('/kyc/submissions/:id/under-review', ctrl.setKycSubmissionUnderReview);
+
 // Crypto Ödeme Ağ Geçidi — admin ayarları ve onay/reddet
 r.get('/crypto/pending-deposits',    ctrl.getCryptoPendingDeposits);
 r.get('/crypto/pending-withdrawals', ctrl.getCryptoPendingWithdrawals);

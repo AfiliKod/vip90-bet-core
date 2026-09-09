@@ -1307,6 +1307,92 @@ export async function toggleStaticPage(req, res, next) {
   } catch (e) { next(e); }
 }
 
+// ─── KYC Kimlik Doğrulama — admin işlemleri ───────────────────────────────
+import { kycConfig } from '../config/kyc.js';
+import { getAllKycSubmissions, getKycStats, approveKyc, rejectKyc, setKycUnderReview } from '../services/kyc.js';
+import KycDocument from '../models/KycDocument.js';
+
+export async function getKycSettings(req, res, next) {
+  try {
+    const settings = await kycConfig.getAll();
+    res.json({ settings });
+  } catch (e) { next(e); }
+}
+
+export async function updateKycSettings(req, res, next) {
+  try {
+    const { settings } = req.body;
+    if (!settings || typeof settings !== 'object') {
+      throw createError(400, 'INVALID_BODY', 'settings nesnesi gerekli');
+    }
+    for (const [key, value] of Object.entries(settings)) {
+      await kycConfig.set(key, value, req.user.id);
+    }
+    res.json({ settings: await kycConfig.getAll() });
+  } catch (e) { next(e); }
+}
+
+export async function testKycConnection(req, res, next) {
+  try {
+    const provider = await kycConfig.get('KYC_PROVIDER');
+    if (provider !== 'sumsub') throw createError(400, 'NOT_SUMSUB', 'Provider Sumsub değil');
+    const appToken = await kycConfig.get('SUMSUB_APP_TOKEN');
+    if (!appToken) throw createError(400, 'NO_TOKEN', 'App Token tanımlı değil');
+    res.json({ ok: true, provider });
+  } catch (e) { next(e); }
+}
+
+export async function getKycSubmissions(req, res, next) {
+  try {
+    const { status, page, limit, search } = req.query;
+    const result = await getAllKycSubmissions({ status, page, limit, search });
+    res.json(result);
+  } catch (e) { next(e); }
+}
+
+export async function getKycSubmissionDetail(req, res, next) {
+  try {
+    const user = await User.findById(req.params.id)
+      .select('username email kycStatus kycSubmittedAt kycApprovedAt kycRejectedAt kycRejectionReason kycVerified kycProvider');
+    if (!user) throw createError(404, 'NOT_FOUND', 'Kullanıcı bulunamadı');
+
+    const documents = await KycDocument.find({ userId: req.params.id })
+      .sort({ createdAt: -1 })
+      .select('documentType fileName fileSize mimeType fileUrl status reviewedBy reviewedAt rejectionReason metadata createdAt');
+
+    res.json({ user, documents });
+  } catch (e) { next(e); }
+}
+
+export async function approveKycSubmission(req, res, next) {
+  try {
+    const user = await approveKyc(req.params.id, req.user.id, { notes: req.body.notes || '' });
+    res.json({ user: user.toSafeObject() });
+  } catch (e) { next(e); }
+}
+
+export async function rejectKycSubmission(req, res, next) {
+  try {
+    if (!req.body.reason) throw createError(400, 'REASON_REQUIRED', 'Red sebebi gerekli');
+    const user = await rejectKyc(req.params.id, req.user.id, req.body.reason);
+    res.json({ user: user.toSafeObject() });
+  } catch (e) { next(e); }
+}
+
+export async function setKycSubmissionUnderReview(req, res, next) {
+  try {
+    const user = await setKycUnderReview(req.params.id, req.user.id);
+    res.json({ user: user.toSafeObject() });
+  } catch (e) { next(e); }
+}
+
+export async function getKycStatsAdmin(req, res, next) {
+  try {
+    const stats = await getKycStats();
+    res.json(stats);
+  } catch (e) { next(e); }
+}
+
 // ─── Crypto Ödeme Ağ Geçidi — admin işlemleri ───────────────────────────────
 import CryptoDeposit from '../models/CryptoDeposit.js';
 import { CRYPTO_SETTINGS } from '../config/crypto.js';

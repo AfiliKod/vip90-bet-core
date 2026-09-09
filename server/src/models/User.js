@@ -41,6 +41,8 @@ const schema = new mongoose.Schema({
   kycRejectedAt: { type: Date, default: null },
   kycRejectionReason: { type: String, default: '' },
   kycRequiredFor: [{ type: String }], // pages/features requiring KYC (withdrawal, high_stakes, etc.)
+  kycProvider: { type: String, enum: ['manual', 'sumsub'], default: 'manual' },
+  sumsubApplicantId: { type: String, default: null, sparse: true },
   referredBy:        { type: mongoose.Schema.Types.ObjectId, ref: 'User', default: null },
   totalReferralEarnings: { type: Number, default: 0, min: 0 },
   cryptoDepositIndex: { type: Number, default: null },  // HD wallet index (atandıktan sonra değişmez)

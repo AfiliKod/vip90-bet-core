@@ -27,6 +27,8 @@ import palaceRoutes from './routes/palace.js';
 import helpRoutes from './routes/help.js';
 import inhouseRoutes from './routes/inhouse.js';
 import cryptoRoutes from './routes/crypto.js';
+import kycRoutes from './routes/kyc.js';
+import sumsubWebhookRoute from './routes/sumsubWebhook.js';
 import bankRoutes from './routes/bank.js';
 import analyticsRoutes from './routes/analytics.js';
 import admin2faRoutes from './routes/admin2fa.js';
@@ -161,6 +163,9 @@ export function createApp() {
   // Global rate limit (Phase B1)
   app.use('/api', globalLimiter);
 
+  // KYC belgeleri — statik dosya sunumu (yalnızca kendi belgelerine erişim)
+  app.use('/uploads/kyc', express.static(join(__dirname, '../uploads/kyc'), { maxAge: '1d', index: false }));
+
   // Production: static assets'i API routes'lardan ÖNCE serve et
   // Böylece /assets/*.js ve /assets/*.css istekleri doğru MIME type ile döner
   if (isProd) {
@@ -218,11 +223,14 @@ export function createApp() {
   const requireBetting = createModuleGate({ isUsable: isModuleUsable, moduleId: 'betting' });
   const requireCasinoContent = createModuleGate({ isUsable: isModuleUsable, moduleId: 'casino-content' });
   const requireCryptoPayment = createModuleGate({ isUsable: isModuleUsable, moduleId: 'crypto-payment' });
+  const requireKycVerification = createModuleGate({ isUsable: isModuleUsable, moduleId: 'kyc-verification' });
   app.use('/api/modules', modulesRoutes); // herkese açık — istemci menü/yönlendirme
   app.use('/api/events', requireBetting, eventsRoutes);
   app.use('/api/bets', requireBetting, betsRoutes);
   app.use('/api/casino', requireCasinoContent, casinoRoutes);
   app.use('/api/crypto', requireCryptoPayment, cryptoRoutes);
+  app.use('/api/kyc', requireKycVerification, kycRoutes);
+  app.use('/api', sumsubWebhookRoute); // Sumsub webhook — module gate'den bağımsız
   app.use('/api/tickets', ticketRoutes);
   app.use('/api/chat', chatRoutes);
 

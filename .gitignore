@@ -34,6 +34,10 @@ odds-provider/src/data/odds-source-domain.json
 server/scripts/match-hero-*.png
 server/scripts/verify-*.png
 
+# KYC uploads (hassas belgeler — commit etme)
+server/uploads/kyc/*
+!server/uploads/kyc/.gitkeep
+
 # Test/investigation artifacts (root-level dev scripts)
 test-*.mjs
 test-*.js

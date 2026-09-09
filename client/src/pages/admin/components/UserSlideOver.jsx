@@ -17,6 +17,9 @@ export default function UserSlideOver({ user, onClose, onUpdated }) {
   const [casinoSummary, setCasinoSummary] = useState(null);
   const [deleteConfirm, setDeleteConfirm] = useState(false);
   const [rolesList, setRolesList] = useState(null);
+  const [showRejectKyc, setShowRejectKyc] = useState(false);
+  const [rejectReason, setRejectReason] = useState('');
+  const [kycActing, setKycActing] = useState(false);
   const addToast = useToastStore(s => s.add);
 
   const { register, handleSubmit, reset, formState: { isSubmitting } } = useForm();
@@ -106,6 +109,44 @@ export default function UserSlideOver({ user, onClose, onUpdated }) {
     } catch { addToast(t('admin.userSlideOver.deleteFailed'), 'error'); }
   };
 
+  const KYC_STATUS_BADGE = {
+    not_started:  'bg-white/5 text-text-3 border-white/10',
+    pending:      'bg-yellow-500/20 text-yellow-300 border-yellow-500/30',
+    under_review: 'bg-blue-500/20 text-blue-300 border-blue-500/30',
+    approved:     'bg-green-500/20 text-green-300 border-green-500/30',
+    rejected:     'bg-red-500/20 text-red-300 border-red-500/30',
+    expired:      'bg-white/5 text-text-3 border-white/10',
+  };
+  const KYC_STATUS_LABELS = {
+    not_started: 'Başlamadı', pending: 'Bekliyor', under_review: 'İnceleniyor',
+    approved: 'Onaylandı', rejected: 'Reddedildi', expired: 'Süresi Doldu',
+  };
+
+  const handleKycApprove = async () => {
+    setKycActing(true);
+    try {
+      await api.post(`/admin/users/${user._id}/kyc/approve`);
+      addToast('KYC onaylandı.', 'success');
+      onUpdated();
+    } catch (e) {
+      addToast(e.response?.data?.error?.message || 'Onay başarısız.', 'error');
+    } finally { setKycActing(false); }
+  };
+
+  const handleKycReject = async () => {
+    if (!rejectReason.trim()) return;
+    setKycActing(true);
+    try {
+      await api.post(`/admin/users/${user._id}/kyc/reject`, { reason: rejectReason });
+      addToast('KYC reddedildi.', 'success');
+      setShowRejectKyc(false);
+      setRejectReason('');
+      onUpdated();
+    } catch (e) {
+      addToast(e.response?.data?.error?.message || 'Ret başarısız.', 'error');
+    } finally { setKycActing(false); }
+  };
+
   if (!user) return null;
 
   return (
@@ -185,11 +226,51 @@ export default function UserSlideOver({ user, onClose, onUpdated }) {
                     </div>
                   </div>
                 )}
-                <div className="flex items-center justify-between p-3 bg-bg-hover rounded-xl">
-                  <span className="text-sm text-text-2">{t('admin.userSlideOver.kycVerified')}</span>
-                  <input type="checkbox" defaultChecked={user.kycVerified}
-                    onChange={e => patch({ kycVerified: e.target.checked })}
-                    className="w-4 h-4 accent-primary" />
+                <div className="p-3 bg-bg-hover rounded-xl">
+                  <div className="flex items-center justify-between mb-1">
+                    <span className="text-sm text-text-2">KYC Kimlik Doğrulama</span>
+                    <span className={`text-[10px] px-2 py-0.5 rounded-full border ${KYC_STATUS_BADGE[user.kycStatus] || KYC_STATUS_BADGE.not_started}`}>
+                      {KYC_STATUS_LABELS[user.kycStatus] || user.kycStatus}
+                    </span>
+                  </div>
+                  {user.kycRejectionReason && (
+                    <div className="text-[11px] text-red-300 mb-1">Sebep: {user.kycRejectionReason}</div>
+                  )}
+                  {(user.kycStatus === 'pending' || user.kycStatus === 'under_review') && (
+                    <div className="flex gap-2 mt-2">
+                      <button onClick={handleKycApprove} disabled={kycActing}
+                        className="flex-1 py-1.5 rounded-lg bg-success/20 text-success text-xs font-medium hover:bg-success/30 transition disabled:opacity-40">
+                        Onayla
+                      </button>
+                      <button onClick={() => setShowRejectKyc(true)} disabled={kycActing}
+                        className="flex-1 py-1.5 rounded-lg bg-danger/20 text-danger text-xs font-medium hover:bg-danger/30 transition disabled:opacity-40">
+                        Reddet
+                      </button>
+                    </div>
+                  )}
+                  {user.kycStatus === 'not_started' && (
+                    <button onClick={handleKycApprove} disabled={kycActing}
+                      className="w-full mt-2 py-1.5 rounded-lg bg-success/20 text-success text-xs font-medium hover:bg-success/30 transition disabled:opacity-40">
+                      Manuel Onayla
+                    </button>
+                  )}
+                  {showRejectKyc && (
+                    <div className="mt-2 space-y-2">
+                      <input value={rejectReason} onChange={e => setRejectReason(e.target.value)}
+                        placeholder="Red sebebi..."
+                        className="w-full bg-bg-deep border border-white/10 rounded-lg px-3 py-1.5 text-xs text-text-1 focus:outline-none focus:border-white/25" />
+                      <div className="flex gap-2">
+                        <button onClick={() => { setShowRejectKyc(false); setRejectReason(''); }}
+                          className="flex-1 py-1.5 rounded-lg border border-white/10 text-text-3 text-xs hover:bg-bg-hover transition">
+                          İptal
+                        </button>
+                        <button onClick={handleKycReject} disabled={!rejectReason.trim() || kycActing}
+                          className="flex-1 py-1.5 rounded-lg bg-danger text-white text-xs font-semibold hover:bg-danger/80 transition disabled:opacity-40">
+                          {kycActing ? '...' : 'Reddet'}
+                        </button>
+                      </div>
+                    </div>
+                  )}
                 </div>
                 <div className="flex items-center justify-between p-3 bg-bg-hover rounded-xl">
                   <span className="text-sm text-text-2">{t('admin.userSlideOver.accountStatus')}</span>
