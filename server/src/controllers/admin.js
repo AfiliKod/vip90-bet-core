@@ -1444,6 +1444,41 @@ export async function getAllCryptoWithdrawals(req, res, next) {
   } catch (e) { next(e); }
 }
 
+export async function getCryptoTxDetail(req, res, next) {
+  try {
+    const tx = await Transaction.findById(req.params.id).populate('userId', 'username email balance bonusBalance');
+    if (!tx) return res.status(404).json({ error: 'İşlem bulunamadı' });
+
+    const user = await User.findById(tx.userId._id).select('username email balance bonusBalance');
+    const locked = await (await import('../services/wagering.js')).getLockedAmount(user._id);
+    const withdrawable = Math.max(0, parseFloat((user.balance - locked).toFixed(2)));
+
+    const wagerings = await (await import('../models/BonusWagering.js')).default.find({
+      userId: user._id, status: 'active',
+    }).select('bonusAmount wageringRequired wageringProgress');
+
+    let cryptoDeposit = null;
+    if (tx.type === 'crypto_deposit') {
+      cryptoDeposit = await CryptoDeposit.findOne({ userId: user._id, status: { $in: ['pending_approval', 'credited'] } })
+        .sort({ createdAt: -1 });
+    }
+
+    res.json({
+      transaction: tx,
+      user: {
+        _id: user._id,
+        username: user.username,
+        email: user.email,
+        balance: user.balance,
+        bonusLocked: locked,
+        withdrawable,
+        activeWagerings: wagerings,
+      },
+      cryptoDeposit,
+    });
+  } catch (e) { next(e); }
+}
+
 export async function updateCryptoSettings(req, res, next) {
   try {
     const { deposit, withdraw } = req.body;

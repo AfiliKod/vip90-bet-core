@@ -152,6 +152,7 @@ r.get('/crypto/pending-deposits',    ctrl.getCryptoPendingDeposits);
 r.get('/crypto/pending-withdrawals', ctrl.getCryptoPendingWithdrawals);
 r.get('/crypto/all-deposits',        ctrl.getAllCryptoDeposits);
 r.get('/crypto/all-withdrawals',     ctrl.getAllCryptoWithdrawals);
+r.get('/crypto/tx-detail/:id',       ctrl.getCryptoTxDetail);
 r.put('/crypto/settings',            ctrl.updateCryptoSettings);
 r.post('/crypto/deposits/:id/approve', ctrl.approveCryptoDeposit);
 r.post('/crypto/deposits/:id/reject',  ctrl.rejectCryptoDeposit);

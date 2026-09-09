@@ -193,6 +193,16 @@ export default function UserSlideOver({ user, onClose, onUpdated }) {
                 </div>
               </div>
 
+              {/* Crypto Bakiye Özeti */}
+              <div className="bg-bg-hover rounded-xl p-3">
+                <div className="text-xs text-text-3 mb-2">💰 Crypto Bakiye Özeti</div>
+                <div className="flex flex-wrap gap-4 text-xs">
+                  <div><span className="text-text-3">Toplam: </span><span className="font-semibold text-text-1">{formatMoney(user.balance)}</span></div>
+                  <div><span className="text-text-3">Bonus Kilit: </span><span className="font-semibold text-yellow-400">{formatMoney(user.bonusBalance || 0)}</span></div>
+                  <div><span className="text-text-3">Çekilebilir: </span><span className={`font-semibold ${(user.balance - (user.bonusBalance || 0)) > 0 ? 'text-green-400' : 'text-red-400'}`}>{formatMoney(Math.max(0, user.balance - (user.bonusBalance || 0)))}</span></div>
+                </div>
+              </div>
+
               <div className="space-y-3">
                 <div className="flex items-center justify-between p-3 bg-bg-hover rounded-xl">
                   <span className="text-sm text-text-2">{t('admin.userSlideOver.role')}</span>
