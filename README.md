@@ -217,12 +217,23 @@ npm run test:e2e   # Playwright uçtan uca testleri
 ## Belgeler
 
 Operatörler için hazırlanan tam dokümantasyon [`docs/product/`](docs/product/)
-altında:
+altında (dizinin kendi indeksi: [docs/product/README.md](docs/product/README.md)):
 
 - [Kurulum](docs/product/01-kurulum.md) · [Yapılandırma](docs/product/02-yapilandirma.md)
 - [Modül Sistemi](docs/product/03-modul-sistemi.md) · [Oyun Matematiği](docs/product/04-oyun-matematigi.md)
 - [API Referansı](docs/product/05-api-referansi.md) · [SSS](docs/product/06-sss.md)
+- [Video Storyboard'ları](docs/product/07-video-storyboardlari.md) · [Varlık Lisans Denetimi](docs/product/08-varlik-lisans-denetimi.md)
 - [Bilinen Kısıtlar](docs/product/09-bilinen-kisitlar.md)
+
+Sağlayıcı/entegrasyon bazlı teknik dokümantasyon — oran akışı sağlayıcısı,
+üçüncü taraf casino aggregator'ı, kripto ödeme ve KYC sağlayıcıları,
+in-house oyun sunucusu mimarisi — [`docs/providers/`](docs/providers/)
+altında:
+
+- [Spor Bahisleri Sistemi](docs/providers/betting-sports.md) · [In-House Oyunlar Sistemi](docs/providers/inhouse-games.md)
+- [Palace Casino Entegrasyonu](docs/providers/palace-casino.md) · [Palace Casino Sağlayıcı Yönetimi (API uçları)](docs/providers/index.md)
+- [Kripto Ödeme Sağlayıcısı — TRC20 USDT](docs/providers/crypto-trc20.md)
+- [Yerel (Manuel) KYC Servisi](docs/providers/local-kyc.md) · [Sumsub KYC Entegrasyonu](docs/providers/sumsub-kyc.md)
 
 Sürüm geçmişi için [`CHANGELOG.md`](CHANGELOG.md).
 
