@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { Link } from 'react-router-dom';
 import api from '../../services/api';
 import { useTranslation } from '../../i18n';
 import { formatMoney, getActiveCurrency } from '../../utils/money.js';
@@ -137,6 +138,84 @@ function UsersTab() {
   );
 }
 
+function fmtTr(n) {
+  if (n === undefined || n === null) return '—';
+  return Number(n).toLocaleString('tr');
+}
+
+function PalaceLiveStatus() {
+  const { t } = useTranslation();
+  const [palace, setPalace] = useState(null);
+  useEffect(() => { api.get('/admin/palace/summary').then(r => setPalace(r.data)).catch(() => {}); }, []);
+  if (!palace) return null;
+
+  return (
+    <div>
+      <div className="flex items-center gap-2 mb-3">
+        <h4 className="text-sm font-semibold text-text-1">🎰 {t('admin.casinoStats.liveStatusTitle')}</h4>
+        {palace.agentError && (
+          <span className="text-[10px] text-amber-400" title={palace.agentError}>
+            ({t('admin.casinoStats.agentInfoUnavailable')})
+          </span>
+        )}
+      </div>
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-3">
+        <MetricCard title={t('admin.casinoStats.agentBalance')} value={palace.agent?.balance !== undefined ? formatCurrency(palace.agent.balance) : '—'} subtitle={palace.agent?.currency || 'TRY'} color="text-cyan-400" />
+        <MetricCard title={t('admin.casinoStats.palaceUsers')} value={fmtTr(palace.palaceUserCount)} subtitle={t('admin.casinoStats.totalRegistered')} />
+        <MetricCard
+          title={t('admin.casinoStats.activeSessions')}
+          value={fmtTr(palace.activeSessionCount)}
+          subtitle={palace.stuckSessionCount > 0 ? `⚠️ ${t('admin.casinoStats.stuckCount', { count: palace.stuckSessionCount })}` : t('admin.casinoStats.noIssues')}
+        />
+        <MetricCard
+          title={t('admin.casinoStats.todayGGR')}
+          value={formatCurrency(palace.today.ggr)}
+          subtitle={t('admin.casinoStats.roundsPlayers', { rounds: palace.today.rounds, players: palace.today.uniqueUsers })}
+          color="text-green-400"
+        />
+      </div>
+      {palace.stuckSessionCount > 0 && (
+        <div className="text-xs px-3 py-2 rounded-lg flex items-center gap-2 bg-amber-500/10 border border-amber-500/30 text-amber-400">
+          <span>⚠️</span>
+          <span>{t('admin.casinoStats.stuckSessionsHint', { count: palace.stuckSessionCount })}</span>
+        </div>
+      )}
+    </div>
+  );
+}
+
+function TopSpendingUsers() {
+  const { t } = useTranslation();
+  const [users, setUsers] = useState(null);
+  useEffect(() => { api.get('/admin/casino/stats').then(r => setUsers(r.data?.topUsers || [])).catch(() => setUsers([])); }, []);
+  if (!users) return <div className="text-center text-text-3 text-sm py-8">{t('common.loading')}</div>;
+
+  return (
+    <div className="bg-bg-card border border-white/10 rounded-xl p-4">
+      <h4 className="text-sm font-semibold text-text-1 mb-3">{t('admin.casinoStats.topSpendingUsers')}</h4>
+      {users.length === 0 ? (
+        <div className="text-center text-text-3 text-sm py-4">{t('admin.casinoStats.noDataYet')}</div>
+      ) : (
+        <div className="space-y-2">
+          {users.map((u, i) => (
+            <div key={String(u._id)} className="flex items-center gap-3 bg-bg-hover rounded-lg p-2.5">
+              <span className="text-xs text-text-3 w-5 shrink-0">#{i + 1}</span>
+              <div className="flex-1 min-w-0">
+                <div className="text-sm text-text-1 font-medium truncate">{u.user?.username || t('admin.casinoStats.unknown')}</div>
+                <div className="text-[10px] text-text-3">{t('admin.casinoStats.roundsCount', { count: u.rounds })}</div>
+              </div>
+              <div className="text-right shrink-0">
+                <div className="text-sm font-bold text-primary">{formatCurrency(u.totalBet)}</div>
+                <div className={`text-[10px] ${u.ggr >= 0 ? 'text-success' : 'text-danger'}`}>GGR: {u.ggr >= 0 ? '+' : ''}{formatCurrency(u.ggr)}</div>
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
 function CasinoTab() {
   const { t } = useTranslation();
   const [data, setData] = useState(null);
@@ -147,6 +226,8 @@ function CasinoTab() {
 
   return (
     <div className="space-y-6">
+      <PalaceLiveStatus />
+
       <div className="grid grid-cols-3 gap-3">
         <MetricCard title={t('admin.analytics.totalRounds')} value={formatNumber(data.perGame?.reduce((s, g) => s + g.rounds, 0) || 0)} color="text-amber-400" />
         <MetricCard title={t('admin.analytics.totalBets')} value={formatCurrency(data.perGame?.reduce((s, g) => s + g.totalBet, 0) || 0)} color="text-blue-400" />
@@ -200,6 +281,8 @@ function CasinoTab() {
           </AreaChart>
         </ResponsiveContainer>
       </div>
+
+      <TopSpendingUsers />
 
       <div className="bg-bg-card border border-white/10 rounded-xl overflow-hidden">
         <h4 className="text-sm font-semibold text-text-1 p-4 border-b border-white/10">{t('admin.analytics.gameDetailTable')}</h4>
@@ -449,6 +532,15 @@ export default function AdminAnalytics() {
     <div className="max-w-7xl mx-auto px-4 py-6">
       <div className="flex items-center justify-between mb-6">
         <h1 className="text-xl font-bold text-text-1">📈 {t('admin.analytics.title')}</h1>
+        {activeTab === 'casino' && (
+          <Link
+            to="/admin/palace"
+            className="px-3 py-1.5 rounded-lg text-xs font-bold text-black"
+            style={{ background: 'linear-gradient(90deg, #00d4ff, #7c3aed)' }}
+          >
+            🎰 {t('admin.casinoStats.palaceManagement')}
+          </Link>
+        )}
       </div>
 
       <div className="flex gap-1 bg-bg-card border border-white/10 rounded-lg p-1 mb-6 overflow-x-auto">

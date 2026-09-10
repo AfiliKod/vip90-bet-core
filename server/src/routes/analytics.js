@@ -6,6 +6,7 @@ const r = Router();
 r.use(requireAuth, requireAdmin);
 
 r.get('/overview', ctrl.getOverview);
+r.get('/revenue-overview', ctrl.getRevenueOverview);
 r.get('/users',    ctrl.getUserAnalytics);
 r.get('/casino',   ctrl.getCasinoAnalytics);
 r.get('/finance',  ctrl.getFinanceAnalytics);

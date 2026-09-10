@@ -34,7 +34,6 @@ const AdminDashboard = lazy(() => import('./pages/admin/Dashboard'));
 const AdminEvents = lazy(() => import('./pages/admin/Events'));
 const AdminUsers = lazy(() => import('./pages/admin/Users'));
 const AdminGameTasks = lazy(() => import('./pages/admin/GameTasks'));
-const AdminCasinoStats = lazy(() => import('./pages/admin/CasinoStats'));
 const AdminBankRequests = lazy(() => import('./pages/admin/BankRequests'));
 const AdminAnalytics = lazy(() => import('./pages/admin/Analytics'));
 const AdminPalace = lazy(() => import('./pages/admin/Palace'));
@@ -168,7 +167,7 @@ export default function App() {
         <Route path="/admin/events" element={<ProtectedRoute adminOnly><Suspense fallback={<PageLoader />}><AdminEvents /></Suspense></ProtectedRoute>} />
         <Route path="/admin/users" element={<ProtectedRoute adminOnly><Suspense fallback={<PageLoader />}><AdminUsers /></Suspense></ProtectedRoute>} />
         <Route path="/admin/tasks" element={<ProtectedRoute adminOnly><Suspense fallback={<PageLoader />}><AdminGameTasks /></Suspense></ProtectedRoute>} />
-        <Route path="/admin/casino" element={<ProtectedRoute adminOnly><Suspense fallback={<PageLoader />}><AdminCasinoStats /></Suspense></ProtectedRoute>} />
+        <Route path="/admin/casino" element={<Navigate to="/admin/analytics" replace />} />
         <Route path="/admin/palace" element={<ProtectedRoute adminOnly><Suspense fallback={<PageLoader />}><AdminPalace /></Suspense></ProtectedRoute>} />
         <Route path="/admin/bank" element={<ProtectedRoute adminOnly><Suspense fallback={<PageLoader />}><AdminBankRequests /></Suspense></ProtectedRoute>} />
         <Route path="/admin/analytics" element={<ProtectedRoute adminOnly><Suspense fallback={<PageLoader />}><AdminAnalytics /></Suspense></ProtectedRoute>} />

@@ -132,6 +132,51 @@ export async function getUserAnalytics(req, res, next) {
   } catch (e) { next(e); }
 }
 
+/* ── Gelir Genel Bakış (Casino + Bahis, gün bazlı, admin Dashboard
+   "Revenue Overview" grafiği için) ──────────────────────────
+   Bahis tarafı için daha önce hiçbir yerde günlük GERÇEKLEŞMİŞ (realize
+   olmuş) GGR hesaplanmıyordu — getSportsAnalytics yalnızca bahis ANINDAKİ
+   potentialWin toplamını veriyordu (hipotetik, "herkes kazansa" senaryosu).
+   Burada `Bet.settledAt` (sonuçlanma tarihi) ve `status` kullanılarak
+   GERÇEK kâr/zarar hesaplanıyor: kaybedilen bahiste house tüm stake'i alır,
+   kazanılan bahiste house stake-potentialWin kadar (negatif de olabilir). */
+export async function getRevenueOverview(req, res, next) {
+  try {
+    const days = parseInt(req.query.days) || 90;
+    const since = daysAgo(days);
+
+    const [casinoDaily, sportsDaily] = await Promise.all([
+      CasinoRound.aggregate([
+        { $match: { createdAt: { $gte: since } } },
+        { $group: {
+          _id: { $dateToString: { format: '%Y-%m-%d', date: '$createdAt' } },
+          ggr: { $sum: { $multiply: ['$net', -1] } },
+        }},
+      ]),
+      Bet.aggregate([
+        { $match: { status: { $in: ['won', 'lost'] }, settledAt: { $gte: since } } },
+        { $group: {
+          _id: { $dateToString: { format: '%Y-%m-%d', date: '$settledAt' } },
+          ggr: { $sum: { $cond: [{ $eq: ['$status', 'lost'] }, '$stake', { $subtract: ['$stake', '$potentialWin'] }] } },
+        }},
+      ]),
+    ]);
+
+    const casinoMap = new Map(casinoDaily.map(d => [d._id, d.ggr]));
+    const sportsMap = new Map(sportsDaily.map(d => [d._id, d.ggr]));
+
+    const series = [];
+    for (let i = days - 1; i >= 0; i--) {
+      const key = daysAgo(i).toISOString().slice(0, 10);
+      const casino = casinoMap.get(key) || 0;
+      const sports = sportsMap.get(key) || 0;
+      series.push({ date: key, casino, sports, total: casino + sports });
+    }
+
+    res.json({ series, today: series[series.length - 1] });
+  } catch (e) { next(e); }
+}
+
 /* ── Casino Oyun Analitiği ─────────────────────────────────── */
 export async function getCasinoAnalytics(req, res, next) {
   try {
