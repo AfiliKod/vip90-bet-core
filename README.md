@@ -46,10 +46,12 @@ gizlemiyoruz — bkz. [Yol Haritası](#yol-haritası).
 | 🎰 **13 in-house oyun** | Crash, Mines, Plinko, Dice, Limbo, Wheel, Hi-Lo, Keno, Blackjack, Roulette, Baccarat, Video Poker, Dragon Tiger — hepsi HMAC-SHA256 **provably fair**, house edge her oyun için panelden ayarlanabilir |
 | ⚽ **Spor & Canlı Bahis modülü** | 25 spor kategorisi, canlı oran akışı, kupon (tekli/kombine/sistem), otomatik sonuçlandırma |
 | 🃏 **Casino İçeriği modülü** | Aggregator entegrasyonu ile slot ve masa oyunları — tek adaptör dosyası, sağlayıcı bağımsız mimari |
-| 🛠️ **Kapsamlı admin panel** | Kullanıcılar, roller/izinler, analitik, tema/marka editörü, statik sayfa düzenleyici, modül aç/kapa, destek masası |
-| 💰 **Esnek ödeme altyapısı** | Banka havalesi (admin onaylı), USDT-TRC20 kripto para yatırma takibi, cüzdan imzasıyla Web3 girişi |
-| 🌍 **Çok dilli altyapı & PWA** | Türkçe/İngilizce sözlük + global dil değiştirici, kurulabilir Progressive Web App, iOS Capacitor kabuğu — sayfa çevirisi kısmi (bkz. Yol Haritası) |
-| 🧩 **Modüler lisanslama** | Çekirdek platform her zaman açık; Bahis / Casino İçeriği / Canlı Casino ayrı modüller olarak panelden yönetilir |
+| 🛠️ **Kapsamlı admin panel** | Kullanıcılar, roller/izinler, canlı KPI+gelir grafikli analitik, tema/marka editörü, statik sayfa düzenleyici, modül aç/kapa, kripto işlemler, destek masası |
+| 💰 **Uçtan uca kripto ödeme** | USDT-TRC20 — HD cüzdan tabanlı yatırma takibi + hot wallet üzerinden otomatik/onaylı çekim, admin panelden işlem geçmişi, cüzdan imzasıyla Web3 girişi |
+| 🪪 **Çift KYC sistemi** | Yerel belge inceleme (admin onay/red kuyruğu) veya Sumsub ile otomatik doğrulama — panelden seçilebilir |
+| 👑 **VIP & gerçek zamanlı cashback** | 5 seviyeli VIP programı; her sonuçlanan bahis/rounddan sonra seviyeye göre anlık cashback bakiyeye işler |
+| 🌍 **Çok dilli altyapı & PWA** | 8 dilde tam sözlük + global dil değiştirici, kurulabilir Progressive Web App, iOS Capacitor kabuğu |
+| 🧩 **Modüler lisanslama** | Çekirdek platform her zaman açık; Bahis / Casino İçeriği / In-house Oyunlar / Kripto Ödeme / KYC ayrı modüller olarak panelden yönetilir |
 | 🚀 **Tek adımda kurulum** | Tarayıcı tabanlı kurulum sihirbazı (`/install`) — terminal veya elle `.env` düzenleme gerekmez |
 
 ## Neler Dahil
@@ -97,10 +99,14 @@ Blackjack · Roulette · Baccarat · Video Poker · Dragon Tiger**
 ### 👤 Kullanıcı, Cüzdan ve Güvenlik
 
 - E-posta/şifre + sosyal giriş + **Web3 cüzdan imzasıyla** kayıt/giriş.
-- Banka havalesi (admin onay kuyruğu) ve **USDT-TRC20** kripto para
-  yatırma takibi.
-- Bonus/çevrim (wagering) motoru, VIP/seviye programı (seviye atlayınca
-  gerçek bakiye ödülü).
+- Banka havalesi (admin onay kuyruğu) ve **USDT-TRC20** kripto ödeme —
+  HD cüzdan tabanlı yatırma takibi, hot wallet üzerinden çekim, admin
+  panelden işlem bazlı görünürlük.
+- **KYC** — yerel belge inceleme (onay/red kuyruğu) veya **Sumsub**
+  entegrasyonu, ikisinden biri panelden seçilir.
+- Bonus/çevrim (wagering) motoru, 5 seviyeli VIP programı: seviye
+  atlayınca tek seferlik bakiye ödülü **+** her sonuçlanan bahis/round
+  sonrası seviyeye göre gerçek zamanlı cashback.
 - Admin için 2FA (TOTP), tiered admin rolleri/izinleri.
 
 ### 🎉 Topluluk ve Elde Tutma Araçları
@@ -121,24 +127,28 @@ Blackjack · Roulette · Baccarat · Video Poker · Dragon Tiger**
 
 ### 🛠️ Yönetim Paneli
 
-Kullanıcılar · Roller & İzinler · Analitik · Etkinlik Yönetimi ·
-Oyun Ayarları · Modüller · Tema · Marka · Statik Sayfalar · VIP ·
-Bahis/Banka Talepleri · Destek Bileti Sistemi · Casino İstatistikleri
+Kullanıcılar · Roller & İzinler · Canlı KPI/Gelir Analitiği ·
+Etkinlik Yönetimi · Oyun Ayarları · Modüller · Tema · Marka ·
+Statik Sayfalar · VIP · Bahis/Banka Talepleri · Kripto İşlemler ·
+KYC İnceleme Kuyruğu · Destek Bileti Sistemi
 
 ## Modül Sistemi
 
-VIP90.bet'un çekirdeği (13 in-house oyun, kullanıcı yönetimi, bonus/çevrim
-motoru, temel admin panel) satın alma sonrası **her zaman açıktır** — ek
-bir şey gerekmeden tam çalışır durumdadır.
+VIP90.bet'un çekirdeği (kullanıcı yönetimi, cüzdan, bonus/çevrim motoru,
+referans komisyonu, temel admin panel, i18n) satın alma sonrası **her
+zaman açıktır** — bir modül değildir, ek bir şey gerekmeden tam çalışır
+durumdadır.
 
-Üç ek modül, admin panelinden tek bir anahtarla açılıp kapatılır ve
+Beş ayrı modül, admin panelinden tek bir anahtarla açılıp kapatılır ve
 lisans durumuna göre işaretlenir:
 
 | Modül | Sağlar | Bağımlılık |
 |---|---|---|
 | **Bahis** | Oran akışı, kupon, otomatik sonuçlandırma | Spor verisi sağlayıcısıyla sözleşme |
 | **Casino İçeriği** | Slot/masa oyunları aggregator konektörü | Lisanslı aggregator sözleşmesi |
-| **Canlı Casino** | Gerçek krupiyeli masa/video oyunları | Canlı içerik sağlayıcısıyla sözleşme |
+| **In-house Oyunlar** | 13 provably-fair oyun, ayrı bir oyun sunucusundan (JWT+origin korumalı) servis edilir | Yok — dahili, ayrı bir üçüncü taraf sözleşmesi gerektirmez |
+| **Crypto Ödeme Ağ Geçidi** | USDT-TRC20 yatırma/çekme | Yok — dahili |
+| **KYC Kimlik Doğrulama** | Yerel belge inceleme veya Sumsub | Sumsub seçilirse üçüncü taraf sözleşmesi |
 
 Bir modül kapalıyken ilgili API uçları anlaşılır bir `MODULE_DISABLED`
 hatası döner — platformun geri kalanı etkilenmeden çalışmaya devam eder.
@@ -223,11 +233,6 @@ kısmi altyapısı bulunan ama uçtan uca çalışmayan** özellikler — kod
 denetimiyle doğrulandı, gizlenmiyor. Tam ayrıntı ve kod referansları için
 [Bilinen Kısıtlar](docs/product/09-bilinen-kisitlar.md):
 
-- **KYC belge inceleme akışı** — belge gönderme/onaylama/reddetme/süre
-  dolumu için tam bir backend servisi (`kyc.js`) yazılmış durumda, ama
-  hiçbir route'a bağlı değil ve kullanıcı tarafında belge yükleme arayüzü
-  yok. Bugün itibarıyla "KYC", admin panelinde tek bir ham
-  `kycVerified` işaretleme kutusundan ibaret.
 - **Acente (reseller) sistemi** — `User` modelinde `isAgent`/`agentId`
   alanları tanımlı ama bunları okuyan/yazan hiçbir route, controller
   veya arayüz yok. Şu an tamamen kullanılmayan şema alanları.
@@ -235,17 +240,9 @@ denetimiyle doğrulandı, gizlenmiyor. Tam ayrıntı ve kod referansları için
   edilen kullanıcının ürettiği ev karının bir yüzdesi doğrudan referans
   verene ödeniyor. Alt-referansların (2. kademe ve ötesi) da komisyon
   getirdiği bir yapı henüz yok.
-- **VIP cashback** — VIP seviyelerinde tanımlı `cashbackPercent` alanı
-  hiçbir job/serviste tüketilmiyor, hiç ödenmiyor. Yalnızca seviye
-  atlarken tek seferlik bakiye ödülü (`rewardAmount`) gerçekten işliyor.
 - **Rulet house edge ayarı devre dışı** — panelde `rouletteHouseEdgePercent`/
   `rouletteMaxPayout` alanları var ama rulet oyun mantığı bunları hiç
   okumuyor; değiştirmek oyunun davranışını etkilemiyor.
-- **Sayfa çevirisi tamamlanmadı** — i18n altyapısı (sözlük + global dil
-  değiştirici) hazır ama `HomePage.jsx`, `Bahis.jsx`, `Live.jsx`,
-  `CasinoRedesign.jsx`, `Profile.jsx` gibi büyük sayfalarda hâlâ doğrudan
-  gömülü Türkçe metin var — İngilizce'ye geçince bu sayfalar kısmen
-  Türkçe kalıyor.
 
 ## Lisanslama
 

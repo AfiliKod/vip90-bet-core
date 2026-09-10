@@ -1,23 +1,10 @@
 # Known Limitations
 
+_Last verified: 2026-09-11 (against `dev`/`main` after the crypto payment + dual-KYC + VIP cashback work landed)._
+
 This document lists features that are **defined but not end-to-end connected** or **partially functional** in the codebase. The goal is for the operator to be aware of this before encountering a situation where "I see a field/service in the panel but the behavior isn't what I expected." Each item has been verified by reading the relevant code.
 
-## KYC document review flow is not end-to-end connected
-
-`server/src/services/kyc.js` is written as a complete service: `submitKycDocuments`, `approveKyc`, `rejectKyc`, `checkKycRequired`, `requireKyc`, `expireOldKyc`. But these functions are **not called from any route or controller**:
-
-```
-grep -rn "requireKyc\|submitKycDocuments" server/src/routes server/src/controllers
-# (empty result)
-```
-
-There's no document upload page/route on the user side — a player can't upload an identity document. The only thing that actually works in the admin panel is a raw `kycVerified` checkbox in `client/src/pages/admin/components/UserSlideOver.jsx`; this is limited to the field list allowed by `updateUser` in `server/src/controllers/admin.js`:
-
-```js
-const allowed = ['isActive', 'kycVerified'];
-```
-
-So an admin can manually mark a user as "KYC verified," but there's no document review/approval/rejection workflow to back it up.
+**Resolved since the last pass, no longer limitations:** KYC document review (now a dual system — local document review + Sumsub — wired end-to-end via `server/src/routes/kyc.js` and `admin.approveKycSubmission`/`rejectKycSubmission`) and VIP cashback (now paid in real time on every settled bet/round via `vip.payCashback`, hooked into sports settlement, in-house rounds, and Palace sessions — see `GET /api/vip/cashback` for history).
 
 ## No agent (reseller) system
 
@@ -53,26 +40,13 @@ const referrer = await User.findByIdAndUpdate(
 
 There's no mechanism to walk up the `bettor.referredBy` chain and also pay 2nd or 3rd tier referrers — the system is a flat single-tier "you brought them, you earn" model. If you're looking for a multi-tier affiliate/MLM structure, this requires additional development.
 
-## VIP cashback is defined but never paid
+## Roulette house edge setting is not read by the game engine
 
-The default VIP levels in `server/src/services/vip.js` have a `cashbackPercent` field for each level:
-
-```js
-{ level: 2, name: 'Silver',   cashbackPercent: 2,  rewardAmount: 10,  ... },
-{ level: 3, name: 'Gold',     cashbackPercent: 5,  rewardAmount: 50,  ... },
-{ level: 4, name: 'Platinum', cashbackPercent: 8,  rewardAmount: 200, ... },
-{ level: 5, name: 'Diamond',  cashbackPercent: 12, rewardAmount: 500, ... },
-```
-
-But this field is only **defined**, never **read or processed** anywhere:
+`server/src/services/gameSettings.js` defines `rouletteHouseEdgePercent` and `rouletteMaxPayout` as admin-editable fields (validated, persisted, exposed in the panel), but the actual roulette engine (`server/src/provider/games/rouletteGame.js`) computes payouts purely from `evaluateBets()`'s fixed European-roulette payout table — it never reads either setting:
 
 ```
-grep -n "cashbackPercent" server/src/services/vip.js server/src/jobs/*.js
-# only the definition lines above match — no calculation/payment
+grep -n "rouletteHouseEdgePercent\|houseEdge" server/src/provider/games/rouletteGame.js
+# (empty result)
 ```
 
-The only mechanism that actually works is the one-time `rewardAmount` paid when a user levels up to the next VIP tier (around lines 102-134 in `vip.js`, added to balance at the moment of leveling up). So there's no "automatic monthly/weekly lossback" cashback engine — the `cashbackPercent` field is currently dead; in the future, a periodic job (cron/job) could be extended to read this value and calculate real cashback, but that job hasn't been written today.
-
-## Additional note on the module system
-
-The `live-casino` module ID is defined in the registry (`server/src/modules/registry.js`), can be toggled from the panel, and its license status is queryable — but there's no route that actually disables it at the API level (the real dealer live casino integration hasn't been written yet). For details, see the "Known gap" note in [03 — Module System](03-modul-sistemi.md).
+So changing these two fields from the admin panel has no effect on gameplay; the house edge is whatever the fixed payout table implies (~2.7%, standard European single-zero roulette).
