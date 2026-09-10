@@ -1845,12 +1845,12 @@ export default {
   "admin.moduleCards.coreBadge": "Core",
   "admin.moduleCards.title.betting": "Sports & Live Betting",
   "admin.moduleCards.desc.betting": "Odds feed, bet slip, settlement.",
-  "admin.moduleCards.title.casino-content": "Casino Content",
-  "admin.moduleCards.desc.casino-content": "Slot and table games, via aggregator.",
-  "admin.moduleCards.title.crypto-payment": "Crypto Payment Gateway",
-  "admin.moduleCards.desc.crypto-payment": "Deposits and withdrawals via TRC20 USDT.",
-  "admin.moduleCards.title.kyc-verification": "KYC Identity Verification",
-  "admin.moduleCards.desc.kyc-verification": "Manual document review or automatic verification via Sumsub.",
+  "admin.moduleCards.title.casinoContent": "Casino Content",
+  "admin.moduleCards.desc.casinoContent": "Slot and table games, via aggregator.",
+  "admin.moduleCards.title.cryptoPayment": "Crypto Payment Gateway",
+  "admin.moduleCards.desc.cryptoPayment": "Deposits and withdrawals via TRC20 USDT.",
+  "admin.moduleCards.title.kycVerification": "KYC Identity Verification",
+  "admin.moduleCards.desc.kycVerification": "Manual document review or automatic verification via Sumsub.",
 
   // TODO: bu bloğu Japonca'ye çevir
   "admin.moduleCards.toggleOff": "Turn off {title} module",

@@ -3,6 +3,7 @@ import api from '../../services/api';
 import { useTranslation } from '../../i18n';
 import { useToastStore } from '../../store/toastStore';
 import ModuleCard from '../../components/admin/ModuleCard';
+import { sportLabel } from '../../utils/sportMeta';
 
 /**
  * Modüller + Modül Ayarları'nın birleşmiş hali (2026-09-10) — eskiden iki ayrı
@@ -264,7 +265,7 @@ function InhouseProviderBody() {
 
 // ─── Bahis Verisi (Odds Provider) ──────────────────────────────────────────
 function OddsProviderBody() {
-  const { t } = useTranslation();
+  const { t, locale } = useTranslation();
   const addToast = useToastStore(s => s.add);
   const [settings, setSettings] = useState(null);
   const [saving, setSaving] = useState(false);
@@ -363,7 +364,7 @@ function OddsProviderBody() {
           {t('admin.moduleCards.activeCategories', { count: settings.enabledCategories.length, total: settings.availableCategories.length })}
         </div>
         <MultiCheck
-          options={settings.availableCategories}
+          options={settings.availableCategories.map(c => ({ ...c, label: sportLabel(c.id, locale) }))}
           selected={settings.enabledCategories}
           onToggle={toggleCategory}
           disabled={saving}
@@ -383,7 +384,7 @@ function OddsProviderBody() {
               onChange={e => save({ prioritySport: e.target.value })}
               className="w-full bg-black/30 border border-white/10 rounded-lg px-3 py-2 text-sm text-text-1 disabled:opacity-50"
             >
-              {settings.availableCategories.map(c => <option key={c.id} value={c.id}>{c.flag} {c.label}</option>)}
+              {settings.availableCategories.map(c => <option key={c.id} value={c.id}>{c.flag} {sportLabel(c.id, locale)}</option>)}
             </select>
           </div>
           <div>
@@ -1080,10 +1081,10 @@ function CryptoPaymentBody() {
 
 // ─── Modül id → kart görünümü (ikon + accordion body + çevrilebilir başlık) ─
 const MODULE_VIEW = {
-  betting:           { icon: '📊', Body: OddsProviderBody },
-  'casino-content':  { icon: '🎰', Body: PalaceModuleBody },
-  'crypto-payment':  { icon: '💰', Body: CryptoPaymentBody },
-  'kyc-verification':{ icon: '🔐', Body: KycSettingsBody },
+  betting:           { icon: '📊', Body: OddsProviderBody, key: 'betting' },
+  'casino-content':  { icon: '🎰', Body: PalaceModuleBody, key: 'casinoContent' },
+  'crypto-payment':  { icon: '💰', Body: CryptoPaymentBody, key: 'cryptoPayment' },
+  'kyc-verification':{ icon: '🔐', Body: KycSettingsBody, key: 'kycVerification' },
 };
 
 export default function AdminModules() {
@@ -1174,8 +1175,10 @@ export default function AdminModules() {
             const view = MODULE_VIEW[m.id];
             // Server tek dilde (TR) sabit title/description döner — client-side
             // bilinen modül id'leri için çevrilebilir sabit metne düşülür.
-            const title = t(`admin.moduleCards.title.${m.id}`) !== `admin.moduleCards.title.${m.id}` ? t(`admin.moduleCards.title.${m.id}`) : m.title;
-            const description = t(`admin.moduleCards.desc.${m.id}`) !== `admin.moduleCards.desc.${m.id}` ? t(`admin.moduleCards.desc.${m.id}`) : m.description;
+            // NOT: i18n anahtarları tire (-) kabul etmez (bkz. core.js assertValidKey),
+            // bu yüzden modül id'si DEĞİL, MODULE_VIEW'daki camelCase `key` kullanılır.
+            const title = view ? t(`admin.moduleCards.title.${view.key}`) : m.title;
+            const description = view ? t(`admin.moduleCards.desc.${view.key}`) : m.description;
             return (
               <ModuleCard
                 key={m.id}
