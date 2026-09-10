@@ -31,6 +31,10 @@ import {
   getOddsProviderToken,
 } from '../services/oddsProviderToken.js';
 import {
+  getBettingDisplaySettings,
+  updateBettingDisplaySettings,
+} from '../services/bettingDisplaySettings.js';
+import {
   getPalaceDefaultLanguage,
   setPalaceDefaultLanguage,
   getPopularGameCodes,
@@ -75,9 +79,13 @@ r.post('/inhouse-provider/rotate-key', async (req, res, next) => {
 // ─── Bahis verisi (odds-data provider) ─────────────────────────────────────
 r.get('/odds-provider/settings', async (req, res, next) => {
   try {
-    const settings = await getOddsProviderSettings();
+    const [settings, display] = await Promise.all([
+      getOddsProviderSettings(),
+      getBettingDisplaySettings(),
+    ]);
     res.json({
       ...settings,
+      ...display,
       availableCategories: AVAILABLE_CATEGORIES,
       tokenConfigured: await isOddsProviderTokenConfigured(),
     });
@@ -86,9 +94,16 @@ r.get('/odds-provider/settings', async (req, res, next) => {
 
 r.patch('/odds-provider/settings', validate(updateOddsProviderSettingsSchema), async (req, res, next) => {
   try {
-    const updated = await updateOddsProviderSettings(req.body, req.user?.id);
+    const { prioritySport, priorityCountry, ...providerPatch } = req.body;
+    const [updated, display] = await Promise.all([
+      updateOddsProviderSettings(providerPatch, req.user?.id),
+      (prioritySport !== undefined || priorityCountry !== undefined)
+        ? updateBettingDisplaySettings({ prioritySport, priorityCountry }, req.user?.id)
+        : getBettingDisplaySettings(),
+    ]);
     res.json({
       ...updated,
+      ...display,
       availableCategories: AVAILABLE_CATEGORIES,
       tokenConfigured: await isOddsProviderTokenConfigured(),
     });

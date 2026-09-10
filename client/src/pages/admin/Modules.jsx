@@ -262,6 +262,7 @@ function OddsProviderBody() {
   const [tokenInput, setTokenInput] = useState('');
   const [applying, setApplying] = useState(false);
   const [lastPush, setLastPush] = useState(null);
+  const [countryOptions, setCountryOptions] = useState([]);
 
   const load = useCallback(async () => {
     try {
@@ -273,6 +274,16 @@ function OddsProviderBody() {
   }, [addToast]);
 
   useEffect(() => { load(); }, [load]);
+
+  // Öncelikli ülke dropdown'ı seçilen spora göre — Event.country serbest metin
+  // olduğundan (ISO kodu değil) yazım hatasına açık bir text input yerine
+  // kaynakta GERÇEKTEN var olan değerleri gösteriyoruz.
+  useEffect(() => {
+    if (!settings?.prioritySport) return;
+    api.get('/events/countries', { params: { sport: settings.prioritySport } })
+      .then(({ data }) => setCountryOptions(data.countries || []))
+      .catch(() => setCountryOptions([]));
+  }, [settings?.prioritySport]);
 
   async function save(patch) {
     setSaving(true);
@@ -351,6 +362,43 @@ function OddsProviderBody() {
           onToggle={toggleCategory}
           disabled={saving}
         />
+      </div>
+
+      <div className="mt-5 pt-4 border-t border-white/8">
+        <div className="text-[10px] uppercase tracking-wide text-text-3 mb-2">
+          Öncelikli Görünüm — bahis sayfasında ilk gösterilen spor/ülke
+        </div>
+        <div className="grid sm:grid-cols-2 gap-4">
+          <div>
+            <label className="text-[10px] uppercase tracking-wide text-text-3 mb-1 block">Öncelikli Spor</label>
+            <select
+              value={settings.prioritySport || 'football'}
+              disabled={saving}
+              onChange={e => save({ prioritySport: e.target.value })}
+              className="w-full bg-black/30 border border-white/10 rounded-lg px-3 py-2 text-sm text-text-1 disabled:opacity-50"
+            >
+              {settings.availableCategories.map(c => <option key={c.id} value={c.id}>{c.flag} {c.label}</option>)}
+            </select>
+          </div>
+          <div>
+            <label className="text-[10px] uppercase tracking-wide text-text-3 mb-1 block">Öncelikli Ülke</label>
+            <select
+              value={settings.priorityCountry || 'Türkiye'}
+              disabled={saving}
+              onChange={e => save({ priorityCountry: e.target.value })}
+              className="w-full bg-black/30 border border-white/10 rounded-lg px-3 py-2 text-sm text-text-1 disabled:opacity-50"
+            >
+              {!countryOptions.includes(settings.priorityCountry) && settings.priorityCountry && (
+                <option value={settings.priorityCountry}>{settings.priorityCountry}</option>
+              )}
+              {countryOptions.map(c => <option key={c} value={c}>{c}</option>)}
+            </select>
+          </div>
+        </div>
+        <p className="text-xs text-text-3 mt-1">
+          Bu operatörün seçtiği spor/ülke, bahis sayfasında en üstte ve açık gelir; diğerleri
+          kapalı/lazyload olarak listelenir.
+        </p>
       </div>
 
       <div className="mt-5 pt-4 border-t border-white/8">

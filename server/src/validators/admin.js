@@ -338,6 +338,8 @@ export const updateInhouseProviderSettingsSchema = z.object({
 export const updateOddsProviderSettingsSchema = z.object({
   language: z.string().min(2).max(5).optional(),
   enabledCategories: z.array(z.string()).optional(),
+  prioritySport: z.string().min(1).optional(),
+  priorityCountry: z.string().min(1).optional(),
 });
 
 export const updatePalaceModuleSettingsSchema = z.object({

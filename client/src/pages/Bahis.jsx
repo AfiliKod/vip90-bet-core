@@ -40,15 +40,20 @@ export default function Bahis() {
     return () => clearTimeout(tm);
   }, [focusLeague]);
 
-  // Futbol → Türkiye ligleri açılışta otomatik açık.
+  // Öncelikli spor → öncelikli ülke ligleri açılışta otomatik açık (admin
+  // panelden ayarlanır, bkz. server/src/services/bettingDisplaySettings.js —
+  // summary API yanıtına prioritySport/priorityCountry olarak geliyor,
+  // burada sabit 'football'/'Türkiye' YAZILMAZ).
+  const prioritySport = summary?.prioritySport || 'football';
+  const priorityCountry = summary?.priorityCountry || 'Türkiye';
   const autoOpenLeagues = useMemo(() => {
     const set = new Set();
-    const fb = summary?.sports?.find(s => s.sport === 'football');
-    for (const lg of (fb?.leagues || [])) {
-      if (lg.country === 'Türkiye') set.add(`${lg.country}|${lg.league}`);
+    const primary = summary?.sports?.find(s => s.sport === prioritySport);
+    for (const lg of (primary?.leagues || [])) {
+      if (lg.country === priorityCountry) set.add(`${lg.country}|${lg.league}`);
     }
     return set;
-  }, [summary]);
+  }, [summary, prioritySport, priorityCountry]);
 
   // Sol sidebar tıklaması: sporu aç + o bölüme kaydır (mobil spor çiplerinin
   // aynısı, bkz. aşağıdaki md:hidden blok — iki yerde de aynı davranış).
@@ -145,7 +150,7 @@ export default function Bahis() {
             <div>
               {summary.sports.map(s => {
                 const meta = SPORT_META[s.sport] ?? { icon: '🏆', label: s.sport };
-                const isCollapsed = s.sport === 'football' ? !!collapsedSports[s.sport] : (collapsedSports[s.sport] ?? true);
+                const isCollapsed = s.sport === prioritySport ? !!collapsedSports[s.sport] : (collapsedSports[s.sport] ?? true);
                 return (
                   <div key={s.sport} id={`sport-${s.sport}`} className="mb-2 scroll-mt-4">
                     <button

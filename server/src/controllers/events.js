@@ -1,5 +1,6 @@
 import Event from '../models/Event.js';
 import { buildSummaryTree } from '../utils/summaryTree.js';
+import { getBettingDisplaySettings } from '../services/bettingDisplaySettings.js';
 import escapeStringRegexp from 'escape-string-regexp';
 
 // Liste görünümünde (MiniEventCard/HeroSlider) sadece bu market tipleri gösteriliyor —
@@ -155,6 +156,22 @@ export async function getById(req, res, next) {
   }
 }
 
+/**
+ * Admin panelin "Öncelikli Ülke" dropdown'ını doldurmak için — Event.country
+ * serbest metin (ISO kodu değil, bkz. bettingDisplaySettings.js) olduğundan
+ * yazım hatasına açık bir text input yerine kaynakta GERÇEKTEN var olan
+ * değerleri döner. `?sport=` verilmezse tüm sporlardaki distinct ülkeler döner.
+ */
+export async function countries(req, res, next) {
+  try {
+    const sport = req.query.sport ? String(req.query.sport) : null;
+    const match = { archivedAt: null, country: { $nin: [null, ''] } };
+    if (sport) match.sport = sport;
+    const rows = await Event.distinct('country', match);
+    res.json({ countries: rows.sort((a, b) => a.localeCompare(b, 'tr')) });
+  } catch (e) { next(e); }
+}
+
 export async function summary(req, res, next) {
   try {
     const status = req.query.status || 'upcoming';
@@ -162,14 +179,17 @@ export async function summary(req, res, next) {
     const cached = getCachedList(cacheKey);
     if (cached) return res.json(cached);
 
-    const rows = await Event.aggregate([
-      { $match: baseUpcomingMatch(status) },
-      { $group: { _id: { sport: '$sport', country: '$country', league: '$league' }, count: { $sum: 1 } } },
+    const [rows, { prioritySport, priorityCountry }] = await Promise.all([
+      Event.aggregate([
+        { $match: baseUpcomingMatch(status) },
+        { $group: { _id: { sport: '$sport', country: '$country', league: '$league' }, count: { $sum: 1 } } },
+      ]),
+      getBettingDisplaySettings(),
     ]);
     const flat = rows.map(r => ({
       sport: r._id.sport, country: r._id.country || '', league: r._id.league, count: r.count,
     }));
-    const tree = buildSummaryTree(flat);
+    const tree = { ...buildSummaryTree(flat, { prioritySport, priorityCountry }), prioritySport, priorityCountry };
     setCachedList(cacheKey, tree);
     res.json(tree);
   } catch (e) { next(e); }

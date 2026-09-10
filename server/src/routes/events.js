@@ -5,6 +5,7 @@ const r = Router();
 
 r.get('/', ctrl.list);
 r.get('/summary', ctrl.summary);
+r.get('/countries', ctrl.countries);
 r.get('/:id', ctrl.getById);
 
 export default r;
