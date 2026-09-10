@@ -90,6 +90,7 @@ export default {
     'profile.refund': '환불',
     'profile.casinoReturn': '카지노 리턴',
     'profile.bonusConversion': '보너스 전환',
+    'profile.cashback': '캐시백',
     'profile.cryptoDeposit': '크립토 입금',
     'profile.cryptoWithdraw': '크립토 출금',
     'profile.usdt': 'USDT',
@@ -1859,4 +1860,36 @@ export default {
 
   "admin.moduleCards.disabledNotice": "이 모듈은 현재 꺼져 있습니다 — 모듈이 다시 활성화될 때까지 아래 설정은 서버에 영향을 주지 않습니다.",
 
+  // TODO: bu bloğu Korece'ye çevir
+  "admin.dashboard.payments.title": "Payment Requests",
+  "admin.dashboard.payments.desc": "Bank and crypto deposit/withdrawal approvals",
+  "admin.dashboard.kpi.totalUsers": "Total Users",
+  "admin.dashboard.kpi.newToday": "+{count} new today",
+  "admin.dashboard.kpi.todayRevenue": "Today's Revenue",
+  "admin.dashboard.kpi.revenueBreakdown": "Casino {casino} · Betting {sports}",
+  "admin.dashboard.kpi.pendingActions": "Pending Actions",
+  "admin.dashboard.kpi.pendingBreakdown": "{payments} payments · {tickets} support",
+  "admin.dashboard.kpi.online": "Online Now",
+  "admin.dashboard.kpi.onlineSub": "real-time",
+  "admin.dashboard.revenue.title": "Revenue Overview",
+  "admin.dashboard.revenue.hint": "Daily casino and betting revenue trend",
+  "admin.dashboard.revenue.range7": "7D",
+  "admin.dashboard.revenue.range30": "30D",
+  "admin.dashboard.revenue.range90": "90D",
+  "admin.dashboard.revenue.legendCasino": "Casino GGR",
+  "admin.dashboard.revenue.legendSports": "Betting GGR",
+  "admin.dashboard.revenue.totalCasino": "Casino total",
+  "admin.dashboard.revenue.totalSports": "Betting total",
+  "admin.dashboard.revenue.totalAll": "Combined total",
+  "admin.dashboard.split.title": "Revenue Split",
+
+  // TODO: bu bloğu Korece'ye çevir
+  "admin.casinoStats.liveStatusTitle": "Palace Live Status",
+  "admin.casinoStats.topSpendingUsers": "Top Spending Users",
+  "admin.casinoStats.noDataYet": "No data yet",
+  "admin.casinoStats.unknown": "Unknown",
+  "admin.casinoStats.roundsCount": "{count} rounds",
+  "admin.casinoStats.palaceManagement": "Palace Management",
+
+  "admin.dashboard.split.noPositiveData": "No positive net revenue for this period.",
 };

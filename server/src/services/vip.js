@@ -56,6 +56,58 @@ export async function awardXp(userId, amount, type, options = {}) {
 }
 
 /**
+ * Pay cashback to a user based on their VIP level's cashbackPercent.
+ * Called on every settled bet/round. Credits balance directly.
+ * @param {string} userId - User ID
+ * @param {number} betAmount - The stake/bet amount to calculate cashback on
+ * @param {object} options - { session }
+ * @returns {number} cashback amount credited (0 if none)
+ */
+export async function payCashback(userId, betAmount, options = {}) {
+  const { session = null } = options;
+
+  if (!betAmount || betAmount <= 0) return 0;
+
+  const user = await User.findById(userId).select('vipLevel balance').session(session);
+  if (!user) return 0;
+
+  // If user has no VIP level assigned, try to find one
+  let levelDoc = null;
+  if (user.vipLevel) {
+    levelDoc = await VipLevel.findById(user.vipLevel).session(session);
+  }
+  if (!levelDoc) {
+    levelDoc = await VipLevel.findOne({
+      xpRequired: { $lte: 0 },
+      isActive: true,
+    }).sort({ xpRequired: -1 }).session(session);
+  }
+
+  if (!levelDoc || !levelDoc.cashbackPercent || levelDoc.cashbackPercent <= 0) return 0;
+
+  const cashback = parseFloat((betAmount * levelDoc.cashbackPercent / 100).toFixed(2));
+  if (cashback <= 0) return 0;
+
+  const balanceBefore = user.balance;
+  user.balance = parseFloat((user.balance + cashback).toFixed(2));
+  await user.save({ session });
+
+  await Transaction.create([{
+    userId: user._id,
+    type: 'cashback',
+    amount: cashback,
+    balanceBefore,
+    balanceAfter: user.balance,
+    note: `VIP cashback (${levelDoc.name} %${levelDoc.cashbackPercent})`,
+  }], { session });
+
+  const io = getIO();
+  if (io) io.to(`user:${user._id}`).emit('balance:update', { balance: user.balance });
+
+  return cashback;
+}
+
+/**
  * Check if user should level up and apply rewards
  */
 async function checkLevelUp(user, session) {

@@ -47,6 +47,13 @@ CasinoRoundSchema.post('save', async function() {
     } catch (e) {
       console.error('[referral] CasinoRound post-save error:', e.message);
     }
+    // VIP cashback — inhouse turlarında stake üzerinden cashback
+    try {
+      const { payCashback } = await import('../services/vip.js');
+      await payCashback(this.userId, this.bet);
+    } catch (e) {
+      console.error('[vip] CasinoRound cashback error:', e.message);
+    }
   }
 });
 

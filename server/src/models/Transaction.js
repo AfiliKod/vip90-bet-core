@@ -2,7 +2,7 @@ import mongoose from 'mongoose';
 
 const schema = new mongoose.Schema({
   userId:        { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true },
-  type:          { type: String, enum: ['deposit','withdraw','bet','win','bonus','refund','admin_adjustment','crypto_deposit','crypto_withdraw','casino_return','bonus_conversion','referral_commission','bonus_forfeit','agent_transfer_in','agent_transfer_out','agent_commission','tip_sent','tip_received','rain'], required: true },
+  type:          { type: String, enum: ['deposit','withdraw','bet','win','bonus','refund','admin_adjustment','crypto_deposit','crypto_withdraw','casino_return','bonus_conversion','referral_commission','bonus_forfeit','agent_transfer_in','agent_transfer_out','agent_commission','tip_sent','tip_received','rain','cashback'], required: true },
   amount:        { type: Number, required: true },
   balanceBefore: { type: Number, required: true },
   balanceAfter:  { type: Number, required: true },

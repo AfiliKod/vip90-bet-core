@@ -90,6 +90,7 @@ export default {
     'profile.refund': 'Rückerstattung',
     'profile.casinoReturn': 'Casino-Rückkehr',
     'profile.bonusConversion': 'Bonus-Umwandlung',
+    'profile.cashback': 'Cashback',
     'profile.cryptoDeposit': 'Krypto-Einzahlung',
     'profile.cryptoWithdraw': 'Krypto-Auszahlung',
     'profile.usdt': 'USDT',
@@ -1859,4 +1860,36 @@ export default {
 
   "admin.moduleCards.disabledNotice": "Dieses Modul ist derzeit deaktiviert — die nachstehenden Einstellungen wirken sich nicht auf den Server aus, bis das Modul wieder aktiviert wird.",
 
+  // TODO: bu bloğu Almanca'ye çevir
+  "admin.dashboard.payments.title": "Payment Requests",
+  "admin.dashboard.payments.desc": "Bank and crypto deposit/withdrawal approvals",
+  "admin.dashboard.kpi.totalUsers": "Total Users",
+  "admin.dashboard.kpi.newToday": "+{count} new today",
+  "admin.dashboard.kpi.todayRevenue": "Today's Revenue",
+  "admin.dashboard.kpi.revenueBreakdown": "Casino {casino} · Betting {sports}",
+  "admin.dashboard.kpi.pendingActions": "Pending Actions",
+  "admin.dashboard.kpi.pendingBreakdown": "{payments} payments · {tickets} support",
+  "admin.dashboard.kpi.online": "Online Now",
+  "admin.dashboard.kpi.onlineSub": "real-time",
+  "admin.dashboard.revenue.title": "Revenue Overview",
+  "admin.dashboard.revenue.hint": "Daily casino and betting revenue trend",
+  "admin.dashboard.revenue.range7": "7D",
+  "admin.dashboard.revenue.range30": "30D",
+  "admin.dashboard.revenue.range90": "90D",
+  "admin.dashboard.revenue.legendCasino": "Casino GGR",
+  "admin.dashboard.revenue.legendSports": "Betting GGR",
+  "admin.dashboard.revenue.totalCasino": "Casino total",
+  "admin.dashboard.revenue.totalSports": "Betting total",
+  "admin.dashboard.revenue.totalAll": "Combined total",
+  "admin.dashboard.split.title": "Revenue Split",
+
+  // TODO: bu bloğu Almanca'ye çevir
+  "admin.casinoStats.liveStatusTitle": "Palace Live Status",
+  "admin.casinoStats.topSpendingUsers": "Top Spending Users",
+  "admin.casinoStats.noDataYet": "No data yet",
+  "admin.casinoStats.unknown": "Unknown",
+  "admin.casinoStats.roundsCount": "{count} rounds",
+  "admin.casinoStats.palaceManagement": "Palace Management",
+
+  "admin.dashboard.split.noPositiveData": "No positive net revenue for this period.",
 };
