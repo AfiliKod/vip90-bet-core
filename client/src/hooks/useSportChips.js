@@ -1,5 +1,5 @@
 import { useMemo } from 'react';
-import { SPORT_META } from '../utils/sportMeta';
+import { SPORT_META, sportLabel } from '../utils/sportMeta';
 
 // Sidebar.jsx'teki SPORT_ORDER ile birebir aynı — spor kategori sırası
 // tüm gezinme yüzeylerinde (masaüstü sidebar + mobil chip satırı) tutarlı olsun diye.
@@ -12,7 +12,7 @@ const SPORT_ORDER = [
 // Verilen event listesinden mevcut sporları çıkarır, SPORT_ORDER'a göre sıralar
 // ve her biri için { id, label, icon, count } döner. Mobil "kategori" chip
 // satırları (Bahis.jsx, Live.jsx) için kullanılır.
-export function useSportChips(events) {
+export function useSportChips(events, locale) {
   return useMemo(() => {
     const counts = {};
     for (const ev of events) {
@@ -24,9 +24,9 @@ export function useSportChips(events) {
     const unordered = allSports.filter(s => !SPORT_ORDER.includes(s)).sort();
     return [...ordered, ...unordered].map(sport => ({
       id: sport,
-      label: SPORT_META[sport]?.label ?? sport,
+      label: sportLabel(sport, locale),
       icon: SPORT_META[sport]?.icon ?? '🏆',
       count: counts[sport],
     }));
-  }, [events]);
+  }, [events, locale]);
 }

@@ -1,7 +1,8 @@
 import { useEffect, useState, useMemo } from 'react';
 import { useTranslation } from '../i18n';
 import { useEventsStore, groupByLeague } from '../store/eventsStore';
-import { SPORT_META, sportIconMaterial } from '../utils/sportMeta';
+import { SPORT_META, sportIconMaterial, sportLabel } from '../utils/sportMeta';
+import { translateLeague } from '../utils/i18n';
 import { useSportChips } from '../hooks/useSportChips';
 import MiniEventCard from '../components/MiniEventCard';
 import LeagueGroup from '../components/LeagueGroup';
@@ -14,7 +15,7 @@ import { SURFACE_CARD_BG, SURFACE_BORDER } from '../styles/surface';
 import { hasDisplayableOdds } from '../utils/oddsUtils';
 
 export default function Live() {
-  const { t } = useTranslation();
+  const { t, locale } = useTranslation();
   const {
     events, isLoading, fetchEvents, initSocket, cleanup,
     selectedSport, selectedLeague, setSportFilter, setLeagueFilter,
@@ -37,7 +38,7 @@ export default function Live() {
     () => events.filter(e => e.status === 'live' && hasDisplayableOdds(e)),
     [events]
   );
-  const sportChips = useSportChips(liveEvents);
+  const sportChips = useSportChips(liveEvents, locale);
 
   const groupedEvents = useMemo(() => {
     let evs = liveEvents;
@@ -94,11 +95,11 @@ export default function Live() {
       .slice(0, 5)
       .map(lg => ({
         key: lg.key,
-        label: lg.key.includes(' > ') ? lg.key.split(' > ').at(-1) : lg.key,
+        label: translateLeague(lg.key.includes(' > ') ? lg.key.split(' > ').at(-1) : lg.key, locale),
         badge: lg.count,
         onClick: () => setLeagueFilter(lg.sport, lg.key),
       }));
-  }, [liveEvents, setLeagueFilter]);
+  }, [liveEvents, setLeagueFilter, locale]);
 
   return (
     <div className="min-h-full lg:flex lg:gap-5 lg:px-5 lg:pt-5 lg:items-stretch">
@@ -155,7 +156,7 @@ export default function Live() {
           ) : hierarchicalGroups !== null ? (
             <div>
               {[...hierarchicalGroups.entries()].map(([s, sportEvents]) => {
-                const meta = SPORT_META[s] ?? { icon: '🏆', label: s };
+                const meta = { icon: SPORT_META[s]?.icon ?? '🏆', label: sportLabel(s, locale) };
                 const totalCount = sportEvents.length;
                 const isCollapsed = !!collapsedSports[s];
                 return (

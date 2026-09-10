@@ -1,6 +1,7 @@
 import { useEffect, useState, useMemo } from 'react';
 import { useEventsStore, leagueKey } from '../store/eventsStore';
 import { SPORT_META, sportIconMaterial, sportLabel } from '../utils/sportMeta';
+import { translateLeague } from '../utils/i18n';
 import LazyLeagueGroup from '../components/LazyLeagueGroup';
 import BetSlip, { SlipContent } from '../components/BetSlip';
 import PromoHeroSlider from '../components/home/PromoHeroSlider';
@@ -97,11 +98,11 @@ export default function Bahis() {
       .slice(0, 5)
       .map(lg => ({
         key: `${lg.sport}:${lg.key}`,
-        label: lg.key.includes(' > ') ? lg.key.split(' > ').at(-1) : lg.key,
+        label: translateLeague(lg.league, locale),
         badge: lg.count,
         onClick: () => setFocusLeague({ sport: lg.sport, country: lg.country, league: lg.league }),
       }));
-  }, [summary, setFocusLeague]);
+  }, [summary, setFocusLeague, locale]);
 
   return (
     <div className="min-h-full lg:flex lg:gap-5 lg:px-5 lg:pt-5 lg:items-stretch">

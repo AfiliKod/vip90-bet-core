@@ -12,7 +12,7 @@ import { useBetSlipStore } from '../store/betSlipStore';
 import { useSettingsStore } from '../store/settingsStore';
 import { useOddFlash } from '../hooks/useOddFlash';
 import { useEventsStore } from '../store/eventsStore';
-import { SPORT_META, sportIconMaterial } from '../utils/sportMeta';
+import { sportIconMaterial, sportLabel } from '../utils/sportMeta';
 import { SURFACE_CARD_BG, SURFACE_BORDER } from '../styles/surface';
 import { useTranslation } from '../i18n';
 
@@ -199,7 +199,7 @@ function MarketAccordion({ market, eventId, eventLabel, defaultOpen }) {
 }
 
 export default function EventDetail() {
-  const { t } = useTranslation();
+  const { t, locale } = useTranslation();
   const { id } = useParams();
   const [event, setEvent] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -258,7 +258,7 @@ export default function EventDetail() {
         ...[...bySport.entries()].map(([sport, count]) => ({
           key: sport,
           icon: sportIconMaterial(sport),
-          label: (SPORT_META[sport] ?? { label: sport }).label,
+          label: sportLabel(sport, locale),
           badge: count,
           onClick: () => {},
           active: sport === event.sport,
@@ -271,13 +271,13 @@ export default function EventDetail() {
       ...(summary?.sports || []).map(s => ({
         key: s.sport,
         icon: sportIconMaterial(s.sport),
-        label: (SPORT_META[s.sport] ?? { label: s.sport }).label,
+        label: sportLabel(s.sport, locale),
         badge: s.count,
         onClick: () => {},
         active: s.sport === event.sport,
       })),
     ];
-  }, [event, isLive, liveEvents, summary, t]);
+  }, [event, isLive, liveEvents, summary, t, locale]);
 
   const featuredLeagues = useMemo(() => {
     if (!event) return [];
