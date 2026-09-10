@@ -344,3 +344,9 @@ export const updatePalaceModuleSettingsSchema = z.object({
   language: z.string().min(2).max(5).optional(),
   popularGameCodes: z.array(z.string()).optional(),
 });
+
+export const updatePalaceCredentialsSchema = z.object({
+  apiToken: z.string().min(1).optional(),
+  apiBase: z.string().url().optional(),
+  callbackToken: z.string().min(1).optional(),
+});

@@ -237,7 +237,7 @@ function InhouseProviderBody() {
           </button>
         ) : (
           <div className="p-3 rounded-lg bg-red-500/10 border border-red-500/30">
-            <p className="text-sm text-red-300 mb-2">Emin misiniz? Eski anahtar HEMEN geçersiz olur, .env güncellenip sunucu yeniden başlatılana kadar in-house oyunlar çalışmaz.</p>
+            <p className="text-sm text-red-300 mb-2">Emin misiniz? Eski anahtar HEMEN geçersiz olur — değişiklik anında aktif olur, restart gerekmez.</p>
             <div className="flex gap-2">
               <button onClick={doRotate} disabled={rotating} className="text-xs px-3 py-1.5 rounded bg-red-500/80 hover:bg-red-500 text-white transition disabled:opacity-50">
                 {rotating ? 'Üretiliyor…' : 'Evet, yeni anahtar üret'}
@@ -259,7 +259,9 @@ function OddsProviderBody() {
   const addToast = useToastStore(s => s.add);
   const [settings, setSettings] = useState(null);
   const [saving, setSaving] = useState(false);
-  const [suggestedToken, setSuggestedToken] = useState(null);
+  const [tokenInput, setTokenInput] = useState('');
+  const [applying, setApplying] = useState(false);
+  const [lastPush, setLastPush] = useState(null);
 
   const load = useCallback(async () => {
     try {
@@ -294,12 +296,39 @@ function OddsProviderBody() {
     save({ enabledCategories: next });
   }
 
-  async function suggestToken() {
+  function fillRandomToken() {
+    setTokenInput(Array.from(crypto.getRandomValues(new Uint8Array(32))).map(b => b.toString(16).padStart(2, '0')).join(''));
+  }
+
+  async function applyToken() {
+    if (!tokenInput || tokenInput.length < 16) {
+      addToast('Token en az 16 karakter olmalı.', 'error');
+      return;
+    }
+    setApplying(true);
     try {
-      const { data } = await api.post('/admin/odds-provider/suggest-token');
-      setSuggestedToken(data);
+      const { data } = await api.post('/admin/odds-provider/token', { token: tokenInput });
+      setLastPush(data);
+      setTokenInput('');
+      load();
+      addToast(data.pushed ? 'Token kaydedildi ve odds-provider\'a iletildi — restart gerekmedi.' : 'Token kaydedildi ama odds-provider\'a iletilemedi.', data.pushed ? 'success' : 'error');
     } catch (e) {
-      addToast(e.response?.data?.error || 'Öneri üretilemedi.', 'error');
+      addToast(e.response?.data?.error || 'Kaydetme başarısız.', 'error');
+    } finally {
+      setApplying(false);
+    }
+  }
+
+  async function retryPush() {
+    setApplying(true);
+    try {
+      const { data } = await api.post('/admin/odds-provider/token/retry-push');
+      setLastPush(data);
+      addToast(data.pushed ? 'odds-provider\'a iletildi.' : 'Hâlâ ulaşılamadı.', data.pushed ? 'success' : 'error');
+    } catch (e) {
+      addToast(e.response?.data?.error || 'Tekrar deneme başarısız.', 'error');
+    } finally {
+      setApplying(false);
     }
   }
 
@@ -333,25 +362,49 @@ function OddsProviderBody() {
             <span className="text-xs px-2 py-0.5 rounded-full border bg-red-500/20 text-red-300 border-red-500/30">✗ Ayarlı değil</span>
           )}
         </div>
-        <div className="p-3 rounded-lg bg-amber-500/10 border border-amber-500/30 mb-3">
-          <p className="text-xs text-amber-300/90">
-            Aşağıdaki buton yalnızca RASTGELE BİR ÖNERİ üretir — panele girildiği an hiçbir şeyi
-            değiştirmez veya aktive etmez. Kullanılabilmesi için bir sunucu operatörünün bu değeri
-            hem <code className="bg-black/30 px-1 rounded">server/.env</code> hem <code className="bg-black/30 px-1 rounded">odds-provider/.env</code> dosyasına
-            aynı şekilde yazıp HER İKİ servisi de elle yeniden başlatması gerekir. Operatörler bu
-            butonu "API'yi etkinleştir" sanıp tıklamamalı.
-          </p>
+
+        {lastPush && !lastPush.pushed && (
+          <div className="p-3 rounded-lg bg-red-500/10 border border-red-500/30 mb-3">
+            <p className="text-xs text-red-300 mb-2">{lastPush.message || 'odds-provider\'a iletilemedi.'}</p>
+            <button
+              type="button"
+              onClick={retryPush}
+              disabled={applying}
+              className="text-xs px-3 py-1.5 rounded bg-red-500/20 border border-red-500/30 text-red-300 hover:bg-red-500/30 transition disabled:opacity-50"
+            >
+              {applying ? 'Deneniyor…' : 'Yeniden Gönder'}
+            </button>
+          </div>
+        )}
+
+        <div className="flex items-center gap-2">
+          <input
+            type="text"
+            placeholder="Yeni ODDS_PROVIDER_API_TOKEN…"
+            value={tokenInput}
+            onChange={e => setTokenInput(e.target.value)}
+            className="flex-1 bg-black/30 border border-white/10 rounded-lg px-3 py-2 text-sm text-text-1 font-mono"
+          />
+          <button
+            type="button"
+            onClick={fillRandomToken}
+            className="text-xs px-2.5 py-2 rounded-lg bg-white/5 border border-white/10 text-text-2 hover:border-white/20 transition shrink-0"
+          >
+            🎲 Rastgele
+          </button>
         </div>
         <button
           type="button"
-          onClick={suggestToken}
-          className="text-xs px-3 py-2 rounded-lg bg-white/5 border border-white/10 text-text-2 hover:border-white/20 transition"
+          onClick={applyToken}
+          disabled={applying || !tokenInput}
+          className="mt-2 text-xs px-3 py-2 rounded-lg bg-primary/20 border border-primary/40 text-primary hover:bg-primary/30 transition disabled:opacity-40"
         >
-          🔑 Rastgele Token Öner (manuel kurulum gerekir)
+          {applying ? 'Uygulanıyor…' : 'Kaydet ve Uygula'}
         </button>
-        {suggestedToken && (
-          <CopyBox label="Önerilen ODDS_PROVIDER_API_TOKEN" value={suggestedToken.suggestedToken} warning={suggestedToken.warning} />
-        )}
+        <p className="text-xs text-text-3 mt-1">
+          Kaydedince hem bu sunucuya hem odds-provider'a anında iletilir — restart gerekmez
+          (odds-provider o an ayakta değilse "Yeniden Gönder" ile tekrar denenebilir).
+        </p>
       </div>
     </>
   );
@@ -366,6 +419,40 @@ function PalaceModuleBody() {
   const [search, setSearch] = useState('');
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+  const [credStatus, setCredStatus] = useState(null);
+  const [credForm, setCredForm] = useState({ apiToken: '', apiBase: '', callbackToken: '' });
+  const [savingCreds, setSavingCreds] = useState(false);
+
+  const loadCredStatus = useCallback(async () => {
+    try {
+      const { data } = await api.get('/admin/palace/credentials');
+      setCredStatus(data);
+      setCredForm(f => ({ ...f, apiBase: f.apiBase || data.apiBase || '' }));
+    } catch {
+      addToast('Palace API durumu alınamadı.', 'error');
+    }
+  }, [addToast]);
+
+  useEffect(() => { loadCredStatus(); }, [loadCredStatus]);
+
+  async function saveCredentials() {
+    const patch = {};
+    if (credForm.apiToken) patch.apiToken = credForm.apiToken;
+    if (credForm.apiBase) patch.apiBase = credForm.apiBase;
+    if (credForm.callbackToken) patch.callbackToken = credForm.callbackToken;
+    if (!Object.keys(patch).length) return;
+    setSavingCreds(true);
+    try {
+      const { data } = await api.patch('/admin/palace/credentials', patch);
+      setCredStatus(data);
+      setCredForm({ apiToken: '', apiBase: data.apiBase || '', callbackToken: '' });
+      addToast('Palace API bilgileri güncellendi — anında aktif oldu, restart gerekmiyor.', 'success');
+    } catch (e) {
+      addToast(e.response?.data?.error || 'Güncelleme başarısız.', 'error');
+    } finally {
+      setSavingCreds(false);
+    }
+  }
 
   useEffect(() => {
     (async () => {
@@ -450,6 +537,61 @@ function PalaceModuleBody() {
         >
           {LANGUAGE_OPTIONS.map(l => <option key={l.code} value={l.code}>{l.label}</option>)}
         </select>
+      </div>
+
+      <div className="mt-5 pt-4 border-t border-white/8">
+        <div className="text-[10px] uppercase tracking-wide text-text-3 mb-2">API Bağlantısı</div>
+        {credStatus && (
+          <div className="flex flex-wrap gap-2 mb-3">
+            {credStatus.apiTokenConfigured ? <Chip>✓ API Token ayarlı</Chip> : (
+              <span className="text-xs px-2 py-0.5 rounded-full border bg-red-500/20 text-red-300 border-red-500/30">✗ API Token ayarlı değil</span>
+            )}
+            {credStatus.callbackTokenConfigured ? <Chip>✓ Callback Token ayarlı</Chip> : (
+              <span className="text-xs px-2 py-0.5 rounded-full border bg-red-500/20 text-red-300 border-red-500/30">✗ Callback Token ayarlı değil</span>
+            )}
+          </div>
+        )}
+        <div className="space-y-2">
+          <div>
+            <label className="text-[10px] uppercase tracking-wide text-text-3 mb-1 block">API Token</label>
+            <input
+              type="password"
+              placeholder={credStatus?.apiTokenConfigured ? 'Değiştirmek için yeni değer girin…' : 'API token girin…'}
+              value={credForm.apiToken}
+              onChange={e => setCredForm(f => ({ ...f, apiToken: e.target.value }))}
+              className="w-full bg-black/30 border border-white/10 rounded-lg px-3 py-2 text-sm text-text-1"
+            />
+          </div>
+          <div>
+            <label className="text-[10px] uppercase tracking-wide text-text-3 mb-1 block">API Base URL</label>
+            <input
+              type="text"
+              placeholder="https://api.casino-provider.example"
+              value={credForm.apiBase}
+              onChange={e => setCredForm(f => ({ ...f, apiBase: e.target.value }))}
+              className="w-full bg-black/30 border border-white/10 rounded-lg px-3 py-2 text-sm text-text-1"
+            />
+          </div>
+          <div>
+            <label className="text-[10px] uppercase tracking-wide text-text-3 mb-1 block">Callback Token</label>
+            <input
+              type="password"
+              placeholder={credStatus?.callbackTokenConfigured ? 'Değiştirmek için yeni değer girin…' : 'Callback token girin…'}
+              value={credForm.callbackToken}
+              onChange={e => setCredForm(f => ({ ...f, callbackToken: e.target.value }))}
+              className="w-full bg-black/30 border border-white/10 rounded-lg px-3 py-2 text-sm text-text-1"
+            />
+          </div>
+        </div>
+        <button
+          type="button"
+          onClick={saveCredentials}
+          disabled={savingCreds || (!credForm.apiToken && !credForm.apiBase && !credForm.callbackToken)}
+          className="mt-2 text-xs px-3 py-2 rounded-lg bg-primary/20 border border-primary/40 text-primary hover:bg-primary/30 transition disabled:opacity-40"
+        >
+          {savingCreds ? 'Kaydediliyor…' : 'API Bilgilerini Kaydet'}
+        </button>
+        <p className="text-xs text-text-3 mt-1">Boş bırakılan alan değiştirilmez. Kaydedince anında aktif olur, restart gerekmez.</p>
       </div>
 
       <div className="mt-5 pt-4 border-t border-white/8">

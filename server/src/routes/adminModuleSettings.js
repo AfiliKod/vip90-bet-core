@@ -12,6 +12,7 @@ import {
   updateInhouseProviderSettingsSchema,
   updateOddsProviderSettingsSchema,
   updatePalaceModuleSettingsSchema,
+  updatePalaceCredentialsSchema,
 } from '../validators/admin.js';
 import {
   getInhouseProviderSettings,
@@ -24,11 +25,21 @@ import {
   AVAILABLE_CATEGORIES,
 } from '../services/oddsProviderSettings.js';
 import {
+  isOddsProviderTokenConfigured,
+  saveOddsProviderToken,
+  pushTokenToOddsProvider,
+  getOddsProviderToken,
+} from '../services/oddsProviderToken.js';
+import {
   getPalaceDefaultLanguage,
   setPalaceDefaultLanguage,
   getPopularGameCodes,
   setPopularGameCodes,
 } from '../services/palaceModuleSettings.js';
+import {
+  getPalaceCredentialsStatus,
+  savePalaceCredentials,
+} from '../services/palaceCredentials.js';
 import { randomBytes } from 'crypto';
 
 const r = Router();
@@ -56,7 +67,7 @@ r.post('/inhouse-provider/rotate-key', async (req, res, next) => {
     res.json({
       apiKeyId,
       apiKeySecret,
-      warning: 'Bu secret bir daha gösterilmeyecek. Hemen server/.env dosyasındaki INHOUSE_PROVIDER_API_SECRET değerini bununla değiştirip sunucuyu yeniden başlatın — aksi halde in-house oyunlar 401 ile başarısız olur.',
+      warning: 'Bu secret bir daha gösterilmeyecek — şimdi kaydedin. Değişiklik ANINDA aktif oldu, restart gerekmiyor.',
     });
   } catch (e) { next(e); }
 });
@@ -68,7 +79,7 @@ r.get('/odds-provider/settings', async (req, res, next) => {
     res.json({
       ...settings,
       availableCategories: AVAILABLE_CATEGORIES,
-      tokenConfigured: !!process.env.ODDS_PROVIDER_API_TOKEN,
+      tokenConfigured: await isOddsProviderTokenConfigured(),
     });
   } catch (e) { next(e); }
 });
@@ -79,7 +90,7 @@ r.patch('/odds-provider/settings', validate(updateOddsProviderSettingsSchema), a
     res.json({
       ...updated,
       availableCategories: AVAILABLE_CATEGORIES,
-      tokenConfigured: !!process.env.ODDS_PROVIDER_API_TOKEN,
+      tokenConfigured: await isOddsProviderTokenConfigured(),
     });
   } catch (e) {
     if (e.message.includes('olmalı')) return res.status(400).json({ error: e.message });
@@ -88,10 +99,35 @@ r.patch('/odds-provider/settings', validate(updateOddsProviderSettingsSchema), a
 });
 
 r.post('/odds-provider/suggest-token', (req, res) => {
-  res.json({
-    suggestedToken: randomBytes(32).toString('hex'),
-    warning: 'Bu öneri hiçbir yere kaydedilmedi. Kullanmak için hem server/.env hem odds-provider/.env dosyalarına ODDS_PROVIDER_API_TOKEN olarak AYNI değeri yazıp HER İKİ servisi de yeniden başlatın.',
-  });
+  res.json({ suggestedToken: randomBytes(32).toString('hex') });
+});
+
+/**
+ * Yeni token'ı DB'ye şifreli kaydeder VE odds-provider'ın `/internal/
+ * auth-token` ucuna push'lar — restart gerekmez (bkz. services/
+ * oddsProviderToken.js). odds-provider o an ayakta değilse push başarısız
+ * olur ama kayıt kalır — `pushed:false` + `message` ile admin'e bildirilir,
+ * "Yeniden Gönder" (retry-push) ile tekrar denenebilir.
+ */
+r.post('/odds-provider/token', async (req, res, next) => {
+  try {
+    const { token } = req.body || {};
+    if (!token || typeof token !== 'string' || token.length < 16) {
+      return res.status(400).json({ error: 'token en az 16 karakter olmalı' });
+    }
+    await saveOddsProviderToken(token, req.user?.id);
+    const pushResult = await pushTokenToOddsProvider(token);
+    res.json({ saved: true, ...pushResult });
+  } catch (e) { next(e); }
+});
+
+r.post('/odds-provider/token/retry-push', async (req, res, next) => {
+  try {
+    const current = await getOddsProviderToken();
+    if (!current) return res.status(400).json({ error: 'Henüz kaydedilmiş bir token yok' });
+    const pushResult = await pushTokenToOddsProvider(current);
+    res.json({ saved: true, ...pushResult });
+  } catch (e) { next(e); }
 });
 
 // ─── Palace Casino modül ayarları ──────────────────────────────────────────
@@ -118,6 +154,18 @@ r.patch('/palace/module-settings', validate(updatePalaceModuleSettingsSchema), a
     if (e.message.includes('olmalı')) return res.status(400).json({ error: e.message });
     next(e);
   }
+});
+
+r.get('/palace/credentials', async (req, res, next) => {
+  try {
+    res.json(await getPalaceCredentialsStatus());
+  } catch (e) { next(e); }
+});
+
+r.patch('/palace/credentials', validate(updatePalaceCredentialsSchema), async (req, res, next) => {
+  try {
+    res.json(await savePalaceCredentials(req.body, req.user?.id));
+  } catch (e) { next(e); }
 });
 
 export default r;
