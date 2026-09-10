@@ -1857,4 +1857,6 @@ export default {
   "admin.moduleCards.collapseSettings": "Ayarları kapat",
   "admin.moduleCards.expandSettings": "Ayarları aç",
 
+  "admin.moduleCards.disabledNotice": "Bu modül şu anda kapalı — aşağıdaki ayarlar sunucu tarafında etkisizdir, yalnızca modül tekrar açıldığında geçerli olur.",
+
 };

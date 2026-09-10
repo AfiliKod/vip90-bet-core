@@ -1858,4 +1858,7 @@ export default {
   "admin.moduleCards.collapseSettings": "Collapse settings",
   "admin.moduleCards.expandSettings": "Expand settings",
 
+  // TODO: bu bloğu Japonca'ye çevir
+  "admin.moduleCards.disabledNotice": "This module is currently off — the settings below have no effect on the server until the module is enabled again.",
+
 };

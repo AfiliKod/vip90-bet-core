@@ -78,6 +78,15 @@ export default function ModuleCard({
       </div>
       {open && (
         <div className="px-4 sm:px-5 pb-5 pt-1 border-t border-white/8">
+          {/* Modül kapalıyken aşağıdaki ayarlar (ör. KYC Active gibi ayrı bir
+              iş-kuralı switch'i) sunucu tarafında zaten etkisiz — moduleGate
+              tüm rotayı bloklar. Bunu belirtmeden ayarların "açık" görünmesi
+              üstteki kapalı switch'le çelişiyormuş gibi algılanabiliyor. */}
+          {!alwaysOn && !enabled && (
+            <p className="text-xs text-amber-300/80 bg-amber-500/10 border border-amber-500/20 rounded-lg px-3 py-2 mt-3 mb-1">
+              {t('admin.moduleCards.disabledNotice')}
+            </p>
+          )}
           {children}
         </div>
       )}
