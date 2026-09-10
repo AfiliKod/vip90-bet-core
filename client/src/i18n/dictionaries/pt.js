@@ -1293,6 +1293,9 @@ export default {
   'admin.settings.region.timezoneLabel': 'Fuso Horário',
   'admin.settings.region.timezoneHelp': 'Nome da região IANA (ex: America/Sao_Paulo, Europe/London). O servidor armazena datas em UTC; esta configuração determina apenas para qual fuso horário converter na exibição.',
   'admin.settings.region.timezoneSaved': 'Fuso horário atualizado',
+  'admin.settings.region.defaultLocaleLabel': 'Idioma Padrão',
+  'admin.settings.region.defaultLocaleHelp': 'O idioma exibido para visitantes que nunca escolheram um antes (novos visitantes). Assim que um usuário escolhe seu próprio idioma na barra de navegação, esse padrão nunca mais se aplica a ele — não confundir com "Idioma do Painel" (abaixo), que altera apenas a SUA própria visão de administrador.',
+  'admin.settings.region.defaultLocaleSaved': 'Idioma padrão atualizado',
 
   // Página de Status
   'status.component.api.label': 'Servidor API',

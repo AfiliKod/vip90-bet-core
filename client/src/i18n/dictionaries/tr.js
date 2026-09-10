@@ -1292,6 +1292,9 @@ export default {
   'admin.settings.region.timezoneLabel': 'Saat Dilimi',
   'admin.settings.region.timezoneHelp': 'IANA bölge adı (ör. Europe/Istanbul, Europe/London). Sunucu tarihleri UTC saklar; bu ayar yalnızca ekranda gösterilirken hangi bölgeye çevrileceğini belirler.',
   'admin.settings.region.timezoneSaved': 'Saat dilimi güncellendi',
+  'admin.settings.region.defaultLocaleLabel': 'Varsayılan Dil',
+  'admin.settings.region.defaultLocaleHelp': 'Daha önce hiç dil seçmemiş (yeni) ziyaretçilerin göreceği dil. Bir kullanıcı navbar\'dan kendi dilini seçtiğinde bu varsayılan bir daha hiç devreye girmez — "Panel Dili" (aşağıda) ile karıştırılmamalı, bu SADECE sizin panel görünümünüzü değiştirir.',
+  'admin.settings.region.defaultLocaleSaved': 'Varsayılan dil güncellendi',
 
   // Status sayfası
   'status.component.api.label': 'API Sunucusu',

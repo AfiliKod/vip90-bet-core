@@ -15,29 +15,57 @@ import { useTranslation } from '../../i18n';
  * client/src/utils/money.js'in formatMoney'i hiçbir kur dönüşümü
  * yapmıyor, aynı ham sayıyı farklı sembol/locale ile gösteriyor. Bu,
  * operatörün yanlış anlamaması için bilgi kutusunda açıkça belirtiliyor.
+ *
+ * 2026-09-10: "Varsayılan Dil" alanı eklendi — bu, `PanelLanguageCard`'ın
+ * (aşağıda) değiştirdiği "BU admin'in KENDİ panel dili" ile KARIŞTIRILMAMALI.
+ * Buradaki, `localStorage`'da HİÇ dil seçimi olmayan (ilk ziyaretçi)
+ * kullanıcıların göreceği SİTE GENELİ varsayılanı — `services/locale.js`,
+ * `GET/PUT /admin/settings/default-locale`. Kullanıcı navbar'dan kendi
+ * dilini seçtiği an bu varsayılan bir daha hiç devreye girmez (bkz.
+ * I18nProvider.jsx `hasStoredChoice`).
  */
 function RegionCurrencyCard({ t }) {
   const [currency, setCurrency] = useState(null);
   const [timezone, setTimezone] = useState('');
   const [tzInput, setTzInput] = useState('');
+  const [defaultLocale, setDefaultLocale] = useState('tr');
+  const [supportedLocales, setSupportedLocales] = useState([]);
   const [loading, setLoading] = useState(true);
   const [savingCurrency, setSavingCurrency] = useState(false);
   const [savingTimezone, setSavingTimezone] = useState(false);
+  const [savingLocale, setSavingLocale] = useState(false);
   const [notice, setNotice] = useState(null);
 
   useEffect(() => {
     Promise.all([
       api.get('/admin/currency'),
       api.get('/admin/settings/timezone'),
+      api.get('/admin/settings/default-locale'),
     ])
-      .then(([currencyRes, tzRes]) => {
+      .then(([currencyRes, tzRes, localeRes]) => {
         setCurrency(currencyRes.data);
         setTimezone(tzRes.data.timezone);
         setTzInput(tzRes.data.timezone);
+        setDefaultLocale(localeRes.data.locale);
+        setSupportedLocales(localeRes.data.supportedLocales || []);
       })
       .catch(() => setNotice({ type: 'error', text: t('admin.settings.loadFailed') }))
       .finally(() => setLoading(false));
   }, [t]);
+
+  async function saveDefaultLocale(code) {
+    setSavingLocale(true);
+    setNotice(null);
+    try {
+      const r = await api.put('/admin/settings/default-locale', { locale: code });
+      setDefaultLocale(r.data.locale);
+      setNotice({ type: 'ok', text: t('admin.settings.region.defaultLocaleSaved') });
+    } catch (e) {
+      setNotice({ type: 'error', text: e.response?.data?.error?.message || t('admin.settings.saveFailed') });
+    } finally {
+      setSavingLocale(false);
+    }
+  }
 
   async function saveCurrency(code) {
     setSavingCurrency(true);
@@ -125,6 +153,27 @@ function RegionCurrencyCard({ t }) {
           >
             {savingTimezone ? t('admin.settings.savingEllipsis') : t('common.save')}
           </button>
+        </div>
+      </div>
+
+      <div className="mt-5 pt-4 border-t border-white/8">
+        <div className="text-xs font-medium text-text-2 mb-1">{t('admin.settings.region.defaultLocaleLabel')}</div>
+        <div className="text-[11px] text-text-3/70 leading-snug mb-2">{t('admin.settings.region.defaultLocaleHelp')}</div>
+        <div className="flex flex-wrap gap-2">
+          {supportedLocales.map(code => (
+            <button
+              key={code}
+              onClick={() => saveDefaultLocale(code)}
+              disabled={savingLocale || code === defaultLocale}
+              className={`px-3 py-1.5 rounded-lg text-xs font-medium border transition disabled:opacity-100 ${
+                code === defaultLocale
+                  ? 'bg-accent/20 text-accent border-accent/30'
+                  : 'border-white/10 text-text-3 hover:text-text-1 hover:border-white/25'
+              }`}
+            >
+              {code.toUpperCase()}
+            </button>
+          ))}
         </div>
       </div>
     </div>

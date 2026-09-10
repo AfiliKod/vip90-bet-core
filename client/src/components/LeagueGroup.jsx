@@ -1,15 +1,13 @@
 import { useState } from 'react';
 import MiniEventCard from './MiniEventCard';
 import MarketDrawer from './MarketDrawer';
-import { useSettingsStore } from '../store/settingsStore';
 import { translateLeagueKey } from '../utils/i18n';
 import { useTranslation } from '../i18n';
 import { SURFACE_CARD_BG, SURFACE_BORDER } from '../styles/surface';
 
 export default function LeagueGroup({ league, leagueFlag, events, openDrawerId, onToggleDrawer, accent, bgColor }) {
   const [collapsed, setCollapsed] = useState(false);
-  const lang = useSettingsStore(s => s.preferences.language);
-  const { t } = useTranslation();
+  const { t, locale: lang } = useTranslation();
   const displayLeague = translateLeagueKey(league, lang);
 
   return (

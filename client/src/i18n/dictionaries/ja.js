@@ -1291,6 +1291,9 @@ export default {
   'admin.settings.region.timezoneLabel': 'タイムゾーン',
   'admin.settings.region.timezoneHelp': 'IANAリージョン名（例: Europe/Istanbul, Europe/London）。サーバー日付はUTCで保存されます。この設定は表示時にどのリージョンに変換するかのみを決定します。',
   'admin.settings.region.timezoneSaved': 'タイムゾーンが更新されました',
+  'admin.settings.region.defaultLocaleLabel': 'デフォルト言語',
+  'admin.settings.region.defaultLocaleHelp': '言語を選択したことがない訪問者（新規訪問者）に表示される言語です。ユーザーがナビバーで自分の言語を選択すると、このデフォルトは二度と適用されません — 下記の「パネル言語」（あなた自身の管理画面のみを変更します）とは異なります。',
+  'admin.settings.region.defaultLocaleSaved': 'デフォルト言語が更新されました',
 
   // Status page
   'status.component.api.label': 'APIサーバー',

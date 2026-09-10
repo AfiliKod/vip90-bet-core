@@ -1292,6 +1292,9 @@ export default {
   'admin.settings.region.timezoneLabel': 'เขตเวลา',
   'admin.settings.region.timezoneHelp': 'IANA timezone (เช่น Europe/Istanbul, Europe/London) เซิร์ฟเวอร์เก็บเป็น UTC การตั้งค่านี้กำหนดเฉพาะว่าจะแสดงเป็นเขตเวลาใดบนหน้าจอ',
   'admin.settings.region.timezoneSaved': 'อัปเดตเขตเวลาแล้ว',
+  'admin.settings.region.defaultLocaleLabel': 'ภาษาเริ่มต้น',
+  'admin.settings.region.defaultLocaleHelp': 'ภาษาที่ผู้เยี่ยมชมที่ไม่เคยเลือกภาษามาก่อน (ผู้เยี่ยมชมใหม่) จะเห็น เมื่อผู้ใช้เลือกภาษาของตัวเองจากแถบนำทางแล้ว ค่าเริ่มต้นนี้จะไม่มีผลกับเขาอีก — อย่าสับสนกับ "ภาษาของแผงควบคุม" (ด้านล่าง) ซึ่งเปลี่ยนเฉพาะมุมมองแอดมินของคุณเองเท่านั้น',
+  'admin.settings.region.defaultLocaleSaved': 'อัปเดตภาษาเริ่มต้นแล้ว',
 
   // Status
   'status.component.api.label': 'API Server',

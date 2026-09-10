@@ -147,11 +147,6 @@ function TabGorunum() {
     ['fractional', t('settings.oddsFormat.fractional')],
     ['american', t('settings.oddsFormat.american')],
   ];
-  const languages = [
-    ['tr', `🇹🇷 ${t('settings.language.tr')}`],
-    ['en', `🇬🇧 ${t('settings.language.en')}`],
-  ];
-
   return (
     <div className="space-y-6">
       <div className="bg-bg-card border border-white/10 rounded-xl p-5">
@@ -200,20 +195,6 @@ function TabGorunum() {
             <button key={v} onClick={() => updatePreference('oddsFormat', v)}
               className={`flex-1 py-2.5 rounded-lg text-sm font-medium border transition-all ${
                 preferences.oddsFormat === v
-                  ? 'bg-primary/20 border-primary text-primary'
-                  : 'bg-bg-base border-white/10 text-text-2 hover:border-white/30'
-              }`}>{l}</button>
-          ))}
-        </div>
-      </div>
-
-      <div className="bg-bg-card border border-white/10 rounded-xl p-5">
-        <h3 className="text-sm font-semibold text-text-1 mb-4">{t('settings.languageTitle')}</h3>
-        <div className="flex gap-2">
-          {languages.map(([v,l]) => (
-            <button key={v} onClick={() => updatePreference('language', v)}
-              className={`flex-1 py-2.5 rounded-lg text-sm font-medium border transition-all ${
-                preferences.language === v
                   ? 'bg-primary/20 border-primary text-primary'
                   : 'bg-bg-base border-white/10 text-text-2 hover:border-white/30'
               }`}>{l}</button>

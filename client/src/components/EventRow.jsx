@@ -4,6 +4,7 @@ import { useBetSlipStore } from '../store/betSlipStore';
 import { formatOdd, pickMainLine } from '../utils/oddsUtils';
 import { useFormatters } from '../i18n/useFormatters.jsx';
 import { useSettingsStore } from '../store/settingsStore';
+import { useTranslation } from '../i18n';
 import { sportIcon } from '../utils/sportMeta';
 import { translateTeam } from '../utils/i18n';
 import { BRAND_GRADIENT, BRAND_GLOW } from '../styles/brand';
@@ -57,7 +58,7 @@ function OddCell({ eventId, eventLabel, market, targetLabel, fallbackIndex, oddO
 
 export default function EventRow({ event, isDrawerOpen, onToggleDrawer }) {
   const isMobile = useIsMobile();
-  const lang = useSettingsStore(s => s.preferences.language);
+  const { locale: lang } = useTranslation();
   const fmt = useFormatters();
   const homeName = translateTeam(event.homeTeam.name, lang);
   const awayName = translateTeam(event.awayTeam.name, lang);

@@ -4,6 +4,7 @@ import { useFormatters } from '../i18n/useFormatters.jsx';
 import { useSettingsStore } from '../store/settingsStore';
 import { sportIcon } from '../utils/sportMeta';
 import { formatOdd, pickMainLine, hasDisplayableOdds } from '../utils/oddsUtils';
+import { translateTeam } from '../utils/i18n';
 import { BRAND_GRADIENT, BRAND_GLOW } from '../styles/brand';
 import { useOddFlash } from '../hooks/useOddFlash';
 import { useTranslation } from '../i18n';
@@ -48,9 +49,10 @@ function MiniOddButton({ eventId, eventLabel, odd, label, smallLabel, marketType
 
 export default function MiniEventCard({ event, live, onExtraClick, accent: accentProp, bgColor }) {
   const navigate = useNavigate();
-  const lang = useSettingsStore(s => s.preferences.language);
-  const { t } = useTranslation();
+  const { t, locale: lang } = useTranslation();
   const fmt = useFormatters();
+  const homeName = translateTeam(event.homeTeam?.name, lang);
+  const awayName = translateTeam(event.awayTeam?.name, lang);
 
   const mainMarket = event.markets?.find(m => m.type === 'maç_sonucu') ?? event.markets?.[0];
   const ouMarket = event.markets?.find(m => m.type === 'alt_üst');
@@ -70,7 +72,7 @@ export default function MiniEventCard({ event, live, onExtraClick, accent: accen
   // Kaynağın gösterdiği tam market sayısı (benzersiz market_id, ör. 148) — grup değil.
   const extraCount = Math.max(0, (event.marketCount || event.marketsCount || event.markets?.length || 0) - 1);
   const accent = accentProp || (live ? '#ef4444' : '#00d4ff');
-  const eventLabel = `${event.homeTeam?.name} vs ${event.awayTeam?.name}`;
+  const eventLabel = `${homeName} vs ${awayName}`;
 
   const dateStr = fmt.formatDate(event.startTime);
   const timeStr = fmt.formatTime(event.startTime);
@@ -102,13 +104,13 @@ export default function MiniEventCard({ event, live, onExtraClick, accent: accen
 
         <button onClick={() => navigate(`/events/${event._id}`)} className="w-full mb-2.5">
           <div className="flex items-center gap-3">
-            <span className="text-[13px] font-bold text-text-1 truncate flex-1 text-left">{event.homeTeam?.name}</span>
+            <span className="text-[13px] font-bold text-text-1 truncate flex-1 text-left">{homeName}</span>
             {live && event.liveScore ? (
               <span className="text-[13px] font-black text-red-400 shrink-0">{event.liveScore.home}-{event.liveScore.away}</span>
             ) : (
               <span className="text-[11px] font-bold text-text-4 shrink-0">{t('sports.vs')}</span>
             )}
-            <span className="text-[13px] font-bold text-text-2 truncate flex-1 text-right">{event.awayTeam?.name}</span>
+            <span className="text-[13px] font-bold text-text-2 truncate flex-1 text-right">{awayName}</span>
           </div>
         </button>
 

@@ -19,7 +19,9 @@ const DEFAULTS = {
   // eziyordu (bkz. applyAccent).
   accentColor: null,
   oddsFormat: 'decimal',
-  language: 'tr',
+  // 2026-09-10: `language` alanı kaldırıldı — bahis verisi (ülke/lig/takım
+  // adı) çevirisi artık BURADAN değil, site geneli aktif dilden (I18nProvider
+  // `locale`, navbar) besleniyor. bkz. utils/i18n.js translateTeam/League/Country.
   notifyLive: true,
   notifyOddsChange: false,
   defaultStake: 10,

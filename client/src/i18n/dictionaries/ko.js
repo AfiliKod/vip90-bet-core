@@ -1292,6 +1292,9 @@ export default {
   'admin.settings.region.timezoneLabel': '시간대',
   'admin.settings.region.timezoneHelp': 'IANA 지역 이름 (예: Europe/Istanbul, Europe/London). 서버 날짜는 UTC로 저장하며, 이 설정은 화면에 표시될 때 어떤 지역으로 변환할지만 결정합니다.',
   'admin.settings.region.timezoneSaved': '시간대가 업데이트되었습니다',
+  'admin.settings.region.defaultLocaleLabel': '기본 언어',
+  'admin.settings.region.defaultLocaleHelp': '한 번도 언어를 선택한 적 없는 방문자(신규 방문자)에게 표시되는 언어입니다. 사용자가 내비게이션 바에서 자신의 언어를 선택하면 이 기본값은 다시는 적용되지 않습니다 — 아래의 "패널 언어"(본인의 관리자 화면만 변경함)와 혼동하지 마세요.',
+  'admin.settings.region.defaultLocaleSaved': '기본 언어가 업데이트되었습니다',
 
   // 상태 페이지
   'status.component.api.label': 'API 서버',

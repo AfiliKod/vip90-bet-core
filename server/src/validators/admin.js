@@ -204,6 +204,10 @@ export const updateTimezoneSchema = z.object({
   timezone: z.string().min(1).max(100),
 });
 
+export const updateDefaultLocaleSchema = z.object({
+  locale: z.string().min(2).max(5),
+});
+
 // O4 — kademeli yönetici yetkileri
 export const createRoleSchema = z.object({
   name: z.string().min(2).max(50).regex(/^[a-z0-9_]+$/, 'Yalnızca küçük harf, rakam, alt çizgi'),
@@ -336,7 +340,6 @@ export const updateInhouseProviderSettingsSchema = z.object({
 });
 
 export const updateOddsProviderSettingsSchema = z.object({
-  language: z.string().min(2).max(5).optional(),
   enabledCategories: z.array(z.string()).optional(),
   prioritySport: z.string().min(1).optional(),
   priorityCountry: z.string().min(1).optional(),

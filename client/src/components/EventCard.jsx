@@ -1,12 +1,12 @@
 import { Link } from 'react-router-dom';
 import OddButton from './OddButton';
 import { sportIcon } from '../utils/sportMeta';
-import { useSettingsStore } from '../store/settingsStore';
+import { useTranslation } from '../i18n';
 import { translateTeam, translateLeague } from '../utils/i18n';
 import { useFormatters } from '../i18n/useFormatters.jsx';
 
 export default function EventCard({ event }) {
-  const lang = useSettingsStore(s => s.preferences.language);
+  const { locale: lang } = useTranslation();
   const fmt = useFormatters();
   const homeName = translateTeam(event.homeTeam.name, lang);
   const awayName = translateTeam(event.awayTeam.name, lang);

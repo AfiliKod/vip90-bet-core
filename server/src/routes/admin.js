@@ -2,10 +2,12 @@ import { Router } from 'express';
 import { requireAuth, requireAdmin } from '../middleware/auth.js';
 import { auditLog } from '../middleware/audit.js';
 import { validate } from '../middleware/validate.js';
-import { createEventSchema, settleEventSchema, createUserSchema, updateBalanceSchema, updateThemeSchema, updateBrandingSchema, updateHomeContentSchema, updateFeaturedGamesSchema, applyThemePresetSchema, updateGameSettingsSchema, simulateRtpSchema, updateCurrencySchema, updateTimezoneSchema, createRoleSchema, updateRoleSchema, assignRoleSchema, upsertVipLevelSchema, upsertPromotionSchema, createBotSchema, updateBotSchema, upsertStaticPageSchema, toggleStaticPageSchema, updateFakeWinnersSchema } from '../validators/admin.js';
+import { createEventSchema, settleEventSchema, createUserSchema, updateBalanceSchema, updateThemeSchema, updateBrandingSchema, updateHomeContentSchema, updateFeaturedGamesSchema, applyThemePresetSchema, updateGameSettingsSchema, simulateRtpSchema, updateCurrencySchema, updateTimezoneSchema, updateDefaultLocaleSchema, createRoleSchema, updateRoleSchema, assignRoleSchema, upsertVipLevelSchema, upsertPromotionSchema, createBotSchema, updateBotSchema, upsertStaticPageSchema, toggleStaticPageSchema, updateFakeWinnersSchema } from '../validators/admin.js';
 import * as ctrl from '../controllers/admin.js';
 import modulesAdminRouter from '../controllers/modules.js';
 import { timezoneStore } from '../services/timezoneLive.js';
+import { localeStore } from '../services/localeLive.js';
+import { SUPPORTED_LOCALES } from '../services/locale.js';
 import { createDemoAdminBlock } from '../middleware/demoAdmin.js';
 import User from '../models/User.js';
 
@@ -94,6 +96,8 @@ r.post('/settings/alerts/test', ctrl.testAlertChannels);
 // U5 — operatör saat dilimi ayarı (panelden)
 r.get('/settings/timezone',      async (req,res,next) => { try { res.json({ timezone: await timezoneStore.get() }); } catch(e){ next(e); } });
 r.put('/settings/timezone',      validate(updateTimezoneSchema), async (req,res,next) => { try { const tz = await timezoneStore.set(req.validated.timezone, req.user?.id); res.json({ timezone: tz }); } catch(e){ next(e); } });
+r.get('/settings/default-locale', async (req,res,next) => { try { res.json({ locale: await localeStore.get(), supportedLocales: SUPPORTED_LOCALES }); } catch(e){ next(e); } });
+r.put('/settings/default-locale', validate(updateDefaultLocaleSchema), async (req,res,next) => { try { const locale = await localeStore.set(req.validated.locale, req.user?.id); res.json({ locale }); } catch(e){ next(e); } });
 
 // U4 — para birimi (servis katmanı zaten vardı, yalnızca admin ucu ekleniyor)
 r.get('/currency',  ctrl.getCurrencySettings);

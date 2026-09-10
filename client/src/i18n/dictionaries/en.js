@@ -1293,6 +1293,9 @@ export default {
   'admin.settings.region.timezoneLabel': 'Timezone',
   'admin.settings.region.timezoneHelp': 'IANA region name (e.g. Europe/Istanbul, Europe/London). The server stores dates in UTC; this setting only controls which region they are converted to when displayed.',
   'admin.settings.region.timezoneSaved': 'Timezone updated',
+  'admin.settings.region.defaultLocaleLabel': 'Default Language',
+  'admin.settings.region.defaultLocaleHelp': 'The language shown to visitors who have never picked one before (new visitors). Once a user picks their own language from the navbar, this default never applies to them again — not to be confused with "Panel Language" (below), which only changes YOUR OWN admin view.',
+  'admin.settings.region.defaultLocaleSaved': 'Default language updated',
 
   // Status page
   'status.component.api.label': 'API Server',

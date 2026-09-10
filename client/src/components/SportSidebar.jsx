@@ -1,7 +1,6 @@
 import { useState } from 'react';
 import { useEventsStore } from '../store/eventsStore';
 import { SPORT_META, sportLabel } from '../utils/sportMeta';
-import { useSettingsStore } from '../store/settingsStore';
 import { translateLeagueKey } from '../utils/i18n';
 import { useTranslation } from '../i18n';
 
@@ -14,8 +13,7 @@ const SPORT_ORDER = [
 export default function SportSidebar({ sportLeagueMap }) {
   const { selectedSport, selectedLeague, setSportFilter, setLeagueFilter } = useEventsStore();
   const [expanded, setExpanded] = useState({ [selectedSport]: true });
-  const lang = useSettingsStore(s => s.preferences.language);
-  const { t } = useTranslation();
+  const { t, locale: lang } = useTranslation();
 
   function toggleSport(sport) {
     setExpanded(prev => ({ ...prev, [sport]: !prev[sport] }));
