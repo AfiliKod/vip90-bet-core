@@ -1083,6 +1083,7 @@ function CryptoPaymentBody() {
 const MODULE_VIEW = {
   betting:           { icon: '📊', Body: OddsProviderBody, key: 'betting' },
   'casino-content':  { icon: '🎰', Body: PalaceModuleBody, key: 'casinoContent' },
+  'inhouse-games':   { icon: '🎮', Body: InhouseProviderBody, key: 'inhouseGames' },
   'crypto-payment':  { icon: '💰', Body: CryptoPaymentBody, key: 'cryptoPayment' },
   'kyc-verification':{ icon: '🔐', Body: KycSettingsBody, key: 'kycVerification' },
 };
@@ -1166,10 +1167,6 @@ export default function AdminModules() {
         <div className="text-text-3">{t('common.loading')}</div>
       ) : (
         <>
-          <ModuleCard icon="🎮" title={t('admin.moduleCards.inhouseTitle')} alwaysOn coreLabel={t('admin.moduleCards.coreBadge')}>
-            <InhouseProviderBody />
-          </ModuleCard>
-
           {modules.map(m => {
             const badgeInfo = LICENSE_BADGE[m.licenseSource] ?? LICENSE_BADGE.closed;
             const view = MODULE_VIEW[m.id];

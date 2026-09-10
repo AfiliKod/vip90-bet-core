@@ -12,9 +12,10 @@ import { Router } from 'express';
 import { isModuleUsable } from '../services/licensing/index.js';
 
 export const SHOWCASE_ITEMS = [
+  { key: 'core', title: 'Hesap, Cüzdan ve Bonus Motoru', description: 'Kullanıcı yönetimi, bakiye, VIP seviyeleri ve bonus kampanyaları — her zaman aktif.', moduleId: null },
   { key: 'sportsbook', title: 'Spor & Canlı Bahis', description: 'Odds akışı, kupon, sonuçlandırma.', moduleId: 'betting' },
   { key: 'casino', title: 'Casino Oyunları', description: 'Slot ve masa oyunları, aggregator üzerinden.', moduleId: 'casino-content' },
-  { key: 'inhouse', title: 'In-house Oyunlar', description: 'Crash, Mines, Plinko ve diğerleri — çekirdek platform.', moduleId: null },
+  { key: 'inhouse', title: 'In-house Oyunlar', description: 'Crash, Mines, Plinko ve diğerleri — özel geliştirilmiş.', moduleId: 'inhouse-games' },
 ];
 
 export function createShowcaseHandler({ isModuleUsable: isUsable }) {

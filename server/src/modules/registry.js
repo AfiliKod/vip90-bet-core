@@ -1,10 +1,21 @@
 /**
  * Modül kayıt defteri (M1 — Faz 0 sözleşmesi).
  *
- * Çekirdek platform (13 in-house oyun, admin, bahis kuponu, bonus motoru)
- * her zaman açıktır ve bir modül DEĞİLDİR. Ayrı satılan/lisanslanan üç
- * modül burada tanımlıdır; M2 (abonelik doğrulama) ve M3 (admin ekranı)
- * bu tek doğruluk kaynağının üzerine inşa edilir.
+ * Çekirdek platform (admin, bahis kuponu, bonus motoru) her zaman açıktır ve
+ * bir modül DEĞİLDİR. Ayrı satılan/lisanslanan modüller burada tanımlıdır;
+ * M2 (abonelik doğrulama) ve M3 (admin ekranı) bu tek doğruluk kaynağının
+ * üzerine inşa edilir.
+ *
+ * 2026-09-10: `inhouse-games` de bu listeye eklendi. Önceki yorum "13 in-house
+ * oyun çekirdek platform, asla gate'lenmez" diyordu — bu, `server/src/provider/`
+ * mimarisi (in-house oyunları Palace ile AYNI çok-kiracılı provider desenine
+ * — API key + JWT launch/session + HMAC callback — sokan mimari) henüz yokken
+ * alınmış geçici bir karardı. In-house oyunlar artık `casino-content` ile
+ * birebir aynı ilişkide (ayrı bir "sağlayıcı" olarak operatöre bağlanıyor,
+ * "Operatör #1" ifadesi başka operatörlerin de bağlanabileceğini varsayıyor)
+ * — tutarlılık için o da lisanslanabilir/aç-kapa bir modül oldu. Hırsızlığa
+ * karşı koruma (JWT+origin kilidi, `server/src/provider/routes/launch.js`)
+ * bu gate'ten TAMAMEN bağımsız, ayrı bir katman — ikisi çelişmiyor.
  *
  * Aynı DI deseni `services/settings.js`'ten alınmıştır: `load` DB'ye
  * dokunur ve dışarıdan enjekte edilir, kısa TTL cache ile.
@@ -17,6 +28,7 @@
 export const MODULE_DEFINITIONS = [
   { id: 'betting', title: 'Spor ve Canlı Bahis', description: 'Odds akışı, kupon, sonuçlandırma.' },
   { id: 'casino-content', title: 'Casino İçeriği', description: 'Slot ve masa oyunları, aggregator üzerinden.' },
+  { id: 'inhouse-games', title: 'In-house Oyunlar', description: 'Özel geliştirilmiş casino oyunları (Crash, Mines, Roulette vb.), ayrı bir oyun sunucusundan servis edilir.' },
   { id: 'crypto-payment', title: 'Crypto Ödeme Ağ Geçidi', description: 'TRC20 USDT ile para yatırma ve çekme.' },
   { id: 'kyc-verification', title: 'KYC Kimlik Doğrulama', description: 'Manuel belge inceleme veya Sumsub ile otomatik doğrulama.' },
 ];

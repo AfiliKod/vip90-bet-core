@@ -194,10 +194,13 @@ export function createApp() {
   app.use('/api/palace', palaceRoutes);
   app.use('/api/inhouse', inhouseRoutes);
   // Çok-kiracılı in-house game provider (bkz. server/src/provider/) — merkezi
-  // oyun sunucusunun operatör-tarafı API'si. inhouse-provider: bu sitenin
-  // (Operatör #1) provider'a konuşan client + wallet-callback alıcısı.
+  // oyun sunucusunun operatör-tarafı API'si. /api/provider/v1: PROVIDER'ın
+  // (game-host) bu operatöre konuştuğu uç, kendi launch/session JWT'siyle
+  // korunuyor, module gate'ten BAĞIMSIZ (aksi halde oyun içi callback'ler
+  // modül kapatılınca kırılırdı). /api/inhouse-provider: bu sitenin (Operatör
+  // #1) provider'a konuşan client'ı — 'inhouse-games' modül gate'i altta
+  // tanımlanıp aşağıda uygulanıyor (bkz. "M4" bloğu).
   app.use('/api/provider/v1', providerRoutes);
-  app.use('/api/inhouse-provider', inhouseProviderProxyRoutes);
   app.use('/api/help', helpRoutes);
   app.use('/api/bank', bankRoutes);
   app.use('/api/admin/analytics', analyticsRoutes);
@@ -219,15 +222,16 @@ export function createApp() {
 
   // M4 — modül kapalıyken zarif bozulma: ilgili bölümler 404 yerine anlamlı
   // 503 (MODULE_DISABLED) döner; site geri kalanında hatasız çalışır.
-  // inhouse = çekirdek platform (M1), asla gate'lenmez.
   const requireBetting = createModuleGate({ isUsable: isModuleUsable, moduleId: 'betting' });
   const requireCasinoContent = createModuleGate({ isUsable: isModuleUsable, moduleId: 'casino-content' });
+  const requireInhouseGames = createModuleGate({ isUsable: isModuleUsable, moduleId: 'inhouse-games' });
   const requireCryptoPayment = createModuleGate({ isUsable: isModuleUsable, moduleId: 'crypto-payment' });
   const requireKycVerification = createModuleGate({ isUsable: isModuleUsable, moduleId: 'kyc-verification' });
   app.use('/api/modules', modulesRoutes); // herkese açık — istemci menü/yönlendirme
   app.use('/api/events', requireBetting, eventsRoutes);
   app.use('/api/bets', requireBetting, betsRoutes);
   app.use('/api/casino', requireCasinoContent, casinoRoutes);
+  app.use('/api/inhouse-provider', requireInhouseGames, inhouseProviderProxyRoutes);
   app.use('/api/crypto', requireCryptoPayment, cryptoRoutes);
   app.use('/api/kyc', requireKycVerification, kycRoutes);
   app.use('/api', sumsubWebhookRoute); // Sumsub webhook — module gate'den bağımsız

@@ -1890,4 +1890,7 @@ export default {
   "admin.casinoStats.palaceManagement": "Palace Yönetimi",
 
   "admin.dashboard.split.noPositiveData": "Bu dönemde pozitif net gelir yok.",
+  "admin.moduleCards.title.inhouseGames": "In-house Oyunlar",
+  "admin.moduleCards.desc.inhouseGames": "Özel geliştirilmiş casino oyunları, ayrı bir oyun sunucusundan servis edilir.",
+
 };

@@ -3,13 +3,13 @@ import assert from 'node:assert';
 import { createModuleStore, MODULE_DEFINITIONS } from '../src/modules/registry.js';
 
 describe('MODULE_DEFINITIONS', () => {
-  test('çekirdek platform (in-house oyunlar) bir modül değildir', () => {
+  test('çekirdek platform (admin, bahis kuponu, bonus motoru) bir modül değildir', () => {
     assert.ok(!MODULE_DEFINITIONS.some(m => m.id === 'core'));
   });
 
-  test('dört satılabilir modülü tanımlar: betting, casino-content, crypto-payment, kyc-verification', () => {
+  test('beş satılabilir modülü tanımlar: betting, casino-content, inhouse-games, crypto-payment, kyc-verification', () => {
     assert.deepStrictEqual(MODULE_DEFINITIONS.map(m => m.id).sort(),
-      ['betting', 'casino-content', 'crypto-payment', 'kyc-verification']);
+      ['betting', 'casino-content', 'crypto-payment', 'inhouse-games', 'kyc-verification']);
   });
 
   test('her tanım id + title + description taşır', () => {
@@ -47,7 +47,7 @@ describe('createModuleStore', () => {
   test('list() tüm tanımları enabled durumuyla birlikte döndürür — tek doğruluk kaynağı', async () => {
     const s = store({ betting: true, 'casino-content': false });
     const list = await s.list();
-    assert.strictEqual(list.length, 4);
+    assert.strictEqual(list.length, 5);
     const betting = list.find(m => m.id === 'betting');
     assert.strictEqual(betting.enabled, true);
     assert.strictEqual(betting.title, 'Spor ve Canlı Bahis');
@@ -58,7 +58,7 @@ describe('createModuleStore', () => {
   test('load patlarsa hepsi kapalı sayılır, throw etmez (fail-closed)', async () => {
     const s = createModuleStore({ load: async () => { throw new Error('db down'); }, now: () => 1000 });
     assert.strictEqual(await s.isEnabled('betting'), false);
-    assert.deepStrictEqual((await s.list()).map(m => m.enabled), [false, false, false, false]);
+    assert.deepStrictEqual((await s.list()).map(m => m.enabled), [false, false, false, false, false]);
   });
 
   test('TTL süresince DB tekrar sorgulanmaz', async () => {

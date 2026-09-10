@@ -1893,4 +1893,8 @@ export default {
   "admin.casinoStats.palaceManagement": "Palace Management",
 
   "admin.dashboard.split.noPositiveData": "No positive net revenue for this period.",
+  // TODO: bu bloğu Portekizce'ye çevir
+  "admin.moduleCards.title.inhouseGames": "In-house Games",
+  "admin.moduleCards.desc.inhouseGames": "Custom-built casino games, served from a separate game server.",
+
 };
