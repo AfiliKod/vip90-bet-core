@@ -160,5 +160,9 @@ r.post('/crypto/deposits/:id/reject',  ctrl.rejectCryptoDeposit);
 r.post('/crypto/withdrawals/:id/approve', ctrl.approveCryptoWithdrawal);
 r.post('/crypto/withdrawals/:id/reject',  ctrl.rejectCryptoWithdrawal);
 
+// Referans Komisyonu Ayarları
+r.get('/referral/settings',  ctrl.getReferralSettings);
+r.put('/referral/settings',  ctrl.updateReferralSettings);
+
 export default r;
 

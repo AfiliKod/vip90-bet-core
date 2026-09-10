@@ -1688,3 +1688,30 @@ export async function rejectCryptoWithdrawal(req, res, next) {
     session.endSession();
   }
 }
+
+// ─── Referans Komisyonu Ayarları — admin işlemleri ────────────────────────────
+import { REFERRAL_SETTINGS } from '../config/referral.js';
+
+export function getReferralSettings(_req, res) {
+  res.json(REFERRAL_SETTINGS);
+}
+
+export function updateReferralSettings(req, res, next) {
+  try {
+    const { enabled, commissionRate } = req.body ?? {};
+
+    if (typeof enabled === 'boolean') {
+      REFERRAL_SETTINGS.enabled = enabled;
+    }
+
+    if (commissionRate !== undefined) {
+      const rate = Number(commissionRate);
+      if (Number.isNaN(rate) || rate < 0 || rate > 100) {
+        return res.status(400).json({ error: 'Komisyon oranı 0-100 arasında olmalı' });
+      }
+      REFERRAL_SETTINGS.commissionRate = rate;
+    }
+
+    res.json(REFERRAL_SETTINGS);
+  } catch (e) { next(e); }
+}

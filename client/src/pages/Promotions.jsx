@@ -12,11 +12,18 @@ export default function Promotions() {
   const [promos, setPromos] = useState([]);
   const [activePromo, setActivePromo] = useState(null);
   const [acceptedTC, setAcceptedTC] = useState(false);
+  const [referralEnabled, setReferralEnabled] = useState(true);
+  const [referralRate, setReferralRate] = useState(10);
   const addToast = useToastStore(s => s.add);
   const user = useAuthStore(s => s.user);
   const updateBonusBalance = useAuthStore(s => s.updateBonusBalance);
 
-  useEffect(() => { api.get('/promotions').then(r => setPromos(r.data.promotions)).catch(() => {}); }, []);
+  useEffect(() => {
+    api.get('/promotions').then(r => setPromos(r.data.promotions)).catch(() => {});
+    api.get('/promotions/referral-settings')
+      .then(r => { setReferralEnabled(r.data.enabled); setReferralRate(r.data.commissionRate); })
+      .catch(() => {});
+  }, []);
 
   async function claim() {
     if (!activePromo || !acceptedTC) return;
@@ -25,8 +32,6 @@ export default function Promotions() {
         acceptedBonusTerms: true,
       });
       addToast(data.message, 'success');
-      // Claim yanıtındaki güncel bonusBalance'ı store'a yaz — yoksa UI (Profile/başlık
-      // bonus göstergesi) reload'a kadar stale kalıyordu.
       if (typeof data.bonusBalance === 'number') updateBonusBalance(data.bonusBalance);
       setPromos(p => p.map(x => x._id === activePromo._id ? { ...x, claimedBy: [...(x.claimedBy || []), user?._id] } : x));
       setActivePromo(null);
@@ -41,16 +46,18 @@ export default function Promotions() {
     <div className="px-4 py-6 max-w-3xl mx-auto">
         <h1 className="text-2xl font-black text-text-1 mb-6">🎁 {t('nav.promotions')}</h1>
         <div className="grid gap-4">
-          <div className="rounded-xl p-5 flex items-center justify-between gap-4" style={{ background: SURFACE_CARD_BG, border: `1px solid ${SURFACE_BORDER}` }}>
-            <div className="flex-1 min-w-0">
-              <h3 className="font-bold text-text-1 mb-1">🎁 {t('promotions.referralTitle')}</h3>
-              <p className="text-text-3 text-sm">{t('promotions.referralDesc')}</p>
+          {referralEnabled && (
+            <div className="rounded-xl p-5 flex items-center justify-between gap-4" style={{ background: SURFACE_CARD_BG, border: `1px solid ${SURFACE_BORDER}` }}>
+              <div className="flex-1 min-w-0">
+                <h3 className="font-bold text-text-1 mb-1">🎁 {t('promotions.referralTitle', { rate: referralRate })}</h3>
+                <p className="text-text-3 text-sm">{t('promotions.referralDesc', { rate: referralRate })}</p>
+              </div>
+              <Link to="/profile"
+                className="shrink-0 px-5 py-2.5 rounded-lg text-sm font-semibold text-bg-deep bg-gradient-to-r from-primary to-accent hover:opacity-90 transition">
+                {t('promotions.getMyLink')}
+              </Link>
             </div>
-            <Link to="/profile"
-              className="shrink-0 px-5 py-2.5 rounded-lg text-sm font-semibold text-bg-deep bg-gradient-to-r from-primary to-accent hover:opacity-90 transition">
-              {t('promotions.getMyLink')}
-            </Link>
-          </div>
+          )}
           {promos.map(p => {
             const claimed = p.claimedBy?.some(id => id === user?._id);
             return (
@@ -77,7 +84,7 @@ export default function Promotions() {
               </div>
             );
           })}
-          {!promos.length && <div className="text-center text-text-3 py-12">{t('promotions.noneFound')}</div>}
+          {!promos.length && !referralEnabled && <div className="text-center text-text-3 py-12">{t('promotions.noneFound')}</div>}
         </div>
     </div>
 

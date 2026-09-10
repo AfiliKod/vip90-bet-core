@@ -1392,8 +1392,8 @@ export default {
 
   // Promoções
   'promotions.claimFailed': 'Não foi possível usar a promoção',
-  'promotions.referralTitle': 'Convide um Amigo, Ganhe 10% do Lucro',
-  'promotions.referralDesc': '10% do lucro que seus amigos indicados gerarem na plataforma será transferido instantaneamente para sua conta — sem prazo, sem limite.',
+  'promotions.referralTitle': 'Convide um Amigo, Ganhe %{rate} do Lucro',
+  'promotions.referralDesc': '%{rate} do lucro que seus amigos indicados gerarem na plataforma será transferido instantaneamente para sua conta — sem prazo, sem limite.',
   'promotions.getMyLink': 'Obter Meu Link',
   'promotions.minOdds': 'Odds mín.',
   'promotions.wagering': 'apostas',
@@ -1697,7 +1697,13 @@ export default {
   'admin.promotions.types.welcome': 'Bônus de Boas-vindas',
   'admin.promotions.types.freeBet': 'Aposta Grátis',
   'admin.promotions.types.reload': 'Bônus de Recarga',
-  'admin.promotions.types.trial': 'Bônus de Teste',  'moduleGate.title': 'Esta seção está fechada no momento',
+  'admin.promotions.types.trial': 'Bônus de Teste',
+  'admin.promotions.referralSectionTitle': 'Configurações de Comissão de Indicação',
+  'admin.promotions.referralEnabled': 'Comissão ativa',
+  'admin.promotions.referralRateLabel': 'Taxa de Comissão (%)',
+  'admin.promotions.referralSaved': 'Salvo',
+  'admin.promotions.referralSaveError': 'Não foi possível salvar',
+  'moduleGate.title': 'Esta seção está fechada no momento',
   'moduleGate.description': 'Este módulo foi temporariamente desativado pelo operador. O restante do site continua funcionando normalmente.',
 
   // PWA

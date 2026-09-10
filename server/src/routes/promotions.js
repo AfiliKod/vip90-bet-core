@@ -1,8 +1,10 @@
 import { Router } from 'express';
 import { requireAuth } from '../middleware/auth.js';
 import * as ctrl from '../controllers/promotions.js';
+import { REFERRAL_SETTINGS } from '../config/referral.js';
 const r = Router();
 r.get('/', ctrl.list);
+r.get('/referral-settings', (_req, res) => { res.json({ enabled: REFERRAL_SETTINGS.enabled, commissionRate: REFERRAL_SETTINGS.commissionRate }); });
 r.get('/my-wagerings', requireAuth, ctrl.myWagerings);
 r.post('/:id/claim', requireAuth, ctrl.claim);
 r.post('/:id/wagerings/:wid/convert', requireAuth, ctrl.convert);

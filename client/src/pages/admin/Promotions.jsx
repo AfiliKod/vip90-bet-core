@@ -32,6 +32,13 @@ export default function AdminPromotions() {
   const [form, setForm] = useState(null);
   const [saving, setSaving] = useState(false);
 
+  // Referans komisyonu ayarları
+  const [refEnabled, setRefEnabled] = useState(true);
+  const [refRate, setRefRate] = useState(10);
+  const [refLoading, setRefLoading] = useState(true);
+  const [refSaving, setRefSaving] = useState(false);
+  const [refMsg, setRefMsg] = useState('');
+
   function load() {
     setError('');
     api.get('/admin/promotions')
@@ -40,7 +47,14 @@ export default function AdminPromotions() {
       .finally(() => setLoading(false));
   }
 
-  useEffect(load, []);
+  function loadReferral() {
+    api.get('/admin/referral/settings')
+      .then(r => { setRefEnabled(r.data.enabled); setRefRate(r.data.commissionRate); })
+      .catch(() => {})
+      .finally(() => setRefLoading(false));
+  }
+
+  useEffect(() => { load(); loadReferral(); }, []);
 
   function openCreate() {
     setForm({ ...EMPTY_FORM });
@@ -98,6 +112,20 @@ export default function AdminPromotions() {
     }
   }
 
+  async function saveReferral() {
+    setRefSaving(true);
+    setRefMsg('');
+    try {
+      await api.put('/admin/referral/settings', { enabled: refEnabled, commissionRate: Number(refRate) });
+      setRefMsg(t('admin.promotions.referralSaved'));
+      setTimeout(() => setRefMsg(''), 2000);
+    } catch (e) {
+      setRefMsg(e.response?.data?.error?.message || t('admin.promotions.referralSaveError'));
+    } finally {
+      setRefSaving(false);
+    }
+  }
+
   return (
     <div className="p-6 max-w-3xl mx-auto">
       <div className="flex items-center justify-between mb-2">
@@ -113,6 +141,33 @@ export default function AdminPromotions() {
       {error && (
         <div className="mb-4 p-3 rounded-lg bg-red-500/10 border border-red-500/30 text-red-300 text-sm">{error}</div>
       )}
+
+      {/* Referans Komisyonu Ayarları */}
+      <div className="bg-bg-card border border-white/10 rounded-xl p-5 mb-6">
+        <h2 className="font-semibold text-text-1 mb-4">🤝 {t('admin.promotions.referralSectionTitle')}</h2>
+        {refLoading ? (
+          <div className="text-text-3 text-sm">{t('common.loading')}</div>
+        ) : (
+          <div className="flex flex-wrap items-end gap-4">
+            <label className="flex items-center gap-2 text-sm text-text-2">
+              <input type="checkbox" checked={refEnabled} onChange={e => setRefEnabled(e.target.checked)}
+                className="accent-primary" />
+              {t('admin.promotions.referralEnabled')}
+            </label>
+            <label className="text-xs text-text-3">
+              {t('admin.promotions.referralRateLabel')}
+              <input type="number" min="0" max="100" step="0.5" value={refRate}
+                onChange={e => setRefRate(e.target.value)}
+                className="mt-1 w-20 h-9 rounded-lg bg-bg-base border border-white/10 px-3 text-sm text-text-1" />
+            </label>
+            <button onClick={saveReferral} disabled={refSaving}
+              className="px-4 py-2 rounded-lg bg-primary text-white text-sm font-medium disabled:opacity-40">
+              {refSaving ? t('common.saving') : t('common.save')}
+            </button>
+            {refMsg && <span className="text-xs text-green-400">{refMsg}</span>}
+          </div>
+        )}
+      </div>
 
       {loading ? (
         <div className="text-text-3">{t('common.loading')}</div>

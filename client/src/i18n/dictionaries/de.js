@@ -1391,8 +1391,8 @@ export default {
 
   // Aktionen
   'promotions.claimFailed': 'Aktion konnte nicht eingelöst werden',
-  'promotions.referralTitle': 'Freunde einladen, 10 % Umsatzbeteiligung verdienen',
-  'promotions.referralDesc': '10 % des Gewinns, den Ihre eingeladenen Freunde der Plattform bringen, wird sofort auf Ihr Konto überwiesen — unbegrenzt und ohne Ablauf.',
+  'promotions.referralTitle': 'Freunde einladen, %{rate} Umsatzbeteiligung verdienen',
+  'promotions.referralDesc': '%{rate} des Gewinns, den Ihre eingeladenen Freunde der Plattform bringen, wird sofort auf Ihr Konto überwiesen — unbegrenzt und ohne Ablauf.',
   'promotions.getMyLink': 'Meinen Link erhalten',
   'promotions.minOdds': 'Min. Quote',
   'promotions.wagering': 'Umsatz',
@@ -1696,7 +1696,13 @@ export default {
   'admin.promotions.types.welcome': 'Willkommensbonus',
   'admin.promotions.types.freeBet': 'Freiwette',
   'admin.promotions.types.reload': 'Reload-Bonus',
-  'admin.promotions.types.trial': 'Testbonus',  'moduleGate.title': 'Dieser Bereich ist derzeit geschlossen',
+  'admin.promotions.types.trial': 'Testbonus',
+  'admin.promotions.referralSectionTitle': 'Provisions-Einstellungen',
+  'admin.promotions.referralEnabled': 'Provision aktiv',
+  'admin.promotions.referralRateLabel': 'Provisions-Satz (%)',
+  'admin.promotions.referralSaved': 'Gespeichert',
+  'admin.promotions.referralSaveError': 'Konnte nicht gespeichert werden',
+  'moduleGate.title': 'Dieser Bereich ist derzeit geschlossen',
   'moduleGate.description': 'Dieses Modul wurde vom Betreiber vorübergehend deaktiviert. Der Rest der Seite funktioniert normal weiter.',
 
   // PWA

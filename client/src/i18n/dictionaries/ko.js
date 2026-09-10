@@ -1391,8 +1391,8 @@ export default {
 
   // Promotions
   'promotions.claimFailed': '프로모션을 사용할 수 없습니다',
-  'promotions.referralTitle': '친구 초대하고 10% 수익을 받으세요',
-  'promotions.referralDesc': "초대한 친구가 플랫폼에서 발생시킨 수익의 10%가 즉시 계정으로 이체됩니다 — 무기한, 무제한.",
+  'promotions.referralTitle': '친구 초대하고 %{rate} 수익을 받으세요',
+  'promotions.referralDesc': "초대한 친구가 플랫폼에서 발생시킨 수익의 %{rate}가 즉시 계정으로 이체됩니다 — 무기한, 무제한.",
   'promotions.getMyLink': '링크 받기',
   'promotions.minOdds': '최소 배당률',
   'promotions.wagering': '요건',
@@ -1696,7 +1696,13 @@ export default {
   'admin.promotions.types.welcome': '환영 보너스',
   'admin.promotions.types.freeBet': '프리벳',
   'admin.promotions.types.reload': '리로드 보너스',
-  'admin.promotions.types.trial': '체험 보너스',  'moduleGate.title': '이 섹션은 현재 비활성화되어 있습니다',
+  'admin.promotions.types.trial': '체험 보너스',
+  'admin.promotions.referralSectionTitle': '추천 커미션 설정',
+  'admin.promotions.referralEnabled': '커미션 활성',
+  'admin.promotions.referralRateLabel': '커미션 비율 (%)',
+  'admin.promotions.referralSaved': '저장됨',
+  'admin.promotions.referralSaveError': '저장할 수 없습니다',
+  'moduleGate.title': '이 섹션은 현재 비활성화되어 있습니다',
   'moduleGate.description': '이 모듈은 운영자에 의해 일시적으로 비활성화되었습니다. 사이트의 나머지는 정상적으로 작동합니다.',
 
   // PWA

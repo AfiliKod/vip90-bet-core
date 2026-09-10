@@ -1391,8 +1391,8 @@ export default {
 
   // Promotions
   'promotions.claimFailed': 'Kampanya kullanılamadı',
-  'promotions.referralTitle': 'Arkadaşını Getir, %10 Kâr Payı Kazan',
-  'promotions.referralDesc': "Davet ettiğin arkadaşların platforma kazandırdığı kârın %10'u anında hesabına aktarılır — süresiz, sınırsız.",
+  'promotions.referralTitle': 'Arkadaşını Getir, %{rate} Kâr Payı Kazan',
+  'promotions.referralDesc': "Davet ettiğin arkadaşların platforma kazandırdığı kârın %{rate}'u anında hesabına aktarılır — süresiz, sınırsız.",
   'promotions.getMyLink': 'Linkimi Al',
   'promotions.minOdds': 'Min. oran',
   'promotions.wagering': 'çevrim',
@@ -1696,7 +1696,13 @@ export default {
   'admin.promotions.types.welcome': 'Hoşgeldin Bonusu',
   'admin.promotions.types.freeBet': 'Bedava Bahis',
   'admin.promotions.types.reload': 'Reload Bonusu',
-  'admin.promotions.types.trial': 'Deneme Bonusu',  'moduleGate.title': 'Bu bölüm şu anda kapalı',
+  'admin.promotions.types.trial': 'Deneme Bonusu',
+  'admin.promotions.referralSectionTitle': 'Referans Komisyonu Ayarları',
+  'admin.promotions.referralEnabled': 'Komisyon aktif',
+  'admin.promotions.referralRateLabel': 'Komisyon Oranı (%)',
+  'admin.promotions.referralSaved': 'Kaydedildi',
+  'admin.promotions.referralSaveError': 'Kaydedilemedi',
+  'moduleGate.title': 'Bu bölüm şu anda kapalı',
   'moduleGate.description': 'Bu modül operatör tarafından geçici olarak devre dışı bırakıldı. Sitenin geri kalanı normal şekilde çalışmaya devam ediyor.',
 
   // PWA

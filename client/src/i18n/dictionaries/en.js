@@ -1392,8 +1392,8 @@ export default {
 
   // Promotions
   'promotions.claimFailed': 'Could not claim promotion',
-  'promotions.referralTitle': 'Refer a Friend, Earn 10% Profit Share',
-  'promotions.referralDesc': "10% of the profit your invited friends generate on the platform is instantly credited to your account — forever, unlimited.",
+  'promotions.referralTitle': 'Refer a Friend, Earn %{rate} Profit Share',
+  'promotions.referralDesc': "%{rate} of the profit your invited friends generate on the platform is instantly credited to your account — forever, unlimited.",
   'promotions.getMyLink': 'Get My Link',
   'promotions.minOdds': 'Min. odds',
   'promotions.wagering': 'wagering',
@@ -1697,7 +1697,13 @@ export default {
   'admin.promotions.types.welcome': 'Welcome Bonus',
   'admin.promotions.types.freeBet': 'Free Bet',
   'admin.promotions.types.reload': 'Reload Bonus',
-  'admin.promotions.types.trial': 'Trial Bonus',  'moduleGate.title': 'This section is currently unavailable',
+  'admin.promotions.types.trial': 'Trial Bonus',
+  'admin.promotions.referralSectionTitle': 'Referral Commission Settings',
+  'admin.promotions.referralEnabled': 'Commission active',
+  'admin.promotions.referralRateLabel': 'Commission Rate (%)',
+  'admin.promotions.referralSaved': 'Saved',
+  'admin.promotions.referralSaveError': 'Could not save',
+  'moduleGate.title': 'This section is currently unavailable',
   'moduleGate.description': 'This module has been temporarily disabled by the operator. The rest of the site continues to work normally.',
 
   // PWA

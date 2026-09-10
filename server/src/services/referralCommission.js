@@ -1,16 +1,18 @@
 import User from '../models/User.js';
 import Transaction from '../models/Transaction.js';
 import { getIO } from './socketEmitter.js';
+import { REFERRAL_SETTINGS } from '../config/referral.js';
 
 export async function payReferralCommission(userId, houseProfit, options = {}) {
   const { session = null } = options;
 
+  if (!REFERRAL_SETTINGS.enabled) return null;
   if (!houseProfit || houseProfit <= 0) return null;
 
   const bettor = await User.findById(userId).select('referredBy').session(session);
   if (!bettor?.referredBy) return null;
 
-  const commission = parseFloat((houseProfit * 0.10).toFixed(2));
+  const commission = parseFloat((houseProfit * REFERRAL_SETTINGS.commissionRate / 100).toFixed(2));
   if (commission <= 0) return null;
 
   const referrer = await User.findByIdAndUpdate(

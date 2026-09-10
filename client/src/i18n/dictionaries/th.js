@@ -1391,8 +1391,8 @@ export default {
 
   // Promotions
   'promotions.claimFailed': 'ไม่สามารถใช้โปรโมชั่นได้',
-  'promotions.referralTitle': 'เชิญเพื่อน รับ 10% กำไร',
-  'promotions.referralDesc': 'รายได้ 10% จากกำไรที่เพื่อนที่คุณเชิญมาทำได้จะถูกโอนเข้าบัญชีของคุณทันที — ไม่มีวันหมดอายุ ไม่จำกัด',
+  'promotions.referralTitle': 'เชิญเพื่อน รับ %{rate} กำไร',
+  'promotions.referralDesc': 'รายได้ %{rate} จากกำไรที่เพื่อนที่คุณเชิญมาทำได้จะถูกโอนเข้าบัญชีของคุณทันที — ไม่มีวันหมดอายุ ไม่จำกัด',
   'promotions.getMyLink': 'รับลิงก์ของฉัน',
   'promotions.minOdds': 'อัตราต่อรองขั้นต่ำ',
   'promotions.wagering': 'เทิร์นโอเวอร์',
@@ -1696,7 +1696,13 @@ export default {
   'admin.promotions.types.welcome': 'โบนัสต้อนรับ',
   'admin.promotions.types.freeBet': 'เดิมพันฟรี',
   'admin.promotions.types.reload': 'โบนัสรีโหลด',
-  'admin.promotions.types.trial': 'โบนัสทดลอง',  'moduleGate.title': 'ส่วนนี้ปิดอยู่ในขณะนี้',
+  'admin.promotions.types.trial': 'โบนัสทดลอง',
+  'admin.promotions.referralSectionTitle': 'ตั้งค่าค่าคอมมิชชั่นแนะนำ',
+  'admin.promotions.referralEnabled': 'คอมมิชชั่นเปิดใช้งาน',
+  'admin.promotions.referralRateLabel': 'อัตราค่าคอมมิชชั่น (%)',
+  'admin.promotions.referralSaved': 'บันทึกแล้ว',
+  'admin.promotions.referralSaveError': 'ไม่สามารถบันทึกได้',
+  'moduleGate.title': 'ส่วนนี้ปิดอยู่ในขณะนี้',
   'moduleGate.description': 'โมดูลนี้ถูกปิดชั่วคราวโดยผู้ให้บริการ ส่วนอื่นของเว็บไซต์ยังทำงานปกติ',
 
   // PWA

@@ -1390,8 +1390,8 @@ export default {
 
   // Promotions
   'promotions.claimFailed': 'プロモーションを使用できませんでした',
-  'promotions.referralTitle': '友達を招待して10%の収益を獲得',
-  'promotions.referralDesc': '招待した友達がプラットフォームで得た利益の10%が即座にアカウントに転送されます — 期間制限なし、無制限。',
+  'promotions.referralTitle': '友達を招待して%{rate}の収益を獲得',
+  'promotions.referralDesc': '招待した友達がプラットフォームで得た利益の%{rate}が即座にアカウントに転送されます — 期間制限なし、無制限。',
   'promotions.getMyLink': 'リンクを取得',
   'promotions.minOdds': '最低オッズ',
   'promotions.wagering': 'ウェージング',
@@ -1695,7 +1695,13 @@ export default {
   'admin.promotions.types.welcome': 'ウェルカムボーナス',
   'admin.promotions.types.freeBet': 'フリーベット',
   'admin.promotions.types.reload': 'リロードボーナス',
-  'admin.promotions.types.trial': 'トライアルボーナス',  'moduleGate.title': 'このセクションは現在オフです',
+  'admin.promotions.types.trial': 'トライアルボーナス',
+  'admin.promotions.referralSectionTitle': '紹介コミッション設定',
+  'admin.promotions.referralEnabled': 'コミッション有効',
+  'admin.promotions.referralRateLabel': 'コミッション率 (%)',
+  'admin.promotions.referralSaved': '保存しました',
+  'admin.promotions.referralSaveError': '保存できませんでした',
+  'moduleGate.title': 'このセクションは現在オフです',
   'moduleGate.description': 'このモジュールはオペレーターにより一時的に無効にされています。サイトの残りは通常通り動作しています。',
 
   // PWA
