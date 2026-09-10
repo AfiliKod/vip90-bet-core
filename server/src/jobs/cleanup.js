@@ -7,9 +7,16 @@ export function startCleanupJob() {
     const cutoff24h = new Date(Date.now() - 24 * 60 * 60 * 1000);
     const horizon30d = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000);
 
-    // Finished eventleri arşivle
+    // Finished eventleri arşivle — startTime hâlâ gelecekteyse ASLA arşivleme.
+    // "finished" + gelecekteki startTime mantıksal olarak imkânsız bir durum;
+    // bunun tek gerçekçi sebebi oddsSourceUpcomingSync.js'in reconciliation
+    // adımının provider'dan gelen kısmi/hatalı bir feed'i "event artık yok"
+    // sanmasıdır (2026-09-10'da aynı gün İKİ kez gerçek veri kaybına yol açtı
+    // — bkz. todo.md "E"). cleanup her server başlangıcında ANINDA çalıştığı
+    // için (`run()` en altta) böyle bir yanlış işaretleme saniyeler içinde
+    // kalıcı arşive dönüşüyordu. Bu, o zincirin son (savunma-derinliği) halkası.
     const archiveResult = await Event.updateMany(
-      { status: 'finished', archivedAt: null },
+      { status: 'finished', archivedAt: null, startTime: { $lte: new Date() } },
       { $set: { archivedAt: new Date() } },
     );
     if (archiveResult.modifiedCount > 0) {

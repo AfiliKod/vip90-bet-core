@@ -1,6 +1,6 @@
 import { useEffect, useState, useMemo } from 'react';
 import { useEventsStore, leagueKey } from '../store/eventsStore';
-import { SPORT_META, sportIconMaterial } from '../utils/sportMeta';
+import { SPORT_META, sportIconMaterial, sportLabel } from '../utils/sportMeta';
 import LazyLeagueGroup from '../components/LazyLeagueGroup';
 import BetSlip, { SlipContent } from '../components/BetSlip';
 import PromoHeroSlider from '../components/home/PromoHeroSlider';
@@ -11,7 +11,7 @@ import { SURFACE_CARD_BG, SURFACE_BORDER } from '../styles/surface';
 import { useTranslation } from '../i18n';
 
 export default function Bahis() {
-  const { t } = useTranslation();
+  const { t, locale } = useTranslation();
   const {
     initSocket, cleanup,
     summary, summaryLoading, summaryError, fetchSummary,
@@ -75,12 +75,12 @@ export default function Bahis() {
     ...(summary?.sports || []).map(s => ({
       key: s.sport,
       icon: sportIconMaterial(s.sport),
-      label: (SPORT_META[s.sport] ?? { label: s.sport }).label,
+      label: sportLabel(s.sport, locale),
       badge: s.count,
       onClick: () => goToSport(s.sport),
       active: selectedCategory === s.sport,
     })),
-  ], [summary, t, selectedCategory, totalCount]);
+  ], [summary, t, locale, selectedCategory, totalCount]);
 
   // Öne Çıkan Ligler — önceki Sidebar.jsx'teki "Popüler Ligler" (top 5,
   // etkinlik sayısına göre) ile aynı mantık, HomeSidebar'ın yeni
@@ -123,7 +123,7 @@ export default function Bahis() {
               <span>{t('common.all')}</span>
             </button>
             {(summary?.sports || []).map(s => {
-              const meta = SPORT_META[s.sport] ?? { icon: '🏆', label: s.sport };
+              const meta = { icon: SPORT_META[s.sport]?.icon ?? '🏆', label: sportLabel(s.sport, locale) };
               return (
                 <button
                   key={s.sport}
@@ -149,7 +149,7 @@ export default function Bahis() {
           ) : (
             <div>
               {summary.sports.map(s => {
-                const meta = SPORT_META[s.sport] ?? { icon: '🏆', label: s.sport };
+                const meta = { icon: SPORT_META[s.sport]?.icon ?? '🏆', label: sportLabel(s.sport, locale) };
                 const isCollapsed = s.sport === prioritySport ? !!collapsedSports[s.sport] : (collapsedSports[s.sport] ?? true);
                 return (
                   <div key={s.sport} id={`sport-${s.sport}`} className="mb-2 scroll-mt-4">
