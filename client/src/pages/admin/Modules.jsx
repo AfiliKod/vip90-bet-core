@@ -14,6 +14,11 @@ import ModuleCard from '../../components/admin/ModuleCard';
  * In-house Oyunlar Provider'ı `MODULE_DEFINITIONS`'ta YOK (M1 çekirdek platform,
  * hiçbir modül tarafından kapatılamaz) — bu yüzden kendi kartı toggle'sız,
  * "Çekirdek" rozetiyle gösterilir.
+ *
+ * Tüm metinler `t('admin.moduleCards.*')` üzerinden (bkz. i18n/dictionaries/) —
+ * server'dan gelen modül title/description'ı (registry.js) KASITLI OLARAK
+ * kullanılmıyor, o tek dilde (Türkçe) sabit; MODULE_VIEW'daki id eşlemesiyle
+ * client-side çevrilebilir sabit metne düşülüyor.
  */
 
 const LANGUAGE_OPTIONS = [
@@ -66,7 +71,7 @@ function MultiCheck({ options, selected, onToggle, disabled }) {
   );
 }
 
-function CopyBox({ label, value, warning }) {
+function CopyBox({ label, value, warning, copiedLabel }) {
   const [copied, setCopied] = useState(false);
   return (
     <div className="mt-3 p-3 rounded-lg bg-amber-500/10 border border-amber-500/30">
@@ -78,7 +83,7 @@ function CopyBox({ label, value, warning }) {
           onClick={() => { navigator.clipboard?.writeText(value); setCopied(true); setTimeout(() => setCopied(false), 2000); }}
           className="text-xs px-2.5 py-1.5 rounded bg-white/10 hover:bg-white/20 transition shrink-0"
         >
-          {copied ? 'Kopyalandı ✓' : 'Kopyala'}
+          {copied ? `${copiedLabel} ✓` : copiedLabel}
         </button>
       </div>
       {warning && <p className="text-xs text-amber-300/80 mt-2">{warning}</p>}
@@ -88,6 +93,7 @@ function CopyBox({ label, value, warning }) {
 
 // ─── In-house Oyunlar Provider (M1 çekirdek, registry'de yok) ──────────────
 function InhouseProviderBody() {
+  const { t } = useTranslation();
   const addToast = useToastStore(s => s.add);
   const [settings, setSettings] = useState(null);
   const [saving, setSaving] = useState(false);
@@ -100,9 +106,9 @@ function InhouseProviderBody() {
       const { data } = await api.get('/admin/inhouse-provider/settings');
       setSettings(data);
     } catch {
-      addToast('In-house provider ayarları alınamadı.', 'error');
+      addToast(t('admin.moduleCards.inhouseLoadFailed'), 'error');
     }
-  }, [addToast]);
+  }, [addToast, t]);
 
   useEffect(() => { load(); }, [load]);
 
@@ -111,9 +117,9 @@ function InhouseProviderBody() {
     try {
       const { data } = await api.patch('/admin/inhouse-provider/settings', patch);
       setSettings(data);
-      addToast('In-house provider ayarları güncellendi.', 'success');
+      addToast(t('admin.moduleCards.inhouseUpdated'), 'success');
     } catch (e) {
-      addToast(e.response?.data?.error || 'Güncelleme başarısız.', 'error');
+      addToast(e.response?.data?.error || t('admin.moduleCards.updateFailed'), 'error');
     } finally {
       setSaving(false);
     }
@@ -145,29 +151,26 @@ function InhouseProviderBody() {
       const { data } = await api.post('/admin/inhouse-provider/rotate-key');
       setNewKey(data);
       setConfirmRotate(false);
-      addToast('Yeni API anahtarı üretildi — aşağıdaki uyarıyı okuyun.', 'success');
+      addToast(t('admin.moduleCards.keyGenerated'), 'success');
     } catch (e) {
-      addToast(e.response?.data?.error || 'Anahtar üretilemedi.', 'error');
+      addToast(e.response?.data?.error || t('admin.moduleCards.keyGenerateFailed'), 'error');
     } finally {
       setRotating(false);
     }
   }
 
-  if (!settings) return <div className="text-text-3 text-sm">Yükleniyor…</div>;
+  if (!settings) return <div className="text-text-3 text-sm">{t('common.loading')}</div>;
 
   return (
     <>
-      <p className="text-text-3 text-sm mb-4">
-        13 in-house casino oyununun (Crash, Mines, Blackjack vb.) merkezi provider bağlantısı.
-        RTP/min-max/timing ayarları burada DEĞİL — Oyun Ayarları sayfasında.
-      </p>
+      <p className="text-text-3 text-sm mb-4">{t('admin.moduleCards.inhouseDesc')}</p>
       <div className="grid sm:grid-cols-2 gap-4">
         <div>
-          <div className="text-[10px] uppercase tracking-wide text-text-3 mb-1.5">API Anahtar ID</div>
+          <div className="text-[10px] uppercase tracking-wide text-text-3 mb-1.5">{t('admin.moduleCards.apiKeyId')}</div>
           <code className="text-xs bg-black/30 px-2 py-1.5 rounded block text-text-1">{settings.apiKeyId}</code>
         </div>
         <div>
-          <div className="text-[10px] uppercase tracking-wide text-text-3 mb-1.5">İzinli Oyunlar ({settings.allowedGameIds.length})</div>
+          <div className="text-[10px] uppercase tracking-wide text-text-3 mb-1.5">{t('admin.moduleCards.allowedGames', { count: settings.allowedGameIds.length })}</div>
           <div className="flex flex-wrap gap-1">
             {settings.allowedGameIds.map(id => <Chip key={id}>{id}</Chip>)}
           </div>
@@ -176,7 +179,7 @@ function InhouseProviderBody() {
 
       <div className="mt-4">
         <div className="text-[10px] uppercase tracking-wide text-text-3 mb-1.5">
-          Desteklenen Diller — varsayılan: <span className="text-primary">{settings.defaultLanguage}</span>
+          {t('admin.moduleCards.supportedLanguagesDefault')} <span className="text-primary">{settings.defaultLanguage}</span>
         </div>
         <MultiCheck options={LANGUAGE_OPTIONS} selected={settings.supportedLanguages} onToggle={toggleLanguage} disabled={saving} />
         {settings.supportedLanguages.length > 1 && (
@@ -193,7 +196,7 @@ function InhouseProviderBody() {
                     : 'bg-white/5 border-white/10 text-text-3 hover:border-white/20'
                 }`}
               >
-                {code === settings.defaultLanguage ? '✓ ' : ''}Varsayılan: {code}
+                {code === settings.defaultLanguage ? '✓ ' : ''}{t('admin.moduleCards.setDefault', { code })}
               </button>
             ))}
           </div>
@@ -202,7 +205,7 @@ function InhouseProviderBody() {
 
       <div className="mt-4">
         <div className="text-[10px] uppercase tracking-wide text-text-3 mb-1.5">
-          Desteklenen Para Birimleri — varsayılan: <span className="text-primary">{settings.defaultCurrency}</span>
+          {t('admin.moduleCards.supportedCurrenciesDefault')} <span className="text-primary">{settings.defaultCurrency}</span>
         </div>
         <MultiCheck options={CURRENCY_OPTIONS} selected={settings.supportedCurrencies} onToggle={toggleCurrency} disabled={saving} />
         {settings.supportedCurrencies.length > 1 && (
@@ -219,7 +222,7 @@ function InhouseProviderBody() {
                     : 'bg-white/5 border-white/10 text-text-3 hover:border-white/20'
                 }`}
               >
-                {code === settings.defaultCurrency ? '✓ ' : ''}Varsayılan: {code}
+                {code === settings.defaultCurrency ? '✓ ' : ''}{t('admin.moduleCards.setDefault', { code })}
               </button>
             ))}
           </div>
@@ -233,21 +236,26 @@ function InhouseProviderBody() {
             onClick={() => setConfirmRotate(true)}
             className="text-xs px-3 py-2 rounded-lg bg-red-500/10 border border-red-500/30 text-red-300 hover:bg-red-500/20 transition"
           >
-            🔑 Yeni API Anahtarı Üret
+            {t('admin.moduleCards.generateNewKey')}
           </button>
         ) : (
           <div className="p-3 rounded-lg bg-red-500/10 border border-red-500/30">
-            <p className="text-sm text-red-300 mb-2">Emin misiniz? Eski anahtar HEMEN geçersiz olur — değişiklik anında aktif olur, restart gerekmez.</p>
+            <p className="text-sm text-red-300 mb-2">{t('admin.moduleCards.rotateConfirm')}</p>
             <div className="flex gap-2">
               <button onClick={doRotate} disabled={rotating} className="text-xs px-3 py-1.5 rounded bg-red-500/80 hover:bg-red-500 text-white transition disabled:opacity-50">
-                {rotating ? 'Üretiliyor…' : 'Evet, yeni anahtar üret'}
+                {rotating ? t('admin.moduleCards.generating') : t('admin.moduleCards.confirmGenerate')}
               </button>
-              <button onClick={() => setConfirmRotate(false)} className="text-xs px-3 py-1.5 rounded bg-white/10 hover:bg-white/20 transition">Vazgeç</button>
+              <button onClick={() => setConfirmRotate(false)} className="text-xs px-3 py-1.5 rounded bg-white/10 hover:bg-white/20 transition">{t('admin.moduleCards.giveUp')}</button>
             </div>
           </div>
         )}
         {newKey && (
-          <CopyBox label={`Yeni API Secret (apiKeyId: ${newKey.apiKeyId})`} value={newKey.apiKeySecret} warning={newKey.warning} />
+          <CopyBox
+            label={t('admin.moduleCards.newApiSecretLabel', { id: newKey.apiKeyId })}
+            value={newKey.apiKeySecret}
+            warning={newKey.warning}
+            copiedLabel={t('common.copied') || 'Kopyalandı'}
+          />
         )}
       </div>
     </>
@@ -256,6 +264,7 @@ function InhouseProviderBody() {
 
 // ─── Bahis Verisi (Odds Provider) ──────────────────────────────────────────
 function OddsProviderBody() {
+  const { t } = useTranslation();
   const addToast = useToastStore(s => s.add);
   const [settings, setSettings] = useState(null);
   const [saving, setSaving] = useState(false);
@@ -269,9 +278,9 @@ function OddsProviderBody() {
       const { data } = await api.get('/admin/odds-provider/settings');
       setSettings(data);
     } catch {
-      addToast('Bahis verisi ayarları alınamadı.', 'error');
+      addToast(t('admin.moduleCards.oddsLoadFailed'), 'error');
     }
-  }, [addToast]);
+  }, [addToast, t]);
 
   useEffect(() => { load(); }, [load]);
 
@@ -290,9 +299,9 @@ function OddsProviderBody() {
     try {
       const { data } = await api.patch('/admin/odds-provider/settings', patch);
       setSettings(data);
-      addToast('Bahis verisi ayarları güncellendi.', 'success');
+      addToast(t('admin.moduleCards.oddsUpdated'), 'success');
     } catch (e) {
-      addToast(e.response?.data?.error || 'Güncelleme başarısız.', 'error');
+      addToast(e.response?.data?.error || t('admin.moduleCards.updateFailed'), 'error');
     } finally {
       setSaving(false);
     }
@@ -313,7 +322,7 @@ function OddsProviderBody() {
 
   async function applyToken() {
     if (!tokenInput || tokenInput.length < 16) {
-      addToast('Token en az 16 karakter olmalı.', 'error');
+      addToast(t('admin.moduleCards.tokenTooShort'), 'error');
       return;
     }
     setApplying(true);
@@ -322,9 +331,9 @@ function OddsProviderBody() {
       setLastPush(data);
       setTokenInput('');
       load();
-      addToast(data.pushed ? 'Token kaydedildi ve odds-provider\'a iletildi — restart gerekmedi.' : 'Token kaydedildi ama odds-provider\'a iletilemedi.', data.pushed ? 'success' : 'error');
+      addToast(data.pushed ? t('admin.moduleCards.tokenSavedPushed') : t('admin.moduleCards.tokenSavedNotPushed'), data.pushed ? 'success' : 'error');
     } catch (e) {
-      addToast(e.response?.data?.error || 'Kaydetme başarısız.', 'error');
+      addToast(e.response?.data?.error || t('admin.moduleCards.saveFailed'), 'error');
     } finally {
       setApplying(false);
     }
@@ -335,26 +344,23 @@ function OddsProviderBody() {
     try {
       const { data } = await api.post('/admin/odds-provider/token/retry-push');
       setLastPush(data);
-      addToast(data.pushed ? 'odds-provider\'a iletildi.' : 'Hâlâ ulaşılamadı.', data.pushed ? 'success' : 'error');
+      addToast(data.pushed ? t('admin.moduleCards.pushed') : t('admin.moduleCards.stillUnreachable'), data.pushed ? 'success' : 'error');
     } catch (e) {
-      addToast(e.response?.data?.error || 'Tekrar deneme başarısız.', 'error');
+      addToast(e.response?.data?.error || t('admin.moduleCards.retryFailed'), 'error');
     } finally {
       setApplying(false);
     }
   }
 
-  if (!settings) return <div className="text-text-3 text-sm">Yükleniyor…</div>;
+  if (!settings) return <div className="text-text-3 text-sm">{t('common.loading')}</div>;
 
   return (
     <>
-      <p className="text-text-3 text-sm mb-4">
-        Canlı/yaklaşan maç verisini ayrı bir sunucudan (odds-provider/) çeken bağlantının ayarları —
-        kategori bazında aç/kapa, halihazırda başlamış/canlı maçları ETKİLEMEZ.
-      </p>
+      <p className="text-text-3 text-sm mb-4">{t('admin.moduleCards.oddsDesc')}</p>
 
       <div className="mt-4">
         <div className="text-[10px] uppercase tracking-wide text-text-3 mb-1.5">
-          Aktif Kategoriler ({settings.enabledCategories.length}/{settings.availableCategories.length})
+          {t('admin.moduleCards.activeCategories', { count: settings.enabledCategories.length, total: settings.availableCategories.length })}
         </div>
         <MultiCheck
           options={settings.availableCategories}
@@ -366,11 +372,11 @@ function OddsProviderBody() {
 
       <div className="mt-5 pt-4 border-t border-white/8">
         <div className="text-[10px] uppercase tracking-wide text-text-3 mb-2">
-          Öncelikli Görünüm — bahis sayfasında ilk gösterilen spor/ülke
+          {t('admin.moduleCards.priorityDisplay')}
         </div>
         <div className="grid sm:grid-cols-2 gap-4">
           <div>
-            <label className="text-[10px] uppercase tracking-wide text-text-3 mb-1 block">Öncelikli Spor</label>
+            <label className="text-[10px] uppercase tracking-wide text-text-3 mb-1 block">{t('admin.moduleCards.prioritySport')}</label>
             <select
               value={settings.prioritySport || 'football'}
               disabled={saving}
@@ -381,9 +387,9 @@ function OddsProviderBody() {
             </select>
           </div>
           <div>
-            <label className="text-[10px] uppercase tracking-wide text-text-3 mb-1 block">Öncelikli Ülke</label>
+            <label className="text-[10px] uppercase tracking-wide text-text-3 mb-1 block">{t('admin.moduleCards.priorityCountry')}</label>
             <select
-              value={settings.priorityCountry || 'Türkiye'}
+              value={settings.priorityCountry || 'Turkey'}
               disabled={saving}
               onChange={e => save({ priorityCountry: e.target.value })}
               className="w-full bg-black/30 border border-white/10 rounded-lg px-3 py-2 text-sm text-text-1 disabled:opacity-50"
@@ -395,32 +401,29 @@ function OddsProviderBody() {
             </select>
           </div>
         </div>
-        <p className="text-xs text-text-3 mt-1">
-          Bu operatörün seçtiği spor/ülke, bahis sayfasında en üstte ve açık gelir; diğerleri
-          kapalı/lazyload olarak listelenir.
-        </p>
+        <p className="text-xs text-text-3 mt-1">{t('admin.moduleCards.priorityHelp')}</p>
       </div>
 
       <div className="mt-5 pt-4 border-t border-white/8">
         <div className="flex items-center gap-2 mb-3">
-          <span className="text-[10px] uppercase tracking-wide text-text-3">Token durumu:</span>
+          <span className="text-[10px] uppercase tracking-wide text-text-3">{t('admin.moduleCards.tokenStatus')}</span>
           {settings.tokenConfigured ? (
-            <Chip>✓ Bu sunucuda ayarlı</Chip>
+            <Chip>{t('admin.moduleCards.configuredOnServer')}</Chip>
           ) : (
-            <span className="text-xs px-2 py-0.5 rounded-full border bg-red-500/20 text-red-300 border-red-500/30">✗ Ayarlı değil</span>
+            <span className="text-xs px-2 py-0.5 rounded-full border bg-red-500/20 text-red-300 border-red-500/30">{t('admin.moduleCards.notConfigured')}</span>
           )}
         </div>
 
         {lastPush && !lastPush.pushed && (
           <div className="p-3 rounded-lg bg-red-500/10 border border-red-500/30 mb-3">
-            <p className="text-xs text-red-300 mb-2">{lastPush.message || 'odds-provider\'a iletilemedi.'}</p>
+            <p className="text-xs text-red-300 mb-2">{lastPush.message || t('admin.moduleCards.unreachableGeneric')}</p>
             <button
               type="button"
               onClick={retryPush}
               disabled={applying}
               className="text-xs px-3 py-1.5 rounded bg-red-500/20 border border-red-500/30 text-red-300 hover:bg-red-500/30 transition disabled:opacity-50"
             >
-              {applying ? 'Deneniyor…' : 'Yeniden Gönder'}
+              {applying ? t('admin.moduleCards.retrying') : t('admin.moduleCards.retryPush')}
             </button>
           </div>
         )}
@@ -428,7 +431,7 @@ function OddsProviderBody() {
         <div className="flex items-center gap-2">
           <input
             type="text"
-            placeholder="Yeni ODDS_PROVIDER_API_TOKEN…"
+            placeholder={t('admin.moduleCards.newTokenPlaceholder')}
             value={tokenInput}
             onChange={e => setTokenInput(e.target.value)}
             className="flex-1 bg-black/30 border border-white/10 rounded-lg px-3 py-2 text-sm text-text-1 font-mono"
@@ -438,7 +441,7 @@ function OddsProviderBody() {
             onClick={fillRandomToken}
             className="text-xs px-2.5 py-2 rounded-lg bg-white/5 border border-white/10 text-text-2 hover:border-white/20 transition shrink-0"
           >
-            🎲 Rastgele
+            {t('admin.moduleCards.randomButton')}
           </button>
         </div>
         <button
@@ -447,12 +450,9 @@ function OddsProviderBody() {
           disabled={applying || !tokenInput}
           className="mt-2 text-xs px-3 py-2 rounded-lg bg-primary/20 border border-primary/40 text-primary hover:bg-primary/30 transition disabled:opacity-40"
         >
-          {applying ? 'Uygulanıyor…' : 'Kaydet ve Uygula'}
+          {applying ? t('admin.moduleCards.applying') : t('admin.moduleCards.saveAndApply')}
         </button>
-        <p className="text-xs text-text-3 mt-1">
-          Kaydedince hem bu sunucuya hem odds-provider'a anında iletilir — restart gerekmez
-          (odds-provider o an ayakta değilse "Yeniden Gönder" ile tekrar denenebilir).
-        </p>
+        <p className="text-xs text-text-3 mt-1">{t('admin.moduleCards.tokenSaveHelp')}</p>
       </div>
     </>
   );
@@ -460,6 +460,7 @@ function OddsProviderBody() {
 
 // ─── Palace Casino ──────────────────────────────────────────────────────────
 function PalaceModuleBody() {
+  const { t } = useTranslation();
   const addToast = useToastStore(s => s.add);
   const [language, setLanguage] = useState('tr');
   const [selectedCodes, setSelectedCodes] = useState([]);
@@ -477,9 +478,9 @@ function PalaceModuleBody() {
       setCredStatus(data);
       setCredForm(f => ({ ...f, apiBase: f.apiBase || data.apiBase || '' }));
     } catch {
-      addToast('Palace API durumu alınamadı.', 'error');
+      addToast(t('admin.moduleCards.palaceCredLoadFailed'), 'error');
     }
-  }, [addToast]);
+  }, [addToast, t]);
 
   useEffect(() => { loadCredStatus(); }, [loadCredStatus]);
 
@@ -494,9 +495,9 @@ function PalaceModuleBody() {
       const { data } = await api.patch('/admin/palace/credentials', patch);
       setCredStatus(data);
       setCredForm({ apiToken: '', apiBase: data.apiBase || '', callbackToken: '' });
-      addToast('Palace API bilgileri güncellendi — anında aktif oldu, restart gerekmiyor.', 'success');
+      addToast(t('admin.moduleCards.palaceCredUpdated'), 'success');
     } catch (e) {
-      addToast(e.response?.data?.error || 'Güncelleme başarısız.', 'error');
+      addToast(e.response?.data?.error || t('admin.moduleCards.updateFailed'), 'error');
     } finally {
       setSavingCreds(false);
     }
@@ -513,21 +514,21 @@ function PalaceModuleBody() {
         setSelectedCodes(settingsRes.data.popularGameCodes || []);
         setCatalog(catalogRes.data?.data || []);
       } catch {
-        addToast('Palace ayarları alınamadı.', 'error');
+        addToast(t('admin.moduleCards.palaceLoadFailed'), 'error');
       } finally {
         setLoading(false);
       }
     })();
-  }, [addToast]);
+  }, [addToast, t]);
 
   async function saveLanguage(lang) {
     setLanguage(lang);
     setSaving(true);
     try {
       await api.patch('/admin/palace/module-settings', { language: lang });
-      addToast('Palace varsayılan dili güncellendi.', 'success');
+      addToast(t('admin.moduleCards.palaceLangUpdated'), 'success');
     } catch (e) {
-      addToast(e.response?.data?.error || 'Güncelleme başarısız.', 'error');
+      addToast(e.response?.data?.error || t('admin.moduleCards.updateFailed'), 'error');
     } finally {
       setSaving(false);
     }
@@ -552,9 +553,9 @@ function PalaceModuleBody() {
     setSaving(true);
     try {
       await api.patch('/admin/palace/module-settings', { popularGameCodes: selectedCodes });
-      addToast('Popüler Oyunlar listesi güncellendi.', 'success');
+      addToast(t('admin.moduleCards.popularGamesUpdated'), 'success');
     } catch (e) {
-      addToast(e.response?.data?.error || 'Güncelleme başarısız.', 'error');
+      addToast(e.response?.data?.error || t('admin.moduleCards.updateFailed'), 'error');
     } finally {
       setSaving(false);
     }
@@ -566,17 +567,14 @@ function PalaceModuleBody() {
 
   const byCode = new Map(catalog.map(g => [g.game_code, g]));
 
-  if (loading) return <div className="text-text-3 text-sm">Yükleniyor…</div>;
+  if (loading) return <div className="text-text-3 text-sm">{t('common.loading')}</div>;
 
   return (
     <>
-      <p className="text-text-3 text-sm mb-4">
-        Palace API'sinin gerçekten desteklediği tek launch-parametresi dil (timezone gibi bir
-        parametre YOK). Popüler Oyunlar bugüne kadar otomatik ilk 10 oyundu — artık burada seçilebilir.
-      </p>
+      <p className="text-text-3 text-sm mb-4">{t('admin.moduleCards.palaceDesc')}</p>
 
       <div>
-        <div className="text-[10px] uppercase tracking-wide text-text-3 mb-1.5">Varsayılan Dil (kullanıcı diline göre override edilmiyorsa)</div>
+        <div className="text-[10px] uppercase tracking-wide text-text-3 mb-1.5">{t('admin.moduleCards.defaultLangOverride')}</div>
         <select
           value={language}
           disabled={saving}
@@ -588,30 +586,30 @@ function PalaceModuleBody() {
       </div>
 
       <div className="mt-5 pt-4 border-t border-white/8">
-        <div className="text-[10px] uppercase tracking-wide text-text-3 mb-2">API Bağlantısı</div>
+        <div className="text-[10px] uppercase tracking-wide text-text-3 mb-2">{t('admin.moduleCards.apiConnection')}</div>
         {credStatus && (
           <div className="flex flex-wrap gap-2 mb-3">
-            {credStatus.apiTokenConfigured ? <Chip>✓ API Token ayarlı</Chip> : (
-              <span className="text-xs px-2 py-0.5 rounded-full border bg-red-500/20 text-red-300 border-red-500/30">✗ API Token ayarlı değil</span>
+            {credStatus.apiTokenConfigured ? <Chip>{t('admin.moduleCards.apiTokenConfigured')}</Chip> : (
+              <span className="text-xs px-2 py-0.5 rounded-full border bg-red-500/20 text-red-300 border-red-500/30">{t('admin.moduleCards.apiTokenNotConfigured')}</span>
             )}
-            {credStatus.callbackTokenConfigured ? <Chip>✓ Callback Token ayarlı</Chip> : (
-              <span className="text-xs px-2 py-0.5 rounded-full border bg-red-500/20 text-red-300 border-red-500/30">✗ Callback Token ayarlı değil</span>
+            {credStatus.callbackTokenConfigured ? <Chip>{t('admin.moduleCards.callbackTokenConfigured')}</Chip> : (
+              <span className="text-xs px-2 py-0.5 rounded-full border bg-red-500/20 text-red-300 border-red-500/30">{t('admin.moduleCards.callbackTokenNotConfigured')}</span>
             )}
           </div>
         )}
         <div className="space-y-2">
           <div>
-            <label className="text-[10px] uppercase tracking-wide text-text-3 mb-1 block">API Token</label>
+            <label className="text-[10px] uppercase tracking-wide text-text-3 mb-1 block">{t('admin.moduleCards.apiToken')}</label>
             <input
               type="password"
-              placeholder={credStatus?.apiTokenConfigured ? 'Değiştirmek için yeni değer girin…' : 'API token girin…'}
+              placeholder={credStatus?.apiTokenConfigured ? t('admin.moduleCards.enterNewValue') : t('admin.moduleCards.enterApiToken')}
               value={credForm.apiToken}
               onChange={e => setCredForm(f => ({ ...f, apiToken: e.target.value }))}
               className="w-full bg-black/30 border border-white/10 rounded-lg px-3 py-2 text-sm text-text-1"
             />
           </div>
           <div>
-            <label className="text-[10px] uppercase tracking-wide text-text-3 mb-1 block">API Base URL</label>
+            <label className="text-[10px] uppercase tracking-wide text-text-3 mb-1 block">{t('admin.moduleCards.apiBaseUrl')}</label>
             <input
               type="text"
               placeholder="https://api.casino-provider.example"
@@ -621,10 +619,10 @@ function PalaceModuleBody() {
             />
           </div>
           <div>
-            <label className="text-[10px] uppercase tracking-wide text-text-3 mb-1 block">Callback Token</label>
+            <label className="text-[10px] uppercase tracking-wide text-text-3 mb-1 block">{t('admin.moduleCards.callbackToken')}</label>
             <input
               type="password"
-              placeholder={credStatus?.callbackTokenConfigured ? 'Değiştirmek için yeni değer girin…' : 'Callback token girin…'}
+              placeholder={credStatus?.callbackTokenConfigured ? t('admin.moduleCards.enterNewValue') : t('admin.moduleCards.enterCallbackToken')}
               value={credForm.callbackToken}
               onChange={e => setCredForm(f => ({ ...f, callbackToken: e.target.value }))}
               className="w-full bg-black/30 border border-white/10 rounded-lg px-3 py-2 text-sm text-text-1"
@@ -637,22 +635,22 @@ function PalaceModuleBody() {
           disabled={savingCreds || (!credForm.apiToken && !credForm.apiBase && !credForm.callbackToken)}
           className="mt-2 text-xs px-3 py-2 rounded-lg bg-primary/20 border border-primary/40 text-primary hover:bg-primary/30 transition disabled:opacity-40"
         >
-          {savingCreds ? 'Kaydediliyor…' : 'API Bilgilerini Kaydet'}
+          {savingCreds ? t('admin.moduleCards.saving') : t('admin.moduleCards.saveApiInfo')}
         </button>
-        <p className="text-xs text-text-3 mt-1">Boş bırakılan alan değiştirilmez. Kaydedince anında aktif olur, restart gerekmez.</p>
+        <p className="text-xs text-text-3 mt-1">{t('admin.moduleCards.emptyFieldHelp')}</p>
       </div>
 
       <div className="mt-5 pt-4 border-t border-white/8">
         <div className="flex items-center justify-between mb-2">
           <div className="text-[10px] uppercase tracking-wide text-text-3">
-            Popüler Oyunlar ({selectedCodes.length} seçili) — boşsa siteye ilk 10 oyun otomatik gösterilir
+            {t('admin.moduleCards.popularGames', { count: selectedCodes.length })}
           </div>
           <button
             onClick={savePopularGames}
             disabled={saving}
             className="text-xs px-3 py-1.5 rounded-lg bg-primary/20 border border-primary/40 text-primary hover:bg-primary/30 transition disabled:opacity-50"
           >
-            {saving ? 'Kaydediliyor…' : 'Listeyi Kaydet'}
+            {saving ? t('admin.moduleCards.saving') : t('admin.moduleCards.saveList')}
           </button>
         </div>
 
@@ -672,13 +670,13 @@ function PalaceModuleBody() {
 
         <input
           type="text"
-          placeholder="Oyun ara…"
+          placeholder={t('admin.moduleCards.searchGame')}
           value={search}
           onChange={e => setSearch(e.target.value)}
           className="w-full bg-black/30 border border-white/10 rounded-lg px-3 py-2 text-sm text-text-1 mb-2"
         />
         <div className="max-h-64 overflow-y-auto space-y-1 border border-white/8 rounded-lg p-2">
-          {filteredCatalog.length === 0 && <div className="text-text-3 text-xs p-2">Sonuç yok.</div>}
+          {filteredCatalog.length === 0 && <div className="text-text-3 text-xs p-2">{t('admin.moduleCards.noResults')}</div>}
           {filteredCatalog.map(g => (
             <label key={g.game_code} className="flex items-center gap-2 text-xs px-2 py-1.5 rounded hover:bg-white/5 cursor-pointer">
               <input
@@ -698,6 +696,7 @@ function PalaceModuleBody() {
 
 // ─── KYC Kimlik Doğrulama ────────────────────────────────────────────────────
 function KycSettingsBody() {
+  const { t } = useTranslation();
   const addToast = useToastStore(s => s.add);
   const [settings, setSettings] = useState(null);
   const [saving, setSaving] = useState(false);
@@ -708,9 +707,9 @@ function KycSettingsBody() {
       const { data } = await api.get('/admin/kyc-settings');
       setSettings(data.settings);
     } catch {
-      addToast('KYC ayarları alınamadı.', 'error');
+      addToast(t('admin.moduleCards.kycLoadFailed'), 'error');
     }
-  }, [addToast]);
+  }, [addToast, t]);
 
   useEffect(() => { load(); }, [load]);
 
@@ -721,9 +720,9 @@ function KycSettingsBody() {
     try {
       await api.put('/admin/kyc-settings', { settings: { [key]: value } });
       load();
-      addToast('KYC ayarı güncellendi.', 'success');
+      addToast(t('admin.moduleCards.kycUpdated'), 'success');
     } catch (e) {
-      addToast(e.response?.data?.error || 'Güncelleme başarısız.', 'error');
+      addToast(e.response?.data?.error || t('admin.moduleCards.updateFailed'), 'error');
     } finally {
       setSaving(false);
     }
@@ -734,9 +733,9 @@ function KycSettingsBody() {
     try {
       await api.put('/admin/kyc-settings', { settings: partial });
       load();
-      addToast('Sumsub ayarları güncellendi.', 'success');
+      addToast(t('admin.moduleCards.sumsubUpdated'), 'success');
     } catch (e) {
-      addToast(e.response?.data?.error || 'Güncelleme başarısız.', 'error');
+      addToast(e.response?.data?.error || t('admin.moduleCards.updateFailed'), 'error');
     } finally {
       setSaving(false);
     }
@@ -746,29 +745,27 @@ function KycSettingsBody() {
     setTesting(true);
     try {
       await api.post('/admin/kyc-settings/test');
-      addToast('Sumsub bağlantısı başarılı.', 'success');
+      addToast(t('admin.moduleCards.sumsubConnSuccess'), 'success');
     } catch (e) {
-      addToast(e.response?.data?.error || 'Test başarısız.', 'error');
+      addToast(e.response?.data?.error || t('admin.moduleCards.testFailed'), 'error');
     } finally {
       setTesting(false);
     }
   }
 
-  if (!settings) return <div className="text-text-3 text-sm">Yükleniyor…</div>;
+  if (!settings) return <div className="text-text-3 text-sm">{t('common.loading')}</div>;
 
   const kycEnabled = byKey.KYC_ENABLED?.rawValue !== 'false';
   const provider = byKey.KYC_PROVIDER?.rawValue || 'manual';
 
   return (
     <>
-      <p className="text-text-3 text-sm mb-4">
-        Manuel belge inceleme veya Sumsub ile otomatik kimlik doğrulama. Provider seçimi, API ayarları ve durum takibi.
-      </p>
+      <p className="text-text-3 text-sm mb-4">{t('admin.moduleCards.kycDesc')}</p>
 
       <div className="flex items-center justify-between mb-4 p-3 bg-bg-hover rounded-xl">
         <div>
-          <div className="text-sm font-medium text-text-2">KYC Aktif</div>
-          <div className="text-xs text-text-3">KYC doğrulamasını aktif/pasif yapar</div>
+          <div className="text-sm font-medium text-text-2">{t('admin.moduleCards.kycActive')}</div>
+          <div className="text-xs text-text-3">{t('admin.moduleCards.kycActiveHelp')}</div>
         </div>
         <button
           onClick={() => saveSetting('KYC_ENABLED', kycEnabled ? 'false' : 'true')}
@@ -781,9 +778,9 @@ function KycSettingsBody() {
       </div>
 
       <div className="mb-4">
-        <div className="text-[10px] uppercase tracking-wide text-text-3 mb-2">Provider</div>
+        <div className="text-[10px] uppercase tracking-wide text-text-3 mb-2">{t('admin.moduleCards.provider')}</div>
         <div className="flex gap-3">
-          {[['manual', 'Manuel — Belge yükleme + admin inceleme'], ['sumsub', 'Sumsub — Otomatik kimlik doğrulama']].map(([val, label]) => (
+          {[['manual', t('admin.moduleCards.providerManual')], ['sumsub', t('admin.moduleCards.providerSumsub')]].map(([val, label]) => (
             <label key={val} className="flex-1 flex items-center gap-2 cursor-pointer p-3 bg-bg-hover rounded-xl border border-white/10 has-[:checked]:border-primary/50">
               <input type="radio" name="kycProvider" value={val}
                 checked={provider === val}
@@ -798,7 +795,7 @@ function KycSettingsBody() {
 
       {provider === 'sumsub' && (
         <div className="mt-4 pt-4 border-t border-white/8">
-          <div className="text-[10px] uppercase tracking-wide text-text-3 mb-3">Sumsub API Ayarları</div>
+          <div className="text-[10px] uppercase tracking-wide text-text-3 mb-3">{t('admin.moduleCards.sumsubApiSettings')}</div>
           <div className="space-y-3">
             {[
               { key: 'SUMSUB_APP_TOKEN', label: 'App Token', placeholder: 'app_t_' },
@@ -811,7 +808,7 @@ function KycSettingsBody() {
               const badgeCls = source === 'db' ? 'bg-green-500/20 text-green-300 border-green-500/30'
                 : source === 'env' ? 'bg-blue-500/20 text-blue-300 border-blue-500/30'
                 : 'bg-white/5 text-text-3 border-white/10';
-              const badgeLabel = source === 'db' ? 'Panel' : source === 'env' ? '.env' : 'Tanımsız';
+              const badgeLabel = source === 'db' ? t('admin.moduleCards.sourcePanel') : source === 'env' ? t('admin.moduleCards.sourceEnv') : t('admin.moduleCards.sourceUnset');
               return (
                 <div key={key}>
                   <div className="flex items-center gap-2 mb-1">
@@ -820,7 +817,7 @@ function KycSettingsBody() {
                   </div>
                   <input
                     type={secret ? 'password' : 'text'}
-                    placeholder={source === 'unset' ? placeholder : 'Yeni değer girin...'}
+                    placeholder={source === 'unset' ? placeholder : t('admin.moduleCards.enterNewValueDots')}
                     className="w-full bg-bg-deep border border-white/10 rounded-lg px-3 py-2 text-sm text-text-1 placeholder:text-text-3/60 focus:outline-none focus:border-white/25"
                     onBlur={e => { if (e.target.value) saveAllSumsub({ [key]: e.target.value }); }}
                   />
@@ -833,7 +830,7 @@ function KycSettingsBody() {
             disabled={testing}
             className="mt-3 text-xs px-3 py-2 rounded-lg border border-white/10 text-text-2 hover:text-text-1 disabled:opacity-40 transition"
           >
-            {testing ? 'Test ediliyor...' : 'Bağlantı Testi'}
+            {testing ? t('admin.moduleCards.testing') : t('admin.moduleCards.connectionTest')}
           </button>
         </div>
       )}
@@ -1081,7 +1078,7 @@ function CryptoPaymentBody() {
   );
 }
 
-// ─── Modül id → kart görünümü (ikon + accordion body) eşlemesi ─────────────
+// ─── Modül id → kart görünümü (ikon + accordion body + çevrilebilir başlık) ─
 const MODULE_VIEW = {
   betting:           { icon: '📊', Body: OddsProviderBody },
   'casino-content':  { icon: '🎰', Body: PalaceModuleBody },
@@ -1168,22 +1165,27 @@ export default function AdminModules() {
         <div className="text-text-3">{t('common.loading')}</div>
       ) : (
         <>
-          <ModuleCard icon="🎮" title="In-house Oyunlar Provider'ı" alwaysOn>
+          <ModuleCard icon="🎮" title={t('admin.moduleCards.inhouseTitle')} alwaysOn coreLabel={t('admin.moduleCards.coreBadge')}>
             <InhouseProviderBody />
           </ModuleCard>
 
           {modules.map(m => {
             const badgeInfo = LICENSE_BADGE[m.licenseSource] ?? LICENSE_BADGE.closed;
             const view = MODULE_VIEW[m.id];
+            // Server tek dilde (TR) sabit title/description döner — client-side
+            // bilinen modül id'leri için çevrilebilir sabit metne düşülür.
+            const title = t(`admin.moduleCards.title.${m.id}`) !== `admin.moduleCards.title.${m.id}` ? t(`admin.moduleCards.title.${m.id}`) : m.title;
+            const description = t(`admin.moduleCards.desc.${m.id}`) !== `admin.moduleCards.desc.${m.id}` ? t(`admin.moduleCards.desc.${m.id}`) : m.description;
             return (
               <ModuleCard
                 key={m.id}
                 icon={view?.icon ?? '🧩'}
-                title={m.title}
-                description={m.description}
+                title={title}
+                description={description}
                 enabled={m.enabled}
                 onToggle={() => toggle(m)}
                 toggleBusy={busyId === m.id}
+                coreLabel={t('admin.moduleCards.coreBadge')}
                 badge={
                   <>
                     <span className={`text-xs px-2 py-0.5 rounded-full border ${badgeInfo.cls}`}>
@@ -1198,7 +1200,7 @@ export default function AdminModules() {
                 }
               >
                 {view ? <view.Body /> : (
-                  <p className="text-text-3 text-sm">Bu modül için ayrı bir ayar ekranı yok.</p>
+                  <p className="text-text-3 text-sm">{t('admin.moduleCards.noSettingsScreen')}</p>
                 )}
               </ModuleCard>
             );

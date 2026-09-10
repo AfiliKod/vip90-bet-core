@@ -5,8 +5,9 @@
  * ile AYNI (key/value, kısa TTL cache).
  *
  * priorityCountry serbest metin — Event.country ISO kodu değil, kaynağın
- * döndürdüğü ham metin (örn. 'Türkiye', 'Iceland'). Admin panelde bunu
- * yazım hatasına açık bir text input yerine `/events/countries?sport=`'dan
+ * döndürdüğü ham metin (İNGİLİZCE olmalı, örn. 'Turkey', 'Iceland' — bkz.
+ * odds-provider/src/domain.js getPlayerUrl). Admin panelde bunu yazım
+ * hatasına açık bir text input yerine `/events/countries?sport=`'dan
  * dinamik doldurulan bir dropdown olarak sun (bkz. routes/events.js).
  */
 import mongoose from 'mongoose';
@@ -16,7 +17,7 @@ const SPORT_KEY = 'bet.prioritySport';
 const COUNTRY_KEY = 'bet.priorityCountry';
 
 export const DEFAULT_PRIORITY_SPORT = 'football';
-export const DEFAULT_PRIORITY_COUNTRY = 'Türkiye';
+export const DEFAULT_PRIORITY_COUNTRY = 'Turkey';
 
 function dbReady() {
   return mongoose.connection.readyState === 1;

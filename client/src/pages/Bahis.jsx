@@ -45,7 +45,7 @@ export default function Bahis() {
   // summary API yanıtına prioritySport/priorityCountry olarak geliyor,
   // burada sabit 'football'/'Türkiye' YAZILMAZ).
   const prioritySport = summary?.prioritySport || 'football';
-  const priorityCountry = summary?.priorityCountry || 'Türkiye';
+  const priorityCountry = summary?.priorityCountry || 'Turkey';
   const autoOpenLeagues = useMemo(() => {
     const set = new Set();
     const primary = summary?.sports?.find(s => s.sport === prioritySport);

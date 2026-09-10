@@ -822,6 +822,7 @@ export const LEAGUE_TR = {
   'Cup':                           'Kupa',
   'Cup, Women':                    'Kupa (Kadınlar)',
   'League':                        'Lig',
+  'Other Matches':                 'Diğer Maçlar',
 };
 
 // ─── Lig / turnuva adları: İngilizce → Korece ───
@@ -906,6 +907,7 @@ export const LEAGUE_KO = {
   'Cup':                           '컵',
   'Cup, Women':                    '컵 (여자)',
   'League':                        '리그',
+  'Other Matches':                 '기타 경기',
 };
 
 // ─── Lig / turnuva adları: İngilizce → Tayca ───
@@ -990,6 +992,7 @@ export const LEAGUE_TH = {
   'Cup':                           'คัพ',
   'Cup, Women':                    'คัพ (หญิง)',
   'League':                        'ลีก',
+  'Other Matches':                 'การแข่งขันอื่นๆ',
 };
 
 // ─── Lig / turnuva adları: İngilizce → İspanyolca ───
@@ -1074,6 +1077,7 @@ export const LEAGUE_ES = {
   'Cup':                           'Copa',
   'Cup, Women':                    'Copa (Mujeres)',
   'League':                        'Liga',
+  'Other Matches':                 'Otros Partidos',
 };
 
 // ─── Lig / turnuva adları: İngilizce → Japonca ───
@@ -1158,6 +1162,7 @@ export const LEAGUE_JA = {
   'Cup':                           'カップ',
   'Cup, Women':                    'カップ (女子)',
   'League':                        'リーグ',
+  'Other Matches':                 'その他の試合',
 };
 
 // ─── Lig / turnuva adları: İngilizce → Portekizce ───
@@ -1242,6 +1247,7 @@ export const LEAGUE_PT = {
   'Cup':                           'Copa',
   'Cup, Women':                    'Copa (Mulheres)',
   'League':                        'Liga',
+  'Other Matches':                 'Outras Partidas',
 };
 
 // ─── Lig / turnuva adları: İngilizce → Almanca ───
@@ -1326,6 +1332,7 @@ export const LEAGUE_DE = {
   'Cup':                           'Pokal',
   'Cup, Women':                    'Pokal (Frauen)',
   'League':                        'Liga',
+  'Other Matches':                 'Andere Spiele',
 };
 
 // Dil sözlüklerini birleştir

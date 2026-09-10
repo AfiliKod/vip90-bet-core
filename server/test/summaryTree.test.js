@@ -3,19 +3,19 @@ import assert from 'node:assert';
 import { buildSummaryTree } from '../src/utils/summaryTree.js';
 
 const ROWS = [
-  { sport: 'football', country: 'Türkiye', league: 'Süper Lig', count: 10 },
+  { sport: 'football', country: 'Turkey', league: 'Süper Lig', count: 10 },
   { sport: 'football', country: 'England', league: 'Premier League', count: 50 },
   { sport: 'basketball', country: 'USA', league: 'NBA', count: 100 },
-  { sport: 'basketball', country: 'Türkiye', league: 'BSL', count: 5 },
+  { sport: 'basketball', country: 'Turkey', league: 'BSL', count: 5 },
 ];
 
 describe('buildSummaryTree', () => {
-  test('varsayılan: football ilk spor, Türkiye ilk ülke (geriye dönük uyumluluk)', () => {
+  test('varsayılan: football ilk spor, Turkey ilk ülke (ham kaynak verisi İngilizce olmalı)', () => {
     const { sports } = buildSummaryTree(ROWS);
     assert.strictEqual(sports[0].sport, 'football');
     assert.strictEqual(sports[1].sport, 'basketball');
     const football = sports[0];
-    assert.strictEqual(football.leagues[0].country, 'Türkiye');
+    assert.strictEqual(football.leagues[0].country, 'Turkey');
     assert.strictEqual(football.leagues[1].country, 'England');
   });
 

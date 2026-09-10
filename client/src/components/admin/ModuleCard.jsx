@@ -1,11 +1,13 @@
 import { useState } from 'react';
+import { useTranslation } from '../../i18n';
 
 /**
  * Modüller + Modül Ayarları'nın birleşmesinden doğan ortak kart: üstte
  * her-zaman-görünür başlık/rozet/aç-kapa, altta accordion ile açılan detay
  * ayarlar. `alwaysOn` (örn. In-house Provider — M1 çekirdek, hiçbir modül
  * tarafından kapatılamaz) durumunda toggle yerine sabit bir "Çekirdek" rozeti
- * gösterilir.
+ * gösterilir (metni `coreLabel` prop'uyla verilir — çağıran taraf zaten
+ * `useTranslation()` çağırdığından burada tekrar `t()` çağırmaya gerek yok).
  */
 export default function ModuleCard({
   icon,
@@ -13,12 +15,14 @@ export default function ModuleCard({
   description,
   badge,
   alwaysOn = false,
+  coreLabel,
   enabled = false,
   onToggle,
   toggleBusy = false,
   defaultOpen = false,
   children,
 }) {
+  const { t } = useTranslation();
   const [open, setOpen] = useState(defaultOpen);
 
   return (
@@ -41,7 +45,7 @@ export default function ModuleCard({
 
         {alwaysOn ? (
           <span className="text-xs px-2 py-0.5 rounded-full border bg-primary/15 border-primary/30 text-primary shrink-0">
-            Çekirdek
+            {coreLabel ?? t('admin.moduleCards.coreBadge')}
           </span>
         ) : (
           <button
@@ -50,7 +54,7 @@ export default function ModuleCard({
             disabled={toggleBusy}
             role="switch"
             aria-checked={enabled}
-            aria-label={`${title} modülünü ${enabled ? 'kapat' : 'aç'}`}
+            aria-label={enabled ? t('admin.moduleCards.toggleOff', { title }) : t('admin.moduleCards.toggleOn', { title })}
             className={`relative w-12 h-6 rounded-full transition shrink-0 disabled:opacity-50 ${
               enabled ? 'bg-green-500/80' : 'bg-white/10'
             }`}
@@ -67,7 +71,7 @@ export default function ModuleCard({
           type="button"
           onClick={() => setOpen(o => !o)}
           className="text-text-3 hover:text-text-1 shrink-0 px-1 transition"
-          aria-label={open ? 'Ayarları kapat' : 'Ayarları aç'}
+          aria-label={open ? t('admin.moduleCards.collapseSettings') : t('admin.moduleCards.expandSettings')}
         >
           {open ? '▲' : '▼'}
         </button>

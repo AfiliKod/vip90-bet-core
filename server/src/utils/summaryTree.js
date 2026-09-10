@@ -3,10 +3,16 @@
 // Kural: öncelikli spor her zaman ilk (sonra count desc); spor içinde
 // öncelikli ülkenin ligleri önce (count desc), sonra diğer ülkeler (count desc).
 // prioritySport/priorityCountry admin panelden ayarlanabilir (bkz.
-// services/bettingDisplaySettings.js) — varsayılanları geriye dönük uyumluluk
-// için eskisiyle (football/Türkiye) aynı tutuldu.
+// services/bettingDisplaySettings.js).
+//
+// DEFAULT_PRIORITY_COUNTRY 2026-09-10'da 'Türkiye' → 'Turkey' oldu:
+// `Event.country` ham kaynak metni İNGİLİZCE olmalı (bkz.
+// odds-provider/src/domain.js getPlayerUrl — session dili en_US'e
+// düzeltildi, önceden tr_TR'ye düşen bir bug yüzünden ham veri bazen
+// Türkçe geliyordu). Eski 'Türkiye' varsayılanı aslında bu bug'ın kod
+// tabanına sızmış bir belirtisiydi, "geriye dönük uyumluluk" değil.
 const DEFAULT_PRIORITY_SPORT = 'football';
-const DEFAULT_PRIORITY_COUNTRY = 'Türkiye';
+const DEFAULT_PRIORITY_COUNTRY = 'Turkey';
 
 export function buildSummaryTree(rows, { prioritySport = DEFAULT_PRIORITY_SPORT, priorityCountry = DEFAULT_PRIORITY_COUNTRY } = {}) {
   const sportMap = new Map();
