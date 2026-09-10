@@ -65,14 +65,22 @@ r.post('/inhouse-provider/rotate-key', async (req, res, next) => {
 r.get('/odds-provider/settings', async (req, res, next) => {
   try {
     const settings = await getOddsProviderSettings();
-    res.json({ ...settings, availableCategories: AVAILABLE_CATEGORIES });
+    res.json({
+      ...settings,
+      availableCategories: AVAILABLE_CATEGORIES,
+      tokenConfigured: !!process.env.ODDS_PROVIDER_API_TOKEN,
+    });
   } catch (e) { next(e); }
 });
 
 r.patch('/odds-provider/settings', validate(updateOddsProviderSettingsSchema), async (req, res, next) => {
   try {
     const updated = await updateOddsProviderSettings(req.body, req.user?.id);
-    res.json({ ...updated, availableCategories: AVAILABLE_CATEGORIES });
+    res.json({
+      ...updated,
+      availableCategories: AVAILABLE_CATEGORIES,
+      tokenConfigured: !!process.env.ODDS_PROVIDER_API_TOKEN,
+    });
   } catch (e) {
     if (e.message.includes('olmalı')) return res.status(400).json({ error: e.message });
     next(e);
