@@ -1543,7 +1543,7 @@ export default {
   'admin.dashboard.settingsCard.title': 'Configuración del Sistema',
   'admin.dashboard.settingsCard.desc': 'Moneda, zona horaria, canales de alerta',
   'admin.dashboard.modules.title': 'Módulos',
-  'admin.dashboard.modules.desc': 'Activar/desactivar módulos de apuestas y casino',
+  'admin.dashboard.modules.desc': 'Activar/desactivar módulos + ajustes de proveedor/API',
   'admin.dashboard.theme.title': 'Editor de Tema',
   'admin.dashboard.theme.desc': 'Color, tipografía, radio — vista previa en vivo',
   'admin.dashboard.branding.title': 'Identidad de Marca',

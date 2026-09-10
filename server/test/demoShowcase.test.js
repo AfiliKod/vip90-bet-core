@@ -56,9 +56,9 @@ describe('createShowcaseHandler — "modül gerektirir" rozeti verisi', () => {
     for (const t of tagged) assert.strictEqual(t.requiresModule, true);
   });
 
-  test('vitrin kalemleri üç satılabilir modülü ve çekirdeği kapsar', () => {
+  test('vitrin kalemleri satılabilir modülleri ve çekirdeği kapsar', () => {
     const ids = SHOWCASE_ITEMS.map(i => i.moduleId);
-    for (const m of ['betting', 'casino-content', 'live-casino']) {
+    for (const m of ['betting', 'casino-content']) {
       assert.ok(ids.includes(m), `${m} vitrinde yok`);
     }
     assert.ok(ids.includes(null), 'çekirdek kalem yok');

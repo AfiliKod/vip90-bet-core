@@ -1542,7 +1542,7 @@ export default {
   'admin.dashboard.settingsCard.title': 'システム設定',
   'admin.dashboard.settingsCard.desc': '通貨、タイムゾーン、アラートチャンネル',
   'admin.dashboard.modules.title': 'モジュール',
-  'admin.dashboard.modules.desc': 'ベッティング・カジノモジュールの有効/無効化',
+  'admin.dashboard.modules.desc': 'モジュールの有効/無効化 + プロバイダー/API設定',
   'admin.dashboard.theme.title': 'テーマエディター',
   'admin.dashboard.theme.desc': '色、フォント、角丸 — ライブプレビュー',
   'admin.dashboard.branding.title': 'ブランドアイデンティティ',

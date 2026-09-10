@@ -1,14 +1,903 @@
 import { useEffect, useState, useCallback } from 'react';
 import api from '../../services/api';
 import { useTranslation } from '../../i18n';
+import { useToastStore } from '../../store/toastStore';
+import ModuleCard from '../../components/admin/ModuleCard';
 
 /**
- * M3 — Admin modül ekranı: aktivasyon, durum, yenileme.
+ * Modüller + Modül Ayarları'nın birleşmiş hali (2026-09-10) — eskiden iki ayrı
+ * sayfaydı (`/admin/modules` aç/kapa listesi, `/admin/module-settings` detay
+ * ayarlar). Artık her modül/provider TEK bir kart: üstte aç/kapa + lisans
+ * rozeti (her zaman görünür), altta accordion ile açılan detay ayarlar
+ * (dil/kategori/API key vb. — eski `ModuleSettings.jsx`'in section'ları).
  *
- * Modülün gerçekten kullanılabilir olması için iki kapı gerekir:
- * enabled (panel anahtarı) + licensed (lisans). Lisans 'cached' ise
- * merkez erişilemiyor demektir — son bilinen durumla çalışılıyor.
+ * In-house Oyunlar Provider'ı `MODULE_DEFINITIONS`'ta YOK (M1 çekirdek platform,
+ * hiçbir modül tarafından kapatılamaz) — bu yüzden kendi kartı toggle'sız,
+ * "Çekirdek" rozetiyle gösterilir.
  */
+
+const LANGUAGE_OPTIONS = [
+  { code: 'tr', label: 'Türkçe' },
+  { code: 'en', label: 'İngilizce' },
+  { code: 'de', label: 'Almanca' },
+  { code: 'es', label: 'İspanyolca' },
+  { code: 'pt', label: 'Portekizce' },
+  { code: 'ja', label: 'Japonca' },
+  { code: 'ko', label: 'Korece' },
+  { code: 'th', label: 'Tayca' },
+];
+
+const CURRENCY_OPTIONS = [
+  { code: 'TRY', label: 'Türk Lirası (₺)' },
+  { code: 'USD', label: 'Dolar ($)' },
+  { code: 'EUR', label: 'Euro (€)' },
+];
+
+function Chip({ children, tone = 'default' }) {
+  const cls = tone === 'default'
+    ? 'bg-white/5 border-white/10 text-text-2'
+    : 'bg-primary/15 border-primary/30 text-primary';
+  return <span className={`text-xs px-2 py-0.5 rounded-full border ${cls}`}>{children}</span>;
+}
+
+function MultiCheck({ options, selected, onToggle, disabled }) {
+  return (
+    <div className="flex flex-wrap gap-2">
+      {options.map(opt => {
+        const active = selected.includes(opt.code ?? opt.id);
+        const key = opt.code ?? opt.id;
+        return (
+          <button
+            key={key}
+            type="button"
+            disabled={disabled}
+            onClick={() => onToggle(key)}
+            className={`text-xs px-3 py-1.5 rounded-full border transition disabled:opacity-40 ${
+              active
+                ? 'bg-primary/20 border-primary/40 text-primary'
+                : 'bg-white/5 border-white/10 text-text-3 hover:border-white/20'
+            }`}
+          >
+            {opt.flag ? `${opt.flag} ` : ''}{opt.label}
+          </button>
+        );
+      })}
+    </div>
+  );
+}
+
+function CopyBox({ label, value, warning }) {
+  const [copied, setCopied] = useState(false);
+  return (
+    <div className="mt-3 p-3 rounded-lg bg-amber-500/10 border border-amber-500/30">
+      <div className="text-xs font-semibold text-amber-300 mb-1">{label}</div>
+      <div className="flex items-center gap-2">
+        <code className="flex-1 text-xs bg-black/30 px-2 py-1.5 rounded break-all text-text-1">{value}</code>
+        <button
+          type="button"
+          onClick={() => { navigator.clipboard?.writeText(value); setCopied(true); setTimeout(() => setCopied(false), 2000); }}
+          className="text-xs px-2.5 py-1.5 rounded bg-white/10 hover:bg-white/20 transition shrink-0"
+        >
+          {copied ? 'Kopyalandı ✓' : 'Kopyala'}
+        </button>
+      </div>
+      {warning && <p className="text-xs text-amber-300/80 mt-2">{warning}</p>}
+    </div>
+  );
+}
+
+// ─── In-house Oyunlar Provider (M1 çekirdek, registry'de yok) ──────────────
+function InhouseProviderBody() {
+  const addToast = useToastStore(s => s.add);
+  const [settings, setSettings] = useState(null);
+  const [saving, setSaving] = useState(false);
+  const [rotating, setRotating] = useState(false);
+  const [confirmRotate, setConfirmRotate] = useState(false);
+  const [newKey, setNewKey] = useState(null);
+
+  const load = useCallback(async () => {
+    try {
+      const { data } = await api.get('/admin/inhouse-provider/settings');
+      setSettings(data);
+    } catch {
+      addToast('In-house provider ayarları alınamadı.', 'error');
+    }
+  }, [addToast]);
+
+  useEffect(() => { load(); }, [load]);
+
+  async function save(patch) {
+    setSaving(true);
+    try {
+      const { data } = await api.patch('/admin/inhouse-provider/settings', patch);
+      setSettings(data);
+      addToast('In-house provider ayarları güncellendi.', 'success');
+    } catch (e) {
+      addToast(e.response?.data?.error || 'Güncelleme başarısız.', 'error');
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  function toggleLanguage(code) {
+    if (!settings) return;
+    const has = settings.supportedLanguages.includes(code);
+    if (has && settings.supportedLanguages.length === 1) return; // en az 1 dil kalmalı
+    const next = has
+      ? settings.supportedLanguages.filter(c => c !== code)
+      : [...settings.supportedLanguages, code];
+    save({ supportedLanguages: next });
+  }
+
+  function toggleCurrency(code) {
+    if (!settings) return;
+    const has = settings.supportedCurrencies.includes(code);
+    if (has && settings.supportedCurrencies.length === 1) return;
+    const next = has
+      ? settings.supportedCurrencies.filter(c => c !== code)
+      : [...settings.supportedCurrencies, code];
+    save({ supportedCurrencies: next });
+  }
+
+  async function doRotate() {
+    setRotating(true);
+    try {
+      const { data } = await api.post('/admin/inhouse-provider/rotate-key');
+      setNewKey(data);
+      setConfirmRotate(false);
+      addToast('Yeni API anahtarı üretildi — aşağıdaki uyarıyı okuyun.', 'success');
+    } catch (e) {
+      addToast(e.response?.data?.error || 'Anahtar üretilemedi.', 'error');
+    } finally {
+      setRotating(false);
+    }
+  }
+
+  if (!settings) return <div className="text-text-3 text-sm">Yükleniyor…</div>;
+
+  return (
+    <>
+      <p className="text-text-3 text-sm mb-4">
+        13 in-house casino oyununun (Crash, Mines, Blackjack vb.) merkezi provider bağlantısı.
+        RTP/min-max/timing ayarları burada DEĞİL — Oyun Ayarları sayfasında.
+      </p>
+      <div className="grid sm:grid-cols-2 gap-4">
+        <div>
+          <div className="text-[10px] uppercase tracking-wide text-text-3 mb-1.5">API Anahtar ID</div>
+          <code className="text-xs bg-black/30 px-2 py-1.5 rounded block text-text-1">{settings.apiKeyId}</code>
+        </div>
+        <div>
+          <div className="text-[10px] uppercase tracking-wide text-text-3 mb-1.5">İzinli Oyunlar ({settings.allowedGameIds.length})</div>
+          <div className="flex flex-wrap gap-1">
+            {settings.allowedGameIds.map(id => <Chip key={id}>{id}</Chip>)}
+          </div>
+        </div>
+      </div>
+
+      <div className="mt-4">
+        <div className="text-[10px] uppercase tracking-wide text-text-3 mb-1.5">
+          Desteklenen Diller — varsayılan: <span className="text-primary">{settings.defaultLanguage}</span>
+        </div>
+        <MultiCheck options={LANGUAGE_OPTIONS} selected={settings.supportedLanguages} onToggle={toggleLanguage} disabled={saving} />
+        {settings.supportedLanguages.length > 1 && (
+          <div className="flex flex-wrap gap-1.5 mt-2">
+            {settings.supportedLanguages.map(code => (
+              <button
+                key={code}
+                type="button"
+                disabled={saving || code === settings.defaultLanguage}
+                onClick={() => save({ defaultLanguage: code })}
+                className={`text-[11px] px-2 py-1 rounded border transition disabled:cursor-default ${
+                  code === settings.defaultLanguage
+                    ? 'bg-primary/20 border-primary/40 text-primary'
+                    : 'bg-white/5 border-white/10 text-text-3 hover:border-white/20'
+                }`}
+              >
+                {code === settings.defaultLanguage ? '✓ ' : ''}Varsayılan: {code}
+              </button>
+            ))}
+          </div>
+        )}
+      </div>
+
+      <div className="mt-4">
+        <div className="text-[10px] uppercase tracking-wide text-text-3 mb-1.5">
+          Desteklenen Para Birimleri — varsayılan: <span className="text-primary">{settings.defaultCurrency}</span>
+        </div>
+        <MultiCheck options={CURRENCY_OPTIONS} selected={settings.supportedCurrencies} onToggle={toggleCurrency} disabled={saving} />
+        {settings.supportedCurrencies.length > 1 && (
+          <div className="flex flex-wrap gap-1.5 mt-2">
+            {settings.supportedCurrencies.map(code => (
+              <button
+                key={code}
+                type="button"
+                disabled={saving || code === settings.defaultCurrency}
+                onClick={() => save({ defaultCurrency: code })}
+                className={`text-[11px] px-2 py-1 rounded border transition disabled:cursor-default ${
+                  code === settings.defaultCurrency
+                    ? 'bg-primary/20 border-primary/40 text-primary'
+                    : 'bg-white/5 border-white/10 text-text-3 hover:border-white/20'
+                }`}
+              >
+                {code === settings.defaultCurrency ? '✓ ' : ''}Varsayılan: {code}
+              </button>
+            ))}
+          </div>
+        )}
+      </div>
+
+      <div className="mt-5 pt-4 border-t border-white/8">
+        {!confirmRotate ? (
+          <button
+            type="button"
+            onClick={() => setConfirmRotate(true)}
+            className="text-xs px-3 py-2 rounded-lg bg-red-500/10 border border-red-500/30 text-red-300 hover:bg-red-500/20 transition"
+          >
+            🔑 Yeni API Anahtarı Üret
+          </button>
+        ) : (
+          <div className="p-3 rounded-lg bg-red-500/10 border border-red-500/30">
+            <p className="text-sm text-red-300 mb-2">Emin misiniz? Eski anahtar HEMEN geçersiz olur, .env güncellenip sunucu yeniden başlatılana kadar in-house oyunlar çalışmaz.</p>
+            <div className="flex gap-2">
+              <button onClick={doRotate} disabled={rotating} className="text-xs px-3 py-1.5 rounded bg-red-500/80 hover:bg-red-500 text-white transition disabled:opacity-50">
+                {rotating ? 'Üretiliyor…' : 'Evet, yeni anahtar üret'}
+              </button>
+              <button onClick={() => setConfirmRotate(false)} className="text-xs px-3 py-1.5 rounded bg-white/10 hover:bg-white/20 transition">Vazgeç</button>
+            </div>
+          </div>
+        )}
+        {newKey && (
+          <CopyBox label={`Yeni API Secret (apiKeyId: ${newKey.apiKeyId})`} value={newKey.apiKeySecret} warning={newKey.warning} />
+        )}
+      </div>
+    </>
+  );
+}
+
+// ─── Bahis Verisi (Odds Provider) ──────────────────────────────────────────
+function OddsProviderBody() {
+  const addToast = useToastStore(s => s.add);
+  const [settings, setSettings] = useState(null);
+  const [saving, setSaving] = useState(false);
+  const [suggestedToken, setSuggestedToken] = useState(null);
+
+  const load = useCallback(async () => {
+    try {
+      const { data } = await api.get('/admin/odds-provider/settings');
+      setSettings(data);
+    } catch {
+      addToast('Bahis verisi ayarları alınamadı.', 'error');
+    }
+  }, [addToast]);
+
+  useEffect(() => { load(); }, [load]);
+
+  async function save(patch) {
+    setSaving(true);
+    try {
+      const { data } = await api.patch('/admin/odds-provider/settings', patch);
+      setSettings(data);
+      addToast('Bahis verisi ayarları güncellendi.', 'success');
+    } catch (e) {
+      addToast(e.response?.data?.error || 'Güncelleme başarısız.', 'error');
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  function toggleCategory(id) {
+    if (!settings) return;
+    const has = settings.enabledCategories.includes(id);
+    const next = has
+      ? settings.enabledCategories.filter(c => c !== id)
+      : [...settings.enabledCategories, id];
+    save({ enabledCategories: next });
+  }
+
+  async function suggestToken() {
+    try {
+      const { data } = await api.post('/admin/odds-provider/suggest-token');
+      setSuggestedToken(data);
+    } catch (e) {
+      addToast(e.response?.data?.error || 'Öneri üretilemedi.', 'error');
+    }
+  }
+
+  if (!settings) return <div className="text-text-3 text-sm">Yükleniyor…</div>;
+
+  return (
+    <>
+      <p className="text-text-3 text-sm mb-4">
+        Canlı/yaklaşan maç verisini ayrı bir sunucudan (odds-provider/) çeken bağlantının ayarları —
+        kategori bazında aç/kapa, halihazırda başlamış/canlı maçları ETKİLEMEZ.
+      </p>
+
+      <div className="mt-4">
+        <div className="text-[10px] uppercase tracking-wide text-text-3 mb-1.5">
+          Aktif Kategoriler ({settings.enabledCategories.length}/{settings.availableCategories.length})
+        </div>
+        <MultiCheck
+          options={settings.availableCategories}
+          selected={settings.enabledCategories}
+          onToggle={toggleCategory}
+          disabled={saving}
+        />
+      </div>
+
+      <div className="mt-5 pt-4 border-t border-white/8">
+        <div className="flex items-center gap-2 mb-3">
+          <span className="text-[10px] uppercase tracking-wide text-text-3">Token durumu:</span>
+          {settings.tokenConfigured ? (
+            <Chip>✓ Bu sunucuda ayarlı</Chip>
+          ) : (
+            <span className="text-xs px-2 py-0.5 rounded-full border bg-red-500/20 text-red-300 border-red-500/30">✗ Ayarlı değil</span>
+          )}
+        </div>
+        <div className="p-3 rounded-lg bg-amber-500/10 border border-amber-500/30 mb-3">
+          <p className="text-xs text-amber-300/90">
+            Aşağıdaki buton yalnızca RASTGELE BİR ÖNERİ üretir — panele girildiği an hiçbir şeyi
+            değiştirmez veya aktive etmez. Kullanılabilmesi için bir sunucu operatörünün bu değeri
+            hem <code className="bg-black/30 px-1 rounded">server/.env</code> hem <code className="bg-black/30 px-1 rounded">odds-provider/.env</code> dosyasına
+            aynı şekilde yazıp HER İKİ servisi de elle yeniden başlatması gerekir. Operatörler bu
+            butonu "API'yi etkinleştir" sanıp tıklamamalı.
+          </p>
+        </div>
+        <button
+          type="button"
+          onClick={suggestToken}
+          className="text-xs px-3 py-2 rounded-lg bg-white/5 border border-white/10 text-text-2 hover:border-white/20 transition"
+        >
+          🔑 Rastgele Token Öner (manuel kurulum gerekir)
+        </button>
+        {suggestedToken && (
+          <CopyBox label="Önerilen ODDS_PROVIDER_API_TOKEN" value={suggestedToken.suggestedToken} warning={suggestedToken.warning} />
+        )}
+      </div>
+    </>
+  );
+}
+
+// ─── Palace Casino ──────────────────────────────────────────────────────────
+function PalaceModuleBody() {
+  const addToast = useToastStore(s => s.add);
+  const [language, setLanguage] = useState('tr');
+  const [selectedCodes, setSelectedCodes] = useState([]);
+  const [catalog, setCatalog] = useState([]);
+  const [search, setSearch] = useState('');
+  const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
+
+  useEffect(() => {
+    (async () => {
+      try {
+        const [settingsRes, catalogRes] = await Promise.all([
+          api.get('/admin/palace/module-settings'),
+          api.post('/palace/game/all', { lang: 'tr' }).catch(() => ({ data: { data: [] } })),
+        ]);
+        setLanguage(settingsRes.data.language || 'tr');
+        setSelectedCodes(settingsRes.data.popularGameCodes || []);
+        setCatalog(catalogRes.data?.data || []);
+      } catch {
+        addToast('Palace ayarları alınamadı.', 'error');
+      } finally {
+        setLoading(false);
+      }
+    })();
+  }, [addToast]);
+
+  async function saveLanguage(lang) {
+    setLanguage(lang);
+    setSaving(true);
+    try {
+      await api.patch('/admin/palace/module-settings', { language: lang });
+      addToast('Palace varsayılan dili güncellendi.', 'success');
+    } catch (e) {
+      addToast(e.response?.data?.error || 'Güncelleme başarısız.', 'error');
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  function toggleGame(code) {
+    setSelectedCodes(prev => prev.includes(code) ? prev.filter(c => c !== code) : [...prev, code]);
+  }
+
+  function moveGame(code, dir) {
+    setSelectedCodes(prev => {
+      const idx = prev.indexOf(code);
+      const next = [...prev];
+      const swapWith = idx + dir;
+      if (swapWith < 0 || swapWith >= next.length) return prev;
+      [next[idx], next[swapWith]] = [next[swapWith], next[idx]];
+      return next;
+    });
+  }
+
+  async function savePopularGames() {
+    setSaving(true);
+    try {
+      await api.patch('/admin/palace/module-settings', { popularGameCodes: selectedCodes });
+      addToast('Popüler Oyunlar listesi güncellendi.', 'success');
+    } catch (e) {
+      addToast(e.response?.data?.error || 'Güncelleme başarısız.', 'error');
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  const filteredCatalog = catalog.filter(g =>
+    !search || g.game_name?.toLowerCase().includes(search.toLowerCase()) || g.game_code?.includes(search)
+  ).slice(0, 60);
+
+  const byCode = new Map(catalog.map(g => [g.game_code, g]));
+
+  if (loading) return <div className="text-text-3 text-sm">Yükleniyor…</div>;
+
+  return (
+    <>
+      <p className="text-text-3 text-sm mb-4">
+        Palace API'sinin gerçekten desteklediği tek launch-parametresi dil (timezone gibi bir
+        parametre YOK). Popüler Oyunlar bugüne kadar otomatik ilk 10 oyundu — artık burada seçilebilir.
+      </p>
+
+      <div>
+        <div className="text-[10px] uppercase tracking-wide text-text-3 mb-1.5">Varsayılan Dil (kullanıcı diline göre override edilmiyorsa)</div>
+        <select
+          value={language}
+          disabled={saving}
+          onChange={e => saveLanguage(e.target.value)}
+          className="bg-black/30 border border-white/10 rounded-lg px-3 py-2 text-sm text-text-1 disabled:opacity-50"
+        >
+          {LANGUAGE_OPTIONS.map(l => <option key={l.code} value={l.code}>{l.label}</option>)}
+        </select>
+      </div>
+
+      <div className="mt-5 pt-4 border-t border-white/8">
+        <div className="flex items-center justify-between mb-2">
+          <div className="text-[10px] uppercase tracking-wide text-text-3">
+            Popüler Oyunlar ({selectedCodes.length} seçili) — boşsa siteye ilk 10 oyun otomatik gösterilir
+          </div>
+          <button
+            onClick={savePopularGames}
+            disabled={saving}
+            className="text-xs px-3 py-1.5 rounded-lg bg-primary/20 border border-primary/40 text-primary hover:bg-primary/30 transition disabled:opacity-50"
+          >
+            {saving ? 'Kaydediliyor…' : 'Listeyi Kaydet'}
+          </button>
+        </div>
+
+        {selectedCodes.length > 0 && (
+          <div className="mb-3 space-y-1">
+            {selectedCodes.map((code, i) => (
+              <div key={code} className="flex items-center gap-2 text-xs bg-white/5 border border-white/10 rounded-lg px-2.5 py-1.5">
+                <span className="text-text-3 w-5">{i + 1}.</span>
+                <span className="flex-1 truncate text-text-1">{byCode.get(code)?.game_name || code}</span>
+                <button onClick={() => moveGame(code, -1)} disabled={i === 0} className="text-text-3 hover:text-text-1 disabled:opacity-20 px-1">↑</button>
+                <button onClick={() => moveGame(code, 1)} disabled={i === selectedCodes.length - 1} className="text-text-3 hover:text-text-1 disabled:opacity-20 px-1">↓</button>
+                <button onClick={() => toggleGame(code)} className="text-red-300 hover:text-red-200 px-1">✕</button>
+              </div>
+            ))}
+          </div>
+        )}
+
+        <input
+          type="text"
+          placeholder="Oyun ara…"
+          value={search}
+          onChange={e => setSearch(e.target.value)}
+          className="w-full bg-black/30 border border-white/10 rounded-lg px-3 py-2 text-sm text-text-1 mb-2"
+        />
+        <div className="max-h-64 overflow-y-auto space-y-1 border border-white/8 rounded-lg p-2">
+          {filteredCatalog.length === 0 && <div className="text-text-3 text-xs p-2">Sonuç yok.</div>}
+          {filteredCatalog.map(g => (
+            <label key={g.game_code} className="flex items-center gap-2 text-xs px-2 py-1.5 rounded hover:bg-white/5 cursor-pointer">
+              <input
+                type="checkbox"
+                checked={selectedCodes.includes(g.game_code)}
+                onChange={() => toggleGame(g.game_code)}
+                className="accent-primary"
+              />
+              <span className="text-text-1">{g.game_name || g.game_code}</span>
+            </label>
+          ))}
+        </div>
+      </div>
+    </>
+  );
+}
+
+// ─── KYC Kimlik Doğrulama ────────────────────────────────────────────────────
+function KycSettingsBody() {
+  const addToast = useToastStore(s => s.add);
+  const [settings, setSettings] = useState(null);
+  const [saving, setSaving] = useState(false);
+  const [testing, setTesting] = useState(false);
+
+  const load = useCallback(async () => {
+    try {
+      const { data } = await api.get('/admin/kyc-settings');
+      setSettings(data.settings);
+    } catch {
+      addToast('KYC ayarları alınamadı.', 'error');
+    }
+  }, [addToast]);
+
+  useEffect(() => { load(); }, [load]);
+
+  const byKey = Object.fromEntries((settings || []).map(s => [s.key, s]));
+
+  async function saveSetting(key, value) {
+    setSaving(true);
+    try {
+      await api.put('/admin/kyc-settings', { settings: { [key]: value } });
+      load();
+      addToast('KYC ayarı güncellendi.', 'success');
+    } catch (e) {
+      addToast(e.response?.data?.error || 'Güncelleme başarısız.', 'error');
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  async function saveAllSumsub(partial) {
+    setSaving(true);
+    try {
+      await api.put('/admin/kyc-settings', { settings: partial });
+      load();
+      addToast('Sumsub ayarları güncellendi.', 'success');
+    } catch (e) {
+      addToast(e.response?.data?.error || 'Güncelleme başarısız.', 'error');
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  async function testConnection() {
+    setTesting(true);
+    try {
+      await api.post('/admin/kyc-settings/test');
+      addToast('Sumsub bağlantısı başarılı.', 'success');
+    } catch (e) {
+      addToast(e.response?.data?.error || 'Test başarısız.', 'error');
+    } finally {
+      setTesting(false);
+    }
+  }
+
+  if (!settings) return <div className="text-text-3 text-sm">Yükleniyor…</div>;
+
+  const kycEnabled = byKey.KYC_ENABLED?.rawValue !== 'false';
+  const provider = byKey.KYC_PROVIDER?.rawValue || 'manual';
+
+  return (
+    <>
+      <p className="text-text-3 text-sm mb-4">
+        Manuel belge inceleme veya Sumsub ile otomatik kimlik doğrulama. Provider seçimi, API ayarları ve durum takibi.
+      </p>
+
+      <div className="flex items-center justify-between mb-4 p-3 bg-bg-hover rounded-xl">
+        <div>
+          <div className="text-sm font-medium text-text-2">KYC Aktif</div>
+          <div className="text-xs text-text-3">KYC doğrulamasını aktif/pasif yapar</div>
+        </div>
+        <button
+          onClick={() => saveSetting('KYC_ENABLED', kycEnabled ? 'false' : 'true')}
+          role="switch"
+          aria-checked={kycEnabled}
+          className={`relative w-12 h-6 rounded-full transition shrink-0 ${kycEnabled ? 'bg-green-500/80' : 'bg-white/10'}`}
+        >
+          <span className={`absolute top-0.5 left-0.5 w-5 h-5 rounded-full bg-white transition-transform ${kycEnabled ? 'translate-x-6' : ''}`} />
+        </button>
+      </div>
+
+      <div className="mb-4">
+        <div className="text-[10px] uppercase tracking-wide text-text-3 mb-2">Provider</div>
+        <div className="flex gap-3">
+          {[['manual', 'Manuel — Belge yükleme + admin inceleme'], ['sumsub', 'Sumsub — Otomatik kimlik doğrulama']].map(([val, label]) => (
+            <label key={val} className="flex-1 flex items-center gap-2 cursor-pointer p-3 bg-bg-hover rounded-xl border border-white/10 has-[:checked]:border-primary/50">
+              <input type="radio" name="kycProvider" value={val}
+                checked={provider === val}
+                onChange={() => saveSetting('KYC_PROVIDER', val)}
+                disabled={saving}
+                className="w-4 h-4 accent-primary" />
+              <span className="text-sm text-text-2">{label}</span>
+            </label>
+          ))}
+        </div>
+      </div>
+
+      {provider === 'sumsub' && (
+        <div className="mt-4 pt-4 border-t border-white/8">
+          <div className="text-[10px] uppercase tracking-wide text-text-3 mb-3">Sumsub API Ayarları</div>
+          <div className="space-y-3">
+            {[
+              { key: 'SUMSUB_APP_TOKEN', label: 'App Token', placeholder: 'app_t_' },
+              { key: 'SUMSUB_SECRET_KEY', label: 'Secret Key', placeholder: 'sec_' },
+              { key: 'SUMSUB_LEVEL_NAME', label: 'Level Name', placeholder: 'basic-kyc-level', secret: false },
+              { key: 'SUMSUB_WEBHOOK_SECRET', label: 'Webhook Secret', placeholder: 'whsec_' },
+            ].map(({ key, label, placeholder, secret = true }) => {
+              const current = byKey[key] || {};
+              const source = current.source || 'unset';
+              const badgeCls = source === 'db' ? 'bg-green-500/20 text-green-300 border-green-500/30'
+                : source === 'env' ? 'bg-blue-500/20 text-blue-300 border-blue-500/30'
+                : 'bg-white/5 text-text-3 border-white/10';
+              const badgeLabel = source === 'db' ? 'Panel' : source === 'env' ? '.env' : 'Tanımsız';
+              return (
+                <div key={key}>
+                  <div className="flex items-center gap-2 mb-1">
+                    <label className="text-xs font-medium text-text-2">{label}</label>
+                    <span className={`px-1.5 py-0.5 rounded text-[10px] border ${badgeCls}`}>{badgeLabel}</span>
+                  </div>
+                  <input
+                    type={secret ? 'password' : 'text'}
+                    placeholder={source === 'unset' ? placeholder : 'Yeni değer girin...'}
+                    className="w-full bg-bg-deep border border-white/10 rounded-lg px-3 py-2 text-sm text-text-1 placeholder:text-text-3/60 focus:outline-none focus:border-white/25"
+                    onBlur={e => { if (e.target.value) saveAllSumsub({ [key]: e.target.value }); }}
+                  />
+                </div>
+              );
+            })}
+          </div>
+          <button
+            onClick={testConnection}
+            disabled={testing}
+            className="mt-3 text-xs px-3 py-2 rounded-lg border border-white/10 text-text-2 hover:text-text-1 disabled:opacity-40 transition"
+          >
+            {testing ? 'Test ediliyor...' : 'Bağlantı Testi'}
+          </button>
+        </div>
+      )}
+    </>
+  );
+}
+
+// ─── Crypto Ödeme Ağ Geçidi ────────────────────────────────────────────────
+function CryptoPaymentBody() {
+  const addToast = useToastStore(s => s.add);
+  const { t } = useTranslation();
+  const [settings, setSettings] = useState(null);
+  const [saving, setSaving] = useState(false);
+  const [pendingDeposits, setPendingDeposits] = useState([]);
+  const [pendingWithdrawals, setPendingWithdrawals] = useState([]);
+  const [hotWallet, setHotWallet] = useState(null);
+
+  const load = useCallback(async () => {
+    try {
+      const [settingsRes, depositsRes, withdrawalsRes, hotWalletRes] = await Promise.all([
+        api.get('/crypto/settings'),
+        api.get('/admin/crypto/pending-deposits').catch(() => ({ data: [] })),
+        api.get('/admin/crypto/pending-withdrawals').catch(() => ({ data: [] })),
+        api.get('/crypto/hot-wallet-balance').catch(() => ({ data: null })),
+      ]);
+      setSettings(settingsRes.data);
+      setPendingDeposits(depositsRes.data);
+      setPendingWithdrawals(withdrawalsRes.data);
+      setHotWallet(hotWalletRes.data);
+    } catch {
+      addToast('Crypto ayarları alınamadı.', 'error');
+    }
+  }, [addToast]);
+
+  useEffect(() => { load(); }, [load]);
+
+  async function saveSettings(patch) {
+    setSaving(true);
+    try {
+      await api.put('/admin/crypto/settings', patch);
+      setSettings(prev => ({ ...prev, ...patch }));
+      addToast('Crypto ayarları güncellendi.', 'success');
+    } catch (e) {
+      addToast(e.response?.data?.error || 'Güncelleme başarısız.', 'error');
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  async function approveDeposit(depositId) {
+    setSaving(true);
+    try {
+      await api.post(`/admin/crypto/deposits/${depositId}/approve`);
+      addToast('Yatırma onaylandı.', 'success');
+      load();
+    } catch (e) {
+      addToast(e.response?.data?.error || 'Onay başarısız.', 'error');
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  async function rejectDeposit(depositId) {
+    setSaving(true);
+    try {
+      await api.post(`/admin/crypto/deposits/${depositId}/reject`);
+      addToast('Yatırma reddedildi.', 'success');
+      load();
+    } catch (e) {
+      addToast(e.response?.data?.error || 'Red başarısız.', 'error');
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  async function approveWithdrawal(withdrawalId) {
+    setSaving(true);
+    try {
+      await api.post(`/admin/crypto/withdrawals/${withdrawalId}/approve`);
+      addToast('Çekim onaylandı — hot wallet\'tan transfer başlatıldı.', 'success');
+      load();
+    } catch (e) {
+      addToast(e.response?.data?.error || 'Onay başarısız.', 'error');
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  async function rejectWithdrawal(withdrawalId) {
+    setSaving(true);
+    try {
+      await api.post(`/admin/crypto/withdrawals/${withdrawalId}/reject`);
+      addToast('Çekim reddedildi — bakiye iade edildi.', 'success');
+      load();
+    } catch (e) {
+      addToast(e.response?.data?.error || 'Red başarısız.', 'error');
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  if (!settings) return <div className="text-text-3 text-sm">{t('admin.cryptoPayment.loading')}</div>;
+
+  return (
+    <>
+      <p className="text-text-3 text-sm mb-4">{t('admin.cryptoPayment.description')}</p>
+
+      {hotWallet && (
+        <div className="mb-4 p-3 rounded-lg bg-green-500/10 border border-green-500/30">
+          <div className="flex items-center gap-2 mb-1">
+            <div className="text-xs font-semibold text-green-300">{t('admin.cryptoPayment.hotWalletBalance')}</div>
+            <span className={`text-[10px] px-1.5 py-0.5 rounded-full font-bold ${
+              settings.network === 'mainnet' ? 'bg-red-500/20 text-red-300' :
+              settings.network === 'nile' ? 'bg-blue-500/20 text-blue-300' :
+              'bg-yellow-500/20 text-yellow-300'
+            }`}>
+              {settings.network === 'mainnet' ? t('admin.cryptoPayment.networkMainnet') :
+               settings.network === 'nile' ? t('admin.cryptoPayment.networkNile') :
+               t('admin.cryptoPayment.networkShasta')}
+            </span>
+          </div>
+          <div className="text-lg font-bold text-green-200">{hotWallet.usdt?.toFixed(2) || 0} USDT</div>
+          <div className="text-xs text-green-300/80 mt-1">{t('admin.cryptoPayment.address')} {hotWallet.address}</div>
+        </div>
+      )}
+
+      <div className="grid sm:grid-cols-2 gap-4 mb-4">
+        <div>
+          <div className="text-[10px] uppercase tracking-wide text-text-3 mb-1.5">{t('admin.cryptoPayment.networkLabel')}</div>
+          <select
+            value={settings.network || 'mainnet'}
+            onChange={e => saveSettings({ network: e.target.value })}
+            disabled={saving}
+            className="w-full bg-black/30 border border-white/10 rounded-lg px-3 py-2 text-sm text-text-1 disabled:opacity-50"
+          >
+            <option value="mainnet">{t('admin.cryptoPayment.networkMainnetOption')}</option>
+            <option value="shasta">{t('admin.cryptoPayment.networkShastaOption')}</option>
+            <option value="nile">{t('admin.cryptoPayment.networkNileOption')}</option>
+          </select>
+          <div className="text-xs text-yellow-300/80 mt-1">{t('admin.cryptoPayment.networkWarning')}</div>
+        </div>
+        <div>
+          <div className="text-[10px] uppercase tracking-wide text-text-3 mb-1.5">{t('admin.cryptoPayment.rateLabel')}</div>
+          <div className="flex items-center gap-2">
+            <input
+              type="number"
+              step="0.01"
+              min="0"
+              value={settings.usdtTryRate || 1}
+              onChange={e => saveSettings({ usdtTryRate: Number(e.target.value) })}
+              disabled={saving}
+              className="flex-1 bg-black/30 border border-white/10 rounded-lg px-3 py-2 text-sm text-text-1 disabled:opacity-50"
+            />
+            <span className="text-xs text-text-3 whitespace-nowrap">{t('admin.cryptoPayment.rateUnit')}</span>
+          </div>
+          <div className="text-xs text-text-3 mt-1">{t('admin.cryptoPayment.rateHelp', { rate: settings.usdtTryRate || 1 })}</div>
+        </div>
+      </div>
+
+      <div className="grid sm:grid-cols-2 gap-4 mb-4">
+        <div>
+          <div className="text-[10px] uppercase tracking-wide text-text-3 mb-1.5">{t('admin.cryptoPayment.autoDepositThreshold')}</div>
+          <input
+            type="number"
+            value={settings.deposit?.autoCreditLimit || 100}
+            onChange={e => saveSettings({ deposit: { ...settings.deposit, autoCreditLimit: Number(e.target.value) } })}
+            disabled={saving}
+            className="w-full bg-black/30 border border-white/10 rounded-lg px-3 py-2 text-sm text-text-1 disabled:opacity-50"
+          />
+          <div className="text-xs text-text-3 mt-1">{t('admin.cryptoPayment.autoDepositHelp')}</div>
+        </div>
+        <div>
+          <div className="text-[10px] uppercase tracking-wide text-text-3 mb-1.5">{t('admin.cryptoPayment.autoWithdrawThreshold')}</div>
+          <input
+            type="number"
+            value={settings.withdraw?.autoProcessLimit || 15}
+            onChange={e => saveSettings({ withdraw: { ...settings.withdraw, autoProcessLimit: Number(e.target.value) } })}
+            disabled={saving}
+            className="w-full bg-black/30 border border-white/10 rounded-lg px-3 py-2 text-sm text-text-1 disabled:opacity-50"
+          />
+          <div className="text-xs text-text-3 mt-1">{t('admin.cryptoPayment.autoWithdrawHelp')}</div>
+        </div>
+      </div>
+
+      {pendingDeposits.length > 0 && (
+        <div className="mt-4 pt-4 border-t border-white/8">
+          <div className="text-xs font-semibold text-text-2 mb-2">{t('admin.crypto.deposit')} ({pendingDeposits.length})</div>
+          <div className="space-y-2">
+            {pendingDeposits.map(d => (
+              <div key={d._id} className="flex items-center gap-3 p-2 rounded-lg bg-white/5 border border-white/10">
+                <div className="flex-1 min-w-0">
+                  <div className="text-xs text-text-1">{d.usdtAmount} USDT → {d.creditedTRY} TRY</div>
+                  <div className="text-[10px] text-text-3 truncate">tx: {d.txHash?.slice(0, 16)}…</div>
+                </div>
+                <button
+                  onClick={() => approveDeposit(d._id)}
+                  disabled={saving}
+                  className="text-xs px-2.5 py-1 rounded bg-green-500/20 border border-green-500/30 text-green-300 hover:bg-green-500/30 transition disabled:opacity-50"
+                >
+                  {t('admin.crypto.approve')}
+                </button>
+                <button
+                  onClick={() => rejectDeposit(d._id)}
+                  disabled={saving}
+                  className="text-xs px-2.5 py-1 rounded bg-red-500/20 border border-red-500/30 text-red-300 hover:bg-red-500/30 transition disabled:opacity-50"
+                >
+                  {t('admin.crypto.reject')}
+                </button>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {pendingWithdrawals.length > 0 && (
+        <div className="mt-4 pt-4 border-t border-white/8">
+          <div className="text-xs font-semibold text-text-2 mb-2">{t('admin.crypto.withdraw')} ({pendingWithdrawals.length})</div>
+          <div className="space-y-2">
+            {pendingWithdrawals.map(w => (
+              <div key={w._id} className="flex items-center gap-3 p-2 rounded-lg bg-white/5 border border-white/10">
+                <div className="flex-1 min-w-0">
+                  <div className="text-xs text-text-1">{w.usdtAmount} USDT → {w.toAddress?.slice(0, 16)}…</div>
+                  <div className="text-[10px] text-text-3">{w.userId?.username || w.userId}</div>
+                </div>
+                <button
+                  onClick={() => approveWithdrawal(w._id)}
+                  disabled={saving}
+                  className="text-xs px-2.5 py-1 rounded bg-green-500/20 border border-green-500/30 text-green-300 hover:bg-green-500/30 transition disabled:opacity-50"
+                >
+                  {t('admin.crypto.approve')}
+                </button>
+                <button
+                  onClick={() => rejectWithdrawal(w._id)}
+                  disabled={saving}
+                  className="text-xs px-2.5 py-1 rounded bg-red-500/20 border border-red-500/30 text-red-300 hover:bg-red-500/30 transition disabled:opacity-50"
+                >
+                  {t('admin.crypto.reject')}
+                </button>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+    </>
+  );
+}
+
+// ─── Modül id → kart görünümü (ikon + accordion body) eşlemesi ─────────────
+const MODULE_VIEW = {
+  betting:           { icon: '📊', Body: OddsProviderBody },
+  'casino-content':  { icon: '🎰', Body: PalaceModuleBody },
+  'crypto-payment':  { icon: '💰', Body: CryptoPaymentBody },
+  'kyc-verification':{ icon: '🔐', Body: KycSettingsBody },
+};
 
 export default function AdminModules() {
   const { t } = useTranslation();
@@ -88,51 +977,43 @@ export default function AdminModules() {
       {loading ? (
         <div className="text-text-3">{t('common.loading')}</div>
       ) : (
-        <div className="space-y-3">
+        <>
+          <ModuleCard icon="🎮" title="In-house Oyunlar Provider'ı" alwaysOn>
+            <InhouseProviderBody />
+          </ModuleCard>
+
           {modules.map(m => {
-            const badge = LICENSE_BADGE[m.licenseSource] ?? LICENSE_BADGE.closed;
+            const badgeInfo = LICENSE_BADGE[m.licenseSource] ?? LICENSE_BADGE.closed;
+            const view = MODULE_VIEW[m.id];
             return (
-              <div
+              <ModuleCard
                 key={m.id}
-                className="flex items-center gap-4 p-4 rounded-xl bg-bg-card border border-white/10"
-              >
-                <div className="flex-1 min-w-0">
-                  <div className="font-semibold">{m.title}</div>
-                  {m.description && (
-                    <div className="text-text-3 text-sm mt-0.5">{m.description}</div>
-                  )}
-                  <div className="flex flex-wrap items-center gap-2 mt-2">
-                    <span className={`text-xs px-2 py-0.5 rounded-full border ${badge.cls}`}>
-                      {badge.label}
+                icon={view?.icon ?? '🧩'}
+                title={m.title}
+                description={m.description}
+                enabled={m.enabled}
+                onToggle={() => toggle(m)}
+                toggleBusy={busyId === m.id}
+                badge={
+                  <>
+                    <span className={`text-xs px-2 py-0.5 rounded-full border ${badgeInfo.cls}`}>
+                      {badgeInfo.label}
                     </span>
                     {m.enabled && !m.licensed && (
                       <span className="text-xs px-2 py-0.5 rounded-full border bg-red-500/20 text-red-300 border-red-500/30">
                         {t('admin.modules.unlicensed')}
                       </span>
                     )}
-                  </div>
-                </div>
-
-                <button
-                  onClick={() => toggle(m)}
-                  disabled={busyId === m.id}
-                  role="switch"
-                  aria-checked={m.enabled}
-                  aria-label={t('admin.modules.toggleAriaLabel', { title: m.title, action: m.enabled ? t('admin.modules.toggleOff') : t('admin.modules.toggleOn') })}
-                  className={`relative w-12 h-6 rounded-full transition shrink-0 disabled:opacity-50 ${
-                    m.enabled ? 'bg-green-500/80' : 'bg-white/10'
-                  }`}
-                >
-                  <span
-                    className={`absolute top-0.5 left-0.5 w-5 h-5 rounded-full bg-white transition-transform ${
-                      m.enabled ? 'translate-x-6' : ''
-                    }`}
-                  />
-                </button>
-              </div>
+                  </>
+                }
+              >
+                {view ? <view.Body /> : (
+                  <p className="text-text-3 text-sm">Bu modül için ayrı bir ayar ekranı yok.</p>
+                )}
+              </ModuleCard>
             );
           })}
-        </div>
+        </>
       )}
     </div>
   );

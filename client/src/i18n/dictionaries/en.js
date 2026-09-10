@@ -1544,7 +1544,7 @@ export default {
   'admin.dashboard.settingsCard.title': 'System Settings',
   'admin.dashboard.settingsCard.desc': 'Currency, timezone, alert channels',
   'admin.dashboard.modules.title': 'Modules',
-  'admin.dashboard.modules.desc': 'Enable/disable betting, casino modules',
+  'admin.dashboard.modules.desc': 'Enable/disable modules + provider/API settings',
   'admin.dashboard.theme.title': 'Theme Editor',
   'admin.dashboard.theme.desc': 'Color, font, radius — live preview',
   'admin.dashboard.branding.title': 'Brand Identity',

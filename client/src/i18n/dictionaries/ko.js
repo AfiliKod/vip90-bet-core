@@ -1543,7 +1543,7 @@ export default {
   'admin.dashboard.settingsCard.title': '시스템 설정',
   'admin.dashboard.settingsCard.desc': '통화, 시간대, 알림 채널',
   'admin.dashboard.modules.title': '모듈',
-  'admin.dashboard.modules.desc': '베팅, 카지노 모듈 켜기/끄기',
+  'admin.dashboard.modules.desc': '모듈 켜기/끄기 + 프로바이더/API 설정',
   'admin.dashboard.theme.title': '테마 편집기',
   'admin.dashboard.theme.desc': '색상, 글꼴, 모서리 — 실시간 미리보기',
   'admin.dashboard.branding.title': '브랜드 아이덴티티',

@@ -69,11 +69,6 @@ export default function AdminDashboard() {
           <div className="font-semibold text-text-1">{t('admin.dashboard.modules.title')}</div>
           <div className="text-text-3 text-sm mt-1">{t('admin.dashboard.modules.desc')}</div>
         </Link>
-        <Link to="/admin/module-settings" className="bg-bg-card border border-white/10 rounded-xl p-5 hover:border-primary/30 transition text-center">
-          <div className="text-3xl mb-2">🔌</div>
-          <div className="font-semibold text-text-1">Modül Ayarları</div>
-          <div className="text-text-3 text-sm mt-1">In-house oyunlar, bahis verisi, Palace API/dil ayarları</div>
-        </Link>
         <Link to="/admin/theme" className="bg-bg-card border border-white/10 rounded-xl p-5 hover:border-accent/30 transition text-center">
           <div className="text-3xl mb-2">🎨</div>
           <div className="font-semibold text-text-1">{t('admin.dashboard.theme.title')}</div>

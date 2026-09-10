@@ -1543,7 +1543,7 @@ export default {
   'admin.dashboard.settingsCard.title': 'Systemeinstellungen',
   'admin.dashboard.settingsCard.desc': 'Währung, Zeitzone, Alarmkanäle',
   'admin.dashboard.modules.title': 'Module',
-  'admin.dashboard.modules.desc': 'Wett- und Casino-Module ein-/ausschalten',
+  'admin.dashboard.modules.desc': 'Module ein-/ausschalten + Provider-/API-Einstellungen',
   'admin.dashboard.theme.title': 'Theme-Editor',
   'admin.dashboard.theme.desc': 'Farbe, Schrift, Radius — Live-Vorschau',
   'admin.dashboard.branding.title': 'Markenidentität',

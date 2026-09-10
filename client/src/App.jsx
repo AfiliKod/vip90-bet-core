@@ -45,7 +45,6 @@ const AdminBranding = lazy(() => import('./pages/admin/Branding'));
 const AdminPages = lazy(() => import('./pages/admin/Pages'));
 const AdminGamesShowcase = lazy(() => import('./pages/admin/GamesShowcase'));
 const AdminGameSettings = lazy(() => import('./pages/admin/GameSettings'));
-const AdminModuleSettings = lazy(() => import('./pages/admin/ModuleSettings'));
 const AdminRoles = lazy(() => import('./pages/admin/Roles'));
 const AdminVip = lazy(() => import('./pages/admin/Vip'));
 const AdminPromotions = lazy(() => import('./pages/admin/Promotions'));
@@ -180,7 +179,7 @@ export default function App() {
         <Route path="/admin/pages" element={<ProtectedRoute adminOnly><Suspense fallback={<PageLoader />}><AdminPages /></Suspense></ProtectedRoute>} />
         <Route path="/admin/games-showcase" element={<ProtectedRoute adminOnly><Suspense fallback={<PageLoader />}><AdminGamesShowcase /></Suspense></ProtectedRoute>} />
         <Route path="/admin/game-settings" element={<ProtectedRoute adminOnly><Suspense fallback={<PageLoader />}><AdminGameSettings /></Suspense></ProtectedRoute>} />
-        <Route path="/admin/module-settings" element={<ProtectedRoute adminOnly><Suspense fallback={<PageLoader />}><AdminModuleSettings /></Suspense></ProtectedRoute>} />
+        <Route path="/admin/module-settings" element={<Navigate to="/admin/modules" replace />} />
         <Route path="/admin/roles" element={<ProtectedRoute adminOnly><Suspense fallback={<PageLoader />}><AdminRoles /></Suspense></ProtectedRoute>} />
         <Route path="/admin/vip" element={<ProtectedRoute adminOnly><Suspense fallback={<PageLoader />}><AdminVip /></Suspense></ProtectedRoute>} />
         <Route path="/admin/promotions" element={<ProtectedRoute adminOnly><Suspense fallback={<PageLoader />}><AdminPromotions /></Suspense></ProtectedRoute>} />

@@ -1543,7 +1543,7 @@ export default {
   'admin.dashboard.settingsCard.title': 'การตั้งค่าระบบ',
   'admin.dashboard.settingsCard.desc': 'สกุลเงิน เขตเวลา ช่องทางแจ้งเตือน',
   'admin.dashboard.modules.title': 'โมดูล',
-  'admin.dashboard.modules.desc': 'เปิด/ปิดโมดูลการเดิมพันและคาสิโน',
+  'admin.dashboard.modules.desc': 'เปิด/ปิดโมดูล + ตั้งค่าผู้ให้บริการ/API',
   'admin.dashboard.theme.title': 'ตัวแก้ไขธีม',
   'admin.dashboard.theme.desc': 'สี ฟอนต์ ความโค้งมุม — ดูตัวอย่างสด',
   'admin.dashboard.branding.title': 'อัตลักษณ์แบรนด์',

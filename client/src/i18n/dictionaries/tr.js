@@ -1543,7 +1543,7 @@ export default {
   'admin.dashboard.settingsCard.title': 'Sistem Ayarları',
   'admin.dashboard.settingsCard.desc': 'Para birimi, saat dilimi, alarm kanalları',
   'admin.dashboard.modules.title': 'Modüller',
-  'admin.dashboard.modules.desc': 'Bahis, casino modüllerini aç/kapat',
+  'admin.dashboard.modules.desc': 'Modülleri aç/kapat + provider/API ayarları',
   'admin.dashboard.theme.title': 'Tema Editörü',
   'admin.dashboard.theme.desc': 'Renk, yazı tipi, köşe — canlı önizleme',
   'admin.dashboard.branding.title': 'Marka Kimliği',
