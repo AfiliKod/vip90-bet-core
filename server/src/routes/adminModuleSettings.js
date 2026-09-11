@@ -15,11 +15,6 @@ import {
   updatePalaceCredentialsSchema,
 } from '../validators/admin.js';
 import {
-  getInhouseProviderSettings,
-  updateInhouseProviderSettings,
-  rotateInhouseProviderApiKey,
-} from '../services/inhouseProviderSettings.js';
-import {
   getOddsProviderSettings,
   updateOddsProviderSettings,
   AVAILABLE_CATEGORIES,
@@ -47,28 +42,43 @@ try {
   // Palace entegrasyonu bu kurulumda mevcut değil.
 }
 
+// In-house oyun provider'ı da ayrı (ücretli) bir pakettir — aynı desen.
+let inhouseProviderSettings = null;
+try {
+  inhouseProviderSettings = await import('../services/inhouseProviderSettings.js');
+} catch {
+  // In-house oyun provider'ı bu kurulumda mevcut değil.
+}
+
 const r = Router();
 r.use(requireAuth, requireAdmin, auditLog('ADMIN_ACTION'));
 
 // ─── In-house oyunlar provider'ı ───────────────────────────────────────────
-r.get('/inhouse-provider/settings', async (req, res, next) => {
+function requireInhouseProvider(req, res, next) {
+  if (!inhouseProviderSettings) {
+    return res.status(503).json({ error: 'MODULE_NOT_INSTALLED', message: 'In-house oyun provider\'ı bu kurulumda mevcut değil.' });
+  }
+  next();
+}
+
+r.get('/inhouse-provider/settings', requireInhouseProvider, async (req, res, next) => {
   try {
-    res.json(await getInhouseProviderSettings());
+    res.json(await inhouseProviderSettings.getInhouseProviderSettings());
   } catch (e) { next(e); }
 });
 
-r.patch('/inhouse-provider/settings', validate(updateInhouseProviderSettingsSchema), async (req, res, next) => {
+r.patch('/inhouse-provider/settings', requireInhouseProvider, validate(updateInhouseProviderSettingsSchema), async (req, res, next) => {
   try {
-    res.json(await updateInhouseProviderSettings(req.body));
+    res.json(await inhouseProviderSettings.updateInhouseProviderSettings(req.body));
   } catch (e) {
     if (e.message.includes('olmalı')) return res.status(400).json({ error: e.message });
     next(e);
   }
 });
 
-r.post('/inhouse-provider/rotate-key', async (req, res, next) => {
+r.post('/inhouse-provider/rotate-key', requireInhouseProvider, async (req, res, next) => {
   try {
-    const { apiKeyId, apiKeySecret } = await rotateInhouseProviderApiKey();
+    const { apiKeyId, apiKeySecret } = await inhouseProviderSettings.rotateInhouseProviderApiKey();
     res.json({
       apiKeyId,
       apiKeySecret,

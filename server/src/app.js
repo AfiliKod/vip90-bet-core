@@ -46,10 +46,7 @@ import brandingRoutes from './routes/branding.js';
 import pagesRoutes from './routes/pages.js';
 import staticPagesRoutes from './routes/staticPages.js';
 import gamesRoutes from './routes/games.js';
-import providerRoutes from './provider/routes/index.js';
-import inhouseProviderProxyRoutes from './routes/inhouseProviderProxy.js';
 import adminModuleSettingsRoutes from './routes/adminModuleSettings.js';
-import { getAllOperatorOrigins } from './provider/services/operatorOriginCache.js';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const isProd = process.env.NODE_ENV === 'production';
@@ -62,6 +59,22 @@ try {
   ({ default: palaceRoutes } = await import('./routes/palace.js'));
 } catch {
   // Palace entegrasyonu bu kurulumda mevcut değil.
+}
+
+// In-house oyun provider'ı (server/src/provider/) da ayrı (ücretli) bir
+// pakettir — aynı opsiyonel yükleme deseni. providerRoutes: PROVIDER'ın
+// (game-host) operatöre konuştuğu uç. inhouseProviderProxyRoutes: bu
+// sitenin provider'a konuşan client'ı. getAllOperatorOrigins: provider'ın
+// Operator modeline dayalı CORS origin listesi (paket yoksa boş Set'e düşer).
+let providerRoutes = null;
+let inhouseProviderProxyRoutes = null;
+let getAllOperatorOrigins = async () => new Set();
+try {
+  ({ default: providerRoutes } = await import('./provider/routes/index.js'));
+  ({ default: inhouseProviderProxyRoutes } = await import('./routes/inhouseProviderProxy.js'));
+  ({ getAllOperatorOrigins } = await import('./provider/services/operatorOriginCache.js'));
+} catch {
+  // In-house oyun provider'ı bu kurulumda mevcut değil.
 }
 
 const baseOrigins = expandOrigins(
@@ -212,8 +225,13 @@ export function createApp() {
   // korunuyor, module gate'ten BAĞIMSIZ (aksi halde oyun içi callback'ler
   // modül kapatılınca kırılırdı). /api/inhouse-provider: bu sitenin (Operatör
   // #1) provider'a konuşan client'ı — 'inhouse-games' modül gate'i altta
-  // tanımlanıp aşağıda uygulanıyor (bkz. "M4" bloğu).
-  app.use('/api/provider/v1', providerRoutes);
+  // tanımlanıp aşağıda uygulanıyor (bkz. "M4" bloğu). Paket mevcut değilse
+  // (opsiyonel dinamik import yukarıda) anlamlı bir 503 döner.
+  if (providerRoutes) {
+    app.use('/api/provider/v1', providerRoutes);
+  } else {
+    app.use('/api/provider/v1', (req, res) => res.status(503).json({ error: 'MODULE_NOT_INSTALLED', message: 'In-house oyun provider\'ı bu kurulumda mevcut değil.' }));
+  }
   app.use('/api/help', helpRoutes);
   app.use('/api/bank', bankRoutes);
   app.use('/api/admin/analytics', analyticsRoutes);
@@ -244,7 +262,11 @@ export function createApp() {
   app.use('/api/events', requireBetting, eventsRoutes);
   app.use('/api/bets', requireBetting, betsRoutes);
   app.use('/api/casino', requireCasinoContent, casinoRoutes);
-  app.use('/api/inhouse-provider', requireInhouseGames, inhouseProviderProxyRoutes);
+  if (inhouseProviderProxyRoutes) {
+    app.use('/api/inhouse-provider', requireInhouseGames, inhouseProviderProxyRoutes);
+  } else {
+    app.use('/api/inhouse-provider', (req, res) => res.status(503).json({ error: 'MODULE_NOT_INSTALLED', message: 'In-house oyun provider\'ı bu kurulumda mevcut değil.' }));
+  }
   app.use('/api/crypto', requireCryptoPayment, cryptoRoutes);
   app.use('/api/kyc', requireKycVerification, kycRoutes);
   app.use('/api', sumsubWebhookRoute); // Sumsub webhook — module gate'den bağımsız

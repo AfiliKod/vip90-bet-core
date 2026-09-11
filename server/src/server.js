@@ -14,9 +14,6 @@ import mongoose from 'mongoose';
 import { createApp, corsOptions } from './app.js';
 import { connectDB } from './db.js';
 import { initSocket } from './socket/handler.js';
-import { initCrashGameNamespace } from './provider/games/crashGame.js';
-import { initRouletteGameNamespace } from './provider/games/rouletteGame.js';
-import { startWalletCallbackRetryWorker } from './provider/services/retryOutbox.js';
 import { startOddsSourceLiveSync } from './jobs/oddsSourceLiveSync.js';
 import { startOddsSourceUpcomingSync } from './jobs/oddsSourceUpcomingSync.js';
 import { startMonitor } from './services/syncHealth.js';
@@ -38,6 +35,19 @@ try {
   ({ startReconciliation } = await import('./scripts/reconcilePalace.js'));
 } catch {
   // Palace entegrasyonu bu kurulumda mevcut değil.
+}
+
+// In-house oyun provider'ı (server/src/provider/) da ayrı (ücretli) bir
+// pakettir — aynı opsiyonel yükleme deseni.
+let initCrashGameNamespace = () => {};
+let initRouletteGameNamespace = () => {};
+let startWalletCallbackRetryWorker = () => {};
+try {
+  ({ initCrashGameNamespace } = await import('./provider/games/crashGame.js'));
+  ({ initRouletteGameNamespace } = await import('./provider/games/rouletteGame.js'));
+  ({ startWalletCallbackRetryWorker } = await import('./provider/services/retryOutbox.js'));
+} catch {
+  // In-house oyun provider'ı bu kurulumda mevcut değil.
 }
 
 const app = createApp();

@@ -30,9 +30,19 @@ import { getAllVipLevels, upsertVipLevel, deleteVipLevel } from '../services/vip
 import { getReferralTreeView } from '../services/referralTreeView.js';
 import { createBot, getAllBots, getBotById, updateBot, deleteBot, getBotStats, startAllBots, stopAllBots } from '../services/bot.js';
 import { listAllForAdmin as listAllStaticPagesForAdmin, upsertPage as upsertStaticPageSvc, togglePage as toggleStaticPageSvc } from '../services/staticPages.js';
-import { updateSettings as updateProviderGameSettings } from '../services/inhouseProviderClient.js';
-import { simulateBlackjackRtp, simulateVideoPokerRtp } from '../services/inhouse/rtpSimulator.js';
 import { setFeaturedGameCodes as setFeaturedGameCodesImpl, getFeaturedGameCodes } from '../games/index.js';
+
+// In-house oyun provider'ı ayrı (ücretli) bir pakettir — bu kurulumda hiç
+// bulunmayabilir (bkz. app.js'deki aynı opsiyonel yükleme deseni).
+let updateProviderGameSettings = null;
+let simulateBlackjackRtp = null;
+let simulateVideoPokerRtp = null;
+try {
+  ({ updateSettings: updateProviderGameSettings } = await import('../services/inhouseProviderClient.js'));
+  ({ simulateBlackjackRtp, simulateVideoPokerRtp } = await import('../services/inhouse/rtpSimulator.js'));
+} catch {
+  // In-house oyun provider'ı bu kurulumda mevcut değil.
+}
 
 // Phase B13 — ReDoS protection
 function safeRegex(input, maxLength = 100) {
@@ -1032,6 +1042,9 @@ const PROVIDER_GAME_SHORT_IDS = {
 
 export async function updateGameSettings(req, res, next) {
   try {
+    if (!updateProviderGameSettings) {
+      return res.status(503).json({ error: { code: 'MODULE_NOT_INSTALLED', message: 'In-house oyun provider\'ı bu kurulumda mevcut değil.' } });
+    }
     const { gameId } = req.params;
     const { reason, ...updates } = req.validated;
 
@@ -1056,6 +1069,9 @@ const RTP_SIMULATORS = {
 // "bu ayarlarla RTP ne olur" görebilsin diye. Yan etkisi yok, DB'ye yazmaz.
 export async function simulateGameRtp(req, res, next) {
   try {
+    if (!simulateBlackjackRtp || !simulateVideoPokerRtp) {
+      return res.status(503).json({ error: { code: 'MODULE_NOT_INSTALLED', message: 'In-house oyun provider\'ı bu kurulumda mevcut değil.' } });
+    }
     const { gameId } = req.params;
     const simulator = RTP_SIMULATORS[gameId];
     if (!simulator) {
