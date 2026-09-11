@@ -251,9 +251,6 @@ denetimiyle doğrulandı, gizlenmiyor. Tam ayrıntı ve kod referansları için
   edilen kullanıcının ürettiği ev karının bir yüzdesi doğrudan referans
   verene ödeniyor. Alt-referansların (2. kademe ve ötesi) da komisyon
   getirdiği bir yapı henüz yok.
-- **Rulet house edge ayarı devre dışı** — panelde `rouletteHouseEdgePercent`/
-  `rouletteMaxPayout` alanları var ama rulet oyun mantığı bunları hiç
-  okumuyor; değiştirmek oyunun davranışını etkilemiyor.
 
 ## Lisanslama
 
