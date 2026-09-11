@@ -1,6 +1,7 @@
 {
   "name": "vip90-bet",
   "version": "0.3.0",
+  "license": "BUSL-1.1",
   "private": true,
   "type": "module",
   "scripts": {
