@@ -31,6 +31,7 @@ const UNIT_SUITES = [
   'test-bet-settlement.mjs',                // settleEvent/autoSettleFinishedEvent entegrasyon (daha önce runner'a bağlı değildi)
   'test-admin-settle-recovery.mjs',        // admin manuel settle: 'finished' ama hâlâ pending bahisli event'ler kurtarılabiliyor mu
   'test-status-transition-settlement.mjs', // statusTransition fallback'i artık otomatik sonuçlandırma deniyor mu
+  'test-roulette-evaluate-bets.mjs',        // rouletteHouseEdgePercent/rouletteMaxPayout artık gerçek ödemeyi etkiliyor (2026-09-11)
 ];
 
 // ─── Casino Integration Tests (real DB, mocked or real Palace) ────────────
