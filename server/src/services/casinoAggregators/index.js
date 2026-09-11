@@ -21,8 +21,8 @@ let _cached = null;
 async function tryRegisterPalace(registry) {
   try {
     const [{ createPalaceAggregator }, palaceCasinoService] = await Promise.all([
-      import('./palaceAdapter.js'),
-      import('../palaceCasinoService.js'),
+      import('../../premium/palace/palaceAdapter.js'),
+      import('../../premium/palace/palaceCasinoService.js'),
     ]);
     registry.register(createPalaceAggregator(palaceCasinoService));
   } catch {

@@ -56,7 +56,7 @@ const isProd = process.env.NODE_ENV === 'production';
 // yükleniyor. Paket yoksa /api/palace altında anlamlı bir 503 döner.
 let palaceRoutes = null;
 try {
-  ({ default: palaceRoutes } = await import('./routes/palace.js'));
+  ({ default: palaceRoutes } = await import('./premium/palace/palace.js'));
 } catch {
   // Palace entegrasyonu bu kurulumda mevcut değil.
 }
@@ -70,9 +70,9 @@ let providerRoutes = null;
 let inhouseProviderProxyRoutes = null;
 let getAllOperatorOrigins = async () => new Set();
 try {
-  ({ default: providerRoutes } = await import('./provider/routes/index.js'));
-  ({ default: inhouseProviderProxyRoutes } = await import('./routes/inhouseProviderProxy.js'));
-  ({ getAllOperatorOrigins } = await import('./provider/services/operatorOriginCache.js'));
+  ({ default: providerRoutes } = await import('./premium/inhouse-provider/engine/routes/index.js'));
+  ({ default: inhouseProviderProxyRoutes } = await import('./premium/inhouse-provider/inhouseProviderProxy.js'));
+  ({ getAllOperatorOrigins } = await import('./premium/inhouse-provider/engine/services/operatorOriginCache.js'));
 } catch {
   // In-house oyun provider'ı bu kurulumda mevcut değil.
 }

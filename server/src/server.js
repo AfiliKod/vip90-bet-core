@@ -29,7 +29,7 @@ import { initDefaultChatRoom } from './services/chat.js';
 // hiç bulunmayabilir (bkz. app.js'deki aynı opsiyonel yükleme deseni).
 let startReconciliation = () => {};
 try {
-  ({ startReconciliation } = await import('./scripts/reconcilePalace.js'));
+  ({ startReconciliation } = await import('./premium/palace/reconcilePalace.js'));
 } catch {
   // Palace entegrasyonu bu kurulumda mevcut değil.
 }
@@ -40,9 +40,9 @@ let initCrashGameNamespace = () => {};
 let initRouletteGameNamespace = () => {};
 let startWalletCallbackRetryWorker = () => {};
 try {
-  ({ initCrashGameNamespace } = await import('./provider/games/crashGame.js'));
-  ({ initRouletteGameNamespace } = await import('./provider/games/rouletteGame.js'));
-  ({ startWalletCallbackRetryWorker } = await import('./provider/services/retryOutbox.js'));
+  ({ initCrashGameNamespace } = await import('./premium/inhouse-provider/engine/games/crashGame.js'));
+  ({ initRouletteGameNamespace } = await import('./premium/inhouse-provider/engine/games/rouletteGame.js'));
+  ({ startWalletCallbackRetryWorker } = await import('./premium/inhouse-provider/engine/services/retryOutbox.js'));
 } catch {
   // In-house oyun provider'ı bu kurulumda mevcut değil.
 }
@@ -54,9 +54,9 @@ let startOddsSourceLiveSync = () => {};
 let startOddsSourceUpcomingSync = () => {};
 let startStatusTransition = () => {};
 try {
-  ({ startOddsSourceLiveSync } = await import('./jobs/oddsSourceLiveSync.js'));
-  ({ startOddsSourceUpcomingSync } = await import('./jobs/oddsSourceUpcomingSync.js'));
-  ({ startStatusTransition } = await import('./jobs/statusTransition.js'));
+  ({ startOddsSourceLiveSync } = await import('./premium/betting/jobs/oddsSourceLiveSync.js'));
+  ({ startOddsSourceUpcomingSync } = await import('./premium/betting/jobs/oddsSourceUpcomingSync.js'));
+  ({ startStatusTransition } = await import('./premium/betting/jobs/statusTransition.js'));
 } catch {
   // Bahis sonuçlandırma motoru bu kurulumda mevcut değil.
 }
@@ -154,7 +154,7 @@ connectDB()
     startReconciliation();
     // Casino statik cache'ini boot'ta ısıt (best-effort, non-blocking) — ilk
     // kullanıcı Palace API soğuk maliyetini beklemesin.
-    import('./services/palaceCasinoService.js')
+    import('./premium/palace/palaceCasinoService.js')
       .then(m => m.warmCache())
       .catch(() => {});
   })

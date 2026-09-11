@@ -25,8 +25,8 @@ import { randomBytes } from 'crypto';
 let palaceModuleSettings = null;
 let palaceCredentials = null;
 try {
-  palaceModuleSettings = await import('../services/palaceModuleSettings.js');
-  palaceCredentials = await import('../services/palaceCredentials.js');
+  palaceModuleSettings = await import('../premium/palace/palaceModuleSettings.js');
+  palaceCredentials = await import('../premium/palace/palaceCredentials.js');
 } catch {
   // Palace entegrasyonu bu kurulumda mevcut değil.
 }
@@ -34,7 +34,7 @@ try {
 // In-house oyun provider'ı da ayrı (ücretli) bir pakettir — aynı desen.
 let inhouseProviderSettings = null;
 try {
-  inhouseProviderSettings = await import('../services/inhouseProviderSettings.js');
+  inhouseProviderSettings = await import('../premium/inhouse-provider/inhouseProviderSettings.js');
 } catch {
   // In-house oyun provider'ı bu kurulumda mevcut değil.
 }
@@ -45,8 +45,8 @@ try {
 let oddsProviderSettings = null;
 let oddsProviderToken = null;
 try {
-  oddsProviderSettings = await import('../services/oddsProviderSettings.js');
-  oddsProviderToken = await import('../services/oddsProviderToken.js');
+  oddsProviderSettings = await import('../premium/betting/oddsProviderSettings.js');
+  oddsProviderToken = await import('../premium/betting/oddsProviderToken.js');
 } catch {
   // Bahis oran sağlayıcı entegrasyonu bu kurulumda mevcut değil.
 }

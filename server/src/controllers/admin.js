@@ -37,8 +37,8 @@ let updateProviderGameSettings = null;
 let simulateBlackjackRtp = null;
 let simulateVideoPokerRtp = null;
 try {
-  ({ updateSettings: updateProviderGameSettings } = await import('../services/inhouseProviderClient.js'));
-  ({ simulateBlackjackRtp, simulateVideoPokerRtp } = await import('../services/inhouse/rtpSimulator.js'));
+  ({ updateSettings: updateProviderGameSettings } = await import('../premium/inhouse-provider/inhouseProviderClient.js'));
+  ({ simulateBlackjackRtp, simulateVideoPokerRtp } = await import('../premium/inhouse-provider/math/rtpSimulator.js'));
 } catch {
   // In-house oyun provider'ı bu kurulumda mevcut değil.
 }
@@ -48,7 +48,7 @@ try {
 // CRUD çekirdekte kalıyor, yalnızca "nasıl sonuçlandırılır" mantığı taşınıyor.
 let settleEvent = null;
 try {
-  ({ settleEvent } = await import('../services/settlement.js'));
+  ({ settleEvent } = await import('../premium/betting/settlement.js'));
 } catch {
   // Bahis sonuçlandırma motoru bu kurulumda mevcut değil.
 }
@@ -599,9 +599,9 @@ export async function getUserCasinoRounds(req, res, next) {
 
 // `_getPalaceService` palaceden test/mock için override edilebilir
 async function getPalace() {
-  const sessionMod = await import('../services/palaceSession.js');
+  const sessionMod = await import('../premium/palace/palaceSession.js');
   if (sessionMod._getPalaceService) return sessionMod._getPalaceService();
-  return await import('../services/palaceCasinoService.js');
+  return await import('../premium/palace/palaceCasinoService.js');
 }
 
 export async function getPalaceAgentInfo(req, res, next) {
