@@ -1,4 +1,5 @@
 import StaticPage from '../models/StaticPage.js';
+import { getSiteName } from '../branding/index.js';
 
 /** Herkese açık — footer link listesi (yalnızca etkin sayfalar, sıralı). */
 export async function getPublicPageList() {
@@ -121,7 +122,7 @@ const DEFAULT_PAGES = [
     intro: 'Bu sözleşme, Bet Platform ile üye arasındaki üyelik ilişkisinin şartlarını düzenler. Platforma kayıt olarak bu sözleşmeyi okuduğunuzu ve kabul ettiğinizi beyan edersiniz.',
     sections: [
       { title: '1. Taraflar ve Tanımlar', content: [
-        '"Platform", VIP90.bet International N.V. tarafından işletilen Bet Platform çevrimiçi bahis ve casino hizmetini ifade eder.',
+        '"Platform", __LEGAL_NAME__ tarafından işletilen Bet Platform çevrimiçi bahis ve casino hizmetini ifade eder.',
         '"Üye", platforma kayıt olarak bu sözleşmeyi kabul eden gerçek kişiyi ifade eder.',
         'Bu sözleşme, üyelik süresince geçerli olan Kullanım Koşulları, Gizlilik Politikası ve KVKK Aydınlatma Metni ile birlikte bir bütün oluşturur; çelişki halinde bu sözleşme öncelikli uygulanır.',
       ] },
@@ -215,7 +216,7 @@ const DEFAULT_PAGES = [
     intro: '6698 sayılı Kişisel Verilerin Korunması Kanunu (KVKK) madde 10 kapsamında, kişisel verilerinizin işlenmesi hakkında aydınlatma metnini sunarız.',
     sections: [
       { title: '1. Veri Sorumlusu', content: [
-        'Unvan: VIP90.bet International N.V.',
+        'Unvan: __LEGAL_NAME__',
         'Adres: Heelsumstraat 51, E-Commerce Park, Curaçao',
         'Vergi/Şirket No: 142.888.0 (Curacao)',
         'E-posta: kvkk@vip90.bet',
@@ -386,5 +387,16 @@ const DEFAULT_PAGES = [
 export async function seedDefaultPages() {
   const count = await StaticPage.countDocuments();
   if (count > 0) return;
-  await StaticPage.insertMany(DEFAULT_PAGES);
+  // Yasal unvan placeholder'ı ("... International N.V.") seed anında admin
+  // panelinin Marka Kimliği alanındaki güncel marka adıyla doldurulur — seed
+  // sonrası içerik normal statik sayfa düzenleyicisinden değiştirilebilir.
+  const legalName = `${await getSiteName()} International N.V.`;
+  const pages = DEFAULT_PAGES.map(p => ({
+    ...p,
+    sections: p.sections.map(s => ({
+      ...s,
+      content: s.content.map(c => c.replace('__LEGAL_NAME__', legalName)),
+    })),
+  }));
+  await StaticPage.insertMany(pages);
 }

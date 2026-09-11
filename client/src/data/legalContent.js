@@ -5,17 +5,23 @@
 // yasalarına uymakla sorumludur.
 
 import { formatMoney } from '../utils/money.js';
+import { useBrandingStore } from '../store/brandingStore';
 
 export const LEGAL_VERSION = '1.0.0';
 
 export const COMPANY = {
   name: 'Bet Platform',
-  legalName: 'VIP90.bet International N.V.',
   address: 'Heelsumstraat 51, E-Commerce Park, Curaçao',
   license: 'Curacao Gaming Control Board — Lisans #8048/JAZ2024-001',
   email: 'support@vip90.bet',
   responsibleEmail: 'responsible@vip90.bet',
 };
+
+// Yasal unvan placeholder'dır ("... International N.V.") — marka adı kısmı
+// admin panelinin Marka Kimliği sekmesindeki siteName alanından gelir, statik
+// değildir. Render zamanında çağrılmalı (modül yüklenirken değil).
+export const getLegalName = (siteName = useBrandingStore.getState().siteName) =>
+  `${siteName || 'VIP90.bet'} International N.V.`;
 
 // ─── Terms of Service ─────────────────────────────────────────────
 export const TERMS = {
@@ -177,7 +183,7 @@ export const KVKK = {
     {
       title: '1. Veri Sorumlusu',
       content: [
-        'Unvan: VIP90.bet International N.V.',
+        () => `Unvan: ${getLegalName()}`,
         'Adres: Heelsumstraat 51, E-Commerce Park, Curaçao',
         'Vergi/Şirket No: 142.888.0 (Curacao)',
         'E-posta: kvkk@vip90.bet',
@@ -424,7 +430,7 @@ export const USER_AGREEMENT = {
     {
       title: '1. Taraflar ve Tanımlar',
       content: [
-        `"Platform", ${COMPANY.legalName} tarafından işletilen Bet Platform çevrimiçi bahis ve casino hizmetini ifade eder.`,
+        () => `"Platform", ${getLegalName()} tarafından işletilen ${COMPANY.name} çevrimiçi bahis ve casino hizmetini ifade eder.`,
         '"Üye", platforma kayıt olarak bu sözleşmeyi kabul eden gerçek kişiyi ifade eder.',
         'Bu sözleşme, üyelik süresince geçerli olan Kullanım Koşulları, Gizlilik Politikası ve KVKK Aydınlatma Metni ile birlikte bir bütün oluşturur; çelişki halinde bu sözleşme öncelikli uygulanır.',
       ],

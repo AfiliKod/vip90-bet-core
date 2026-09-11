@@ -1,7 +1,8 @@
 import { Link, useLocation } from 'react-router-dom';
 import { useTranslation } from '../../i18n';
-import { COMPANY, LEGAL_VERSION } from '../../data/legalContent';
+import { COMPANY, LEGAL_VERSION, getLegalName } from '../../data/legalContent';
 import { SURFACE_CARD_BG, SURFACE_BORDER } from '../../styles/surface';
+import { useBrandingStore } from '../../store/brandingStore';
 
 const SECTIONS = [
   { to: '/legal/terms', label: 'legal.terms.title', key: 'terms' },
@@ -17,6 +18,8 @@ export default function LegalLayout({ title, intro, sections, children }) {
   const location = useLocation();
   const { t } = useTranslation();
   const updatedAt = new Date().toLocaleDateString('tr-TR');
+  const siteName = useBrandingStore(s => s.siteName);
+  const legalName = getLegalName(siteName);
 
   // Sayfa BAŞLIĞI (h1) dile göre değişsin — DB'deki `title` (StaticPage.title,
   // tek dilli, admin panelinden Türkçe girilir) yerine, SECTIONS'ın zaten
@@ -41,7 +44,7 @@ export default function LegalLayout({ title, intro, sections, children }) {
           <span>·</span>
           <span>Son güncelleme: {updatedAt}</span>
           <span>·</span>
-          <span>{COMPANY.legalName}</span>
+          <span>{legalName}</span>
         </div>
       </div>
 
@@ -107,7 +110,7 @@ export default function LegalLayout({ title, intro, sections, children }) {
             {/* Footer info */}
             <div className="mt-8 pt-6 border-t border-white/[0.06] text-[11px] text-text-3">
               <p className="mb-1">
-                <strong className="text-text-1">{COMPANY.legalName}</strong> · {COMPANY.address}
+                <strong className="text-text-1">{legalName}</strong> · {COMPANY.address}
               </p>
               <p className="mb-1">📜 {COMPANY.license}</p>
               <p>
