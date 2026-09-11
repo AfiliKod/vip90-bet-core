@@ -114,7 +114,7 @@ export async function authenticateWithWallet({ address, signature, message, opti
     // edilmemişti; P6'nın gerçek mutlu-yol testiyle ortaya çıktı.
     const [created] = await User.create([{
       username,
-      email: `${normalizedAddress}@web3.betzone.local`, // Synthetic email
+      email: `${normalizedAddress}@web3.vip90.local`, // Synthetic email
       password: crypto.randomBytes(32).toString('hex'), // Random password, wallet auth only
       walletAddress: normalizedAddress,
       walletType,

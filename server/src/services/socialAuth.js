@@ -232,7 +232,7 @@ export async function findOrCreateTelegramUser(profile, options = {}) {
       const username = profile.username ? `tg_${profile.username}` : `tg_${telegramId.slice(0, 10)}`;
       const [created] = await User.create([{
         username,
-        email: `${telegramId}@telegram.betzone.local`,
+        email: `${telegramId}@telegram.vip90.local`,
         password: crypto.randomBytes(32).toString('hex'),
         telegramId,
         telegramUsername: profile.username,
