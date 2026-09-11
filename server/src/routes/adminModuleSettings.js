@@ -15,17 +15,6 @@ import {
   updatePalaceCredentialsSchema,
 } from '../validators/admin.js';
 import {
-  getOddsProviderSettings,
-  updateOddsProviderSettings,
-  AVAILABLE_CATEGORIES,
-} from '../services/oddsProviderSettings.js';
-import {
-  isOddsProviderTokenConfigured,
-  saveOddsProviderToken,
-  pushTokenToOddsProvider,
-  getOddsProviderToken,
-} from '../services/oddsProviderToken.js';
-import {
   getBettingDisplaySettings,
   updateBettingDisplaySettings,
 } from '../services/bettingDisplaySettings.js';
@@ -48,6 +37,18 @@ try {
   inhouseProviderSettings = await import('../services/inhouseProviderSettings.js');
 } catch {
   // In-house oyun provider'ı bu kurulumda mevcut değil.
+}
+
+// Bahis oran sağlayıcı (odds-provider) bağlantı ayarları da ayrı (ücretli)
+// bir pakettir — aynı desen. bettingDisplaySettings.js (öncelik/sıralama
+// gibi salt görüntüleme tercihleri) çekirdekte kalır, etkilenmez.
+let oddsProviderSettings = null;
+let oddsProviderToken = null;
+try {
+  oddsProviderSettings = await import('../services/oddsProviderSettings.js');
+  oddsProviderToken = await import('../services/oddsProviderToken.js');
+} catch {
+  // Bahis oran sağlayıcı entegrasyonu bu kurulumda mevcut değil.
 }
 
 const r = Router();
@@ -88,26 +89,34 @@ r.post('/inhouse-provider/rotate-key', requireInhouseProvider, async (req, res, 
 });
 
 // ─── Bahis verisi (odds-data provider) ─────────────────────────────────────
-r.get('/odds-provider/settings', async (req, res, next) => {
+// Paket yoksa (bkz. yukarıdaki opsiyonel import) her uç tutarlı bir 503 döner.
+function requireOddsProvider(req, res, next) {
+  if (!oddsProviderSettings || !oddsProviderToken) {
+    return res.status(503).json({ error: 'MODULE_NOT_INSTALLED', message: 'Bahis oran sağlayıcı entegrasyonu bu kurulumda mevcut değil.' });
+  }
+  next();
+}
+
+r.get('/odds-provider/settings', requireOddsProvider, async (req, res, next) => {
   try {
     const [settings, display] = await Promise.all([
-      getOddsProviderSettings(),
+      oddsProviderSettings.getOddsProviderSettings(),
       getBettingDisplaySettings(),
     ]);
     res.json({
       ...settings,
       ...display,
-      availableCategories: AVAILABLE_CATEGORIES,
-      tokenConfigured: await isOddsProviderTokenConfigured(),
+      availableCategories: oddsProviderSettings.AVAILABLE_CATEGORIES,
+      tokenConfigured: await oddsProviderToken.isOddsProviderTokenConfigured(),
     });
   } catch (e) { next(e); }
 });
 
-r.patch('/odds-provider/settings', validate(updateOddsProviderSettingsSchema), async (req, res, next) => {
+r.patch('/odds-provider/settings', requireOddsProvider, validate(updateOddsProviderSettingsSchema), async (req, res, next) => {
   try {
     const { prioritySport, priorityCountry, ...providerPatch } = req.body;
     const [updated, display] = await Promise.all([
-      updateOddsProviderSettings(providerPatch, req.user?.id),
+      oddsProviderSettings.updateOddsProviderSettings(providerPatch, req.user?.id),
       (prioritySport !== undefined || priorityCountry !== undefined)
         ? updateBettingDisplaySettings({ prioritySport, priorityCountry }, req.user?.id)
         : getBettingDisplaySettings(),
@@ -115,8 +124,8 @@ r.patch('/odds-provider/settings', validate(updateOddsProviderSettingsSchema), a
     res.json({
       ...updated,
       ...display,
-      availableCategories: AVAILABLE_CATEGORIES,
-      tokenConfigured: await isOddsProviderTokenConfigured(),
+      availableCategories: oddsProviderSettings.AVAILABLE_CATEGORIES,
+      tokenConfigured: await oddsProviderToken.isOddsProviderTokenConfigured(),
     });
   } catch (e) {
     if (e.message.includes('olmalı')) return res.status(400).json({ error: e.message });
@@ -124,7 +133,7 @@ r.patch('/odds-provider/settings', validate(updateOddsProviderSettingsSchema), a
   }
 });
 
-r.post('/odds-provider/suggest-token', (req, res) => {
+r.post('/odds-provider/suggest-token', requireOddsProvider, (req, res) => {
   res.json({ suggestedToken: randomBytes(32).toString('hex') });
 });
 
@@ -135,23 +144,23 @@ r.post('/odds-provider/suggest-token', (req, res) => {
  * olur ama kayıt kalır — `pushed:false` + `message` ile admin'e bildirilir,
  * "Yeniden Gönder" (retry-push) ile tekrar denenebilir.
  */
-r.post('/odds-provider/token', async (req, res, next) => {
+r.post('/odds-provider/token', requireOddsProvider, async (req, res, next) => {
   try {
     const { token } = req.body || {};
     if (!token || typeof token !== 'string' || token.length < 16) {
       return res.status(400).json({ error: 'token en az 16 karakter olmalı' });
     }
-    await saveOddsProviderToken(token, req.user?.id);
-    const pushResult = await pushTokenToOddsProvider(token);
+    await oddsProviderToken.saveOddsProviderToken(token, req.user?.id);
+    const pushResult = await oddsProviderToken.pushTokenToOddsProvider(token);
     res.json({ saved: true, ...pushResult });
   } catch (e) { next(e); }
 });
 
-r.post('/odds-provider/token/retry-push', async (req, res, next) => {
+r.post('/odds-provider/token/retry-push', requireOddsProvider, async (req, res, next) => {
   try {
-    const current = await getOddsProviderToken();
+    const current = await oddsProviderToken.getOddsProviderToken();
     if (!current) return res.status(400).json({ error: 'Henüz kaydedilmiş bir token yok' });
-    const pushResult = await pushTokenToOddsProvider(current);
+    const pushResult = await oddsProviderToken.pushTokenToOddsProvider(current);
     res.json({ saved: true, ...pushResult });
   } catch (e) { next(e); }
 });

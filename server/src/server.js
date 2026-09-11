@@ -14,10 +14,7 @@ import mongoose from 'mongoose';
 import { createApp, corsOptions } from './app.js';
 import { connectDB } from './db.js';
 import { initSocket } from './socket/handler.js';
-import { startOddsSourceLiveSync } from './jobs/oddsSourceLiveSync.js';
-import { startOddsSourceUpcomingSync } from './jobs/oddsSourceUpcomingSync.js';
 import { startMonitor } from './services/syncHealth.js';
-import { startStatusTransition } from './jobs/statusTransition.js';
 import { startCleanupJob } from './jobs/cleanup.js';
 import { initSentry } from './services/sentry.js';
 import { errorLogger } from './services/errorLogger.js';
@@ -48,6 +45,20 @@ try {
   ({ startWalletCallbackRetryWorker } = await import('./provider/services/retryOutbox.js'));
 } catch {
   // In-house oyun provider'ı bu kurulumda mevcut değil.
+}
+
+// Bahis sonuçlandırma motoru (oran çekme + sync job'ları) da ayrı (ücretli)
+// bir pakettir — aynı opsiyonel yükleme deseni. Event/Bet modelleri ve
+// routes/events.js|bets.js çekirdekte kalıyor, yalnızca bu job'lar taşınıyor.
+let startOddsSourceLiveSync = () => {};
+let startOddsSourceUpcomingSync = () => {};
+let startStatusTransition = () => {};
+try {
+  ({ startOddsSourceLiveSync } = await import('./jobs/oddsSourceLiveSync.js'));
+  ({ startOddsSourceUpcomingSync } = await import('./jobs/oddsSourceUpcomingSync.js'));
+  ({ startStatusTransition } = await import('./jobs/statusTransition.js'));
+} catch {
+  // Bahis sonuçlandırma motoru bu kurulumda mevcut değil.
 }
 
 const app = createApp();

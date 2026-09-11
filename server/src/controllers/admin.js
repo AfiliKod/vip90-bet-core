@@ -8,7 +8,6 @@ import GameTask from '../models/GameTask.js';
 import CasinoRound from '../models/CasinoRound.js';
 import CasinoSession from '../models/CasinoSession.js';
 import Promotion from '../models/Promotion.js';
-import { settleEvent } from '../services/settlement.js';
 import { createError } from '../middleware/error.js';
 import { errorLogger } from '../services/errorLogger.js';
 import Setting from '../models/Setting.js';
@@ -42,6 +41,16 @@ try {
   ({ simulateBlackjackRtp, simulateVideoPokerRtp } = await import('../services/inhouse/rtpSimulator.js'));
 } catch {
   // In-house oyun provider'ı bu kurulumda mevcut değil.
+}
+
+// Bahis sonuçlandırma motoru (oran çekme + grading) da ayrı (ücretli) bir
+// pakettir — aynı opsiyonel yükleme deseni. Event/Bet modelleri ve temel
+// CRUD çekirdekte kalıyor, yalnızca "nasıl sonuçlandırılır" mantığı taşınıyor.
+let settleEvent = null;
+try {
+  ({ settleEvent } = await import('../services/settlement.js'));
+} catch {
+  // Bahis sonuçlandırma motoru bu kurulumda mevcut değil.
 }
 
 // Phase B13 — ReDoS protection
@@ -388,6 +397,9 @@ export async function updateEvent(req, res, next) {
 
 export async function settle(req, res, next) {
   try {
+    if (!settleEvent) {
+      return res.status(503).json({ error: { code: 'MODULE_NOT_INSTALLED', message: 'Bahis sonuçlandırma motoru bu kurulumda mevcut değil.' } });
+    }
     const { results, score } = req.validated;
     const event = await Event.findById(req.params.id);
     if (!event) throw createError(404,'NOT_FOUND','Etkinlik bulunamadı');
