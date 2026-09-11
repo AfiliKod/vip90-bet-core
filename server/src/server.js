@@ -22,7 +22,6 @@ import { startOddsSourceUpcomingSync } from './jobs/oddsSourceUpcomingSync.js';
 import { startMonitor } from './services/syncHealth.js';
 import { startStatusTransition } from './jobs/statusTransition.js';
 import { startCleanupJob } from './jobs/cleanup.js';
-import { startReconciliation } from './scripts/reconcilePalace.js';
 import { initSentry } from './services/sentry.js';
 import { errorLogger } from './services/errorLogger.js';
 import { initDefaultPermissions, initDefaultRoles } from './services/permissions.js';
@@ -31,6 +30,15 @@ import { startBotScheduler } from './jobs/botScheduler.js';
 import { startFakeWinnersScheduler } from './services/fakeWinners.js';
 import { seedDefaultPages } from './services/staticPages.js';
 import { initDefaultChatRoom } from './services/chat.js';
+
+// Palace reconciliation script ayrı (ücretli) bir pakettir — bu kurulumda
+// hiç bulunmayabilir (bkz. app.js'deki aynı opsiyonel yükleme deseni).
+let startReconciliation = () => {};
+try {
+  ({ startReconciliation } = await import('./scripts/reconcilePalace.js'));
+} catch {
+  // Palace entegrasyonu bu kurulumda mevcut değil.
+}
 
 const app = createApp();
 

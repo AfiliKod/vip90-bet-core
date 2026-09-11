@@ -23,7 +23,6 @@ import transactionsRoutes from './routes/transactions.js';
 import promotionsRoutes from './routes/promotions.js';
 import adminRoutes from './routes/admin.js';
 import casinoRoutes from './routes/casino.js';
-import palaceRoutes from './routes/palace.js';
 import helpRoutes from './routes/help.js';
 import inhouseRoutes from './routes/inhouse.js';
 import cryptoRoutes from './routes/crypto.js';
@@ -54,6 +53,16 @@ import { getAllOperatorOrigins } from './provider/services/operatorOriginCache.j
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const isProd = process.env.NODE_ENV === 'production';
+
+// Palace Casino entegrasyonu ayrı (ücretli) bir pakettir, bu kurulumda hiç
+// bulunmayabilir — bu yüzden statik değil, opsiyonel dinamik import ile
+// yükleniyor. Paket yoksa /api/palace altında anlamlı bir 503 döner.
+let palaceRoutes = null;
+try {
+  ({ default: palaceRoutes } = await import('./routes/palace.js'));
+} catch {
+  // Palace entegrasyonu bu kurulumda mevcut değil.
+}
 
 const baseOrigins = expandOrigins(
   (process.env.CLIENT_URL || 'http://localhost:5173')
@@ -191,7 +200,11 @@ export function createApp() {
   app.use('/api/transactions', transactionsRoutes);
   app.use('/api/promotions', promotionsRoutes);
   app.use('/api/admin', adminRoutes);
-  app.use('/api/palace', palaceRoutes);
+  if (palaceRoutes) {
+    app.use('/api/palace', palaceRoutes);
+  } else {
+    app.use('/api/palace', (req, res) => res.status(503).json({ error: 'MODULE_NOT_INSTALLED', message: 'Palace Casino entegrasyonu bu kurulumda mevcut değil.' }));
+  }
   app.use('/api/inhouse', inhouseRoutes);
   // Çok-kiracılı in-house game provider (bkz. server/src/provider/) — merkezi
   // oyun sunucusunun operatör-tarafı API'si. /api/provider/v1: PROVIDER'ın
@@ -252,16 +265,17 @@ export function createApp() {
       result.db = mongoose.connection.readyState === 1 ? 'up' : 'down';
     } catch { result.db = 'down'; }
     try {
+      const { getActiveCasinoAggregator } = await import('./services/casinoAggregators/index.js');
       const start = Date.now();
-      const r = await fetch('https://api.casino-provider.example/api/agent/info', {
-        method: 'GET',
-        headers: { Authorization: `Bearer ${process.env.PALACE_API_TOKEN || ''}` },
-        signal: AbortSignal.timeout(3000),
-      }).catch(() => null);
-      if (!r) result.palace = 'down';
+      const agg = await getActiveCasinoAggregator();
+      const ok = await Promise.race([
+        agg.healthCheck(),
+        new Promise(resolve => setTimeout(() => resolve(false), 3000)),
+      ]);
+      if (!ok) result.palace = 'down';
       else if (Date.now() - start > 2000) result.palace = 'degraded';
       else result.palace = 'up';
-    } catch { result.palace = 'down'; }
+    } catch { result.palace = 'unavailable'; }
     // Kaynak sağlığı: eskiden sabit kodlanmış bir mirror'a HEAD atılıyordu. O
     // domain artık ölü ve zaten sync'in gerçek durumuyla hiçbir bağı yoktu —
     // endpoint "up" derken senkronizasyon 25 saattir kopuk olabiliyordu.

@@ -1,7 +1,7 @@
 import Setting from '../models/Setting.js';
 import Event from '../models/Event.js';
 import { addRecentWinner } from './liveGameStream.js';
-import { getGames } from './palaceCasinoService.js';
+import { getActiveCasinoAggregator } from './casinoAggregators/index.js';
 import { isModuleUsable } from './licensing/index.js';
 import { getIO } from './socketEmitter.js';
 
@@ -173,8 +173,10 @@ function fireInhouseWin() {
 async function getCasinoGamesPool() {
   if (casinoGamesCache.length && Date.now() - casinoGamesCacheAt < CASINO_POOL_TTL_MS) return casinoGamesCache;
   try {
+    const agg = await getActiveCasinoAggregator();
+    if (typeof agg.getGames !== 'function') return casinoGamesCache;
     const lists = await Promise.all(PALACE_PROVIDER_IDS.map(async id => {
-      const result = await getGames(id, 'tr');
+      const result = await agg.getGames(id, 'tr');
       return Array.isArray(result?.data?.data) ? result.data.data : [];
     }));
     const flat = lists.flat().filter(g => g.launch_enable !== false);

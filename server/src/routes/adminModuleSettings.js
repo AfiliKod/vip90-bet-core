@@ -34,17 +34,18 @@ import {
   getBettingDisplaySettings,
   updateBettingDisplaySettings,
 } from '../services/bettingDisplaySettings.js';
-import {
-  getPalaceDefaultLanguage,
-  setPalaceDefaultLanguage,
-  getPopularGameCodes,
-  setPopularGameCodes,
-} from '../services/palaceModuleSettings.js';
-import {
-  getPalaceCredentialsStatus,
-  savePalaceCredentials,
-} from '../services/palaceCredentials.js';
 import { randomBytes } from 'crypto';
+
+// Palace Casino ayrı (ücretli) bir pakettir — bu kurulumda hiç bulunmayabilir
+// (bkz. app.js'deki aynı opsiyonel yükleme deseni).
+let palaceModuleSettings = null;
+let palaceCredentials = null;
+try {
+  palaceModuleSettings = await import('../services/palaceModuleSettings.js');
+  palaceCredentials = await import('../services/palaceCredentials.js');
+} catch {
+  // Palace entegrasyonu bu kurulumda mevcut değil.
+}
 
 const r = Router();
 r.use(requireAuth, requireAdmin, auditLog('ADMIN_ACTION'));
@@ -146,24 +147,33 @@ r.post('/odds-provider/token/retry-push', async (req, res, next) => {
 });
 
 // ─── Palace Casino modül ayarları ──────────────────────────────────────────
-r.get('/palace/module-settings', async (req, res, next) => {
+// Palace paketi mevcut değilse (bkz. yukarıdaki opsiyonel import) her uç
+// tutarlı bir 503 döner — admin panel "modül kurulu değil" olarak gösterebilir.
+function requirePalace(req, res, next) {
+  if (!palaceModuleSettings || !palaceCredentials) {
+    return res.status(503).json({ error: 'MODULE_NOT_INSTALLED', message: 'Palace Casino entegrasyonu bu kurulumda mevcut değil.' });
+  }
+  next();
+}
+
+r.get('/palace/module-settings', requirePalace, async (req, res, next) => {
   try {
     const [language, popularGameCodes] = await Promise.all([
-      getPalaceDefaultLanguage(),
-      getPopularGameCodes(),
+      palaceModuleSettings.getPalaceDefaultLanguage(),
+      palaceModuleSettings.getPopularGameCodes(),
     ]);
     res.json({ language, popularGameCodes });
   } catch (e) { next(e); }
 });
 
-r.patch('/palace/module-settings', validate(updatePalaceModuleSettingsSchema), async (req, res, next) => {
+r.patch('/palace/module-settings', requirePalace, validate(updatePalaceModuleSettingsSchema), async (req, res, next) => {
   try {
     const { language, popularGameCodes } = req.body;
-    if (language !== undefined) await setPalaceDefaultLanguage(language, req.user?.id);
-    if (popularGameCodes !== undefined) await setPopularGameCodes(popularGameCodes, req.user?.id);
+    if (language !== undefined) await palaceModuleSettings.setPalaceDefaultLanguage(language, req.user?.id);
+    if (popularGameCodes !== undefined) await palaceModuleSettings.setPopularGameCodes(popularGameCodes, req.user?.id);
     res.json({
-      language: language !== undefined ? language : await getPalaceDefaultLanguage(),
-      popularGameCodes: popularGameCodes !== undefined ? popularGameCodes : await getPopularGameCodes(),
+      language: language !== undefined ? language : await palaceModuleSettings.getPalaceDefaultLanguage(),
+      popularGameCodes: popularGameCodes !== undefined ? popularGameCodes : await palaceModuleSettings.getPopularGameCodes(),
     });
   } catch (e) {
     if (e.message.includes('olmalı')) return res.status(400).json({ error: e.message });
@@ -171,15 +181,15 @@ r.patch('/palace/module-settings', validate(updatePalaceModuleSettingsSchema), a
   }
 });
 
-r.get('/palace/credentials', async (req, res, next) => {
+r.get('/palace/credentials', requirePalace, async (req, res, next) => {
   try {
-    res.json(await getPalaceCredentialsStatus());
+    res.json(await palaceCredentials.getPalaceCredentialsStatus());
   } catch (e) { next(e); }
 });
 
-r.patch('/palace/credentials', validate(updatePalaceCredentialsSchema), async (req, res, next) => {
+r.patch('/palace/credentials', requirePalace, validate(updatePalaceCredentialsSchema), async (req, res, next) => {
   try {
-    res.json(await savePalaceCredentials(req.body, req.user?.id));
+    res.json(await palaceCredentials.savePalaceCredentials(req.body, req.user?.id));
   } catch (e) { next(e); }
 });
 
