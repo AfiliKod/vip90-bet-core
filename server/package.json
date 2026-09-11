@@ -1,5 +1,5 @@
 {
-  "name": "betzone-server",
+  "name": "vip90-bet-server",
   "type": "module",
   "scripts": {
     "dev": "node --watch src/server.js",

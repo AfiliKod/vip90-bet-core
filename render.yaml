@@ -1,6 +1,6 @@
 services:
   - type: web
-    name: betzone
+    name: vip90-bet
     runtime: docker
     dockerfilePath: ./Dockerfile
     plan: starter
