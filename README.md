@@ -45,14 +45,13 @@ VIP90.bet Platform
 
 Core platform ile ticari capability modülleri bilinçli olarak ayrıdır. Core,
 oyuncu ve operatör yaşam döngüsünün temelini sağlar; ticari modüller bahis,
-üçüncü taraf casino içeriği ve proprietary oyunlar gibi gelir üreten
-capability'leri ekler.
+üçüncü taraf casino içeriği ve proprietary oyunlar gibi capability'leri ekler.
 
 ### Neden bu ayrım?
 
 - **Vendor bağımsızlığı:** Provider seçimi core'un veri modeline gömülmez.
 - **Modüler satın alma:** İhtiyacınız olmayan capability için platformu
-  baştan satın almanız gerekmez.
+  baştan değiştirmeniz gerekmez.
 - **Self-hosting:** Core kendi altyapınızda çalışır ve kendi markanızla
   işletilebilir.
 - **Kaynak görünürlüğü:** Mimari, provider kontratları, module boundary'leri
@@ -78,6 +77,7 @@ capability'leri ekler.
 - [Hızlı Başlangıç](#hızlı-başlangıç)
 - [Güvenlik](#güvenlik)
 - [Belgeler](#belgeler)
+- [Bilinen Sınırlar](#bilinen-sınırlar)
 - [Yol Haritası](#yol-haritası)
 - [Lisanslama](#lisanslama)
 
@@ -91,7 +91,7 @@ capability'leri ekler.
 | 💳 **Wallet & payments** | Banka havalesi + USDT-TRC20; ödeme sağlayıcıları için abstraction katmanı |
 | 🪪 **KYC** | Yerel belge inceleme veya Sumsub; sağlayıcı seçimi core'dan ayrılabilir |
 | 🧩 **Module + licensing** | Betting / iGames / In-house Games gibi capability'ler ayrı modüller olarak yönetilir |
-| 🛠️ **Operations backoffice** | Kullanıcılar, roller/izinler, analitik, destek, KYC, ödeme ve module yönetimi |
+| 🛠️ **Operations backoffice** | Kullanıcılar, analitik, destek, KYC, ödeme ve module yönetimi |
 | 👑 **Retention tooling** | 5 seviyeli VIP, wagering ve sonuç sonrası gerçek zamanlı cashback |
 | 🌍 **Multi-language + PWA** | 8 dil, global dil değiştirici, PWA ve iOS Capacitor kabuğu |
 | 🔌 **Provider interfaces** | Betting, casino ve game provider entegrasyonları için genel adaptör kontratları |
@@ -144,11 +144,11 @@ Gerçek modül kodları bu repository'de bulunmaz; ayrı paketler olarak dağıt
 - KYC: yerel belge inceleme veya Sumsub.
 - Bonus/wagering motoru ve 5 seviyeli VIP programı.
 - Sonuçlanan bahis/round sonrası seviyeye göre gerçek zamanlı cashback.
-- Admin için TOTP tabanlı 2FA ve tiered roller/izinler.
+- Admin için TOTP tabanlı 2FA.
 
 ### Topluluk ve elde tutma
 
-- Moderasyonlu canlı sohbet.
+- Gerçek zamanlı canlı sohbet.
 - Rain bonus dağıtımı ve oyuncular arası bahşiş.
 - Son kazananlar, favoriler ve son oynananlar.
 - Referans linki ve komisyon sistemi.
@@ -157,10 +157,9 @@ Gerçek modül kodları bu repository'de bulunmaz; ayrı paketler olarak dağıt
 ### Marka, CMS ve operasyon
 
 - Canlı önizlemeli tema editörü, logo/favicon/font yönetimi.
-- Sürükle-bırak statik sayfa/blok düzenleyici.
-- Kullanıcılar, roller/izinler, canlı KPI/gelir analitiği, etkinlik,
-  modüller, VIP, ödeme talepleri, KYC kuyruğu ve destek biletleri için admin
-  araçları.
+- Statik sayfa/blok içerik düzenleyici.
+- Kullanıcı yönetimi, analitik, etkinlik, modüller, VIP, ödeme talepleri,
+  KYC kuyruğu ve destek biletleri için admin araçları.
 
 ---
 
@@ -267,18 +266,41 @@ altındaki provider dokümanlarına bakın.
 
 ---
 
+## Bilinen Sınırlar
+
+README yalnızca bugün doğrulanabilir olarak çalışan yetenekleri iddia eder.
+Aşağıdaki noktalar özellikle tamamlanmış gibi sunulmaz:
+
+- **Admin rol/izin matrisi:** Farklı admin rollerinin uçtan uca yetki ayrımı
+  şu an tamamlanmış bir özellik olarak değerlendirilmemelidir.
+- **Chat moderation:** Canlı sohbet vardır; admin tarafında kapsamlı mute,
+  ban, room-lock ve moderasyon araçları mevcut değildir.
+- **Static page builder:** Statik sayfa/blok düzenleme vardır; tam sürükle-bırak
+  görsel builder olarak sunulmaz.
+- **Acente (reseller) sistemi:** `User` modelinde alanlar mevcut ancak bugün
+  aktif route/controller/UI akışı yok.
+- **Çok kademeli affiliate:** Aktif yapı tek kademelidir.
+- **Live casino:** Core'da veya aktif commercial module'de çalışan bir
+  implementation olarak bulunmaz.
+
+Daha ayrıntılı kod referansları için [Bilinen Kısıtlar](docs/product/09-bilinen-kisitlar.md).
+
+---
+
 ## Yol Haritası
 
-Aşağıdaki alanlar mevcut kod tabanında kısmi şema veya altyapıya sahip olsa da
-uçtan uca tamamlanmış değildir:
+Önceliklendirme, üretim kullanımı için gerekli güvenilirlik ve operatör
+kontrol yüzeylerine göre yapılır. Özellikle aşağıdaki alanlar ürünün
+olgunlaşma sırasındadır:
 
-- **Acente (reseller) sistemi** — `User` modelinde alanlar mevcut ancak bugün
-  aktif route/controller/UI akışı yok.
-- **Çok kademeli affiliate** — aktif yapı tek kademelidir.
-- **Live casino** — core'da veya aktif commercial module'de çalışan bir
-  implementation olarak bulunmaz; ileriye dönük bir alandır.
-
-Ayrıntılar için [Bilinen Kısıtlar](docs/product/09-bilinen-kisitlar.md).
+- Admin role/permission enforcement
+- Chat moderation tooling
+- Görsel page-builder / drag-and-drop içerik düzenleme
+- Çok kademeli affiliate
+- Acente / reseller operasyonları
+- Responsible-gaming ve ileri compliance otomasyonları
+- Daha kapsamlı fraud/risk ve regulatory reporting
+- Live casino capability
 
 ---
 
