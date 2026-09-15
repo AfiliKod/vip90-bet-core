@@ -3,7 +3,7 @@
 This directory is written for operators who have purchased/deployed the
 core platform — not for developers who already know the codebase (that
 context is in code comments). It documents the **core** only; each
-commercial module (Betting, In-house Games, Palace Casino) ships its own
+commercial module (Betting, In-house Games, Igames Casino) ships its own
 documentation inside its own package.
 
 - [01 — Installation](01-kurulum.md) — from scratch to a working setup.

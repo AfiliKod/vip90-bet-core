@@ -14,7 +14,7 @@ All endpoints are grouped under `/api` (except the setup wizard, which is under 
 | Transactions | `/api/transactions` | Simple deposit/withdrawal records |
 | Promotions | `/api/promotions` | Bonus claiming, active promotions, wagering conversion |
 | Casino | `/api/casino` | Aggregator-agnostic spin/balance endpoint — **casino-content module gate** |
-| Palace | `/api/palace` | Only mounted when the licensed Palace Casino package is installed — not present in this repo |
+| Igames | `/api/igames` | Only mounted when the licensed Igames Casino package is installed — not present in this repo |
 | In-house games | `/api/inhouse-provider`, `/api/provider/v1` | Only mounted when the licensed In-house Games package is installed — not present in this repo. `/api/inhouse` (`routes/inhouse.js`, always in core) exposes just the public "recent winners" feed, no game logic |
 | Help | `/api/help` | AI support assistant (chatbot) |
 | Crypto | `/api/crypto` | USDT-TRC20 deposit address/tracking + withdrawal request |
@@ -52,7 +52,7 @@ Standard errors return in the same envelope:
 
 The `code` field is for programmatic checking, `message` is user-facing text (Turkish in the current codebase).
 
-**Note (important for operators):** This envelope is consistently applied only in newer-generation routes using `createError()` (auth, users, admin, ticket, chat, module gate). Older/simpler routes (`inhouse.js`, `casino.js`, `crypto.js`, `palace.js`, some endpoints of `bank.js`) may still return flat `{ "error": "message text" }` string errors. When writing a client/integration, you need to handle both formats (`error` string or `error.code`/`error.message` object).
+**Note (important for operators):** This envelope is consistently applied only in newer-generation routes using `createError()` (auth, users, admin, ticket, chat, module gate). Older/simpler routes (`inhouse.js`, `casino.js`, `crypto.js`, `igames.js`, some endpoints of `bank.js`) may still return flat `{ "error": "message text" }` string errors. When writing a client/integration, you need to handle both formats (`error` string or `error.code`/`error.message` object).
 
 ## Rate limiting
 
@@ -65,7 +65,7 @@ The following limiters are defined with `express-rate-limit` (disabled in test m
 | `financialLimiter` | 60 min | 10 requests/IP | `/bank/deposit`, `/bank/withdraw` |
 | `spinLimiter` | 60 sec | 60 requests/IP | `/casino/spin` |
 | `adminLimiter` | 15 min | 50 requests/IP | `/auth/2fa/setup`, `/auth/2fa/verify`, `/auth/2fa/disable` |
-| `palaceCallbackLimiter`, `chatLimiter`, `bonusLimiter` | — | — | Defined but not currently connected to any route (ready in codebase, unused) |
+| `igamesCallbackLimiter`, `chatLimiter`, `bonusLimiter` | — | — | Defined but not currently connected to any route (ready in codebase, unused) |
 
 Additionally, on authentication endpoints, `/auth/login` returns `429 TOO_MANY_ATTEMPTS` after consecutive failed attempts (login lockout, configurable with `LOGIN_LOCKOUT_MINUTES` env — independent of the auth limiter, per-user lockout).
 
@@ -150,7 +150,7 @@ If the module is disabled, all these endpoints return `503 { error: { code: 'MOD
 | `GET /me/transactions` | — | |
 | `GET /me/preferences` / `PUT /me/preferences` | — | |
 | `GET /me/favorites` | — | |
-| `POST /me/favorites/toggle` | `gameActivitySchema`: `gameId` (1-200), `kind`: `palace`|`inhouse` | |
+| `POST /me/favorites/toggle` | `gameActivitySchema`: `gameId` (1-200), `kind`: `igames`|`inhouse` | |
 | `GET /me/recently-played` / `POST /me/recently-played` | `gameActivitySchema` (for POST) | |
 | `PUT /me/password` | `changePasswordSchema`: `currentPassword`, `newPassword` (8-128, uppercase+digit) | |
 | `PUT /me/email` | `changeEmailSchema`: `password`, `newEmail` | |
@@ -181,13 +181,13 @@ If the module is disabled, all these endpoints return `503 { error: { code: 'MOD
 |---|---|---|---|
 | `POST /spin` | User + `spinLimiter` | `{ bet, payout, gameId?, gameTitle?, provider? }` | `400 INVALID_BET`, `400 INVALID_PAYOUT`, `404 NOT_FOUND`, `400 INSUFFICIENT_BALANCE` |
 
-### Palace (casino aggregator) — `/api/palace`
+### Igames (casino aggregator) — `/api/igames`
 
-Only mounted when the licensed Palace Casino package is installed
-(`server/src/premium/palace/`) — its routes and full API reference live in
+Only mounted when the licensed Igames Casino package is installed
+(`server/src/premium/igames/`) — its routes and full API reference live in
 that package, not in this repo. Core only defines the generic aggregator
 contract (`server/src/services/casinoAggregators/registry.js`) that any
-casino-content vendor — Palace or otherwise — plugs into.
+casino-content vendor — Igames or otherwise — plugs into.
 
 ### In-house games — `/api/inhouse` (`routes/inhouse.js`) — core platform, no module gate
 
@@ -295,9 +295,9 @@ Destructive/financial endpoints additionally apply `blockDemoAdmin` (marked belo
 **Casino**
 - `GET /casino/stats`, `GET /users/:id/casino-rounds`
 
-**Palace (admin)**
-- `GET /palace/agent/info`, `POST /palace/user/create`, `POST /palace/game/launch`, `POST /palace/game/list`
-- `GET /palace/test-users`, `POST /palace/withdraw-test-users`, `POST /palace/rtp`, `POST /palace/bonus/start`, `POST /palace/bonus/cancel`, `GET /palace/bonus/config`, `GET /palace/summary`
+**Igames (admin)**
+- `GET /igames/agent/info`, `POST /igames/user/create`, `POST /igames/game/launch`, `POST /igames/game/list`
+- `GET /igames/test-users`, `POST /igames/withdraw-test-users`, `POST /igames/rtp`, `POST /igames/bonus/start`, `POST /igames/bonus/cancel`, `GET /igames/bonus/config`, `GET /igames/summary`
 
 **Error log**
 - `GET /errors/recent`, `GET /errors/status`, `POST /errors/clear` **[demo blocked]**
@@ -380,5 +380,5 @@ Destructive/financial endpoints additionally apply `blockDemoAdmin` (marked belo
 | Method + Path | Auth | Notes |
 |---|---|---|
 | `GET /api/health` | Public | `{ ok: true, env }` — uptime monitoring |
-| `GET /api/health/status` | Public | `{ api, db, palace, oddsSource, payment, onlineCount, sync }` — deep health, not cached |
+| `GET /api/health/status` | Public | `{ api, db, igames, oddsSource, payment, onlineCount, sync }` — deep health, not cached |
 | `GET /api/img?url=` | Public | Hotlink-protected CDN image proxy (only accepts `image/*` content-type) |

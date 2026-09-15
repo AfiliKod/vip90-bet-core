@@ -24,7 +24,7 @@ VIP90.bet Core
 │
 ├── Betting Module        [Commercial]
 ├── In-house Games        [Commercial]
-└── Palace Casino         [Commercial]
+└── Igames Casino         [Commercial]
 ```
 
 Core'un kendisi ne satıyor, ne "demo veri" barındırıyor — kullanıcı
@@ -103,7 +103,7 @@ ve modül kapalıyken düzgün 503 dönen API sözleşmesini içerir.
 |---|---|
 | **Betting** | Spor bahisleri + canlı bahis: oran akışı, kupon, otomatik sonuçlandırma |
 | **In-house Games** | Crash, Mines, Plinko, Dice, Limbo, Wheel, Hi-Lo, Keno, Blackjack, Roulette, Baccarat, Video Poker, Dragon Tiger — HMAC-SHA256 provably fair motor + oynanabilir arayüz |
-| **Palace Casino** | Üçüncü taraf slot/masa oyunu aggregator entegrasyonu — core'daki genel aggregator arayüzüne (`services/casinoAggregators/`) bağlanan somut bir implementasyon |
+| **Igames Casino** | Üçüncü taraf slot/masa oyunu aggregator entegrasyonu — core'daki genel aggregator arayüzüne (`services/casinoAggregators/`) bağlanan somut bir implementasyon |
 
 ### 👤 Kullanıcı, Cüzdan ve Güvenlik
 

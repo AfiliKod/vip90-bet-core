@@ -13,7 +13,7 @@ when licensed):
 | Module | ID | What it provides | What it blocks in the API |
 |---|---|---|---|
 | **Betting** | `betting` | Sports + live betting: odds feed, coupon, automatic settlement | `/api/events`, `/api/bets` |
-| **Casino Content** | `casino-content` | Slot and table games via an aggregator (e.g. Palace Casino) | `/api/casino` |
+| **Casino Content** | `casino-content` | Slot and table games via an aggregator (e.g. Igames Casino) | `/api/casino` |
 | **In-house Games** | `inhouse-games` | 13 provably-fair games (engine + playable UI) | `/api/inhouse-provider`, `/api/provider/v1` |
 
 Two more modules exist in the registry for consistency (same on/off panel

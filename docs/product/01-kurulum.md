@@ -113,7 +113,7 @@ This starts the client (Vite, `localhost:5173`) and server (`localhost:3001`) si
 node server/scripts/healthcheck.js
 ```
 
-Reports: MongoDB connection, whether required env variables are defined/adequate length (`MONGODB_URI`, `JWT_SECRET`, `JWT_REFRESH_SECRET`, `CLIENT_URL`), whether optional services (Palace casino, SMTP) are configured, pending migration count, and whether site settings are seeded. Exit code 0 means healthy (also returns 0 if only warnings), returns 1 on failure — can be used with CI or monitoring tools. The Docker image's own `HEALTHCHECK` directive checks `GET /api/health` every 30 seconds (`Dockerfile`).
+Reports: MongoDB connection, whether required env variables are defined/adequate length (`MONGODB_URI`, `JWT_SECRET`, `JWT_REFRESH_SECRET`, `CLIENT_URL`), whether optional services (Igames casino, SMTP) are configured, pending migration count, and whether site settings are seeded. Exit code 0 means healthy (also returns 0 if only warnings), returns 1 on failure — can be used with CI or monitoring tools. The Docker image's own `HEALTHCHECK` directive checks `GET /api/health` every 30 seconds (`Dockerfile`).
 
 Source: `server/scripts/healthcheck.js`, `server/src/health/checks.js`.
 

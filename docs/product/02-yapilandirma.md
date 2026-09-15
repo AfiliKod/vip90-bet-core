@@ -32,7 +32,7 @@ Description of all keys in the `server/.env.example` file:
 | `AUTH_RATE_LIMIT_MAX` | No | Stricter limit for login/register endpoints (default 5) |
 | `FINANCIAL_RATE_LIMIT_MAX` | No | Separate limit for deposit/withdraw endpoints (default 10) |
 
-### Casino provider (Palace)
+### Casino provider (Igames)
 
 | Variable | Required | What it does |
 |---|---|---|
@@ -134,4 +134,4 @@ The language switcher (`LanguageSwitcher`) is in the global navigation bar (`Nav
 
 ## Casino provider
 
-The casino game catalog comes through a provider selected with the `CASINO_AGGREGATOR` environment variable (default: `palace`). Today only the Palace adapter is available; adding a second provider (Evolution, Pragmatic, a licensed aggregator) is just writing a new adapter and adding it to the registry — existing route/control code doesn't change.
+The casino game catalog comes through a provider selected with the `CASINO_AGGREGATOR` environment variable (default: `igames`). Today only the Igames adapter is available; adding a second provider (Evolution, Pragmatic, a licensed aggregator) is just writing a new adapter and adding it to the registry — existing route/control code doesn't change.
