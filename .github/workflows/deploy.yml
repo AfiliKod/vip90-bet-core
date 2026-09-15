@@ -1,0 +1,94 @@
+name: Deploy to Production
+
+# Production sunucusu bir git checkout DEĞİL — repo rsync ile hedef dizine
+# (secrets.DEPLOY_PATH) gönderilir.
+# .env ve node_modules KORUNUR: --delete YOK ve .env/node_modules exclude'lu.
+# app.js artık repo kökünde TAKİP EDİLİYOR (2026-09-07'ye kadar git-dışı, prod-only
+# bir dosyaydı — kök package.json "type":"module" olunca CommonJS require() ile
+# uyumsuz kaldı ve servis sürekli restart döngüsüne girdi; artık normal rsync ile
+# senkronize oluyor, drift riski kalmadı).
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+    inputs:
+      dry_run:
+        description: "Dry run — rsync --dry-run, sunucuda hiçbir değişiklik yapmaz"
+        type: boolean
+        default: true
+
+concurrency:
+  group: production-deploy
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: "24"
+
+      - name: Build client
+        working-directory: client
+        run: |
+          npm ci
+          npm run build
+
+      - name: Configure SSH
+        run: |
+          mkdir -p ~/.ssh
+          printf '%s\n' "${{ secrets.DEPLOY_SSH_KEY }}" > ~/.ssh/deploy_key
+          chmod 600 ~/.ssh/deploy_key
+          printf '%s\n' "${{ secrets.DEPLOY_KNOWN_HOSTS }}" > ~/.ssh/known_hosts
+          chmod 644 ~/.ssh/known_hosts
+
+      - name: Rsync to server
+        env:
+          DRY: ${{ (github.event_name == 'workflow_dispatch' && inputs.dry_run) && '--dry-run' || '' }}
+          PORT: ${{ secrets.DEPLOY_SSH_PORT || '22' }}
+        run: |
+          echo "Deploy modu: ${DRY:-CANLI}"
+          rsync -az --human-readable --itemize-changes $DRY \
+            -e "ssh -i ~/.ssh/deploy_key -p $PORT -o UserKnownHostsFile=~/.ssh/known_hosts" \
+            --exclude='.git' \
+            --exclude='node_modules' \
+            --exclude='.env' \
+            --exclude='.env.*' \
+            --exclude='*.bak.*' \
+            --exclude='.DS_Store' \
+            --exclude='server.log' \
+            --exclude='test-results' \
+            --exclude='/server/scripts/session.json' \
+            ./ \
+            "${{ secrets.DEPLOY_USER }}@${{ secrets.DEPLOY_HOST }}:${{ secrets.DEPLOY_PATH }}/"
+
+      - name: Install server dependencies
+        if: ${{ github.event_name != 'workflow_dispatch' || inputs.dry_run == false }}
+        env:
+          PORT: ${{ secrets.DEPLOY_SSH_PORT || '22' }}
+        run: |
+          # node_modules rsync'ten hariç (korunuyor) — yeni bağımlılıklar eklendiğinde
+          # sunucunun kendi node_modules'ı elle güncellenmezse restart bir
+          # ERR_MODULE_NOT_FOUND kalıcı restart döngüsüyle sonuçlanır (2026-09-07'de yaşandı).
+          # npm, SSH'ın non-interactive shell'inde varsayılan PATH'te değil
+          # (Plesk kalıntısı node kurulumu) — tam yol vermek gerekiyor, yoksa
+          # "npm: command not found" ile bu adım sessizce (restart'a hiç
+          # gelmeden) patlar (2026-09-07'de yaşandı).
+          ssh -i ~/.ssh/deploy_key -p $PORT -o UserKnownHostsFile=~/.ssh/known_hosts \
+            "${{ secrets.DEPLOY_USER }}@${{ secrets.DEPLOY_HOST }}" \
+            'set -e; cd "${{ secrets.DEPLOY_PATH }}/server" && /opt/plesk/node/24/bin/npm ci --omit=dev'
+
+      - name: Post-deploy (chown + restart)
+        if: ${{ github.event_name != 'workflow_dispatch' || inputs.dry_run == false }}
+        env:
+          PORT: ${{ secrets.DEPLOY_SSH_PORT || '22' }}
+        run: |
+          ssh -i ~/.ssh/deploy_key -p $PORT -o UserKnownHostsFile=~/.ssh/known_hosts \
+            "${{ secrets.DEPLOY_USER }}@${{ secrets.DEPLOY_HOST }}" \
+            'set -e; chown -R vip90:vip90 "${{ secrets.DEPLOY_PATH }}"; systemctl restart vip90-node.service; sleep 3; systemctl is-active vip90-node.service'

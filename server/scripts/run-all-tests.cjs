@@ -3,15 +3,16 @@
 //
 // Çalıştır: cd server && node scripts/run-all-tests.cjs
 //
-// Mock + Integration suite'ler otomatik çalışır. PALACE_API_TOKEN varsa
-// Palace API integration testleri de çalışır.
+// Not: Bu, VIP90.bet çekirdek platformunun açık kaynak dağıtımıdır. In-house
+// oyunlar, bahis/canlı bahis oran motoru ve Palace Casino entegrasyonu ayrı,
+// lisanslı bir pakette yaşar — bu yüzden o alanlara özel testler burada yok.
 
 require('dotenv').config({ path: require('path').resolve(__dirname, '../.env') });
 
 const path = require('path');
 const { spawnSync } = require('child_process');
 
-// ─── Unit Tests (Palace-independent — logic testing) ────────────────────────
+// ─── Unit Tests (logic-only) ────────────────────────────────────────────────
 const UNIT_SUITES = [
   'test-bonus-wagering.cjs',
   'test-promotion-claim.cjs',
@@ -20,31 +21,16 @@ const UNIT_SUITES = [
   'test-auth-locked-balance.mjs',          // auth yanıtlarında locked/withdrawable (#17)
   'test-email-verification-gate.mjs',      // login+register email doğrulama gate + resend endpoint
   'test-migrate-bonus-to-balance.mjs',     // migration script idempotency (#17)
-  'test-reset-to-clean-slate.mjs',         // §6 tek seferlik reset script'i (#17)
   'test-user-casino-summary.mjs',
-  'test-referral-commission-service.mjs',  // payReferralCommission() logic (no Palace API)
-  'test-settlement-referral.mjs',          // settleEvent referral payout (no Palace API)
-  'test-casino-referral.mjs',              // inhouse hook referral payout (no Palace API)
-  'test-palace-session-referral.mjs',      // closePalaceSession referral (Palace service mocked)
+  'test-referral-commission-service.mjs',  // payReferralCommission() logic
+  'test-casino-referral.mjs',              // inhouse hook referral payout
   'test-events-list.mjs',                  // GET /events gelecek penceresi + cache (#12)
-  'test-bet-grading.mjs',                  // betGrading grader fonksiyonları (daha önce runner'a bağlı değildi)
-  'test-bet-settlement.mjs',                // settleEvent/autoSettleFinishedEvent entegrasyon (daha önce runner'a bağlı değildi)
-  'test-admin-settle-recovery.mjs',        // admin manuel settle: 'finished' ama hâlâ pending bahisli event'ler kurtarılabiliyor mu
-  'test-status-transition-settlement.mjs', // statusTransition fallback'i artık otomatik sonuçlandırma deniyor mu
-  'test-roulette-evaluate-bets.mjs',        // rouletteHouseEdgePercent/rouletteMaxPayout artık gerçek ödemeyi etkiliyor (2026-09-11)
 ];
 
-// ─── Casino Integration Tests (real DB, mocked or real Palace) ────────────
+// ─── Casino Integration Tests (real DB) ────────────────────────────────────
 const CASINO_SUITES = [
-  'test-casino-callbacks.mjs',     // callback handler logic (no Palace API calls)
-  'test-casino-lifecycle.mjs',     // full lifecycle with real Palace API
-  'test-popular-games.mjs',        // getPopularGames() aggregate (no Palace API calls)
-];
-
-// ─── Palace Integration Tests (real Palace API, token required) ───────────
-const PALACE_SUITES = [
-  'test-palace-api.mjs',           // all Palace API endpoints
-  'test-palace-admin-integration.mjs',  // admin endpoints with real Palace
+  'test-casino-callbacks.mjs',     // callback handler logic
+  'test-popular-games.mjs',        // getPopularGames() aggregate
 ];
 
 const MOCK_SUITES = [
@@ -56,8 +42,6 @@ const results = [];
 console.log('═'.repeat(60));
 console.log('🧪 VIP90.bet Test Suite Runner');
 console.log('═'.repeat(60));
-console.log(`   PALACE_API_TOKEN: ${process.env.PALACE_API_TOKEN ? '***SET***' : 'NOT SET'}`);
-console.log(`   Mode: ${process.env.PALACE_API_TOKEN ? 'mock + real Palace API' : 'mock only'}\n`);
 
 function runTest(testFile, label) {
   console.log(`\n📋 ${label}: ${testFile}`);
@@ -74,7 +58,6 @@ function runTest(testFile, label) {
   const ok = result.status === 0;
   let type = 'unit';
   if (CASINO_SUITES.includes(testFile)) type = 'casino-integration';
-  if (PALACE_SUITES.includes(testFile)) type = 'palace-integration';
   if (MOCK_SUITES.includes(testFile)) type = 'mock';
 
   results.push({ name: testFile, label, status: result.status, duration, type });
@@ -90,26 +73,14 @@ for (const test of UNIT_SUITES) {
   if (!ok) allOk = false;
 }
 
-// 2. Casino integration suites (always — uses real Palace if token, else creates test users without API)
+// 2. Casino integration suites (real DB)
 console.log('\n━━━ Casino Integration Suites ━━━');
 for (const test of CASINO_SUITES) {
   const ok = runTest(test, 'Casino Integration');
   if (!ok) allOk = false;
 }
 
-// 3. Palace integration suites (only if token)
-console.log('\n━━━ Palace Integration Suites (real Palace API) ━━━');
-if (process.env.PALACE_API_TOKEN) {
-  for (const test of PALACE_SUITES) {
-    const ok = runTest(test, 'Palace Integration');
-    if (!ok) allOk = false;
-  }
-} else {
-  console.log('  ⊘ PALACE_API_TOKEN env\'de yok — Palace integration testleri atlanıyor');
-  console.log('     PALACE_API_TOKEN=xxx node scripts/run-all-tests.cjs');
-}
-
-// 4. Mock suites (minimal)
+// 3. Mock suites (minimal)
 if (MOCK_SUITES.length > 0) {
   console.log('\n━━━ Mock Suites ━━━');
   for (const test of MOCK_SUITES) {
@@ -133,7 +104,6 @@ const typeLabels = {
   'unit': 'Unit Tests (logic)',
   'mock': 'Mock Tests',
   'casino-integration': 'Casino Integration (real DB)',
-  'palace-integration': 'Palace Integration (real API)',
 };
 
 for (const [type, suites] of Object.entries(byType)) {
