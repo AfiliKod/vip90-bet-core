@@ -3,7 +3,7 @@
 This list was compiled from real buyer questions on similar products — the goal is to leave no ambiguity before purchase.
 
 **Which games are included, which are sold separately?**
-All 13 in-house games (Crash, Mines, Plinko, Dice, Limbo, Wheel, Hilo, Keno, Blackjack, Roulette, Baccarat, Video Poker, Dragon Tiger) are **in the box** — you don't need to buy a separate game add-on. Casino content (slots, table games via a provider) and sports betting feed are separate modules, see [03 — Module System](03-modul-sistemi.md).
+None of the 13 in-house games (Crash, Mines, Plinko, Dice, Limbo, Wheel, Hilo, Keno, Blackjack, Roulette, Baccarat, Video Poker, Dragon Tiger) are in this core package — they're a separately licensed module (engine + playable UI), same as sports betting and casino content. This repo ships the shell that would host them (launcher UI, wallet/bonus hooks, admin economy-settings screen) plus a public "recent winners" endpoint, but not the game logic itself. See [03 — Module System](03-modul-sistemi.md).
 
 **Will my license reset if I change the domain?**
 The product is delivered as source code, there is no domain-locked license verification mechanism. Updates and support are tied to your purchase.
@@ -24,10 +24,10 @@ TR and EN dictionaries are ready (`client/src/i18n/dictionaries/`, each ~1490 ke
 There is a single active currency across the site (not a per-user separate wallet) — it can be selected from TRY/USD/EUR in the admin panel and the selection changes the symbol/locale formatting (see `server/src/currency/registry.js`). Users holding balances in multiple currencies simultaneously is not supported.
 
 **Can I adjust RTP / house edge from the panel?**
-Yes. For each of the 13 in-house games, the variables that actually determine RTP — house edge/payout factor, min-max bet, and timing — can be changed from the **Game Settings** screen in the admin panel (`client/src/pages/admin/GameSettings.jsx` → `PATCH /admin/game-settings/:gameId`); each change is logged with who/when/old-new value (`GameSettings.changeLog`). For the mathematics itself (which variable determines what), see [04 — Game Mathematics](04-oyun-matematigi.md); for the panel side, see [02 — Configuration](02-yapilandirma.md).
+The core ships the **Game Settings** screen and data model (`client/src/pages/admin/GameSettings.jsx` → `PATCH /admin/game-settings/:gameId`, `GameSettings.changeLog`) for configuring each in-house game's house edge/payout factor, min-max bet, and timing. These values are only consumed once the licensed In-house Games module is installed and reading them; for the panel side alone, see [02 — Configuration](02-yapilandirma.md).
 
-**How do I enable/disable modules (betting/casino content/live casino)?**
-From the **Modules** screen in the admin panel with a single click (`client/src/pages/admin/Modules.jsx` → `PATCH /admin/modules/:id`), without restarting the server. A disabled module's pages are gracefully hidden from visitors with a "This section is currently closed" message, the core platform is unaffected (`ModuleGate` component). If you haven't defined a `LICENSE_SERVER_URL`/`LICENSE_KEY` (most operators don't), all modules are automatically considered "licensed" — the product works out of the box. *(Note: [03 — Module System](03-modul-sistemi.md) says this screen doesn't exist yet — that document is awaiting an update, the real code is ahead of it.)*
+**How do I enable/disable modules (betting/casino content/in-house games)?**
+From the **Modules** screen in the admin panel with a single click (`client/src/pages/admin/Modules.jsx` → `PATCH /admin/modules/:id`), without restarting the server. A disabled module's pages are gracefully hidden from visitors with a "This section is currently closed" message, the core platform is unaffected (`ModuleGate` component). If you haven't defined a `LICENSE_SERVER_URL`/`LICENSE_KEY` (most operators don't), all modules are automatically considered "licensed" — the product works out of the box.
 
 **Can I change the logo/favicon/color theme from the panel?**
 Yes — this is a feature missing from many similar products and the most complained about; in VIP90.bet you can change the logo, favicon, site name, font, and color theme from the panel, no code editing needed.

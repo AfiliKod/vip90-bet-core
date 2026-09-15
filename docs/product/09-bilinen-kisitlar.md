@@ -4,7 +4,7 @@ _Last verified: 2026-09-11 (against `dev`/`main` after the crypto payment + dual
 
 This document lists features that are **defined but not end-to-end connected** or **partially functional** in the codebase. The goal is for the operator to be aware of this before encountering a situation where "I see a field/service in the panel but the behavior isn't what I expected." Each item has been verified by reading the relevant code.
 
-**Resolved since the last pass, no longer limitations:** KYC document review (now a dual system — local document review + Sumsub — wired end-to-end via `server/src/routes/kyc.js` and `admin.approveKycSubmission`/`rejectKycSubmission`), VIP cashback (now paid in real time on every settled bet/round via `vip.payCashback`, hooked into sports settlement, in-house rounds, and Palace sessions — see `GET /api/vip/cashback` for history), and the roulette house-edge setting (`evaluateBets()` in `server/src/provider/games/rouletteGame.js` now derives every payout multiplier from `rouletteHouseEdgePercent`/`rouletteMaxPayout` instead of a fixed table — see `server/scripts/test-roulette-evaluate-bets.mjs`).
+**Resolved since the last pass, no longer limitations:** KYC document review (now a dual system — local document review + Sumsub — wired end-to-end via `server/src/routes/kyc.js` and `admin.approveKycSubmission`/`rejectKycSubmission`), VIP cashback (now paid in real time on every settled bet/round via `vip.payCashback`, with hook points for sports settlement, licensed in-house rounds, and licensed casino-content sessions — see `GET /api/vip/cashback` for history). In-house game math (e.g. roulette house-edge/payout derivation) lives entirely in the licensed In-house Games module now, not in this repo.
 
 ## No agent (reseller) system
 

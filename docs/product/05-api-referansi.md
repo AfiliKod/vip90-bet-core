@@ -14,8 +14,8 @@ All endpoints are grouped under `/api` (except the setup wizard, which is under 
 | Transactions | `/api/transactions` | Simple deposit/withdrawal records |
 | Promotions | `/api/promotions` | Bonus claiming, active promotions, wagering conversion |
 | Casino | `/api/casino` | Aggregator-agnostic spin/balance endpoint — **casino-content module gate** |
-| Palace | `/api/palace` | Casino aggregator-specific endpoints (game list, session, callback) — **no module gate** |
-| In-house games | `/api/inhouse` | Each of the 13 games' own endpoints (`/inhouse/crash/*`, `/inhouse/mines/*`, etc.) — core platform, no module gate |
+| Palace | `/api/palace` | Only mounted when the licensed Palace Casino package is installed — not present in this repo |
+| In-house games | `/api/inhouse-provider`, `/api/provider/v1` | Only mounted when the licensed In-house Games package is installed — not present in this repo. `/api/inhouse` (`routes/inhouse.js`, always in core) exposes just the public "recent winners" feed, no game logic |
 | Help | `/api/help` | AI support assistant (chatbot) |
 | Crypto | `/api/crypto` | USDT-TRC20 deposit address/tracking + withdrawal request |
 | Bank | `/api/bank` | Bank transfer deposit/withdrawal requests + admin approval flow |
@@ -181,56 +181,21 @@ If the module is disabled, all these endpoints return `503 { error: { code: 'MOD
 |---|---|---|---|
 | `POST /spin` | User + `spinLimiter` | `{ bet, payout, gameId?, gameTitle?, provider? }` | `400 INVALID_BET`, `400 INVALID_PAYOUT`, `404 NOT_FOUND`, `400 INSUFFICIENT_BALANCE` |
 
-### Palace (casino aggregator) — `/api/palace` (`routes/palace.js`) — **no module gate**
+### Palace (casino aggregator) — `/api/palace`
 
-If `PALACE_API_TOKEN` env is not defined, all endpoints return `503 { error: 'Palace Casino API is not configured yet' }`. Note: This route group is **outside** the `requireCasinoContent` gate — even if the casino-content module is disabled, Palace endpoints continue to work (only the generalized `/api/casino/spin` endpoint and casino catalog page are disabled).
-
-| Method + Path | Auth | Notes |
-|---|---|---|
-| `GET /agent/info` | User | Agent balance/RTP/currency |
-| `POST /agent/rtp` | Admin | `{ rtp }` between 75-95 |
-| `POST /agent/callback-test` | Admin | |
-| `POST /user/create` | User | `{ name }` 2-50 characters |
-| `POST /user/info` | User | `{ user_code }` |
-| `POST /user/deposit` | Admin | `{ user_code, amount }` |
-| `POST /user/withdraw` | Admin | `{ user_code, amount }` |
-| `POST /user/withdraw-all` | Admin | `{ user_code }` |
-| `POST /providers` | Public | Static catalog, open to guests |
-| `POST /games` | Public | `{ provider_id, lang }` |
-| `POST /game/all` | Public | |
-| `GET /game/popular` | Public | Most played in last 7 days (aggregated) |
-| `POST /game/url` | User | `{ user_code, provider_id, game_code|game_symbol, win_ratio?, language?, return_url? }` |
-| `POST /game/launch` | User | Transfers local balance to Palace and opens game; `409 SESSION_ACTIVE`, `400 INSUFFICIENT_BALANCE`, `503 PALACE_BALANCE_UNAVAILABLE`, `400 PALACE_DEPOSIT_FAILED` |
-| `POST /game/close` | User | Closes session and pulls balance back |
-| `GET /game/session` | User | Active session check |
-| `POST /game/online` | User | |
-| `POST /game/call-config` | User | |
-| `POST /bonus/start` | Admin | `{ gplay_id, set_point?, type?, memo? }` |
-| `POST /bonus/cancel` | Admin | `{ call_id }` |
-| `POST /transactions` | User | `{ start_time, end_time, offset, limit }` |
-| `POST /round-details` | User | `{ transaction_id }` |
-| `POST /statistics/user` | Admin | |
-| `POST /callback` | Provider (special `callback-token` header) | Processes Bet/Win/BetCancel/BonusCall/Deposit/Withdraw; round_id-based replay prevention (5min TTL) |
+Only mounted when the licensed Palace Casino package is installed
+(`server/src/premium/palace/`) — its routes and full API reference live in
+that package, not in this repo. Core only defines the generic aggregator
+contract (`server/src/services/casinoAggregators/registry.js`) that any
+casino-content vendor — Palace or otherwise — plugs into.
 
 ### In-house games — `/api/inhouse` (`routes/inhouse.js`) — core platform, no module gate
 
-All require user login except `GET /recent-winners`. Each game has its own admin-adjustable min/max bet + activity control (`checkBetAllowed` — returns `503 GAME_DISABLED` if disabled, `400` if out of limits).
-
-| Game | Endpoints |
-|---|---|
-| Common | `GET /recent-winners` (public) |
-| Mines | `POST /mines/start`, `POST /mines/reveal`, `POST /mines/cashout` |
-| Plinko | `POST /plinko/drop` (`{ amount, risk?, rows? }`) |
-| Dice | `POST /dice/roll` (`{ amount, target, over? }`) |
-| Limbo | `POST /limbo/play` (`{ amount, target }`) |
-| Wheel | `POST /wheel/spin` (`{ amount, risk? }`) |
-| HiLo | `POST /hilo/start`, `POST /hilo/guess` (`{ guess }`), `POST /hilo/cashout` |
-| Keno | `POST /keno/play` (`{ amount, picks[] }`, 1-10 selections) |
-| Blackjack | `POST /blackjack/deal`, `POST /blackjack/hit`, `POST /blackjack/stand`, `POST /blackjack/double` |
-| European Roulette | `POST /roulette/spin` (`{ amount, bets[] }`) |
-| Baccarat | `POST /baccarat/deal` (`{ amount, bet: 'player'|'banker'|'tie' }`) |
-| Video Poker | `POST /videopoker/deal`, `POST /videopoker/draw` (`{ holds[] }`) |
-| Dragon Tiger | `POST /dragontiger/deal` (`{ amount, bet: 'dragon'|'tiger'|'tie' }`) |
+Core only exposes `GET /recent-winners` (public) — the "recent winners" social-proof
+ticker's initial load data. All 13 games' actual play endpoints
+(start/spin/deal/cashout etc.) are part of the licensed In-house Games
+module, mounted separately under `/api/inhouse-provider` and
+`/api/provider/v1` when installed — they are not in this repo.
 
 ### Help — `/api/help` (`routes/help.js`)
 
@@ -344,7 +309,7 @@ Destructive/financial endpoints additionally apply `blockDemoAdmin` (marked belo
 - `GET /pages/home`, `PATCH /pages/home` (`updateHomeContentSchema`: `sectionOrder[]`, `banners[]`)
 - `GET /games/featured`, `PATCH /games/featured` (`updateFeaturedGamesSchema`: `codes[]`, max 60)
 
-**Game settings (RTP/limit/house edge — 13 in-house games)**
+**Game settings (RTP/limit/house edge — consumed by the licensed In-house Games module)**
 - `GET /game-settings`
 - `PATCH /game-settings/:gameId` **[demo blocked]** (`updateGameSettingsSchema` — game-dependent `*MinBet`/`*MaxBet`/`*HouseEdgePercent`/`*PayoutFactor`/`*Mult` fields, `isActive?`, `reason?`)
 - `POST /game-settings/:gameId/simulate-rtp` (`simulateRtpSchema` — only blackjack/video poker fields + `hands?` 20000-500000)

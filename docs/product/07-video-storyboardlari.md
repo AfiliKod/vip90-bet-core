@@ -95,7 +95,7 @@ Editing the banner, campaign block, and section order from the panel.
 
 | Scene | Narration |
 |---|---|
-| 0-15s: Simple diagram of the three modules from [03 — Module System](03-modul-sistemi.md) (Core / Betting / Casino Content / Live Casino) | "In VIP90.bet, the core platform is always enabled — three additional modules are sold/licensed separately." |
+| 0-15s: Simple diagram of the modules from [03 — Module System](03-modul-sistemi.md) (Core / Betting / Casino Content / In-house Games) | "In VIP90.bet, the core platform is always enabled — Betting, Casino Content and In-house Games are sold/licensed separately." |
 | 15-40s: Admin panel → Modules screen opens, three module cards listed (with status badges) | "You can see which module is on and which is off from a single screen." |
 | 40-65s: Navigates to a page affected by a disabled module (e.g., `/casino`), menu item is gone / graceful message shown | "When a module is disabled, the rest of the site is completely unaffected — that section just gracefully disappears." |
 | 65-90s: Closing, summary benefit of the module system | "As an operator, you only keep enabled what you've licensed." |
@@ -133,7 +133,7 @@ Editing the banner, campaign block, and section order from the panel.
 | Scene | Narration |
 |---|---|
 | 0-20s: A Crash round being played | "Each round is calculated with a server seed that cannot be predetermined." |
-| 20-60s: HMAC formula from [04 — Game Mathematics](04-oyun-matematigi.md) on screen, simplified explanation | "This seed, hashed with HMAC-SHA256, determines the result — no one can know it in advance." |
+| 20-60s: HMAC formula on screen, simplified explanation (source: licensed In-house Games module) | "This seed, hashed with HMAC-SHA256, determines the result — no one can know it in advance." |
 | 60-100s: House edge table shown | "Each game's house edge value is clearly documented." |
 
 ---

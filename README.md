@@ -5,23 +5,34 @@
 ![MongoDB](https://img.shields.io/badge/mongodb-8-47A248?style=flat-square&logo=mongodb&logoColor=white)
 ![License](https://img.shields.io/badge/license-commercial-orange?style=flat-square)
 
-# VIP90.bet
+# VIP90.bet Core
 
-**Self-hosted full-stack betting and casino platform with sportsbook,
-live betting, casino, wallet, bonuses, affiliate and admin management.**
+**Self-hosted iGaming platform core** — kullanıcı/cüzdan/bonus/affiliate/
+admin/tema/KYC/ödeme altyapısını içeren, ticari oyun/bahis modülleriyle
+genişletilebilen açık kaynak temel.
 
-Kendi altyapınızda çalışan, kendi markanızı taşıyan tam bir online casino
-+ spor bahisleri platformu. Kurulum sihirbazını bitirdiğiniz anda 13
-in-house oyunla canlıya çıkın; hazır olduğunuzda spor bahisleri ve üçüncü
-taraf casino içeriğini modül olarak ekleyin — tek kod tabanı, tek admin
-panel, tek kurulum.
+Bu repo tek başına **eksiksiz bir operatör iskeleti**: kendi kullanıcı
+tabanınızı, cüzdanınızı, bonus/çevrim motorunuzu, affiliate sisteminizi,
+KYC/ödeme akışınızı ve admin panelinizi bu kod üzerine kurarsınız. Gerçek
+gelir getiren içerik (spor bahisleri, in-house oyunlar, üçüncü taraf casino
+içeriği) ise ayrı, ticari olarak lisanslanan modüller olarak eklenir —
+core bunlar olmadan da eksiksiz çalışır, sadece ilgili API'ler
+`MODULE_DISABLED` döner:
 
-Çoğu "casino script"i demo verisine sarılı boş bir kabuk satar; canlıya
-almaya çalıştığınız an kırılır. VIP90.bet'un çekirdeği bunun tersi: 13 oyun,
-spor bahisleri sonuçlandırma motoru, tema editörü, canlı sohbet, referans
-komisyonu — hepsi gerçek, uçtan uca test edilmiş ve kimsenin lisans
-onayını beklemeden çalışır. Hangi özelliklerin henüz olgunlaşmadığını
-gizlemiyoruz — bkz. [Yol Haritası](#yol-haritası).
+```
+VIP90.bet Core
+│
+├── Betting Module        [Commercial]
+├── In-house Games        [Commercial]
+└── Palace Casino         [Commercial]
+```
+
+Core'un kendisi ne satıyor, ne "demo veri" barındırıyor — kullanıcı
+yönetimi, cüzdan, bonus/çevrim, affiliate, tema/marka editörü, admin panel,
+KYC ve ödeme **soyutlamaları** (built-in çalışan varsayılan
+implementasyonlarıyla), modül/lisans sistemi ve sağlayıcı arayüzleri
+uçtan uca test edilmiş ve çalışır durumda. Hangi özelliklerin henüz
+olgunlaşmadığını gizlemiyoruz — bkz. [Yol Haritası](#yol-haritası).
 
 ---
 
@@ -43,58 +54,56 @@ gizlemiyoruz — bkz. [Yol Haritası](#yol-haritası).
 
 | | |
 |---|---|
-| 🎰 **13 in-house oyun** | Crash, Mines, Plinko, Dice, Limbo, Wheel, Hi-Lo, Keno, Blackjack, Roulette, Baccarat, Video Poker, Dragon Tiger — hepsi HMAC-SHA256 **provably fair**, house edge her oyun için panelden ayarlanabilir |
-| ⚽ **Spor & Canlı Bahis modülü** | 25 spor kategorisi, canlı oran akışı, kupon (tekli/kombine/sistem), otomatik sonuçlandırma |
-| 🃏 **Casino İçeriği modülü** | Aggregator entegrasyonu ile slot ve masa oyunları — tek adaptör dosyası, sağlayıcı bağımsız mimari |
-| 🛠️ **Kapsamlı admin panel** | Kullanıcılar, roller/izinler, canlı KPI+gelir grafikli analitik, tema/marka editörü, statik sayfa düzenleyici, modül aç/kapa, kripto işlemler, destek masası |
-| 💰 **Uçtan uca kripto ödeme** | USDT-TRC20 — HD cüzdan tabanlı yatırma takibi + hot wallet üzerinden otomatik/onaylı çekim, admin panelden işlem geçmişi, cüzdan imzasıyla Web3 girişi |
-| 🪪 **Çift KYC sistemi** | Yerel belge inceleme (admin onay/red kuyruğu) veya Sumsub ile otomatik doğrulama — panelden seçilebilir |
+| 🧱 **Eksiksiz operatör çekirdeği** | Kullanıcı/auth, cüzdan, bonus/çevrim motoru, affiliate, admin panel — modüller olmadan da tam çalışır durumda |
+| 🧩 **Modül + lisans sistemi** | Bahis / Casino İçeriği / In-house Oyunlar ayrı ticari modüller olarak panelden aç/kapa edilir, API seviyesinde `MODULE_DISABLED` ile uygulanır |
+| 🛠️ **Kapsamlı admin panel** | Kullanıcılar, roller/izinler, canlı KPI+gelir grafikli analitik, tema/marka editörü, statik sayfa düzenleyici, modül yönetimi, destek masası |
+| 💰 **Ödeme soyutlaması (built-in)** | Banka havalesi + USDT-TRC20 kripto ödeme built-in çalışır — HD cüzdan tabanlı yatırma takibi, hot wallet çekim, cüzdan imzasıyla Web3 girişi |
+| 🪪 **KYC soyutlaması (built-in)** | Yerel belge inceleme veya Sumsub entegrasyonu — panelden seçilebilir, ikisi de gerçek/çalışır durumda |
 | 👑 **VIP & gerçek zamanlı cashback** | 5 seviyeli VIP programı; her sonuçlanan bahis/rounddan sonra seviyeye göre anlık cashback bakiyeye işler |
 | 🌍 **Çok dilli altyapı & PWA** | 8 dilde tam sözlük + global dil değiştirici, kurulabilir Progressive Web App, iOS Capacitor kabuğu |
-| 🧩 **Modüler lisanslama** | Çekirdek platform her zaman açık; Bahis / Casino İçeriği / In-house Oyunlar / Kripto Ödeme / KYC ayrı modüller olarak panelden yönetilir |
+| 🔌 **Sağlayıcı arayüzleri** | Bahis/casino/oyun sağlayıcıları için genel adaptör kontratları — kendi entegrasyonunuzu bu arayüzlerin üzerine yazabilirsiniz |
 | 🚀 **Tek adımda kurulum** | Tarayıcı tabanlı kurulum sihirbazı (`/install`) — terminal veya elle `.env` düzenleme gerekmez |
 
 ## Neler Dahil
 
-### 🎰 13 In-House Oyun
+### 🧱 Core
 
-Hiçbir üçüncü taraf sözleşmesi beklemeden açılışta çalışan, tamamen size
-ait oyun kütüphanesi:
+Satın alma sonrası her zaman açık, hiçbir ticari modüle bağımlı değil:
 
-**Crash · Mines · Plinko · Dice · Limbo · Wheel · Hi-Lo · Keno ·
-Blackjack · Roulette · Baccarat · Video Poker · Dragon Tiger**
+```
+Core
+├── User / Auth
+├── Wallet
+├── Bonus / Wagering
+├── Affiliate
+├── Admin
+├── CMS / Theme
+├── KYC abstraction
+├── Payment abstraction
+├── Module system
+├── Licensing
+└── Provider interfaces
+```
 
-- Her round `crypto.randomBytes` ile üretilen bir `serverSeed`'in
-  HMAC-SHA256 hash'inden türetilir — sonuç sunucu tarafından round
-  başlamadan önce belirlenemez (**provably fair**).
-- House edge ve bahis limitleri oyun bazında admin panelinden
-  ayarlanır — tek bir soyut "RTP" alanı değil, her oyunun gerçek
-  matematiğini oluşturan değişkenler doğrudan açılır.
-- Panel üzerinden anlık istatistik: oynanma sayısı, toplam el/toplam
-  kazanç, oyun bazlı performans.
+KYC ve Payment burada **soyutlama** olarak listeleniyor çünkü ikisinin de
+built-in, gerçekten çalışan bir varsayılan implementasyonu core'da
+mevcut (yerel KYC inceleme + Sumsub; banka havalesi + USDT-TRC20) — ayrı
+bir ticari modül satın almanız gerekmez, isterseniz kendi sağlayıcınızla
+değiştirirsiniz.
 
-### ⚽ Spor Bahisleri & Canlı Bahis (modül)
+### 💼 Ticari Modüller (bu repoya dahil değil)
 
-- 25 spor kategorisi (futbol, basketbol, tenis, buz hokeyi, boks,
-  rugby, kriket, motor sporları, satranç ve daha fazlası) için lig/
-  ülke bazlı hiyerarşik listeleme.
-- Canlı ve yaklaşan etkinlikler ayrı akışlarda; etkinlik detay
-  sayfasında market bazlı oran tablosu.
-- Tekli / kombine / sistem kupon desteği, otomatik sonuçlandırma
-  motoru — uçtan uca test edildi: bahis oynanır, etkinlik sonuçlanınca
-  bakiye atomik bir işlemle kredilenir.
-- Veri kaynağı bağımsız adaptör mimarisi — lisanslı bir oran
-  sağlayıcısıyla (ör. The Odds API veya eşdeğeri) veya kendi
-  sözleşmenizle beslenir; platform veri akışının şeklini değil
-  entegrasyon sözleşmesini tanımlar.
+Aşağıdakilerin gerçek kodu bu repoda **yok** — her biri ayrı, ayrı
+ücretlendirilen bir pakette yaşar ve `server/src/premium/` altına git
+submodule olarak bağlanır. Bu repo yalnızca her biri için opsiyonel
+yükleme kancasını (bkz. [Modül Sistemi](docs/product/03-modul-sistemi.md))
+ve modül kapalıyken düzgün 503 dönen API sözleşmesini içerir.
 
-### 🃏 Casino İçeriği (modül)
-
-- Standart aggregator konektörü — tek bir adaptör dosyasıyla slot ve
-  masa oyunu kataloğunu platforma bağlar.
-- Sağlayıcı bazlı filtreleme, favoriler, son oynananlar, arama —
-  hepsi in-house oyunlarla aynı UI dilinde.
-- Aynı konektör canlı krupiyeli (live-casino) içerik için genişletilebilir.
+| Modül | Sağlar |
+|---|---|
+| **Betting** | Spor bahisleri + canlı bahis: oran akışı, kupon, otomatik sonuçlandırma |
+| **In-house Games** | Crash, Mines, Plinko, Dice, Limbo, Wheel, Hi-Lo, Keno, Blackjack, Roulette, Baccarat, Video Poker, Dragon Tiger — HMAC-SHA256 provably fair motor + oynanabilir arayüz |
+| **Palace Casino** | Üçüncü taraf slot/masa oyunu aggregator entegrasyonu — core'daki genel aggregator arayüzüne (`services/casinoAggregators/`) bağlanan somut bir implementasyon |
 
 ### 👤 Kullanıcı, Cüzdan ve Güvenlik
 
@@ -146,7 +155,7 @@ lisans durumuna göre işaretlenir:
 |---|---|---|
 | **Bahis** | Oran akışı, kupon, otomatik sonuçlandırma | Spor verisi sağlayıcısıyla sözleşme |
 | **Casino İçeriği** | Slot/masa oyunları aggregator konektörü | Lisanslı aggregator sözleşmesi |
-| **In-house Oyunlar** | 13 provably-fair oyun, ayrı bir oyun sunucusundan (JWT+origin korumalı) servis edilir | Yok — dahili, ayrı bir üçüncü taraf sözleşmesi gerektirmez |
+| **In-house Oyunlar** | 13 provably-fair oyun, ayrı bir oyun sunucusundan (JWT+origin korumalı) servis edilir | Üçüncü taraf sözleşmesi gerekmez ama ayrı lisanslı pakette yaşar — bu repoya dahil değil |
 | **Crypto Ödeme Ağ Geçidi** | USDT-TRC20 yatırma/çekme | Yok — dahili |
 | **KYC Kimlik Doğrulama** | Yerel belge inceleme veya Sumsub | Sumsub seçilirse üçüncü taraf sözleşmesi |
 
@@ -205,14 +214,12 @@ npm run test:e2e   # Playwright uçtan uca testleri
 
 ## Güvenlik
 
-- HMAC-SHA256 **provably fair** round üretimi, oyuncu tarafında
-  doğrulanabilir.
 - JWT tabanlı oturum, gömülü/casino görünümleri için kapsamlı token'lar.
 - `helmet`, `express-mongo-sanitize`, katmanlı `express-rate-limit`.
 - Admin için TOTP tabanlı 2FA.
 - Modül kapısı ile lisans/yetki sınırları API seviyesinde uygulanır.
-- Belgelenmiş, git geçmişiyle denetlenebilir varlık lisanslaması —
-  ürün paketine markalı/lisanssız üçüncü taraf içerik gömülmez.
+- HMAC-SHA256 **provably fair** round üretimi lisanslı In-house Games
+  modülünün parçasıdır (bu repoda değil).
 
 ## Belgeler
 
@@ -220,18 +227,16 @@ Operatörler için hazırlanan tam dokümantasyon [`docs/product/`](docs/product
 altında (dizinin kendi indeksi: [docs/product/README.md](docs/product/README.md)):
 
 - [Kurulum](docs/product/01-kurulum.md) · [Yapılandırma](docs/product/02-yapilandirma.md)
-- [Modül Sistemi](docs/product/03-modul-sistemi.md) · [Oyun Matematiği](docs/product/04-oyun-matematigi.md)
+- [Modül Sistemi](docs/product/03-modul-sistemi.md)
 - [API Referansı](docs/product/05-api-referansi.md) · [SSS](docs/product/06-sss.md)
-- [Video Storyboard'ları](docs/product/07-video-storyboardlari.md) · [Varlık Lisans Denetimi](docs/product/08-varlik-lisans-denetimi.md)
+- [Video Storyboard'ları](docs/product/07-video-storyboardlari.md)
 - [Bilinen Kısıtlar](docs/product/09-bilinen-kisitlar.md)
 
-Sağlayıcı/entegrasyon bazlı teknik dokümantasyon — oran akışı sağlayıcısı,
-üçüncü taraf casino aggregator'ı, kripto ödeme ve KYC sağlayıcıları,
-in-house oyun sunucusu mimarisi — [`docs/providers/`](docs/providers/)
-altında:
+Core'un built-in kripto ödeme ve KYC sağlayıcıları için teknik dokümantasyon
+— [`docs/providers/`](docs/providers/) altında. (Bahis/casino/in-house oyun
+sağlayıcı entegrasyonlarının dokümantasyonu ilgili ticari modülün kendi
+paketindedir, bu repoda değildir.)
 
-- [Spor Bahisleri Sistemi](docs/providers/betting-sports.md) · [In-House Oyunlar Sistemi](docs/providers/inhouse-games.md)
-- [Palace Casino Entegrasyonu](docs/providers/palace-casino.md) · [Palace Casino Sağlayıcı Yönetimi (API uçları)](docs/providers/index.md)
 - [Kripto Ödeme Sağlayıcısı — TRC20 USDT](docs/providers/crypto-trc20.md)
 - [Yerel (Manuel) KYC Servisi](docs/providers/local-kyc.md) · [Sumsub KYC Entegrasyonu](docs/providers/sumsub-kyc.md)
 
@@ -251,6 +256,9 @@ denetimiyle doğrulandı, gizlenmiyor. Tam ayrıntı ve kod referansları için
   edilen kullanıcının ürettiği ev karının bir yüzdesi doğrudan referans
   verene ödeniyor. Alt-referansların (2. kademe ve ötesi) da komisyon
   getirdiği bir yapı henüz yok.
+- **Canlı krupiyeli casino (live casino)** — henüz kod tabanında yok,
+  ne core'da ne ticari modüllerde aktif bir implementasyon bulunuyor;
+  yalnızca ileriye dönük bir plan.
 
 ## Lisanslama
 

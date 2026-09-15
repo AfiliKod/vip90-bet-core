@@ -1,14 +1,29 @@
 # Module System
 
-VIP90.bet's core platform (13 in-house games, user management, bonus/wagering engine, basic admin panel) is always enabled — it's fully functional after purchase, no additional steps needed.
+VIP90.bet's core platform (user management, wallet, bonus/wagering engine,
+affiliate, basic admin panel, KYC/payment abstractions) is always enabled —
+it's fully functional after purchase, no additional steps needed. **13
+in-house games are not part of the core** — they're one of the licensed
+modules below, same as Betting and Casino Content.
 
-Three additional modules are **sold/licensed separately**:
+Three modules are **sold/licensed separately** and physically live outside
+this repository (mounted as a git submodule under `server/src/premium/`
+when licensed):
 
 | Module | ID | What it provides | What it blocks in the API |
 |---|---|---|---|
 | **Betting** | `betting` | Sports + live betting: odds feed, coupon, automatic settlement | `/api/events`, `/api/bets` |
-| **Casino Content** | `casino-content` | Slot and table games via an aggregator | `/api/casino` |
-| **Live Casino** | `live-casino` | Real dealer table and video games | *(no connected route yet — see below)* |
+| **Casino Content** | `casino-content` | Slot and table games via an aggregator (e.g. Palace Casino) | `/api/casino` |
+| **In-house Games** | `inhouse-games` | 13 provably-fair games (engine + playable UI) | `/api/inhouse-provider`, `/api/provider/v1` |
+
+Two more modules exist in the registry for consistency (same on/off panel
+mechanic) but their **implementation ships inside this core repo** — no
+separate purchase or third-party code required:
+
+| Module | ID | What it provides |
+|---|---|---|
+| **Crypto Payment Gateway** | `crypto-payment` | USDT-TRC20 deposit/withdrawal |
+| **KYC Verification** | `kyc-verification` | Local document review or Sumsub |
 
 ## Current state
 
@@ -44,17 +59,25 @@ If the `isUsable()` call throws an error (e.g., DB inaccessible), the gate stays
 This gate is currently wired in `server/src/app.js` as follows:
 
 ```js
-const requireBetting       = createModuleGate({ isUsable: isModuleUsable, moduleId: 'betting' });
-const requireCasinoContent = createModuleGate({ isUsable: isModuleUsable, moduleId: 'casino-content' });
+const requireBetting         = createModuleGate({ isUsable: isModuleUsable, moduleId: 'betting' });
+const requireCasinoContent   = createModuleGate({ isUsable: isModuleUsable, moduleId: 'casino-content' });
+const requireInhouseGames    = createModuleGate({ isUsable: isModuleUsable, moduleId: 'inhouse-games' });
+const requireCryptoPayment   = createModuleGate({ isUsable: isModuleUsable, moduleId: 'crypto-payment' });
+const requireKycVerification = createModuleGate({ isUsable: isModuleUsable, moduleId: 'kyc-verification' });
 
 app.use('/api/events', requireBetting, eventsRoutes);
 app.use('/api/bets',   requireBetting, betsRoutes);
 app.use('/api/casino', requireCasinoContent, casinoRoutes);
+if (inhouseProviderProxyRoutes) {
+  app.use('/api/inhouse-provider', requireInhouseGames, inhouseProviderProxyRoutes);
+} else {
+  app.use('/api/inhouse-provider', (req, res) => res.status(503).json({ error: 'MODULE_NOT_INSTALLED' }));
+}
+app.use('/api/crypto', requireCryptoPayment, cryptoRoutes);
+app.use('/api/kyc',    requireKycVerification, kycRoutes);
 ```
 
-So for example, if you disable the `betting` module from the admin panel, from that moment on **every** request under `/api/events/*` and `/api/bets/*` (including already logged-in users) gets `503 MODULE_DISABLED`; the rest of the core platform (in-house games, bonus, wallet) is unaffected.
-
-**Known gap:** The `live-casino` module ID is defined in the registry and the license/panel key is queryable, but today there is no route/feature that actually disables it — the real dealer live casino integration hasn't been written in the repo yet, so there's no `requireLiveCasino` gate either. Disabling this module in the panel currently doesn't change any API behavior.
+So for example, if you disable the `betting` module from the admin panel, from that moment on **every** request under `/api/events/*` and `/api/bets/*` (including already logged-in users) gets `503 MODULE_DISABLED`; the rest of the core platform (user, wallet, bonus, admin) is unaffected. For `inhouse-games`/`betting`/`casino-content`, the gate applies **on top of** module installation itself — if the licensed submodule isn't even mounted, the route already returns `MODULE_NOT_INSTALLED` before the license/panel check ever runs.
 
 ### 4. Admin screen
 
