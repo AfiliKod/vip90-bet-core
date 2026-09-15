@@ -266,4 +266,13 @@ iletişime geçin.
 
 ---
 
+## Proje Geçmişi
+
+Bu commit geçmişi projenin gerçek geliştirme sürecini yansıtır. Platform
+zaman içinde iki kez yeniden markalandı — **Betzone** → **Kismethane** →
+**VIP90.bet** — bu yüzden eski commit'lerde önceki isimlere rastlayabilirsiniz;
+bunlar terk edilmiş bir proje değil, aynı ürünün marka evrimidir.
+
+---
+
 <sub>Node.js · Express · React · MongoDB · Socket.IO ile geliştirildi.</sub>
