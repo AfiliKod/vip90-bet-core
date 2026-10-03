@@ -44,14 +44,14 @@ CasinoRoundSchema.post('save', async function() {
   if (this.provider === 'inhouse') {
     try {
       const { payReferralCommission } = await import('../services/referralCommission.js');
-      await payReferralCommission(this.userId, -this.net);
+      await payReferralCommission(this.userId, -this.net, { sourceId: this._id });
     } catch (e) {
       console.error('[referral] CasinoRound post-save error:', e.message);
     }
     // VIP cashback — inhouse turlarında stake üzerinden cashback
     try {
       const { payCashback } = await import('../services/vip.js');
-      await payCashback(this.userId, this.bet);
+      await payCashback(this.userId, this.bet, { sourceId: this._id });
     } catch (e) {
       console.error('[vip] CasinoRound cashback error:', e.message);
     }

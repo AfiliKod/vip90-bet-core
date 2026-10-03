@@ -7,9 +7,9 @@ describe('MODULE_DEFINITIONS', () => {
     assert.ok(!MODULE_DEFINITIONS.some(m => m.id === 'core'));
   });
 
-  test('altı satılabilir modülü tanımlar (slikair-payment dahil)', () => {
+  test('satılabilir modül listesini tanımlar (sms-gateway 2026-10-03 ile eklendi)', () => {
     assert.deepStrictEqual(MODULE_DEFINITIONS.map(m => m.id).sort(),
-      ['betting', 'casino-content', 'crypto-payment', 'inhouse-games', 'kyc-verification', 'slikair-payment']);
+      ['betting', 'casino-content', 'crypto-payment', 'inhouse-games', 'kyc-verification', 'slikair-payment', 'sms-gateway']);
   });
 
   test('her tanım id + title + description taşır', () => {
@@ -47,7 +47,7 @@ describe('createModuleStore', () => {
   test('list() tüm tanımları enabled durumuyla birlikte döndürür — tek doğruluk kaynağı', async () => {
     const s = store({ betting: true, 'casino-content': false });
     const list = await s.list();
-    assert.strictEqual(list.length, 6);
+    assert.strictEqual(list.length, MODULE_DEFINITIONS.length);
     const betting = list.find(m => m.id === 'betting');
     assert.strictEqual(betting.enabled, true);
     assert.strictEqual(betting.title, 'Spor ve Canlı Bahis');
@@ -58,7 +58,7 @@ describe('createModuleStore', () => {
   test('load patlarsa hepsi kapalı sayılır, throw etmez (fail-closed)', async () => {
     const s = createModuleStore({ load: async () => { throw new Error('db down'); }, now: () => 1000 });
     assert.strictEqual(await s.isEnabled('betting'), false);
-    assert.deepStrictEqual((await s.list()).map(m => m.enabled), [false, false, false, false, false, false]);
+    assert.deepStrictEqual((await s.list()).map(m => m.enabled), new Array(MODULE_DEFINITIONS.length).fill(false));
   });
 
   test('TTL süresince DB tekrar sorgulanmaz', async () => {

@@ -1990,16 +1990,6 @@ export async function rejectCryptoWithdrawal(req, res, next) {
       user.balance = +(user.balance + refundAmount).toFixed(2);
       await user.save({ session });
 
-      await Transaction.create([{
-        userId: user._id,
-        type: 'crypto_withdraw',
-        amount: refundAmount,
-        balanceBefore: balBefore,
-        balanceAfter: user.balance,
-        note: 'Çekim reddedildi — bakiye iade edildi',
-        status: 'completed',
-      }], { session });
-
       await createTransaction({
         userId: user._id,
         type: 'crypto_withdraw',

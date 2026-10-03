@@ -1,6 +1,11 @@
 import { test, describe } from 'node:test';
 import assert from 'node:assert';
-import { createInstaller } from '../../installer/core.js';
+import { createInstaller, DEFAULT_CURRENCY_CODES, OPTIONAL_MODULES, DOCKER_MONGODB_URI } from '../../installer/core.js';
+import { CURRENCY_DEFINITIONS } from '../src/currency/registry.js';
+import { MODULE_DEFINITIONS } from '../src/modules/registry.js';
+import { createBrandingStore } from '../src/branding/registry.js';
+import { createCurrencyStore } from '../src/currency/registry.js';
+import { createModuleStore } from '../src/modules/registry.js';
 
 // ─── Sahte modeller (MongoDB'siz — izolasyon hatasına takılmadan saf mantık) ───
 
@@ -158,5 +163,99 @@ describe('createInstaller — secrets ve .env üretimi', () => {
     assert.match(env, /^JWT_REFRESH_SECRET=BBB$/m);
     assert.match(env, /^CLIENT_URL=https:\/\/ornek\.com$/m);
     assert.match(env, /MONGODB_URI/, 'compose senaryosu için yönlendirme notu kalmalı');
+  });
+});
+
+describe('installer — uygulamanın gerçekten okuduğu ayarlara bağlanma', () => {
+  const make = (settings = fakeSettingModel(), extra = {}) =>
+    createInstaller({ userModel: fakeUserModel(), settingModel: settings, dbState: () => 1, ...extra });
+
+  test('desteklenen para birimleri currency registry ile aynı', () => {
+    assert.deepStrictEqual(DEFAULT_CURRENCY_CODES, CURRENCY_DEFINITIONS.map(c => c.code));
+  });
+
+  test('isteğe bağlı modül kimlikleri modül registry\'sinde var', () => {
+    for (const m of OPTIONAL_MODULES) {
+      assert.ok(MODULE_DEFINITIONS.some(d => d.id === m.moduleId), m.moduleId);
+    }
+  });
+
+  test('branding.siteName ve currency.code yazılır; branding/currency store bunları okur', async () => {
+    const settings = fakeSettingModel();
+    await make(settings).run({ ...validInput, siteName: 'Benim Sitem', currency: 'eur' });
+    assert.strictEqual(settings.store.get('branding.siteName'), 'Benim Sitem');
+    assert.strictEqual(settings.store.get('currency.code'), 'EUR');
+    // Üretimdeki store'ların DI load'una aynı verilerle bağlayıp gerçekten okuduklarını doğrula
+    const branding = createBrandingStore({ load: async () => ({ siteName: settings.store.get('branding.siteName') }) });
+    assert.strictEqual((await branding.getValues()).siteName, 'Benim Sitem');
+    const currency = createCurrencyStore({ load: async () => ({ code: settings.store.get('currency.code') }) });
+    assert.strictEqual((await currency.getActive()).code, 'EUR');
+  });
+
+  test('desteklenmeyen para birimi (registry dışı) reddedilir', async () => {
+    await assert.rejects(() => make().run({ ...validInput, currency: 'GBP' }), /VALIDATION/);
+  });
+
+  test('modül seçilmediyse modül kaydı YAZILMAZ (kayıt yok = kapalı)', async () => {
+    const settings = fakeSettingModel();
+    const r = await make(settings).run(validInput);
+    assert.deepStrictEqual(r.enabledModules, []);
+    assert.ok(![...settings.store.keys()].some(k => k.startsWith('module.')));
+  });
+
+  test('crypto ve KYC seçilirse modül kaydı açık yazılır ve moduleStore açık okur', async () => {
+    const settings = fakeSettingModel();
+    const r = await make(settings).run({ ...validInput, enableCrypto: 'on', enableKyc: true });
+    assert.deepStrictEqual(r.enabledModules.sort(), ['crypto-payment', 'kyc-verification']);
+    assert.strictEqual(settings.store.get('module.crypto-payment.enabled'), 'true');
+    assert.strictEqual(settings.store.get('module.kyc-verification.enabled'), 'true');
+    const store = createModuleStore({ load: async () => ({
+      'crypto-payment': settings.store.get('module.crypto-payment.enabled') === 'true',
+      'kyc-verification': settings.store.get('module.kyc-verification.enabled') === 'true',
+    }) });
+    assert.strictEqual(await store.isEnabled('crypto-payment'), true);
+    assert.strictEqual(await store.isEnabled('kyc-verification'), true);
+  });
+
+  test('yalnız biri seçilirse diğeri yazılmaz', async () => {
+    const settings = fakeSettingModel();
+    await make(settings).run({ ...validInput, enableKyc: 'on' });
+    assert.strictEqual(settings.store.has('module.crypto-payment.enabled'), false);
+    assert.strictEqual(settings.store.get('module.kyc-verification.enabled'), 'true');
+  });
+
+  test('afterSettingsWritten ayarlar yazıldıktan sonra çağrılır', async () => {
+    let called = 0;
+    await make(fakeSettingModel(), { afterSettingsWritten: () => { called++; } }).run(validInput);
+    assert.strictEqual(called, 1);
+  });
+
+  test('Docker modunda .env replicaSet=rs0 içeren compose URI\'sini yazar', () => {
+    const env = make().buildEnvContent({ jwtSecret: 'A', jwtRefreshSecret: 'B', clientUrl: 'https://x.com' });
+    assert.match(env, new RegExp(`^MONGODB_URI=${DOCKER_MONGODB_URI.replace(/[?.]/g, '\\$&')}$`, 'm'));
+    assert.match(env, /replicaSet=rs0/);
+  });
+
+  test('Docker dışı modda kullanıcının MongoDB adresi yazılır', () => {
+    const inst = make();
+    const { mongoUri } = inst.resolveMongoUri({ deployMode: 'manual', mongoUri: ' mongodb+srv://user:secret@example.net/db ' });
+    const env = inst.buildEnvContent({ jwtSecret: 'A', jwtRefreshSecret: 'B', clientUrl: 'https://x.com', mongoUri });
+    assert.match(env, /^MONGODB_URI=mongodb\+srv:\/\/user:secret@example\.net\/db$/m);
+    assert.ok(!/mongo:27017/.test(env));
+  });
+
+  test('manuel modda geçersiz/eksik MongoDB adresi VALIDATION ile reddedilir, admin oluşmaz', async () => {
+    const users = fakeUserModel();
+    const inst = createInstaller({ userModel: users, settingModel: fakeSettingModel(), dbState: () => 1 });
+    await assert.rejects(() => inst.run({ ...validInput, deployMode: 'manual', mongoUri: '' }), /VALIDATION/);
+    await assert.rejects(() => inst.run({ ...validInput, deployMode: 'manual', mongoUri: 'mongodb://h/db\nJWT_SECRET=x' }), /VALIDATION/);
+    assert.strictEqual(users.users.length, 0);
+  });
+
+  test('safeClientUrl satır enjeksiyonunu ve geçersiz değeri yedeğe düşürür', () => {
+    const inst = make();
+    assert.strictEqual(inst.safeClientUrl('https://a.com', 'F'), 'https://a.com');
+    assert.strictEqual(inst.safeClientUrl('https://a.com\nX=1', 'F'), 'F');
+    assert.strictEqual(inst.safeClientUrl('', 'F'), 'F');
   });
 });

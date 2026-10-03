@@ -12,6 +12,55 @@ Madde formatı ve kategoriler için `docs/CHANGELOG_GUIDE.md`'ye bakın —
 
 ## [Yayınlanmadı]
 
+### Gönderici kaydı ve ülke/mevzuat onayı — trial hesabın kısıtları artık panelde
+SMS Gateway'in ikinci bölümü: **Modüller → SMS Gateway** ve **SMS Mesaj
+Şablonları → Göndericiler** sekmesinde numara/Messaging Service kaydı, **mevzuat
+onay durumu** (A2P 10DLC, toll-free doğrulaması, yerel sender ID ön kaydı) ve
+onaylı hedef ülkeler yönetiliyor. Hesabın gerçek tipi **Twilio API'sinden
+okunuyor** (`type: Trial`), varsayılmıyor; panel "Bu bir trial (ücretsiz demo)
+hesabı" diye dört kuralı açıkça listeliyor: yalnız panelde doğrulanmış numaralara
+(en fazla 5), yalnız kayıt ülkesine, mesaj metnine Twilio'nun kendi şablonu
+eklenir, hesap 30 gün sonra biter. Gönderim bu kayda göre **engellenir ya da
+alıcı bazında atlanır** — `SMS_SENDER_NOT_REGISTERED`, `SMS_SENDER_MISMATCH`,
+`SMS_SENDER_COUNTRY_DENIED`, `SMS_TRIAL_NUMBER_NOT_VERIFIED`,
+`SMS_TRIAL_COUNTRY_DENIED`; her atlanan alıcı gönderim günlüğüne nedeniyle
+yazılır. 24 ilgili Twilio hata kodu (`30034` A2P kayıtsız, `30041` ülkede
+kısıtlı gönderici, `21610` opt-out, `30461` toll-free'de kumar içeriği reddi
+vb.) sözlüğe girip günlükte insan diliyle gösteriliyor. Kaynak:
+`docs/sms-gateway/README.md` §11.
+
+### SMS Gateway (Twilio) + sistem/kampanya mesaj şablonları CRUD'u
+`todo.md` #18/#19'un SMS tarafı kapandı. **Modüller** sayfasına altıncı sağlayıcı
+kartı (`sms-gateway`) geldi: Twilio `Account SID` / `Auth Token` / gönderici
+numara / `Messaging Service SID` / varsayılan ülke kodu, kaynak rozetleri
+(`db` / `.env` / tanımsız) ve **mesaj göndermeyen** bir "Bağlantıyı Test Et"
+(kuru çalışma — Twilio `GET /Accounts/{Sid}.json`, tek kuruş maliyeti yok).
+Auth Token DB'de **düz metin tutulmuyor**: `utils/secretCrypto.js` ile
+AES-256-GCM şifreleniyor; şifreleme anahtarı yoksa token yazılmıyor ve panel
+açık bir hata gösteriyor. Yeni **SMS Mesajları** sayfası
+(`/admin/sms-templates`, sidebar → Engagement): iki tür şablon yönetiliyor —
+bir **olaya bağlı sistem mesajı** (`userRegistered`, `betWon`, `betLost`,
+`casinoSessionProfit/Loss`, `depositCompleted`, `withdrawalCompleted`,
+`inactiveReminder`) ve bir **zamana duyarlı mesaj** (`bonusExpiring`,
+`weeklyBonus`, `tournamentReminder`, `campaignAnnouncement` vb.). Sistem
+mesajları bilinçli olarak **panelden gönderilemez** (tetikleyen domain kodudur);
+zamana duyarlı olanlar tek kullanıcıya, tüm kullanıcılara ya da bir oyuncu
+segmentine gönderilebilir. 15 demo şablon boot'ta eklenir, hepsi panelde
+düzenlenebilir satırdır; operatörün düzenlemesi ezilmez, sildiği demo şablon
+restart'ta geri gelmez. Her mesaj alıcı bazında `SmsLog`'a yazılır
+(gönderildi / başarısız / atlandı + hata), tek istekte 2000 alıcı tavanı
+vardır ve boş değişkenler sessizce gitmek yerine gönderim özetinde raporlanır.
+Telefonlar E.164'e çevrilir; `+`/`00` yoksa **ülke kodu tahmin edilmez**
+(operatörün beyanı gerekir) — aksi hâlde `+53` gibi yanlış bir ülkeye sessiz
+gönderim yapılırdı. Mesaj satırları GSM 03.38'e göre segment sayacı gösterir:
+`ğĞşŞıİç` tabloda olmadığı için Türkçe SMS 160 değil **70** karaktere sığar.
+Domain kodunun bağlanacağı giriş noktası hazır
+(`dispatchSmsEvent('betWon', user, {...})` — asla throw etmez), ancak bahis/çekim
+akışlarına bağlanmadı: canlı SMS trafiği operatör kararıdır.
+Ayrıntı: `docs/sms-gateway/README.md`. Demo Twilio kimlik bilgileri koda
+yazılmadı (policy §8) — `.env` (`TWILIO_ACCOUNT_SID` / `TWILIO_AUTH_TOKEN` /
+`TWILIO_FROM_NUMBER`) veya panel üzerinden verilir.
+
 ### Sağ ray tüm sayfalara yayıldı, Canlı Yardım artık yalnızca footer'dan
 Kampanyalar/Bahis/Canlı'da zaten var olan sağ ray (Son Kazananlar paneli) artık Hakkımızda/Kariyer/Basın/İletişim, Yardım Merkezi ve Profil (Para Yatır/Çek) sayfalarında da var — site genelinde tutarlı 3-sütun düzen. Sağ-alttaki sabit "Canlı Yardım" (💬) ikonu kaldırıldı; özelliğin kendisi (`LiveHelp.jsx`) ve footer'daki "Canlı Yardım" linki duruyor — yalnızca kalıcı floating giriş noktası kaldırıldı, panel hâlâ footer'dan açılabiliyor.
 

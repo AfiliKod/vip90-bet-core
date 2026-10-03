@@ -12,6 +12,7 @@
 import { Router } from 'express';
 import { requireAuth } from '../middleware/auth.js';
 import { validate } from '../middleware/validate.js';
+import { enforceRiskCheck } from '../middleware/risk.js';
 import { createModuleGate } from '../middleware/moduleGate.js';
 import { isModuleUsable } from '../services/licensing/index.js';
 import { slikairDepositSchema } from '../validators/slikair.js';
@@ -21,12 +22,13 @@ export function createSlikairRouter({
   isUsable = isModuleUsable,
   ctrl = slikairController,
   auth = requireAuth,
+  riskCheck = enforceRiskCheck('deposit'),
 } = {}) {
   const r = Router();
   const requireSlikairPayment = createModuleGate({ isUsable, moduleId: 'slikair-payment' });
 
-  // Kullanıcı yatırma başlat
-  r.post('/deposit', requireSlikairPayment, auth, validate(slikairDepositSchema), ctrl.initiateDeposit);
+  // Kullanıcı yatırma başlat (bank/transactions yatırmayla aynı sıra: auth → validate → risk)
+  r.post('/deposit', requireSlikairPayment, auth, validate(slikairDepositSchema), riskCheck, ctrl.initiateDeposit);
 
   // Kullanıcı kendi ödeme geçmişi
   r.get('/my-payments', auth, ctrl.getMyPayments);

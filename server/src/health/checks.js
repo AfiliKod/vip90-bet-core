@@ -22,11 +22,25 @@ const OPTIONAL_SERVICES = [
   { name: 'service:smtp', label: 'SMTP e-posta', envKey: 'SMTP_HOST' },
 ];
 
+// Panelden (DB) kaydedilen değerler env'e göre önceliklidir. Varsayılan çözücüler
+// yalnızca DB bağlıyken devreye girer; eklenti (igames) yoksa sessizce env'e düşülür.
+// Her çözücü "yapılandırılmış mı" (boolean) döner; testte `resolvers` ile enjekte edilir.
+const DEFAULT_RESOLVERS = {
+  'service:smtp': async () => {
+    const { emailConfig } = await import('../config/emailConfig.js');
+    return !!(await emailConfig.getAll()).host;
+  },
+  'service:igames': async () => {
+    const { refreshIgamesCredentialsNow } = await import('../premium/igames/igamesCredentials.js');
+    return !!(await refreshIgamesCredentialsNow()).apiToken;
+  },
+};
+
 function isPlaceholder(v) {
   return !v || /CHANGE_ME|BURAYA_/i.test(v);
 }
 
-export async function runHealthChecks({ dbState, env = {}, pendingMigrations, settingModel }) {
+export async function runHealthChecks({ dbState, env = {}, pendingMigrations, settingModel, resolvers = DEFAULT_RESOLVERS }) {
   const checks = [];
 
   // 1. Veritabanı
@@ -50,11 +64,14 @@ export async function runHealthChecks({ dbState, env = {}, pendingMigrations, se
 
   // 3. Opsiyonel servisler — eksikleri uyarıdır
   for (const s of OPTIONAL_SERVICES) {
-    const v = env[s.envKey];
+    let configured = !isPlaceholder(env[s.envKey]);
+    if (!configured && connected && resolvers[s.name]) {
+      try { configured = !!(await resolvers[s.name]()); } catch { /* env sonucu geçerli */ }
+    }
     checks.push({
       name: s.name,
-      status: isPlaceholder(v) ? 'warn' : 'ok',
-      detail: isPlaceholder(v) ? `${s.label} yapılandırılmamış (${s.envKey})` : `${s.label} yapılandırılmış`,
+      status: configured ? 'ok' : 'warn',
+      detail: configured ? `${s.label} yapılandırılmış` : `${s.label} yapılandırılmamış (${s.envKey} veya panel ayarı)`,
     });
   }
 

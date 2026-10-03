@@ -35,6 +35,7 @@ export const MODULE_DEFINITIONS = [
   // listelemese bile kapanmaz (aksi halde canlıda ödemeler dururdu).
   { id: 'slikair-payment', title: 'Slikair Ödeme Ağ Geçidi', description: 'Kart ve alternatif ödeme yöntemleriyle para yatırma (Slikair).', licenseExempt: true },
   { id: 'kyc-verification', title: 'KYC Kimlik Doğrulama', description: 'Manuel belge inceleme veya Sumsub ile otomatik doğrulama.' },
+  { id: 'sms-gateway', title: 'SMS Gateway', description: 'Twilio üzerinden sistem ve kampanya SMS mesajları gönderimi.' },
 ];
 
 const TTL_MS = 30 * 1000;

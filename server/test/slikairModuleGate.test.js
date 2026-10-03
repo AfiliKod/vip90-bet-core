@@ -20,7 +20,7 @@ async function boot(usable) {
   const app = express();
   app.use(express.json());
   const auth = (req, res, next) => { req.user = { id: 'u1' }; next(); };
-  app.use('/api/slikair', createSlikairRouter({ isUsable: async id => { calls.push(`gate:${id}`); return usable; }, ctrl: stubCtrl(calls), auth }));
+  app.use('/api/slikair', createSlikairRouter({ isUsable: async id => { calls.push(`gate:${id}`); return usable; }, ctrl: stubCtrl(calls), auth, riskCheck: (req, res, next) => next() }));
   const server = await new Promise(r => { const s = app.listen(0, () => r(s)); });
   const base = `http://127.0.0.1:${server.address().port}/api/slikair`;
   return { calls, server, base };

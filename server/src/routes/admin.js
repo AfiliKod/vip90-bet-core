@@ -48,6 +48,10 @@ r.use('/health', healthRouter);
 import playerSegmentRouter from './playerSegment.js';
 r.use('/segments', playerSegmentRouter);
 
+// SMS Gateway (sağlayıcı kimlik bilgileri + mesaj şablonları + gönderim)
+import smsTemplateRouter from './smsTemplate.js';
+r.use('/sms', smsTemplateRouter);
+
 // Multi-currency (Phase 3G)
 import multiCurrencyRouter from './multiCurrency.js';
 r.use('/currencies', multiCurrencyRouter);

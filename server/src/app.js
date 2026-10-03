@@ -12,6 +12,7 @@ import { expandOrigins, canonicalHostRedirect } from './utils/origins.js';
 import { getOnlineCount } from './services/onlineCount.js';
 import { errorHandler, notFound } from './middleware/error.js';
 import { globalLimiter } from './middleware/rateLimit.js';
+import { createAdminIpAllowlist } from './middleware/adminIpAllowlist.js';
 import authRoutes from './routes/auth.js';
 import web3AuthRoutes from './routes/web3Auth.js';
 import socialAuthRoutes from './routes/socialAuth.js';
@@ -214,6 +215,8 @@ export function createApp() {
   // Kurulum sihirbazı (K2) — ilk açılışta terminal gerektirmeden kurulabilsin
   app.use('/install', installRoutes);
 
+  // ADMIN_ALLOWED_IPS tanımlıysa /api/admin/* yalnız o IP/CIDR'lerden (varsayılan kapalı)
+  app.use('/api/admin', createAdminIpAllowlist());
   app.use('/api/auth', authRoutes);
   app.use('/api/auth/wallet', web3AuthRoutes);
   app.use('/api/auth', socialAuthRoutes);

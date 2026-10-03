@@ -1,11 +1,11 @@
 import User from '../models/User.js';
-import Transaction from '../models/Transaction.js';
 import { getIO } from './socketEmitter.js';
 import { REFERRAL_SETTINGS } from '../config/referral.js';
 import { createTransaction } from './ledger.js';
+import Transaction from '../models/Transaction.js';
 
 export async function payReferralCommission(userId, houseProfit, options = {}) {
-  const { session = null } = options;
+  const { session = null, sourceId = null } = options;
 
   if (!REFERRAL_SETTINGS.enabled) return null;
   if (!houseProfit || houseProfit <= 0) return null;
@@ -16,6 +16,15 @@ export async function payReferralCommission(userId, houseProfit, options = {}) {
   const commission = parseFloat((houseProfit * REFERRAL_SETTINGS.commissionRate / 100).toFixed(2));
   if (commission <= 0) return null;
 
+  // Tekrar koruması: anahtar ödemeyi doğuran olaydan (sourceId) türetilir ve
+  // bakiye DEĞİŞMEDEN önce kontrol edilir — createTransaction'ın kendi
+  // idempotency kontrolü yalnız ledger satırını engeller, bakiye $inc'ini değil.
+  // sourceId yoksa (eski çağrılar) her çağrı ayrı ödeme sayılır.
+  const idempotencyKey = sourceId
+    ? `referral_commission_${bettor.referredBy}_${sourceId}`
+    : `referral_commission_${bettor.referredBy}_${Date.now()}`;
+  if (sourceId && await Transaction.exists({ idempotencyKey }).session(session)) return null;
+
   const referrer = await User.findByIdAndUpdate(
     bettor.referredBy,
     { $inc: { balance: commission, totalReferralEarnings: commission } },
@@ -24,15 +33,6 @@ export async function payReferralCommission(userId, houseProfit, options = {}) {
   if (!referrer) return null;
 
   const balanceBefore = parseFloat((referrer.balance - commission).toFixed(2));
-  await Transaction.create([{
-    userId:        referrer._id,
-    type:          'referral_commission',
-    amount:        commission,
-    balanceBefore,
-    balanceAfter:  referrer.balance,
-    note:          'Referans kâr payı komisyonu',
-  }], { session });
-
   await createTransaction({
     userId: referrer._id,
     type: 'referral_commission',
@@ -40,7 +40,7 @@ export async function payReferralCommission(userId, houseProfit, options = {}) {
     balanceBefore,
     balanceAfter: referrer.balance,
     note: 'Referans kâr payı komisyonu',
-    idempotencyKey: `referral_commission_${referrer._id}_${Date.now()}`,
+    idempotencyKey,
     source: 'system',
   }, { session });
 

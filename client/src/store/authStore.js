@@ -29,8 +29,11 @@ export const useAuthStore = create((set) => ({
       set({ user: null, token: null, isLoading: false });
     }
   },
-  login: async (username, password) => {
-    const { data } = await api.post('/auth/login', { username, password });
+  login: async (username, password, turnstileToken) => {
+    const { data } = await api.post('/auth/login', {
+      username, password,
+      ...(turnstileToken ? { turnstileToken } : {}),
+    });
     localStorage.setItem('accessToken', data.accessToken);
     set({ user: data.user, token: data.accessToken });
     connectUserSocket(data.user._id || data.user.id, data.user.role);
@@ -68,6 +71,7 @@ export const useAuthStore = create((set) => ({
       ...(referredBy ? { referredBy } : {}),
       ...(extraFields.phone ? { phone: extraFields.phone } : {}),
       ...(extraFields.dateOfBirth ? { dateOfBirth: extraFields.dateOfBirth } : {}),
+      ...(extraFields.turnstileToken ? { turnstileToken: extraFields.turnstileToken } : {}),
     });
     // Task 1: register() artık doğrulanmamış kullanıcı için accessToken döndürmüyor —
     // sadece varsa (ileride backend davranışı değişirse diye login() ile simetrik kalınır) oturum açılır.

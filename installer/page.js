@@ -24,6 +24,10 @@ export const INSTALL_PAGE_HTML = `<!doctype html>
   pre { background:#111a2c; border:1px solid #334155; border-radius:8px;
         padding:14px; overflow:auto; font-size:.85rem; }
   .tamam { color:#4ade80; }
+  select { width:100%; box-sizing:border-box; padding:10px 12px; border-radius:8px;
+           border:1px solid #334155; background:#111a2c; color:#e2e8f0; font-size:1rem; }
+  label.kutu { display:flex; gap:8px; align-items:center; color:#e2e8f0; }
+  label.kutu input { width:auto; }
 </style>
 </head>
 <body>
@@ -34,8 +38,12 @@ export const INSTALL_PAGE_HTML = `<!doctype html>
     <label for="siteName">Site adı</label>
     <input id="siteName" name="siteName" required maxlength="60">
 
-    <label for="currency">Para birimi (ör. TRY, USD)</label>
-    <input id="currency" name="currency" required pattern="[A-Za-z]{3,8}">
+    <label for="currency">Para birimi</label>
+    <select id="currency" name="currency" required>
+      <option value="TRY">TRY — Türk Lirası</option>
+      <option value="USD">USD — ABD Doları</option>
+      <option value="EUR">EUR — Euro</option>
+    </select>
 
     <label for="adminUsername">Yönetici kullanıcı adı</label>
     <input id="adminUsername" name="adminUsername" required minlength="3" maxlength="30">
@@ -45,6 +53,22 @@ export const INSTALL_PAGE_HTML = `<!doctype html>
 
     <label for="adminPassword">Yönetici parola (en az 8 karakter)</label>
     <input id="adminPassword" name="adminPassword" type="password" required minlength="8">
+
+    <label for="deployMode">Kurulum türü</label>
+    <select id="deployMode" name="deployMode">
+      <option value="docker">Docker compose (MongoDB compose içinde)</option>
+      <option value="manual">Docker dışı (kendi MongoDB'm var)</option>
+    </select>
+    <div id="mongoBox" hidden>
+      <label for="mongoUri">MongoDB bağlantı adresi (replica set olmalı)</label>
+      <input id="mongoUri" name="mongoUri" placeholder="mongodb://host:27017/betzone?replicaSet=rs0">
+    </div>
+
+    <label for="clientUrl">Site adresi (boş bırakılırsa bu adres kullanılır)</label>
+    <input id="clientUrl" name="clientUrl" placeholder="https://ornek.com">
+
+    <label class="kutu"><input type="checkbox" name="enableCrypto"> Kripto ödeme modülü başlangıçta AÇIK olsun (varsayılan: kapalı)</label>
+    <label class="kutu"><input type="checkbox" name="enableKyc"> KYC kimlik doğrulama modülü başlangıçta AÇIK olsun (varsayılan: kapalı)</label>
 
     <button type="submit" id="kaydet">Kurulumu Tamamla</button>
     <p class="hata" id="hata"></p>
@@ -76,6 +100,10 @@ export const INSTALL_PAGE_HTML = `<!doctype html>
     durumEl.textContent = '✗ Durum bilgisi alınamadı — sayfayı yenileyin.';
     return;
   }
+
+  document.getElementById('deployMode').addEventListener('change', (e) => {
+    document.getElementById('mongoBox').hidden = e.target.value !== 'manual';
+  });
 
   document.getElementById('form').addEventListener('submit', async (e) => {
     e.preventDefault();

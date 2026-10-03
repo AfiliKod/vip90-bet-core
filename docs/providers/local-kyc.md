@@ -16,16 +16,16 @@ Built-in document-based KYC (Know Your Customer) system for VIP90.bet. Users upl
 │                    Client (React)                       │
 │  ┌──────────────────┐  ┌──────────────────────────────┐ │
 │  │  Admin Panel      │  │  User KYC Page (/kyc)        │ │
-│  │  /admin/modules   │  │  - Status display             │ │
+│  │  Settings>Modules │  │  - Status display             │ │
 │  │  - Toggle KYC     │  │  - Document upload form       │ │
-│  │  /admin/module-   │  │  - Drag & drop support        │ │
-│  │    settings       │  │  - Document type selection     │ │
+│  │  (KYC card)       │  │  - Drag & drop support        │ │
+│  │                   │  │  - Document type selection     │ │
 │  │  - Provider select│  │  - File preview                │ │
-│  │  /admin/kyc       │  │  - Real-time socket updates    │ │
+│  │  Compliance>KYC   │  │  - Real-time socket updates    │ │
 │  │  - Review docs    │  └──────────────────────────────┘ │
 │  │  - Approve/reject │                                  │
 │  └──────────────────┘  ┌──────────────────────────────┐ │
-│                         │  Admin KYC Review (/admin/kyc)│ │
+│                         │  Admin KYC Review (KYC tab)  │ │
 │                         │  - Submission list             │ │
 │                         │  - Document viewer             │ │
 │                         │  - Approve/reject with reason  │ │
@@ -67,18 +67,18 @@ Built-in document-based KYC (Know Your Customer) system for VIP90.bet. Users upl
 5. User clicks "Belge Yukle" button
 6. Files uploaded via `POST /api/kyc/documents` (multipart form)
 7. Server creates KycDocument records and sets `kycStatus: pending`
-8. Admin reviews documents in `/admin/kyc`
+8. Admin reviews documents under Compliance → KYC (`/admin/compliance?tab=kyc`)
 9. Admin approves or rejects with reason
 10. Real-time socket event `kyc:status` sent to user
 11. Email notification sent (approval or rejection with reason)
 
 ### Admin Flow
 
-1. Admin navigates to `/admin/modules` -> toggles "KYC Kimlik Dogrulama" on
-2. Admin navigates to `/admin/module-settings` -> KYC Settings section
+1. Admin navigates to **Settings → Modules** (`/admin/platform?tab=modules`) -> toggles "KYC Identity Verification" on (new installations start with it off)
+2. Admin opens the KYC card on the same Modules tab (the old `/admin/module-settings` path redirects there) -> KYC settings
 3. Selects "Manuel" as provider
 4. Users can now submit documents
-5. Admin navigates to `/admin/kyc` to review submissions
+5. Admin opens **Compliance → KYC** (`/admin/compliance?tab=kyc`; the old `/admin/kyc` path redirects) to review submissions
 6. Clicks on a submission to see detail
 7. Views uploaded documents (opens in new tab)
 8. Approves or rejects with reason
@@ -116,7 +116,7 @@ Built-in document-based KYC (Know Your Customer) system for VIP90.bet. Users upl
 | `server/src/modules/registry.js` | `kyc-verification` module definition |
 | `server/src/app.js` | Route mounting + static uploads |
 | `client/src/pages/Kyc.jsx` | User KYC page (upload form) |
-| `client/src/pages/admin/ModuleSettings.jsx` | KYC Settings section |
+| `client/src/pages/admin/Modules.jsx` | KYC card body (`KycSettingsBody`) in Settings → Modules |
 | `client/src/pages/admin/KycReview.jsx` | Admin KYC review page |
 | `client/src/App.jsx` | Client routes |
 | `server/uploads/kyc/` | File storage directory |
@@ -125,7 +125,7 @@ Built-in document-based KYC (Know Your Customer) system for VIP90.bet. Users upl
 
 ### Admin Panel Settings
 
-Accessible at `/admin/module-settings` -> KYC section:
+Accessible under **Settings → Modules** -> KYC card:
 
 | Key | Default | Description |
 |-----|---------|-------------|
@@ -379,7 +379,7 @@ In `server/src/services/kyc.js`:
 | `rejectKyc(userId, adminId, reason, opts)` | Reject all pending docs + user, send email, emit socket |
 | `setKycUnderReview(userId, adminId)` | Transition status to under_review |
 | `checkKycRequired(userId, action, amount)` | Check if KYC needed for a feature |
-| `requireKyc(action, getAmount)` | Express middleware for KYC enforcement |
+| `requireKyc(action, getAmount)` | Express middleware (`KYC_REQUIREMENTS`-based; not used by any route — see the withdrawal gate below) |
 | `getAllKycSubmissions(opts)` | Admin: paginated list with doc counts |
 | `getKycStats()` | Admin: stats by status |
 | `expireOldKyc()` | Cron: expire 1-year-old approvals |
@@ -397,6 +397,8 @@ const KYC_REQUIREMENTS = {
   profile_change: { required: false },
 };
 ```
+
+> **Enforcement (2026-10-03).** The `KYC_REQUIREMENTS` table above and `checkKycRequired` / `requireKyc` are still not used by any route. The real gate is `requireKycForWithdrawal` (`server/src/middleware/kycGate.js`): while the `kyc-verification` module is usable (enabled and licensed), every player withdrawal needs `kycVerified` + `kycStatus === 'approved'`, otherwise `403 KYC_REQUIRED` (`details.kycStatus`) — regardless of amount. It is wired to `POST /api/bank/withdraw`, `POST /api/transactions/withdraw` and `POST /api/crypto/withdraw-request`, before the risk check. With the module off, behaviour is unchanged; deposits and bets are not gated. `expireOldKyc()` runs at startup and daily (`jobs/kycExpiry.js`, started in `server.js`).
 
 ## Notifications
 
@@ -446,10 +448,10 @@ node --test server/test/kyc.test.js
 
 ## Deployment Checklist
 
-- [ ] `kyc-verification` module enabled in admin panel (`/admin/modules`)
+- [ ] `kyc-verification` module enabled in admin panel (Settings → Modules)
 - [ ] Provider set to `manual` in admin panel
 - [ ] `uploads/kyc/` directory exists and is writable
 - [ ] Static file serving configured for `/uploads/kyc`
-- [ ] Admin trained on review process at `/admin/kyc`
+- [ ] Admin trained on review process under Compliance → KYC
 - [ ] Email notifications configured (SMTP)
 - [ ] Socket.io configured for real-time updates

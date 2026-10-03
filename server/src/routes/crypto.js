@@ -6,6 +6,7 @@ import { createError } from '../middleware/error.js';
 import { validate } from '../middleware/validate.js';
 import { enforceResponsibleGaming } from '../middleware/responsibleGaming.js';
 import { enforceRiskCheck } from '../middleware/risk.js';
+import { requireKycForWithdrawal } from '../middleware/kycGate.js';
 import { withdrawRequestSchema } from '../validators/crypto.js';
 import User from '../models/User.js';
 import CryptoDeposit from '../models/CryptoDeposit.js';
@@ -175,7 +176,7 @@ r.post('/check-deposit', enforceRiskCheck('deposit'), async (req, res, next) => 
 
 // ── POST /api/crypto/withdraw-request ────────────────────────────────────────
 // Çekim: withdrawable bakiye kontrolü + hot wallet transfer
-r.post('/withdraw-request', enforceRiskCheck('withdraw'), enforceResponsibleGaming('withdraw'), validate(withdrawRequestSchema), async (req, res, next) => {
+r.post('/withdraw-request', requireKycForWithdrawal(), enforceRiskCheck('withdraw'), enforceResponsibleGaming('withdraw'), validate(withdrawRequestSchema), async (req, res, next) => {
   try {
     const { address, usdtAmount, confirmForfeit } = req.validated;
     if (usdtAmount < CRYPTO_SETTINGS.minWithdraw) {

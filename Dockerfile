@@ -20,6 +20,11 @@ RUN npm run build --prefix client
 # Server kaynak kodu + kurulum sihirbazı (server/src/routes/install.js bağımlı)
 COPY server/src ./server/src
 COPY installer ./installer
+# Destek chatbot'unun bilgi tabanı (server/src/services/chatbotIndex.js):
+# docs/product/*.md + CHANGELOG.md + package.json (sürüm) okunur. Yoksa
+# bilgi tabanı sessizce boş kalır.
+COPY docs/product ./docs/product
+COPY CHANGELOG.md ./CHANGELOG.md
 
 # ─── Production image ──────────────────────────────────────────────
 # node:22-alpine (musl) DEĞİL — Playwright'ın Chromium build'leri glibc'e
@@ -44,6 +49,8 @@ COPY --from=build /app/server/src ./server/src
 COPY --from=build /app/client/dist ./client/dist
 COPY --from=build /app/package.json ./
 COPY --from=build /app/installer ./installer
+COPY --from=build /app/docs/product ./docs/product
+COPY --from=build /app/CHANGELOG.md ./CHANGELOG.md
 
 # Chromium + gerekli sistem kütüphaneleri sabit bir path'e kuruluyor
 # (appuser'ın $HOME'una değil — hangi user çalıştırırsa çalıştırsın bulunsun diye)
@@ -72,5 +79,7 @@ RUN npm install --prefix server
 COPY server/ ./server/
 COPY client/src ./client/src
 COPY installer ./installer
+COPY docs/product ./docs/product
+COPY CHANGELOG.md ./CHANGELOG.md
 ENV NODE_ENV=test
 CMD ["sh", "-c", "set -e; echo '=== npm test --prefix server (run-all-tests.cjs) ==='; npm test --prefix server; echo; echo '=== node --test (server/test + client i18n) ==='; node --test server/test/*.test.js client/src/i18n/*.test.js"]

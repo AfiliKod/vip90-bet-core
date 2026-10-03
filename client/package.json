@@ -8,7 +8,9 @@
     "dev": "vite",
     "build": "vite build",
     "lint": "eslint .",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "cap:sync": "vite build && cap sync",
+    "cap:sync:dev": "node scripts/cap-sync-dev.mjs"
   },
   "dependencies": {
     "@capacitor/cli": "^8.4.1",

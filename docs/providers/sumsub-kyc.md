@@ -17,13 +17,13 @@ Sumsub identity verification integration for VIP90.bet. Automates KYC (Know Your
 │                    Client (React)                       │
 │  ┌──────────────────┐  ┌──────────────────────────────┐ │
 │  │  Admin Panel      │  │  User KYC Page (/kyc)        │ │
-│  │  /admin/modules   │  │  - Status display             │ │
+│  │  Settings>Modules │  │  - Status display             │ │
 │  │  - Toggle KYC     │  │  - Sumsub WebSDK integration  │ │
-│  │  /admin/module-   │  │  - Real-time socket updates    │ │
+│  │  (KYC card)       │  │  - Real-time socket updates    │ │
 │  │    settings       │  └──────────────────────────────┘ │
 │  │  - Provider select│                                  │
 │  │  - API config     │  ┌──────────────────────────────┐ │
-│  │  /admin/kyc       │  │  Admin KYC Review (/admin/kyc)│ │
+│  │  Compliance>KYC   │  │  Admin KYC Review (KYC tab)  │ │
 │  │  - Review docs    │  │  - Submission list             │ │
 │  └──────────────────┘  │  - Approve/reject              │ │
 │                         └──────────────────────────────┘ │
@@ -74,8 +74,8 @@ Sumsub identity verification integration for VIP90.bet. Automates KYC (Know Your
 
 ### Admin Flow
 
-1. Admin navigates to `/admin/modules` -> toggles "KYC Kimlik Dogrulama" on
-2. Admin navigates to `/admin/module-settings` -> KYC Settings section
+1. Admin navigates to **Settings → Modules** (`/admin/platform?tab=modules`) -> toggles "KYC Identity Verification" on (new installations start with it off)
+2. Admin opens the KYC card on the same Modules tab (the old `/admin/module-settings` path redirects there) -> KYC settings
 3. Selects "Sumsub" as provider
 4. Enters API credentials (App Token, Secret Key, Level Name, Webhook Secret)
 5. Clicks "Baglanti Testi" to verify credentials
@@ -101,7 +101,7 @@ Sumsub identity verification integration for VIP90.bet. Automates KYC (Know Your
    - **Secret:** Generate and copy
 4. Go to **Settings -> Verification Levels** and create:
    - Level name: `basic-kyc-level` (or match `SUMSUB_LEVEL_NAME`)
-5. Enter credentials in VIP90.bet admin panel at `/admin/module-settings`
+5. Enter credentials in the KYC card under **Settings → Modules**
 6. Test with sandbox test documents provided by Sumsub
 
 ### Step 3: Production
@@ -136,7 +136,7 @@ Sumsub identity verification integration for VIP90.bet. Automates KYC (Know Your
 | `server/src/modules/registry.js` | `kyc-verification` module definition |
 | `server/src/app.js` | Route mounting (`/api/kyc`, `/api/webhook/sumsub`) |
 | `client/src/pages/Kyc.jsx` | User KYC page (status + Sumsub WebSDK) |
-| `client/src/pages/admin/ModuleSettings.jsx` | KYC Settings section in Module Settings |
+| `client/src/pages/admin/Modules.jsx` | KYC card body (`KycSettingsBody`) in Settings → Modules |
 | `client/src/pages/admin/KycReview.jsx` | Admin KYC review page |
 | `client/src/App.jsx` | Client routes (`/kyc`, `/admin/kyc`) |
 
@@ -149,12 +149,12 @@ Sumsub identity verification integration for VIP90.bet. Automates KYC (Know Your
 SUMSUB_APP_TOKEN=app_t_your_token
 SUMSUB_SECRET_KEY=sec_your_secret_key
 SUMSUB_LEVEL_NAME=basic-kyc-level
-SUMSUM_WEBHOOK_SECRET=whsec_your_webhook_secret
+SUMSUB_WEBHOOK_SECRET=whsec_your_webhook_secret
 ```
 
 ### Admin Panel Settings
 
-Accessible at `/admin/module-settings` -> KYC section:
+Accessible under **Settings → Modules** -> KYC card:
 
 | Key | Default | Description |
 |-----|---------|-------------|
@@ -403,19 +403,19 @@ node --test server/test/kyc.test.js
 
 1. Create Sumsub account at https://cockpit.sumsub.com
 2. Enable Sandbox mode in dashboard
-3. Copy API token and secret key to admin panel at `/admin/module-settings`
+3. Copy API token and secret key to the KYC card under **Settings → Modules**
 4. Set provider to `sumsub`
 5. Test with sandbox documents (Sumsub provides test IDs)
 
 ## Deployment Checklist
 
 - [ ] Sumsub account created (sandbox + production)
-- [ ] API credentials configured (admin panel at `/admin/module-settings`)
+- [ ] API credentials configured (KYC card under Settings → Modules)
 - [ ] Webhook URL configured in Sumsub dashboard: `https://your-domain.com/api/webhook/sumsub`
 - [ ] Webhook secret configured in Sumsub dashboard
 - [ ] Verification level created in Sumsub dashboard
 - [ ] `SUMSUB_LEVEL_NAME` matches level name in Sumsub dashboard
-- [ ] `kyc-verification` module enabled in admin panel (`/admin/modules`)
+- [ ] `kyc-verification` module enabled in admin panel (Settings → Modules)
 - [ ] Provider set to `sumsub` in admin panel
 - [ ] Production API credentials swapped (replace sandbox keys)
 - [ ] Webhook signature verification enabled in production

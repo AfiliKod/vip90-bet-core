@@ -324,7 +324,7 @@ export async function getAgentByUserId(userId) {
  * This would be called from settlement logic
  */
 export async function payAgentCommission(playerId, houseProfit, options = {}) {
-  const { session = null } = options;
+  const { session = null, sourceId = null } = options;
 
   const player = await User.findById(playerId).select('agentId').session(session);
   if (!player?.agentId) return null;
@@ -335,11 +335,20 @@ export async function payAgentCommission(playerId, houseProfit, options = {}) {
   const commission = parseFloat((houseProfit * (agent.commissionRate / 100)).toFixed(2));
   if (commission <= 0) return null;
 
+  // Tekrar koruması: anahtar ödemeyi doğuran olaydan (sourceId) türetilir ve
+  // bakiye DEĞİŞMEDEN önce kontrol edilir — createTransaction'ın kendi
+  // idempotency kontrolü yalnız ledger satırını engeller, bakiye $inc'ini değil.
+  // sourceId yoksa (eski çağrılar) her çağrı ayrı ödeme sayılır.
+  const idempotencyKey = sourceId
+    ? `agent_commission_${agent._id}_${sourceId}`
+    : `agent_commission_${agent._id}_${player._id}_${Date.now()}`;
+  if (sourceId && await Transaction.exists({ idempotencyKey }).session(session)) return null;
+
   const balanceBefore = agent.balance;
   agent.balance = parseFloat((agent.balance + commission).toFixed(2));
   await agent.save({ session });
 
-  const transaction = await Transaction.create([{
+  const { transaction } = await createTransaction({
     userId: agent.userId,
     type: 'agent_commission',
     amount: commission,
@@ -347,22 +356,12 @@ export async function payAgentCommission(playerId, houseProfit, options = {}) {
     balanceAfter: agent.balance,
     note: `Agent komisyonu (${agent.commissionRate}%) - Oyuncu: ${player.username || player._id}`,
     referenceId: player._id,
-  }], { session });
-
-  const newTransaction = await createTransaction({
-    userId: agent.userId,
-    type: 'agent_commission',
-    amount: commission,
-    balanceBefore,
-    balanceAfter: agent.balance,
-    note: `Agent komisyonu (${agent.commissionRate}%) - Oyuncu: ${player.username || player._id}`,
-    referenceId: player._id,
-    idempotencyKey: `agent_commission_${agent._id}_${player._id}_${Date.now()}`,
+    idempotencyKey,
     source: 'system',
   }, { session });
 
   const io = getIO();
   if (io) io.to(`user:${agent.userId}`).emit('balance:update', { balance: agent.balance });
 
-  return { commission, transaction: transaction[0] };
+  return { commission, transaction };
 }

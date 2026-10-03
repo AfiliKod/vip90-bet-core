@@ -17,6 +17,7 @@ import { initSocket } from './socket/handler.js';
 import { startMonitor } from './services/syncHealth.js';
 import { startCleanupJob } from './jobs/cleanup.js';
 import { startCloseStaleGameSessionsJob } from './jobs/closeStaleGameSessions.js';
+import { startKycExpiryJob } from './jobs/kycExpiry.js';
 import Setting from './models/Setting.js';
 import { initSentry } from './services/sentry.js';
 import { errorLogger } from './services/errorLogger.js';
@@ -29,6 +30,8 @@ import { seedDefaultPages } from './services/staticPages.js';
 import { initDefaultChatRoom } from './services/chat.js';
 import { initDefaultRules, dedupeRuleNames } from './services/riskRule.js';
 import { initDefaultSegments } from './services/playerSegment.js';
+import { initDefaultSmsTemplates } from './services/smsTemplate.js';
+import { initDefaultSmsSender } from './services/smsSender.js';
 
 // Igames reconciliation script ayrı (ücretli) bir pakettir — bu kurulumda
 // hiç bulunmayabilir (bkz. app.js'deki aynı opsiyonel yükleme deseni).
@@ -188,11 +191,16 @@ connectDB()
     // Segments sayfası: kriter motoru baştan beri çalışıyordu ama hiç
     // varsayılan segment yoktu, sayfa hep boş görünüyordu (denetim bulgusu)
     initDefaultSegments().catch(err => console.error('initDefaultSegments error:', err.message));
+    // SMS Gateway demo şablonları — $setOnInsert ile yalnızca EKSİK anahtarları
+    // ekler; operatörün düzenlediği/sildiği şablonlara dokunmaz.
+    initDefaultSmsTemplates().catch(err => console.error('initDefaultSmsTemplates error:', err.message));
+    initDefaultSmsSender().catch(err => console.error('initDefaultSmsSender error:', err.message));
     initSocket(io);
     initCrashGameNamespace(io);
     initRouletteGameNamespace(io);
     startCleanupJob();
     startCloseStaleGameSessionsJob();
+    startKycExpiryJob();
     // Demo veri canlı simülasyonu — sunucu restart sonrası önceki durumu geri yükler
     const demoDataLiveRow = await Setting.findOne({ key: 'demoData.live.config' }).lean();
     if (demoDataLiveRow?.value) {

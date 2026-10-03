@@ -12,6 +12,7 @@ import api from '../services/api';
 import { useTranslation } from '../i18n';
 import LanguageSwitcher from '../i18n/LanguageSwitcher';
 import TelegramLoginWidget from '../components/TelegramLoginWidget';
+import { useTurnstile } from '../components/TurnstileWidget';
 
 export default function Login() {
   const { t } = useTranslation();
@@ -31,12 +32,14 @@ export default function Login() {
   const navigate = useNavigate();
   const { register, control, handleSubmit, formState: { isSubmitting } } = useForm();
 
+  const turnstile = useTurnstile();
+
   const canSubmitRegister = acceptedTerms && acceptedKvkk;
 
   const onSubmit = async (data) => {
     try {
       if (tab === 'login') {
-        const user = await login(data.username, data.password);
+        const user = await login(data.username, data.password, turnstile.token);
         const redirect = searchParams.get('redirect');
         navigate(user.role === 'admin' ? '/admin' : (redirect || '/'));
       } else {
@@ -51,6 +54,7 @@ export default function Login() {
         }, (data.referredBy?.trim() || refUsername || undefined), {
           phone: data.phone || undefined,
           dateOfBirth: data.dateOfBirth || undefined,
+          turnstileToken: turnstile.token || undefined,
         });
         if (result.accessToken) {
           navigate('/');
@@ -61,6 +65,7 @@ export default function Login() {
         }
       }
     } catch (e) {
+      turnstile.reset(); // token tek kullanımlık
       const errData = e.response?.data?.error;
       const msg = errData?.message;
       const status = e.response?.status;
@@ -291,9 +296,11 @@ export default function Login() {
                               </div>
                             )}
 
+                            {turnstile.widget}
+
                             <button
                               type="submit"
-                              disabled={isSubmitting || (tab === 'register' && !canSubmitRegister)}
+                              disabled={isSubmitting || turnstile.blocked || (tab === 'register' && !canSubmitRegister)}
                               className="w-full bg-gradient-to-r from-primary to-accent text-bg-deep font-semibold py-3 rounded-lg hover:opacity-90 disabled:opacity-50 disabled:cursor-not-allowed transition"
                             >
                               {isSubmitting ? t('common.wait') : (tab === 'login' ? t('auth.login') : t('auth.register'))}

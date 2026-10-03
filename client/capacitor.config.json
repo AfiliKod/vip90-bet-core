@@ -1,9 +1,5 @@
 {
   "appId": "com.betzone.app",
   "appName": "VIP90.bet",
-  "webDir": "dist",
-  "server": {
-    "url": "http://localhost:5173",
-    "cleartext": true
-  }
+  "webDir": "dist"
 }

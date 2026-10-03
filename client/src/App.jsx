@@ -45,6 +45,7 @@ const AdminPromotions = lazy(() => import('./pages/admin/Promotions'));
 const AdminBots = lazy(() => import('./pages/admin/Bots'));
 const AdminTickets = lazy(() => import('./pages/admin/Tickets'));
 const AdminSegments = lazy(() => import('./pages/admin/Segments'));
+const AdminSmsTemplates = lazy(() => import('./pages/admin/SmsTemplates'));
 const AdminAgents = lazy(() => import('./pages/admin/Agents'));
 const AdminAuditTrail = lazy(() => import('./pages/admin/AuditTrail'));
 const AdminHealth = lazy(() => import('./pages/admin/Health'));
@@ -211,6 +212,7 @@ export default function App() {
           <Route path="roles" element={<Suspense fallback={<PageLoader />}><AdminRoles /></Suspense>} />
           <Route path="vip" element={<Suspense fallback={<PageLoader />}><AdminVip /></Suspense>} />
           <Route path="promotions" element={<Suspense fallback={<PageLoader />}><AdminPromotions /></Suspense>} />
+          <Route path="sms-templates" element={<Suspense fallback={<PageLoader />}><AdminSmsTemplates /></Suspense>} />
           <Route path="bots" element={<Suspense fallback={<PageLoader />}><AdminBots /></Suspense>} />
           <Route path="tickets" element={<Suspense fallback={<PageLoader />}><AdminTickets /></Suspense>} />
           <Route path="compliance" element={<Suspense fallback={<PageLoader />}><AdminCompliance /></Suspense>} />

@@ -353,9 +353,11 @@ const rate = CRYPTO_SETTINGS.usdtTryRate;
 const tryAmount = usdtAmount * rate;
 ```
 
-> **Not:** Dönüşüm oranı `Modül Ayarları > Crypto Ödeme Ağ Geçidi`面板inden değiştirilebilir. Varsayılan değer `.env` dosyasındaki `USDT_TRY_RATE` değişkenidir.
+> **Not:** Dönüşüm oranı `Settings → Modules → Crypto Payment Gateway` kartından değiştirilebilir. Varsayılan değer `.env` dosyasındaki `USDT_TRY_RATE` değişkenidir.
 
 ## API Endpoints
+
+All `/api/crypto/*` routes require a logged-in user and sit behind the `crypto-payment` module gate (`503 MODULE_DISABLED` until the module is switched on under **Settings → Modules**; new installations start with it disabled). `GET /api/crypto/settings` and `GET /api/crypto/hot-wallet-balance` are admin-only.
 
 ### Deposit
 
@@ -386,7 +388,7 @@ const tryAmount = usdtAmount * rate;
 TRON_NETWORK=shasta    # .env dosyasından VARSAYILAN
 ```
 
-> **Not:** Ağ seçimi artık `Modül Ayarları > Crypto Ödeme Ağ Geçidi`面板inden de değiştirilebilir. Admin panelinden yapılan değişiklikler `CRYPTO_SETTINGS.network` objesini günceller. Ancak **hot wallet private key** ve **seed phrase** ortam değişkenlerinden okunduğu için, testnet'ten mainnet'e geçiş sunucuyu yeniden başlatmayı gerektirir.
+> **Not:** Ağ seçimi artık `Settings → Modules → Crypto Payment Gateway` kartından da değiştirilebilir. Admin panelinden yapılan değişiklikler `CRYPTO_SETTINGS.network` objesini günceller. Ancak **hot wallet private key** ve **seed phrase** ortam değişkenlerinden okunduğu için, testnet'ten mainnet'e geçiş sunucuyu yeniden başlatmayı gerektirir.
 
 ### Admin Panelinden Ağ Değişimi
 

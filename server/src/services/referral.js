@@ -183,18 +183,7 @@ export async function approveCommission(commissionId, adminId, options = {}) {
   referrer.totalReferralEarnings = parseFloat((referrer.totalReferralEarnings + commission.commissionAmount).toFixed(2));
   await referrer.save({ session });
 
-  const transaction = await Transaction.create([{
-    userId: referrer._id,
-    type: 'referral_commission',
-    amount: commission.commissionAmount,
-    balanceBefore,
-    balanceAfter: referrer.balance,
-    note: `Referans komisyonu (Seviye ${commission.level}) - ${commission.source}`,
-    referenceId: commission._id,
-    createdBy: adminId,
-  }], { session });
-
-  const newTransaction = await createTransaction({
+  const { transaction } = await createTransaction({
     userId: referrer._id,
     type: 'referral_commission',
     amount: commission.commissionAmount,
@@ -210,14 +199,14 @@ export async function approveCommission(commissionId, adminId, options = {}) {
   commission.status = 'approved';
   commission.approvedBy = adminId;
   commission.approvedAt = new Date();
-  commission.transactionId = transaction[0]._id;
+  commission.transactionId = transaction._id;
   await commission.save({ session });
 
   // Real-time balance update
   const io = getIO();
   if (io) io.to(`user:${referrer._id}`).emit('balance:update', { balance: referrer.balance });
 
-  return { commission, transaction: transaction[0] };
+  return { commission, transaction };
 }
 
 /**

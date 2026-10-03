@@ -7,13 +7,14 @@ import { adminRejectSchema } from '../validators/bank.js';
 import { financialLimiter } from '../middleware/rateLimit.js';
 import { checkDepositLimits, enforceResponsibleGaming } from '../middleware/responsibleGaming.js';
 import { enforceRiskCheck } from '../middleware/risk.js';
+import { requireKycForWithdrawal } from '../middleware/kycGate.js';
 import * as ctrl from '../controllers/bank.js';
 
 const r = Router();
 
 r.get('/info', requireAuth, ctrl.getInfo);
 r.post('/deposit', requireAuth, financialLimiter, validate(depositSchema), enforceRiskCheck('deposit'), checkDepositLimits, ctrl.createDeposit);
-r.post('/withdraw', requireAuth, financialLimiter, validate(withdrawSchema), enforceRiskCheck('withdraw'), enforceResponsibleGaming('withdraw'), ctrl.createWithdraw);
+r.post('/withdraw', requireAuth, financialLimiter, validate(withdrawSchema), requireKycForWithdrawal(), enforceRiskCheck('withdraw'), enforceResponsibleGaming('withdraw'), ctrl.createWithdraw);
 r.get('/requests', requireAuth, ctrl.getMyRequests);
 
 /* Admin */

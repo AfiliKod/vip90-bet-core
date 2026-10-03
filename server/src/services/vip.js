@@ -1,7 +1,8 @@
 import VipLevel from '../models/VipLevel.js';
 import User from '../models/User.js';
-import Transaction from '../models/Transaction.js';
 import { createTransaction } from './ledger.js';
+import Transaction from '../models/Transaction.js';
+import { getIO } from './socketEmitter.js';
 
 /**
  * XP calculation rules:
@@ -65,7 +66,7 @@ export async function awardXp(userId, amount, type, options = {}) {
  * @returns {number} cashback amount credited (0 if none)
  */
 export async function payCashback(userId, betAmount, options = {}) {
-  const { session = null } = options;
+  const { session = null, sourceId = null } = options;
 
   if (!betAmount || betAmount <= 0) return 0;
 
@@ -89,18 +90,18 @@ export async function payCashback(userId, betAmount, options = {}) {
   const cashback = parseFloat((betAmount * levelDoc.cashbackPercent / 100).toFixed(2));
   if (cashback <= 0) return 0;
 
+  // Tekrar koruması: anahtar ödemeyi doğuran olaydan (sourceId) türetilir ve
+  // bakiye DEĞİŞMEDEN önce kontrol edilir — createTransaction'ın kendi
+  // idempotency kontrolü yalnız ledger satırını engeller, bakiye $inc'ini değil.
+  // sourceId yoksa (eski çağrılar) her çağrı ayrı ödeme sayılır.
+  const idempotencyKey = sourceId
+    ? `vip_cashback_${user._id}_${sourceId}`
+    : `vip_cashback_${user._id}_${Date.now()}`;
+  if (sourceId && await Transaction.exists({ idempotencyKey }).session(session)) return 0;
+
   const balanceBefore = user.balance;
   user.balance = parseFloat((user.balance + cashback).toFixed(2));
   await user.save({ session });
-
-  await Transaction.create([{
-    userId: user._id,
-    type: 'cashback',
-    amount: cashback,
-    balanceBefore,
-    balanceAfter: user.balance,
-    note: `VIP cashback (${levelDoc.name} %${levelDoc.cashbackPercent})`,
-  }], { session });
 
   await createTransaction({
     userId: user._id,
@@ -109,7 +110,7 @@ export async function payCashback(userId, betAmount, options = {}) {
     balanceBefore,
     balanceAfter: user.balance,
     note: `VIP cashback (${levelDoc.name} %${levelDoc.cashbackPercent})`,
-    idempotencyKey: `vip_cashback_${user._id}_${Date.now()}`,
+    idempotencyKey,
     source: 'system',
   }, { session });
 
@@ -170,15 +171,6 @@ async function checkLevelUp(user, session) {
     if (qualifiedLevel.rewardType === 'balance') {
       user.balance = parseFloat((user.balance + rewardAmount).toFixed(2));
       
-      await Transaction.create([{
-        userId: user._id,
-        type: 'bonus',
-        amount: rewardAmount,
-        balanceBefore,
-        balanceAfter: user.balance,
-        note: `VIP seviye ödülü: ${qualifiedLevel.name}`,
-      }], { session });
-
       await createTransaction({
         userId: user._id,
         type: 'bonus',
@@ -194,15 +186,6 @@ async function checkLevelUp(user, session) {
       // For now, treat as balance with bonus type
       user.balance = parseFloat((user.balance + rewardAmount).toFixed(2));
       
-      await Transaction.create([{
-        userId: user._id,
-        type: 'bonus',
-        amount: rewardAmount,
-        balanceBefore,
-        balanceAfter: user.balance,
-        note: `VIP seviye bonus ödülü: ${qualifiedLevel.name}`,
-      }], { session });
-
       await createTransaction({
         userId: user._id,
         type: 'bonus',

@@ -3,20 +3,23 @@ import { Link } from 'react-router-dom';
 import api from '../services/api';
 import Swal from 'sweetalert2';
 import { useTranslation } from '../i18n';
+import { useTurnstile } from '../components/TurnstileWidget';
 
 export default function ForgotPassword() {
   const { t } = useTranslation();
   const [email, setEmail] = useState('');
   const [submitting, setSubmitting] = useState(false);
   const [sent, setSent] = useState(false);
+  const turnstile = useTurnstile();
 
   async function handleSubmit(e) {
     e.preventDefault();
     setSubmitting(true);
     try {
-      await api.post('/auth/forgot-password', { email });
+      await api.post('/auth/forgot-password', { email, ...(turnstile.token ? { turnstileToken: turnstile.token } : {}) });
       setSent(true);
     } catch (err) {
+      turnstile.reset();
       const msg = err.response?.data?.error?.message || t('resetPassword.genericError');
       Swal.fire({
         icon: 'error', title: t('common.error'), text: msg,
@@ -58,8 +61,9 @@ export default function ForgotPassword() {
               placeholder={t('forgotPassword.emailPlaceholder')} required
               className="w-full bg-bg-base border border-white/10 rounded-lg px-4 py-3 text-text-1 placeholder-text-3 focus:outline-none focus:border-primary transition"
             />
+            {turnstile.widget}
             <button
-              type="submit" disabled={submitting || !email}
+              type="submit" disabled={submitting || !email || turnstile.blocked}
               className="w-full bg-gradient-to-r from-primary to-accent text-bg-deep font-semibold py-3 rounded-lg hover:opacity-90 disabled:opacity-50 disabled:cursor-not-allowed transition"
             >
               {submitting ? t('forgotPassword.sending') : t('forgotPassword.sendButton')}

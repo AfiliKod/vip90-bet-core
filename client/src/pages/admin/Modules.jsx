@@ -3,6 +3,7 @@ import api from '../../services/api';
 import { useTranslation } from '../../i18n';
 import { useToastStore } from '../../store/toastStore';
 import ModuleCard from '../../components/admin/ModuleCard';
+import SmsGatewayBody from '../../components/admin/SmsGatewayCard.jsx';
 import { Chip, MultiCheck } from './components/AdminChoice.jsx';
 import { getActiveCurrency } from '../../utils/money.js';
 
@@ -16,6 +17,10 @@ import { getActiveCurrency } from '../../utils/money.js';
  * In-house Oyunlar Provider'ı `MODULE_DEFINITIONS`'ta YOK (M1 çekirdek platform,
  * hiçbir modül tarafından kapatılamaz) — bu yüzden kendi kartı toggle'sız,
  * "Çekirdek" rozetiyle gösterilir.
+ *
+ * SMS Gateway (2026-10-03): gövdesi `components/admin/SmsGatewayCard.jsx`'te
+ * (Twilio kimlik bilgileri), mesaj şablonları `manageTo` ile ayrı CRUD
+ * sayfasında (`/admin/sms-templates`).
  *
  * Tüm metinler `t('admin.moduleCards.*')` üzerinden (bkz. i18n/dictionaries/) —
  * server'dan gelen modül title/description'ı (registry.js) KASITLI OLARAK
@@ -876,6 +881,7 @@ const MODULE_VIEW = {
   'crypto-payment':  { icon: 'currency_bitcoin', Body: CryptoPaymentBody, key: 'cryptoPayment' },
   'slikair-payment': { icon: 'account_balance', Body: SlikairModuleBody, key: 'slikairPayment' },
   'kyc-verification':{ icon: 'verified_user', Body: KycSettingsBody, key: 'kycVerification' },
+  'sms-gateway':    { icon: 'sms', Body: SmsGatewayBody, key: 'smsGateway', manageTo: '/admin/sms-templates' },
 };
 
 export default function AdminModules() {

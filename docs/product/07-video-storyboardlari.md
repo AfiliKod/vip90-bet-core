@@ -2,6 +2,8 @@
 
 > **Status note:** This document is the filming foundation for the D2 card (15-20 short videos) and is **complete** — all 18 storyboards are written scene by scene. Actual video recording/editing has not been done — this is a deliberate scope decision: research on which tool to use (a tool that can produce screen recording + voice-over narration, or a model that can generate video from text) will be done at the end of the development flow. Storyboard writing didn't wait for that research; each scene is clear enough to hand directly to filming/production when you get your hands on the tool.
 >
+> Menu names changed on 2026-10-02 (Settings with General · Modules · Currencies · Jurisdictions · Brands · SEO tabs, a Products group, Wallet as a top-level entry) and In-house Games, Sports Betting and Casino Content are now separate paid add-ons; re-check each storyboard's menu references against [02 — Configuration](02-yapilandirma.md) and [03 — Module System](03-modul-sistemi.md) before filming.
+>
 > Some storyboards describe screens from cards not yet merged into `feat/integration` but belonging to code on the relevant `feat/akis-*` branch (K2, M3, O6 — all completed on their respective branches). This doesn't mean the storyboard is incomplete — when those branches are merged, the screens will be there as described, the storyboard is ready from today.
 
 ## Format rule
@@ -37,13 +39,14 @@ Shows the Docker Compose + Caddy reverse proxy flow: `docker compose up`, automa
 | Scene | Narration |
 |---|---|
 | 0-10s: Browser opens the setup wizard's first screen (`/install`) | "You can also set up without touching the terminal at all — open the setup wizard in your browser." |
-| 10-30s: Database connection step, connection test shows green confirmation | "First we enter your database address and test the connection." |
+| 10-30s: The wizard's status line shows "Veritabanı bağlı" (database connected) | "The wizard first checks that the database is reachable." |
 | 30-55s: Admin account step — username, email, password | "Then we create your first admin account." |
-| 55-75s: Site name and currency step | "We choose your site name and currency." |
-| 75-90s: "Complete Setup" button is clicked, `.env` is auto-generated, progress bar | "The wizard generates your `.env` file for you — no need to edit a single line manually." |
-| 90-95s: Setup complete screen, redirect to admin panel | "Setup is done — you go straight to your admin panel." |
+| 55-75s: Site name and currency fields of the same single form | "We choose your site name and currency." |
+| 75-95s: "Kurulumu Tamamla" button is clicked, a copyable `.env` block with fresh JWT keys appears | "The wizard generates fresh security keys and shows you a ready `.env` block to save. Then you log in to your admin panel." |
 
-**On-screen text:** "No Terminal Needed · Web-Based Setup Wizard"
+**On-screen text:** "Web-Based Setup Wizard"
+
+> Accuracy note (2026-10-03): the wizard is a single form (site name, currency, first admin, install type, optional Crypto/KYC module switches; for a non-Docker install it also takes your MongoDB URI) and does not test or enter the database address of a running server — `MONGODB_URI` and the JWT keys must already be in `.env` for the server to run, and a manual install saves the shown `.env` output itself. Adjust the opening narration ("without touching the terminal at all") accordingly when filming. Likewise `npm run install:all` in V1.1 also installs the add-on apps when they are present and skips them with a warning when they are not; the core-only commands are in [01 — Installation](01-kurulum.md).
 
 ---
 

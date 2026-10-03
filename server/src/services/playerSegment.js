@@ -164,26 +164,34 @@ export async function getSegmentPlayers(segmentId, options = {}) {
  */
 function buildQueryFromCriteria(criteria) {
   const query = {};
+
+  // Sayısal aralıklar: yalnız EN AZ BİR sınır gerçek bir sayıysa alan eklenir.
+  // `!== null` denetimi `undefined` için de geçerli olduğundan, kriteri
+  // tanımlanmamış bir alan operatörsüz `{ vipLevel: {} }` üretiyordu — bu
+  // Mongo'da "boş dokümanla tam eşleşme" demek, yani segment sessizce HİÇ KİŞİ
+  // bulmak (veya hiç bulamamak) demekti. `typeof === 'number'` hem `null`'ı hem
+  // `undefined`'i eler.
+  const bound = v => (typeof v === 'number' && Number.isFinite(v) ? v : null);
   
   // VIP level
-  if (criteria.vipLevel?.min !== null || criteria.vipLevel?.max !== null) {
+  if (bound(criteria.vipLevel?.min) !== null || bound(criteria.vipLevel?.max) !== null) {
     query.vipLevel = {};
-    if (criteria.vipLevel?.min !== null) query.vipLevel.$gte = criteria.vipLevel.min;
-    if (criteria.vipLevel?.max !== null) query.vipLevel.$lte = criteria.vipLevel.max;
+    if (bound(criteria.vipLevel?.min) !== null) query.vipLevel.$gte = criteria.vipLevel.min;
+    if (bound(criteria.vipLevel?.max) !== null) query.vipLevel.$lte = criteria.vipLevel.max;
   }
   
   // Balance
-  if (criteria.balance?.min !== null || criteria.balance?.max !== null) {
+  if (bound(criteria.balance?.min) !== null || bound(criteria.balance?.max) !== null) {
     query.balance = {};
-    if (criteria.balance?.min !== null) query.balance.$gte = criteria.balance.min;
-    if (criteria.balance?.max !== null) query.balance.$lte = criteria.balance.max;
+    if (bound(criteria.balance?.min) !== null) query.balance.$gte = criteria.balance.min;
+    if (bound(criteria.balance?.max) !== null) query.balance.$lte = criteria.balance.max;
   }
   
   // Total wagered
-  if (criteria.totalWagered?.min !== null || criteria.totalWagered?.max !== null) {
+  if (bound(criteria.totalWagered?.min) !== null || bound(criteria.totalWagered?.max) !== null) {
     query.totalWagered = {};
-    if (criteria.totalWagered?.min !== null) query.totalWagered.$gte = criteria.totalWagered.min;
-    if (criteria.totalWagered?.max !== null) query.totalWagered.$lte = criteria.totalWagered.max;
+    if (bound(criteria.totalWagered?.min) !== null) query.totalWagered.$gte = criteria.totalWagered.min;
+    if (bound(criteria.totalWagered?.max) !== null) query.totalWagered.$lte = criteria.totalWagered.max;
   }
   
   // Registration date
@@ -205,13 +213,13 @@ function buildQueryFromCriteria(criteria) {
     query.country = { $in: criteria.countries };
   }
   
-  // Active status
-  if (criteria.isActive !== null) {
+  // Active status — `boolean` olmalı; `undefined` de `!== null` testini geçiyordu.
+  if (typeof criteria.isActive === 'boolean') {
     query.deletedAt = criteria.isActive ? { $exists: false } : { $exists: true };
   }
   
   // Bot status
-  if (criteria.isBot !== null) {
+  if (typeof criteria.isBot === 'boolean') {
     query.isBot = criteria.isBot;
   }
   
@@ -318,3 +326,11 @@ export async function initDefaultSegments() {
     await computeSegmentPlayers(segment._id);
   }
 }
+
+/**
+ * Segment kriterlerini ham bir User sorgusuna çevirir.
+ * `buildQueryFromCriteria` dosya içinde özel (private) kaldı; SMS gönderimi gibi
+ * bu dosyada yaşamayan tüketiciler de aynı mantığı kullanmalı — kriteri
+ * kopyalamak iki yerde kopma (drift) riski demektir.
+ */
+export { buildQueryFromCriteria as buildSegmentQuery };

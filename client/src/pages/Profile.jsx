@@ -2,7 +2,7 @@ import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { useFormatters } from '../i18n/useFormatters.jsx';
 import { useForm } from 'react-hook-form';
 import { QRCodeSVG } from 'qrcode.react';
-import { Link, useSearchParams } from 'react-router-dom';
+import { Link, useSearchParams, useNavigate } from 'react-router-dom';
 import { useAuthStore } from '../store/authStore';
 import { useToastStore } from '../store/toastStore';
 import api from '../services/api';
@@ -147,6 +147,7 @@ function CryptoDeposit({ onBalanceUpdate }) {
 
 function CryptoWithdraw({ onBalanceUpdate }) {
   const { t } = useTranslation();
+  const navigate = useNavigate();
   const { register, handleSubmit, reset, formState: { isSubmitting, errors } } = useForm();
   const addToast = useToastStore(s => s.add);
   const [moduleDisabled, setModuleDisabled] = useState(false);
@@ -174,7 +175,15 @@ function CryptoWithdraw({ onBalanceUpdate }) {
       onBalanceUpdate(res.newBalance);
       addToast(res.message, 'success');
       reset();
-    } catch (e) { addToast(e.response?.data?.error || t('profile.operationFailed'), 'error'); }
+    } catch (e) {
+      const err = e.response?.data?.error;
+      if (err?.code === 'KYC_REQUIRED') {
+        addToast(t('profile.kycRequiredWithdraw'), 'error');
+        navigate('/kyc');
+        return;
+      }
+      addToast((typeof err === 'string' ? err : err?.message) || t('profile.operationFailed'), 'error');
+    }
   };
 
   return (
@@ -206,6 +215,7 @@ function CryptoWithdraw({ onBalanceUpdate }) {
 
 export default function Profile() {
   const { t } = useTranslation();
+  const navigate = useNavigate();
   const fmt = useFormatters();
   const { user, updateBalance } = useAuthStore();
   const addToast = useToastStore(s => s.add);
@@ -399,7 +409,10 @@ const handleBankSubmit = async (confirmForfeit = false) => {
                           || e.response?.data?.error
                           || e.response?.data
                           || t('profile.operationFailed');
-       if (errorCode === 'ACTIVE_BONUS_LOCK' && !confirmForfeit) {
+       if (errorCode === 'KYC_REQUIRED') {
+         addToast(t('profile.kycRequiredWithdraw'), 'error');
+         navigate('/kyc');
+       } else if (errorCode === 'ACTIVE_BONUS_LOCK' && !confirmForfeit) {
          if (window.confirm(`${errorMessage}\n\n${t('profile.continueConfirm')}`)) {
            // setSubmitting(false) burada ÇAĞRILMAZ: dışarıdaki finally, bu
            // await'in sonucu beklenmeden senkron olarak setSubmitting(false)

@@ -21,6 +21,7 @@ describe('Route wiring smoke test', () => {
       () => import('../src/routes/kyc.js'),
       () => import('../src/routes/admin.js'),
       () => import('../src/routes/adminModuleSettings.js'),
+      () => import('../src/routes/smsTemplate.js'),
     ];
 
     for (const loadRoute of routes) {
@@ -57,6 +58,7 @@ describe('Route wiring smoke test', () => {
       () => import('../src/validators/auth.js'),
       () => import('../src/validators/kyc.js'),
       () => import('../src/validators/ticket.js'),
+      () => import('../src/validators/smsTemplate.js'),
     ];
 
     for (const loadValidator of validators) {

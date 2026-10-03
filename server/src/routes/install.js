@@ -13,10 +13,18 @@ import mongoose from 'mongoose';
 import User from '../models/User.js';
 import Setting from '../models/Setting.js';
 import { createInstaller } from '../../../installer/core.js';
+import { CURRENCY_DEFINITIONS } from '../currency/registry.js';
+import { invalidateBranding } from '../branding/index.js';
+import { invalidateCurrency } from '../currency/index.js';
+import { invalidateModules } from '../modules/index.js';
 import { INSTALL_PAGE_HTML } from '../../../installer/page.js';
 
-export function createInstallHandlers({ userModel, settingModel, dbState }) {
-  const installer = createInstaller({ userModel, settingModel, dbState });
+export function createInstallHandlers({
+  userModel, settingModel, dbState,
+  currencyCodes = CURRENCY_DEFINITIONS.map(c => c.code),
+  afterSettingsWritten,
+}) {
+  const installer = createInstaller({ userModel, settingModel, dbState, currencyCodes, afterSettingsWritten });
 
   async function pageHandler(req, res) {
     res.set('Cache-Control', 'no-store');
@@ -34,9 +42,12 @@ export function createInstallHandlers({ userModel, settingModel, dbState }) {
       // içeriği kopyalayıp host'taki .env'e yapıştırır (Docker'da compose
       // MONGODB_URI'yi kendi mongo'suna ezdiği için içerik güvenlidir).
       const secrets = installer.generateSecrets();
-      const clientUrl = String(req.body?.clientUrl || '').trim() ||
-        `${req.protocol}://${req.get('host')}`;
-      const envContent = installer.buildEnvContent({ ...secrets, clientUrl });
+      const clientUrl = installer.safeClientUrl(
+        req.body?.clientUrl,
+        `${req.protocol}://${req.get('host')}`,
+      );
+      const { mongoUri } = installer.resolveMongoUri(req.body || {});
+      const envContent = installer.buildEnvContent({ ...secrets, clientUrl, mongoUri });
       res.json({ ...result, envContent });
     } catch (e) {
       if (e.code === 'ALREADY_INSTALLED') return res.status(409).json({ error: e.message });
@@ -54,10 +65,18 @@ function createInstallRouter() {
     userModel: User,
     settingModel: Setting,
     dbState: () => mongoose.connection.readyState,
+    afterSettingsWritten: () => {
+      invalidateBranding();
+      invalidateCurrency();
+      invalidateModules();
+    },
   });
 
-  // SECURITY FIX (C3): Guard install endpoint — reject if system is already installed
-  async function guardNotInstalled(req, res, next) {
+  // SECURITY FIX (C3): kurulmuş sistemde sihirbaz sayfasını gizle (404).
+  // POST /api/run için ayrı guard YOK: handler'ın installer.run()'ı yönetici
+  // varlığını kendisi denetler ve 409 ALREADY_INSTALLED döner — böylece o yol
+  // gerçekten erişilebilir ve tek bir kaynaktan (installer.run) yönetilir.
+  async function hideWhenInstalled(req, res, next) {
     try {
       const adminExists = await User.findOne({ role: 'admin' }).lean();
       if (adminExists) {
@@ -69,9 +88,9 @@ function createInstallRouter() {
     }
   }
 
-  r.get('/', guardNotInstalled, handlers.pageHandler);
+  r.get('/', hideWhenInstalled, handlers.pageHandler);
   r.get('/api/status', handlers.statusHandler);
-  r.post('/api/run', guardNotInstalled, handlers.runHandler);
+  r.post('/api/run', handlers.runHandler);
   return r;
 }
 
