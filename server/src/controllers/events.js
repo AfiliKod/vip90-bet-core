@@ -26,7 +26,7 @@ const FUTURE_WINDOW_DAYS = 30;
 const FUTURE_WINDOW_MS = FUTURE_WINDOW_DAYS * 24 * 60 * 60 * 1000;
 
 // Kısa TTL cache — sık tekrarlanan aynı sport+status kombinasyonlarının DB'ye
-// tekrar tekrar gitmesini önler (bkz. palaceCasinoService.js'teki aynı desen).
+// tekrar tekrar gitmesini önler (bkz. igamesCasinoService.js'teki aynı desen).
 // Oranlar/skorlar zaten socket.io ile anlık güncellendiği için bu kısa
 // pencere gerçek zamanlılığı gözle görülür şekilde bozmaz.
 const LIST_CACHE_TTL_MS = 5 * 1000;

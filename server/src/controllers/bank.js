@@ -1,9 +1,12 @@
 import mongoose from 'mongoose';
+import { broadcastAdminCounts } from '../services/adminCounts.js';
+import { withTransactionRetry } from '../utils/transactionRetry.js';
 import User from '../models/User.js';
-import Transaction from '../models/Transaction.js';
 import BankDepositRequest from '../models/BankDepositRequest.js';
 import { createError } from '../middleware/error.js';
 import { formatMoney } from '../currency/index.js';
+import { createTransaction } from '../services/ledger.js';
+import { updateDailyStats } from '../services/responsibleGaming.js';
 
 export function getInfo(req, res) {
   res.json({
@@ -102,37 +105,50 @@ export async function getAllPending(req, res, next) {
 
 export async function approve(req, res, next) {
   const session = await mongoose.startSession();
-  session.startTransaction();
+  let recordRef;
   try {
-    const record = await BankDepositRequest.findById(req.params.id).session(session);
-    if (!record) throw createError(404, 'NOT_FOUND', 'Talep bulunamadı');
-    if (record.status !== 'pending') throw createError(409, 'ALREADY_PROCESSED', 'Talep zaten işlenmiş');
+    const safeUser = await withTransactionRetry(session, async () => {
+      const record = await BankDepositRequest.findById(req.params.id).session(session);
+      if (!record) throw createError(404, 'NOT_FOUND', 'Talep bulunamadı');
+      if (record.status !== 'pending') throw createError(409, 'ALREADY_PROCESSED', 'Talep zaten işlenmiş');
 
-    record.status = 'approved';
-    record.approvedBy = req.user.id;
-    record.approvedAt = new Date();
-    await record.save({ session });
+      recordRef = record;
+      record.status = 'approved';
+      record.approvedBy = req.user.id;
+      record.approvedAt = new Date();
+      await record.save({ session });
 
-    const user = await User.findById(record.userId).session(session);
-    const balanceBefore = user.balance;
-    const txAmount = record.type === 'deposit' ? record.amount : -record.amount;
-    user.balance = +(user.balance + txAmount).toFixed(2);
-    await user.save({ session });
+      const user = await User.findById(record.userId).session(session);
+      const balanceBefore = user.balance;
+      const txAmount = record.type === 'deposit' ? record.amount : -record.amount;
+      user.balance = +(user.balance + txAmount).toFixed(2);
+      await user.save({ session });
 
-    await Transaction.create([{
-      userId: record.userId,
-      type: record.type === 'deposit' ? 'deposit' : 'withdraw',
-      amount: txAmount,
-      balanceBefore,
-      balanceAfter: user.balance,
-      status: 'completed',
-      note: `Banka ${record.type === 'deposit' ? 'yatırma' : 'çekme'} onaylandı`,
-      createdBy: req.user.id,
-    }], { session });
+      const idempotencyKey = `bank_approve_${record._id}`;
+      await createTransaction({
+        userId: record.userId,
+        type: record.type === 'deposit' ? 'deposit' : 'withdraw',
+        amount: txAmount,
+        balanceBefore,
+        balanceAfter: user.balance,
+        status: 'completed',
+        note: `Banka ${record.type === 'deposit' ? 'yatırma' : 'çekme'} onaylandı`,
+        createdBy: req.user.id,
+        idempotencyKey,
+        source: 'admin',
+      }, { session });
 
-    await session.commitTransaction();
-    res.json({ message: 'Talep onaylandı ve bakiye güncellendi', user: user.toSafeObject() });
-  } catch (e) { await session.abortTransaction(); next(e); }
+      return user.toSafeObject();
+    });
+    if (safeUser && recordRef.type === 'deposit') {
+      await updateDailyStats(recordRef.userId, 'deposit', recordRef.amount).catch((e) => {
+        console.error('[RG] updateDailyStats (bank deposit) failed:', e.message);
+      });
+    }
+    // Sayaç anında düşsün (sidebar rozeti + dashboard kuyruk kartı).
+    broadcastAdminCounts();
+    res.json({ message: 'Talep onaylandı ve bakiye güncellendi', user: safeUser });
+  } catch (e) { next(e); }
   finally { session.endSession(); }
 }
 
@@ -149,6 +165,7 @@ export async function reject(req, res, next) {
     record.approvedAt = new Date();
     await record.save();
 
+    broadcastAdminCounts();
     res.json({ message: 'Talep reddedildi' });
   } catch (e) { next(e); }
 }

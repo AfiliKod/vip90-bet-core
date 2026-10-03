@@ -32,6 +32,11 @@ const LEGAL_PAGE_TITLE_KEYS = {
   '/legal/cookies': 'legal.cookies.title',
   '/legal/bonus-terms': 'legal.bonus.title',
   '/legal/responsible-gaming': 'legal.responsible.title',
+  // Marka sütunundaki sabit kurumsal sayfalar (aynı sorun: DB başlığı Türkçe)
+  '/about': 'footer.about',
+  '/career': 'footer.career',
+  '/press': 'footer.press',
+  '/contact': 'footer.contact',
 };
 
 function Footer({ onOpenHelp }) {

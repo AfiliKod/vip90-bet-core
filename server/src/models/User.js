@@ -11,6 +11,7 @@ const schema = new mongoose.Schema({
   // V1 — sınırlı demo yönetici: role=admin kalır, yıkıcı işlemler
   // middleware/demoAdmin.js blockDemoAdmin ile engellenir.
   isDemoAdmin: { type: Boolean, default: false },
+  isSeed: { type: Boolean, default: false, index: true },
   balance:  { type: Number, default: 0, min: 0 },
   bonusBalance: { type: Number, default: 0, min: 0 },
   // ─── Model B (Kilitli Bakiye) tek seferlik migration marker ───────
@@ -46,7 +47,7 @@ const schema = new mongoose.Schema({
   referredBy:        { type: mongoose.Schema.Types.ObjectId, ref: 'User', default: null },
   totalReferralEarnings: { type: Number, default: 0, min: 0 },
   cryptoDepositIndex: { type: Number, default: null },  // HD wallet index (atandıktan sonra değişmez)
-  palaceUserCode:    { type: String, default: null },   // Palace Casino user_code (for provider callbacks)
+  palaceUserCode:    { type: String, default: null },   // Igames Casino user_code (for provider callbacks)
   deletedAt:   { type: Date, default: null },
   // ─── Legal consent records (KVKK, Terms, 18+) ────────────────────
   acceptedTermsAt:  { type: Date, default: null },
@@ -70,12 +71,47 @@ const schema = new mongoose.Schema({
     depositDaily:     { type: Number, default: null },
     depositWeekly:    { type: Number, default: null },
     depositMonthly:   { type: Number, default: null },
+    lossDaily:        { type: Number, default: null },
+    lossWeekly:       { type: Number, default: null },
+    lossMonthly:      { type: Number, default: null },
+    wagerDaily:       { type: Number, default: null },
+    wagerWeekly:      { type: Number, default: null },
+    wagerMonthly:     { type: Number, default: null },
     sessionTimeoutMin: { type: Number, default: null },
     selfExclusionUntil: { type: Date, default: null },
+    coolOffUntil:     { type: Date, default: null },
+    coolOffReason:    { type: String, default: '' },
   },
+  // ─── Responsible gaming tracking (Phase 2C) ─────────────────────
+  dailyStats: {
+    deposits:    { type: Number, default: 0 },
+    losses:      { type: Number, default: 0 },
+    wagers:      { type: Number, default: 0 },
+    lastUpdated: { type: Date, default: null },
+  },
+  weeklyStats: {
+    deposits:    { type: Number, default: 0 },
+    losses:      { type: Number, default: 0 },
+    wagers:      { type: Number, default: 0 },
+    weekStart:   { type: Date, default: null },
+  },
+  monthlyStats: {
+    deposits:    { type: Number, default: 0 },
+    losses:      { type: Number, default: 0 },
+    wagers:      { type: Number, default: 0 },
+    monthStart:  { type: Date, default: null },
+  },
+  // ─── Account restriction (Phase 2C) ─────────────────────────────
+  accountRestricted: { type: Boolean, default: false },
+  restrictionReason: { type: String, default: '' },
+  restrictedBy: { type: mongoose.Schema.Types.ObjectId, ref: 'User', default: null },
+  restrictedAt: { type: Date, default: null },
   // ─── 18+ age gate (Phase D3) ──────────────────────────────────────
   dateOfBirth:      { type: Date, default: null },
   ageVerifiedAt:    { type: Date, default: null },
+  // ─── Telefon (Slikair payment için gerekli) ──────────────────────
+  phone:            { type: String, default: null },
+  phoneVerified:    { type: Boolean, default: false },
   // ─── Account deletion grace (Phase D5 — KVKK md.11) ───────────────
   deletionRequestedAt: { type: Date, default: null },
   scheduledDeletionAt: { type: Date, default: null },
@@ -115,7 +151,7 @@ const schema = new mongoose.Schema({
   // gerçek matematikleriyle kullanabilsinler diye. Ayrı bir Bot
   // koleksiyonu (önceki tasarım) User'dan kopuktu, gerçek oyun mantığını
   // ikinci kez (ve bozuk şekilde) simüle ediyordu.
-  isBot: { type: Boolean, default: false, index: true },
+  isBot: { type: Boolean, default: false },
   botProfile: {
     botType: { type: String, enum: ['casual', 'aggressive', 'conservative', 'high_roller', 'bonus_hunter'], default: 'casual' },
     behavior: {
@@ -143,18 +179,18 @@ const schema = new mongoose.Schema({
     notes: { type: String, default: '' },
   },
   // ─── Favoriler / Son Oynananlar ────────────────────────────────────
-  // gameId: Palace için game_code, in-house için route path (örn. /games/crash).
+  // gameId: Igames için game_code, in-house için route path (örn. /games/crash).
   favoriteGames: [{
     _id: false,
     gameId: { type: String, required: true },
-    kind:   { type: String, enum: ['palace', 'inhouse'], required: true },
+    kind:   { type: String, enum: ['igames', 'inhouse'], required: true },
     addedAt: { type: Date, default: Date.now },
   }],
   // En yeni en başta, controller içinde $slice ile son 20 ile sınırlanır.
   recentlyPlayed: [{
     _id: false,
     gameId: { type: String, required: true },
-    kind:   { type: String, enum: ['palace', 'inhouse'], required: true },
+    kind:   { type: String, enum: ['igames', 'inhouse'], required: true },
     playedAt: { type: Date, default: Date.now },
   }],
 }, { timestamps: true });

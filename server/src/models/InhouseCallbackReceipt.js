@@ -2,8 +2,8 @@ import mongoose from 'mongoose';
 
 /**
  * Operatör tarafında (bu site) merkezi provider'dan gelen wallet-callback'lerin
- * kalıcı idempotency kaydı. Palace entegrasyonundaki `processedCallbacks`
- * in-memory Map'in (routes/palace.js, TTL 5dk, process-local, restart'ta
+ * kalıcı idempotency kaydı. Igames entegrasyonundaki `processedCallbacks`
+ * in-memory Map'in (routes/igames.js, TTL 5dk, process-local, restart'ta
  * sıfırlanır) zayıflığını gidermek için kalıcı: aynı txnId ikinci kez
  * gelirse (retry worker'ın tekrar denemesi) unique index atomik olarak
  * reddeder, önceki yanıt tekrar döndürülür.

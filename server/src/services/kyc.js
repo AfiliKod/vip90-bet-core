@@ -287,11 +287,12 @@ export async function getAllKycSubmissions(options = {}) {
   const skip = (Number(page) - 1) * Number(limit);
 
   const filter = {};
-  if (status) filter['user.kycStatus'] = status;
+  // User dokümanında iç içe `user` alanı YOK — doğrudan kycStatus/username/email var
+  if (status) filter.kycStatus = status;
   if (search) {
     filter.$or = [
-      { 'user.username': { $regex: search, $options: 'i' } },
-      { 'user.email': { $regex: search, $options: 'i' } },
+      { username: { $regex: search, $options: 'i' } },
+      { email: { $regex: search, $options: 'i' } },
     ];
   }
 
@@ -328,6 +329,8 @@ export async function getKycStats() {
   const [byStatus, recentSubmissions, approvedToday] = await Promise.all([
     User.aggregate([
       { $group: { _id: '$kycStatus', count: { $sum: 1 } } },
+      // Grup sırası MongoDB'de garantisiz — kart sırası deterministik olsun
+      { $sort: { _id: 1 } },
     ]),
     User.find({ kycSubmittedAt: { $gte: new Date(Date.now() - 7 * 24 * 60 * 60 * 1000) } })
       .select('username email kycStatus kycSubmittedAt')
@@ -405,9 +408,22 @@ export async function expireOldKyc() {
  * Notify admins of new KYC submission
  */
 async function notifyAdminsNewKycSubmission(userId, docCount) {
-  // Would integrate with admin notification system
   const io = getIO();
   if (io) {
     io.to('role:admin').emit('kyc:new_submission', { userId, docCount });
   }
+  try {
+    const { logActivity } = await import('./activityFeed.js');
+    await logActivity({
+      type: 'kyc_submitted', userId, status: 'pending',
+      summary: `KYC belgesi yüklendi (${docCount} belge)`,
+      data: { docCount },
+    });
+  } catch (e) {
+    console.error('[activity] KYC submission error:', e.message);
+  }
 }
+
+// Test edilebilirlik: notifyAdminsNewKycSubmission test ortamında doğrudan
+// çağrılmalı (submitKycDocuments akışını boğmadan) — bkz. task-8-brief.md.
+export { notifyAdminsNewKycSubmission as _notifyAdminsNewKycSubmissionForTest };

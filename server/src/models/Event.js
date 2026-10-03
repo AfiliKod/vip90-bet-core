@@ -20,6 +20,7 @@ const schema = new mongoose.Schema({
   markets:  [marketSchema],
   result:   { winner: String, score: String },
   archivedAt: { type: Date, default: null },
+  isSeed: { type: Boolean, default: false, index: true },
 }, { timestamps: true });
 
 // Indexes (Phase E1)

@@ -22,7 +22,12 @@ try {
 }
 
 describe('K1 — docker-compose.yml yapısı', () => {
-  test.skip(!compose, 'compose dosyası yok — sonraki testler atlanır');
+  if (!compose) {
+    test('compose dosyası yok — atlanıyor', () => {
+      console.log('docker-compose.yml parse edilemedi, testler atlanıyor');
+    });
+    return;
+  }
 
   test('app, mongo ve ters vekil (caddy) servisleri tanımlı', () => {
     const services = Object.keys(compose.services || {});

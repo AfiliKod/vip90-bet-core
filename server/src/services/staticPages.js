@@ -176,7 +176,7 @@ const DEFAULT_PAGES = [
         'Yasal yükümlülükler (AML, lisans raporlama)',
       ] },
       { title: '3. Verilerin Paylaşımı', content: [
-        'Casino sağlayıcısı (Palace Casino) ile oyun oturumu için gerekli bilgiler',
+        'Casino sağlayıcısı (Igames Casino) ile oyun oturumu için gerekli bilgiler',
         'Ödeme sağlayıcıları ile para yatırma/çekme işlemleri için',
         'Lisans otoritesi ile yasal raporlama yükümlülükleri kapsamında',
         'Yasal merciler ile yasal talepler halinde',
@@ -240,7 +240,7 @@ const DEFAULT_PAGES = [
       { title: '4. Toplama Yöntemi', content: [
         'Platform kullanımı sırasında otomatik toplama (formlar, çerezler)',
         'Ödeme işlemleri sırasında ödeme sağlayıcısından',
-        'Casino sağlayıcısından (Palace Casino) oyun oturumu için',
+        'Casino sağlayıcısından (Igames Casino) oyun oturumu için',
         'Müşteri destek iletişimi sırasında (e-posta, canlı yardım)',
       ] },
       { title: '5. Verilerin Aktarımı', content: [
@@ -288,7 +288,7 @@ const DEFAULT_PAGES = [
       ] },
       { title: '3. Üçüncü Taraf Çerezleri', content: [
         'Ödeme sağlayıcıları: ödeme işlemleri için',
-        'Casino sağlayıcısı (Palace): oyun oturumu için',
+        'Casino sağlayıcısı (Igames): oyun oturumu için',
         'Analitik sağlayıcıları: kullanım istatistikleri için (consent sonrası)',
       ] },
       { title: '4. Çerez Yönetimi', content: [

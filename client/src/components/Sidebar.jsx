@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { NavLink, useNavigate, useLocation } from 'react-router-dom';
 import { useEventsStore } from '../store/eventsStore';
 import { useSettingsStore } from '../store/settingsStore';
-import { SPORT_META } from '../utils/sportMeta';
+import { SPORT_META, sportLabel } from '../utils/sportMeta';
 import { useFormatters } from '../i18n/useFormatters.jsx';
 import { useTranslation } from '../i18n';
 import { BRAND_GRADIENT, BRAND_GLOW } from '../styles/brand';
@@ -15,7 +15,7 @@ const SPORT_ORDER = [
 ];
 
 export default function Sidebar() {
-  const { t } = useTranslation();
+  const { t, locale: lang } = useTranslation();
   const fmt = useFormatters();
   const {
     events,
@@ -155,7 +155,7 @@ export default function Sidebar() {
       {/* Spor kategorileri + ligler */}
       <div className="px-3">
         {sports.map(sport => {
-          const meta = SPORT_META[sport] ?? { icon: '🏆', label: sport };
+          const meta = { icon: SPORT_META[sport]?.icon ?? '🏆', label: sportLabel(sport, lang) };
           // Ortak lig listesi: { key, country, league, count }
           const leagueList = useSummaryTree
             ? summarySportMap[sport].leagues

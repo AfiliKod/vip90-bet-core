@@ -25,11 +25,17 @@ export const settleEventSchema = z.object({
 });
 
 export const createUserSchema = z.object({
-  username:   z.string().min(3).max(30),
-  email:      z.string().email(),
-  password:   z.string().min(8),
-  role:       z.enum(['user', 'admin']).default('user'),
-  referredBy: z.string().min(3).max(30).optional(),
+  username:     z.string().min(3).max(30),
+  email:        z.string().email(),
+  password:     z.string().min(8),
+  role:         z.enum(['user', 'admin']).default('user'),
+  referredBy:   z.string().min(3).max(30).optional(),
+  phone:        z.string().min(7).max(20).optional().nullable(),
+  dateOfBirth:  z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional().nullable(),
+  // Yalnızca role='admin' iken anlamlı — controller ayrıca admin:roles:write
+  // izni de arıyor (yoksa bu alan sessizce yok sayılır, UI'da zaten gizli
+  // ama sunucu tarafında da zorlanıyor).
+  roles:        z.array(z.string()).optional(),
 });
 
 export const updateBalanceSchema = z.object({
@@ -331,7 +337,7 @@ export const updateBotSchema = z.object({
   notes: z.string().max(300).optional(),
 });
 
-// ─── Modül Ayarları (in-house provider / odds provider / Palace) ──────────
+// ─── Modül Ayarları (in-house provider / odds provider / Igames) ──────────
 export const updateInhouseProviderSettingsSchema = z.object({
   supportedLanguages: z.array(z.string().min(2).max(5)).min(1).optional(),
   defaultLanguage: z.string().min(2).max(5).optional(),
@@ -345,13 +351,138 @@ export const updateOddsProviderSettingsSchema = z.object({
   priorityCountry: z.string().min(1).optional(),
 });
 
-export const updatePalaceModuleSettingsSchema = z.object({
+export const updateIgamesModuleSettingsSchema = z.object({
   language: z.string().min(2).max(5).optional(),
   popularGameCodes: z.array(z.string()).optional(),
 });
 
-export const updatePalaceCredentialsSchema = z.object({
+export const updateIgamesCredentialsSchema = z.object({
   apiToken: z.string().min(1).optional(),
   apiBase: z.string().url().optional(),
   callbackToken: z.string().min(1).optional(),
 });
+
+// ─── Admin CRUD schemas for routes missing validate() ───────────────────────
+
+export const updateUserAdminSchema = z.object({
+  isActive: z.boolean().optional(),
+  kycVerified: z.boolean().optional(),
+  role: z.enum(['user', 'admin']).optional(),
+});
+
+export const updateTaskSchema = z.object({
+  status: z.enum(['pending', 'active', 'completed', 'cancelled']).optional(),
+  notes: z.string().max(500).optional(),
+});
+
+export const createIgamesUserSchema = z.object({
+  name: z.string().min(1).max(50),
+  linkToUserId: z.string().optional(),
+});
+
+export const launchIgamesGameSchema = z.object({
+  user_code: z.string().min(1),
+  game_id: z.string().min(1),
+  mode: z.enum(['real', 'demo']).optional(),
+  language: z.string().min(2).max(5).optional(),
+  return_url: z.string().url().optional(),
+});
+
+export const setIgamesRtpSchema = z.object({
+  rtp: z.number().min(75).max(95),
+});
+
+// gplay_id: sağlayıcının o an açık oyun oturumu kimliği (online-games listesinden),
+// oyun kodu değil. İstemci sayı gönderir; eskiden z.string() olduğu için her istek 400'dü.
+export const startIgamesBonusCallSchema = z.object({
+  gplay_id: z.coerce.number().int().positive(),
+  set_point: z.coerce.number().min(0),
+  memo: z.string().max(200).optional(),
+});
+
+// Bonus call iptali artık sağlayıcı call_id'siyle değil, kayıtlı ödülün id'siyle yapılır.
+const objectIdString = z.string().regex(/^[a-f0-9]{24}$/i);
+
+export const cancelIgamesBonusCallSchema = z.object({
+  grant_id: objectIdString,
+});
+
+// Sayısal sınırlar (rounds, bet*rounds, expires_at) servis katmanında (casinoPromo/limits.js) doğrulanır.
+export const createFreeRoundSchema = z.object({
+  user_id: objectIdString,
+  provider_id: z.coerce.number().int().positive(),
+  game_code: z.string().min(1).max(100),
+  game_name: z.string().max(200).optional(),
+  rounds: z.coerce.number(),
+  bet: z.coerce.number(),
+  win: z.coerce.number().default(0),
+  scenario: z.coerce.number().int().nullish(),
+  expires_at: z.string().min(1),
+  memo: z.string().max(200).optional(),
+});
+
+export const cancelFreeRoundSchema = z.object({
+  grant_id: objectIdString,
+});
+
+export const listPromoGrantsQuerySchema = z.object({
+  kind: z.enum(['bonusCall', 'freeRound']).optional(),
+  status: z.enum(['pending', 'running', 'completed', 'active', 'expired', 'cancelled', 'failed']).optional(),
+  username: z.string().max(100).optional(),
+  from: z.string().optional(),
+  to: z.string().optional(),
+  page: z.coerce.number().int().min(1).optional(),
+  limit: z.coerce.number().int().min(1).max(100).optional(),
+});
+
+export const updateAlertSettingsSchema = z.object({
+  settings: z.record(z.any()),
+});
+
+export const updateKycSettingsSchema = z.object({
+  settings: z.record(z.any()),
+});
+
+export const approveKycSubmissionSchema = z.object({
+  notes: z.string().max(500).optional(),
+});
+
+export const rejectKycSubmissionSchema = z.object({
+  reason: z.string().min(1).max(500),
+});
+
+export const updateCryptoSettingsSchema = z.object({
+  deposit: z.boolean().optional(),
+  withdraw: z.boolean().optional(),
+  usdtTryRate: z.number().positive().optional(),
+  network: z.string().optional(),
+});
+
+export const updateReferralSettingsSchema = z.object({
+  enabled: z.boolean().optional(),
+  commissionRate: z.number().min(0).max(100).optional(),
+});
+
+// ─── Entegrasyon ayarları (Slikair, SMTP) ──────────────────────────────────
+const optStr = max => z.string().max(max).optional();
+
+export const updateSlikairSettingsSchema = z.object({
+  merchantId: optStr(200),
+  merchantToken: optStr(500),
+  siteId: optStr(200),
+  baseUrl: z.string().max(500).refine(v => v === '' || /^https?:\/\/\S+$/i.test(v), 'baseUrl http(s) olmalı').optional(),
+  webhookSecret: optStr(500),
+  clear: z.array(z.enum(['merchantToken', 'webhookSecret'])).optional(),
+}).strict();
+
+export const updateEmailSettingsSchema = z.object({
+  host: optStr(255),
+  port: z.union([z.string(), z.number()]).refine(v => v === '' || (Number.isInteger(Number(v)) && Number(v) >= 1 && Number(v) <= 65535), 'port 1-65535 olmalı').optional(),
+  secure: z.union([z.boolean(), z.enum(['true', 'false', ''])]).optional(),
+  user: optStr(255),
+  pass: optStr(500),
+  from: z.string().max(255).refine(v => v === '' || /^[^\s<>"]+@[^\s<>"]+\.[^\s<>"]+$/.test(v), 'from geçerli e-posta olmalı').optional(),
+  clear: z.array(z.enum(['pass'])).optional(),
+}).strict();
+
+export { seoSettingsSchema as updateSeoSettingsSchema } from '../seo/schema.js';

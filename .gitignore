@@ -1,6 +1,9 @@
 # Deps
 node_modules/
 
+# Local git worktrees (superpowers:using-git-worktrees)
+.worktrees/
+
 # Build outputs
 dist/
 dist-ssr/

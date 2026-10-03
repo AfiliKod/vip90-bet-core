@@ -8,8 +8,8 @@ import { useEventsStore } from '../../store/eventsStore';
 import { sportIconMaterial } from '../../utils/sportMeta';
 
 // Aynı allowlist HomePage.jsx'te de var: yalnızca lisanslı/gerçek katalogla
-// bağlı sağlayıcıların oyunları (bkz. HomePage.jsx PALACE_PROVIDER_IDS notu).
-const PALACE_PROVIDER_IDS = [1, 15];
+// bağlı sağlayıcıların oyunları (bkz. HomePage.jsx IGAMES_PROVIDER_IDS notu).
+const IGAMES_PROVIDER_IDS = [1, 15];
 
 const gamesCacheStore = { data: null, expiresAt: 0 };
 const providersCacheStore = { data: null, expiresAt: 0 };
@@ -46,11 +46,11 @@ export default function SearchOverlay({ onClose }) {
     setLoading(true);
     Promise.all([
       Promise.all(
-        PALACE_PROVIDER_IDS.map(provider_id =>
-          api.post('/palace/games', { lang: 'tr', provider_id }).then(r => r.data?.data || []).catch(() => [])
+        IGAMES_PROVIDER_IDS.map(provider_id =>
+          api.post('/igames/games', { lang: 'tr', provider_id }).then(r => r.data?.data || []).catch(() => [])
         )
       ).then(lists => lists.flat()),
-      api.post('/palace/providers', { lang: 'tr' }).then(r => r.data?.data || []).catch(() => []),
+      api.post('/igames/providers', { lang: 'tr' }).then(r => r.data?.data || []).catch(() => []),
     ]).then(([gameList, providerList]) => {
       if (cancelled) return;
       writeCache(gamesCacheStore, gameList);
@@ -78,17 +78,17 @@ export default function SearchOverlay({ onClose }) {
     const inhouse = inhouseGames
       .filter(g => g.name.toLowerCase().includes(q))
       .map(g => ({ kind: 'inhouse', id: g.id, name: g.name, image: g.image, to: g.path }));
-    const palace = games
+    const igames = games
       .filter(g => (g.game_name || '').toLowerCase().includes(q))
       .slice(0, 8)
       .map(g => ({
-        kind: 'palace',
+        kind: 'igames',
         id: g.game_code,
         name: g.game_name,
         image: g.game_image_narrow || g.game_image,
-        to: `/palace/${encodeURIComponent(g.game_code)}?name=${encodeURIComponent(g.game_name)}`,
+        to: `/igames/${encodeURIComponent(g.game_code)}?name=${encodeURIComponent(g.game_name)}`,
       }));
-    return [...inhouse, ...palace].slice(0, 10);
+    return [...inhouse, ...igames].slice(0, 10);
   }, [q, games, inhouseGames]);
 
   const matchedProviders = useMemo(() => {

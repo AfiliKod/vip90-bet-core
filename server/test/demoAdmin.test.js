@@ -37,21 +37,23 @@ describe('createDemoAdminBlock — sınırlı demo yönetici', () => {
     assert.strictEqual(nextArg, undefined);
   });
 
-  test('kullanıcı bulunamazsa engelleme davranışı değişmez (fail-open)', async () => {
+  test('kullanıcı bulunamazsa (null) engelleme davranışı değişmez', async () => {
     const block = createDemoAdminBlock({ getUserById: async () => null });
     const res = mockRes();
     let nextArg;
     await block({ user: { id: 'ghost' } }, res, (e) => { nextArg = e; });
+    // null user means isDemoAdmin is undefined/false — should pass through
     assert.strictEqual(nextArg, undefined);
   });
 
-  test('sorgu patlarsa da geçer — yıkıcı işlem zaten DB ister, çifte kilide gerek yok', async () => {
+  test('sorgu patlarsa da fail-closed davranır', async () => {
     const block = createDemoAdminBlock({
       getUserById: async () => { throw new Error('db yok'); },
     });
     const res = mockRes();
     let nextArg;
     await block({ user: { id: 'u3' } }, res, (e) => { nextArg = e; });
-    assert.strictEqual(nextArg, undefined);
+    assert.ok(nextArg, 'fail-closed: hata döndürmeli');
+    assert.strictEqual(nextArg.code, 'DEMO_CHECK_FAILED');
   });
 });

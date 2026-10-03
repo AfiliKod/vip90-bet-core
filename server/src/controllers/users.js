@@ -5,11 +5,12 @@ import CasinoRound from '../models/CasinoRound.js';
 import BonusWagering from '../models/BonusWagering.js';
 import CasinoSession from '../models/CasinoSession.js';
 import { createError } from '../middleware/error.js';
+import { invalidateTokenVersionCache } from '../middleware/auth.js';
 
 const DATA_EXPORT_CATEGORIES = [
   'Hesap bilgileri (kullanıcı adı, e-posta, kayıt tarihi)',
   'Bahis geçmişi (tüm spor bahisleri)',
-  'Casino oyun geçmişi (Palace turları)',
+  'Casino oyun geçmişi (Igames turları)',
   'Bonus ve çevrim geçmişi',
   'Para yatırma/çekme işlemleri',
   'Banka talepleri (deposit/withdraw)',
@@ -26,15 +27,15 @@ export async function getMe(req, res, next) {
 
     const obj = user.toSafeObject();
 
-    // Aktif Palace oturumu varsa Palace'taki bakiyeyi ek bilgi olarak ekle
+    // Aktif Igames oturumu varsa Igames'taki bakiyeyi ek bilgi olarak ekle
     const activeSession = await CasinoSession.findOne({ userId: user._id, status: 'active' });
     if (activeSession) {
       const roundAgg = await CasinoRound.aggregate([
-        { $match: { userId: user._id, provider: 'palace', createdAt: { $gte: activeSession.transferredAt } } },
+        { $match: { userId: user._id, provider: 'igames', createdAt: { $gte: activeSession.transferredAt } } },
         { $group: { _id: null, net: { $sum: '$net' } } },
       ]);
       const netChange = roundAgg[0]?.net || 0;
-      obj.activePalaceBalance = Math.max(0, activeSession.initialBalance + netChange);
+      obj.activeIgamesBalance = Math.max(0, activeSession.initialBalance + netChange);
     }
 
     res.json({ user: obj });
@@ -145,6 +146,7 @@ export async function updatePassword(req, res, next) {
     // Eski token'ları revoke
     user.tokenVersion = (user.tokenVersion || 0) + 1;
     await user.save();
+    invalidateTokenVersionCache(user._id); // revoke'un 30sn önbellek gecikmesi olmadan anında etkili olması için
     res.json({ message: 'Şifre güncellendi. 24 saat withdrawal kilidi aktif.' });
   } catch(e) { next(e); }
 }
@@ -163,6 +165,7 @@ export async function updateEmail(req, res, next) {
     user.withdrawalLockUntil = new Date(Date.now() + 24 * 60 * 60 * 1000);
     user.tokenVersion = (user.tokenVersion || 0) + 1;
     await user.save();
+    invalidateTokenVersionCache(user._id); // revoke'un 30sn önbellek gecikmesi olmadan anında etkili olması için
     res.json({ message: 'E-posta güncellendi. Yeniden doğrulama gerekli.' });
   } catch(e) { next(e); }
 }

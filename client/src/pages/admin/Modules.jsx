@@ -3,7 +3,8 @@ import api from '../../services/api';
 import { useTranslation } from '../../i18n';
 import { useToastStore } from '../../store/toastStore';
 import ModuleCard from '../../components/admin/ModuleCard';
-import { sportLabel } from '../../utils/sportMeta';
+import { Chip, MultiCheck } from './components/AdminChoice.jsx';
+import { getActiveCurrency } from '../../utils/money.js';
 
 /**
  * Modüller + Modül Ayarları'nın birleşmiş hali (2026-09-10) — eskiden iki ayrı
@@ -24,53 +25,20 @@ import { sportLabel } from '../../utils/sportMeta';
 
 const LANGUAGE_OPTIONS = [
   { code: 'tr', label: 'Türkçe' },
-  { code: 'en', label: 'İngilizce' },
-  { code: 'de', label: 'Almanca' },
-  { code: 'es', label: 'İspanyolca' },
-  { code: 'pt', label: 'Portekizce' },
-  { code: 'ja', label: 'Japonca' },
-  { code: 'ko', label: 'Korece' },
-  { code: 'th', label: 'Tayca' },
+  { code: 'en', label: 'English' },
+  { code: 'de', label: 'Deutsch' },
+  { code: 'es', label: 'Español' },
+  { code: 'pt', label: 'Português' },
+  { code: 'ja', label: '日本語' },
+  { code: 'ko', label: '한국어' },
+  { code: 'th', label: 'ไทย' },
 ];
 
 const CURRENCY_OPTIONS = [
-  { code: 'TRY', label: 'Türk Lirası (₺)' },
-  { code: 'USD', label: 'Dolar ($)' },
-  { code: 'EUR', label: 'Euro (€)' },
+  { code: 'TRY', labelKey: 'admin.modules.currencyTry' },
+  { code: 'USD', labelKey: 'admin.modules.currencyUsd' },
+  { code: 'EUR', labelKey: 'admin.modules.currencyEur' },
 ];
-
-function Chip({ children, tone = 'default' }) {
-  const cls = tone === 'default'
-    ? 'bg-white/5 border-white/10 text-text-2'
-    : 'bg-primary/15 border-primary/30 text-primary';
-  return <span className={`text-xs px-2 py-0.5 rounded-full border ${cls}`}>{children}</span>;
-}
-
-function MultiCheck({ options, selected, onToggle, disabled }) {
-  return (
-    <div className="flex flex-wrap gap-2">
-      {options.map(opt => {
-        const active = selected.includes(opt.code ?? opt.id);
-        const key = opt.code ?? opt.id;
-        return (
-          <button
-            key={key}
-            type="button"
-            disabled={disabled}
-            onClick={() => onToggle(key)}
-            className={`text-xs px-3 py-1.5 rounded-full border transition disabled:opacity-40 ${
-              active
-                ? 'bg-primary/20 border-primary/40 text-primary'
-                : 'bg-white/5 border-white/10 text-text-3 hover:border-white/20'
-            }`}
-          >
-            {opt.flag ? `${opt.flag} ` : ''}{opt.label}
-          </button>
-        );
-      })}
-    </div>
-  );
-}
 
 function CopyBox({ label, value, warning, copiedLabel }) {
   const [copied, setCopied] = useState(false);
@@ -84,7 +52,12 @@ function CopyBox({ label, value, warning, copiedLabel }) {
           onClick={() => { navigator.clipboard?.writeText(value); setCopied(true); setTimeout(() => setCopied(false), 2000); }}
           className="text-xs px-2.5 py-1.5 rounded bg-white/10 hover:bg-white/20 transition shrink-0"
         >
-          {copied ? `${copiedLabel} ✓` : copiedLabel}
+          {copied ? (
+            <span className="inline-flex items-center gap-1">
+              <span className="material-symbols-outlined !text-[14px] text-success" aria-hidden="true">check</span>
+              {copiedLabel}
+            </span>
+          ) : copiedLabel}
         </button>
       </div>
       {warning && <p className="text-xs text-amber-300/80 mt-2">{warning}</p>}
@@ -165,17 +138,9 @@ function InhouseProviderBody() {
   return (
     <>
       <p className="text-text-3 text-sm mb-4">{t('admin.moduleCards.inhouseDesc')}</p>
-      <div className="grid sm:grid-cols-2 gap-4">
-        <div>
-          <div className="text-[10px] uppercase tracking-wide text-text-3 mb-1.5">{t('admin.moduleCards.apiKeyId')}</div>
-          <code className="text-xs bg-black/30 px-2 py-1.5 rounded block text-text-1">{settings.apiKeyId}</code>
-        </div>
-        <div>
-          <div className="text-[10px] uppercase tracking-wide text-text-3 mb-1.5">{t('admin.moduleCards.allowedGames', { count: settings.allowedGameIds.length })}</div>
-          <div className="flex flex-wrap gap-1">
-            {settings.allowedGameIds.map(id => <Chip key={id}>{id}</Chip>)}
-          </div>
-        </div>
+      <div>
+        <div className="text-[10px] uppercase tracking-wide text-text-3 mb-1.5">{t('admin.moduleCards.apiKeyId')}</div>
+        <code className="text-xs bg-black/30 px-2 py-1.5 rounded block text-text-1">{settings.apiKeyId}</code>
       </div>
 
       <div className="mt-4">
@@ -197,7 +162,7 @@ function InhouseProviderBody() {
                     : 'bg-white/5 border-white/10 text-text-3 hover:border-white/20'
                 }`}
               >
-                {code === settings.defaultLanguage ? '✓ ' : ''}{t('admin.moduleCards.setDefault', { code })}
+                {code === settings.defaultLanguage ? <span className="material-symbols-outlined !text-[14px] align-middle text-success" aria-hidden="true">check</span> : ''}{t('admin.moduleCards.setDefault', { code })}
               </button>
             ))}
           </div>
@@ -208,7 +173,7 @@ function InhouseProviderBody() {
         <div className="text-[10px] uppercase tracking-wide text-text-3 mb-1.5">
           {t('admin.moduleCards.supportedCurrenciesDefault')} <span className="text-primary">{settings.defaultCurrency}</span>
         </div>
-        <MultiCheck options={CURRENCY_OPTIONS} selected={settings.supportedCurrencies} onToggle={toggleCurrency} disabled={saving} />
+        <MultiCheck options={CURRENCY_OPTIONS.map(o => ({ ...o, label: t(o.labelKey) }))} selected={settings.supportedCurrencies} onToggle={toggleCurrency} disabled={saving} />
         {settings.supportedCurrencies.length > 1 && (
           <div className="flex flex-wrap gap-1.5 mt-2">
             {settings.supportedCurrencies.map(code => (
@@ -223,7 +188,7 @@ function InhouseProviderBody() {
                     : 'bg-white/5 border-white/10 text-text-3 hover:border-white/20'
                 }`}
               >
-                {code === settings.defaultCurrency ? '✓ ' : ''}{t('admin.moduleCards.setDefault', { code })}
+                {code === settings.defaultCurrency ? <span className="material-symbols-outlined !text-[14px] align-middle text-success" aria-hidden="true">check</span> : ''}{t('admin.moduleCards.setDefault', { code })}
               </button>
             ))}
           </div>
@@ -235,15 +200,15 @@ function InhouseProviderBody() {
           <button
             type="button"
             onClick={() => setConfirmRotate(true)}
-            className="text-xs px-3 py-2 rounded-lg bg-red-500/10 border border-red-500/30 text-red-300 hover:bg-red-500/20 transition"
+            className="text-xs px-3 py-2 rounded-lg bg-danger/15 border border-danger/30 text-danger hover:bg-danger/20 transition"
           >
             {t('admin.moduleCards.generateNewKey')}
           </button>
         ) : (
-          <div className="p-3 rounded-lg bg-red-500/10 border border-red-500/30">
-            <p className="text-sm text-red-300 mb-2">{t('admin.moduleCards.rotateConfirm')}</p>
+          <div className="p-3 rounded-lg bg-danger/15 border border-danger/30">
+            <p className="text-sm text-danger mb-2">{t('admin.moduleCards.rotateConfirm')}</p>
             <div className="flex gap-2">
-              <button onClick={doRotate} disabled={rotating} className="text-xs px-3 py-1.5 rounded bg-red-500/80 hover:bg-red-500 text-white transition disabled:opacity-50">
+              <button onClick={doRotate} disabled={rotating} className="text-xs px-3 py-1.5 rounded bg-danger/80 hover:bg-danger text-white transition disabled:opacity-50">
                 {rotating ? t('admin.moduleCards.generating') : t('admin.moduleCards.confirmGenerate')}
               </button>
               <button onClick={() => setConfirmRotate(false)} className="text-xs px-3 py-1.5 rounded bg-white/10 hover:bg-white/20 transition">{t('admin.moduleCards.giveUp')}</button>
@@ -265,14 +230,12 @@ function InhouseProviderBody() {
 
 // ─── Bahis Verisi (Odds Provider) ──────────────────────────────────────────
 function OddsProviderBody() {
-  const { t, locale } = useTranslation();
+  const { t } = useTranslation();
   const addToast = useToastStore(s => s.add);
   const [settings, setSettings] = useState(null);
-  const [saving, setSaving] = useState(false);
   const [tokenInput, setTokenInput] = useState('');
   const [applying, setApplying] = useState(false);
   const [lastPush, setLastPush] = useState(null);
-  const [countryOptions, setCountryOptions] = useState([]);
 
   const load = useCallback(async () => {
     try {
@@ -284,38 +247,6 @@ function OddsProviderBody() {
   }, [addToast, t]);
 
   useEffect(() => { load(); }, [load]);
-
-  // Öncelikli ülke dropdown'ı seçilen spora göre — Event.country serbest metin
-  // olduğundan (ISO kodu değil) yazım hatasına açık bir text input yerine
-  // kaynakta GERÇEKTEN var olan değerleri gösteriyoruz.
-  useEffect(() => {
-    if (!settings?.prioritySport) return;
-    api.get('/events/countries', { params: { sport: settings.prioritySport } })
-      .then(({ data }) => setCountryOptions(data.countries || []))
-      .catch(() => setCountryOptions([]));
-  }, [settings?.prioritySport]);
-
-  async function save(patch) {
-    setSaving(true);
-    try {
-      const { data } = await api.patch('/admin/odds-provider/settings', patch);
-      setSettings(data);
-      addToast(t('admin.moduleCards.oddsUpdated'), 'success');
-    } catch (e) {
-      addToast(e.response?.data?.error || t('admin.moduleCards.updateFailed'), 'error');
-    } finally {
-      setSaving(false);
-    }
-  }
-
-  function toggleCategory(id) {
-    if (!settings) return;
-    const has = settings.enabledCategories.includes(id);
-    const next = has
-      ? settings.enabledCategories.filter(c => c !== id)
-      : [...settings.enabledCategories, id];
-    save({ enabledCategories: next });
-  }
 
   function fillRandomToken() {
     setTokenInput(Array.from(crypto.getRandomValues(new Uint8Array(32))).map(b => b.toString(16).padStart(2, '0')).join(''));
@@ -359,70 +290,24 @@ function OddsProviderBody() {
     <>
       <p className="text-text-3 text-sm mb-4">{t('admin.moduleCards.oddsDesc')}</p>
 
-      <div className="mt-4">
-        <div className="text-[10px] uppercase tracking-wide text-text-3 mb-1.5">
-          {t('admin.moduleCards.activeCategories', { count: settings.enabledCategories.length, total: settings.availableCategories.length })}
-        </div>
-        <MultiCheck
-          options={settings.availableCategories.map(c => ({ ...c, label: sportLabel(c.id, locale) }))}
-          selected={settings.enabledCategories}
-          onToggle={toggleCategory}
-          disabled={saving}
-        />
-      </div>
-
-      <div className="mt-5 pt-4 border-t border-white/8">
-        <div className="text-[10px] uppercase tracking-wide text-text-3 mb-2">
-          {t('admin.moduleCards.priorityDisplay')}
-        </div>
-        <div className="grid sm:grid-cols-2 gap-4">
-          <div>
-            <label className="text-[10px] uppercase tracking-wide text-text-3 mb-1 block">{t('admin.moduleCards.prioritySport')}</label>
-            <select
-              value={settings.prioritySport || 'football'}
-              disabled={saving}
-              onChange={e => save({ prioritySport: e.target.value })}
-              className="w-full bg-black/30 border border-white/10 rounded-lg px-3 py-2 text-sm text-text-1 disabled:opacity-50"
-            >
-              {settings.availableCategories.map(c => <option key={c.id} value={c.id}>{c.flag} {sportLabel(c.id, locale)}</option>)}
-            </select>
-          </div>
-          <div>
-            <label className="text-[10px] uppercase tracking-wide text-text-3 mb-1 block">{t('admin.moduleCards.priorityCountry')}</label>
-            <select
-              value={settings.priorityCountry || 'Turkey'}
-              disabled={saving}
-              onChange={e => save({ priorityCountry: e.target.value })}
-              className="w-full bg-black/30 border border-white/10 rounded-lg px-3 py-2 text-sm text-text-1 disabled:opacity-50"
-            >
-              {!countryOptions.includes(settings.priorityCountry) && settings.priorityCountry && (
-                <option value={settings.priorityCountry}>{settings.priorityCountry}</option>
-              )}
-              {countryOptions.map(c => <option key={c} value={c}>{c}</option>)}
-            </select>
-          </div>
-        </div>
-        <p className="text-xs text-text-3 mt-1">{t('admin.moduleCards.priorityHelp')}</p>
-      </div>
-
       <div className="mt-5 pt-4 border-t border-white/8">
         <div className="flex items-center gap-2 mb-3">
           <span className="text-[10px] uppercase tracking-wide text-text-3">{t('admin.moduleCards.tokenStatus')}</span>
           {settings.tokenConfigured ? (
             <Chip>{t('admin.moduleCards.configuredOnServer')}</Chip>
           ) : (
-            <span className="text-xs px-2 py-0.5 rounded-full border bg-red-500/20 text-red-300 border-red-500/30">{t('admin.moduleCards.notConfigured')}</span>
+            <span className="text-xs px-2 py-0.5 rounded-full border bg-danger/20 text-danger border-danger/30">{t('admin.moduleCards.notConfigured')}</span>
           )}
         </div>
 
         {lastPush && !lastPush.pushed && (
-          <div className="p-3 rounded-lg bg-red-500/10 border border-red-500/30 mb-3">
-            <p className="text-xs text-red-300 mb-2">{lastPush.message || t('admin.moduleCards.unreachableGeneric')}</p>
+          <div className="p-3 rounded-lg bg-danger/15 border border-danger/30 mb-3">
+            <p className="text-xs text-danger mb-2">{lastPush.message || t('admin.moduleCards.unreachableGeneric')}</p>
             <button
               type="button"
               onClick={retryPush}
               disabled={applying}
-              className="text-xs px-3 py-1.5 rounded bg-red-500/20 border border-red-500/30 text-red-300 hover:bg-red-500/30 transition disabled:opacity-50"
+              className="text-xs px-3 py-1.5 rounded bg-danger/20 border border-danger/30 text-danger hover:bg-danger/20 transition disabled:opacity-50"
             >
               {applying ? t('admin.moduleCards.retrying') : t('admin.moduleCards.retryPush')}
             </button>
@@ -459,14 +344,11 @@ function OddsProviderBody() {
   );
 }
 
-// ─── Palace Casino ──────────────────────────────────────────────────────────
-function PalaceModuleBody() {
+// ─── Igames Casino ──────────────────────────────────────────────────────────
+function IgamesModuleBody() {
   const { t } = useTranslation();
   const addToast = useToastStore(s => s.add);
   const [language, setLanguage] = useState('tr');
-  const [selectedCodes, setSelectedCodes] = useState([]);
-  const [catalog, setCatalog] = useState([]);
-  const [search, setSearch] = useState('');
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [credStatus, setCredStatus] = useState(null);
@@ -475,11 +357,11 @@ function PalaceModuleBody() {
 
   const loadCredStatus = useCallback(async () => {
     try {
-      const { data } = await api.get('/admin/palace/credentials');
+      const { data } = await api.get('/admin/igames/credentials');
       setCredStatus(data);
       setCredForm(f => ({ ...f, apiBase: f.apiBase || data.apiBase || '' }));
     } catch {
-      addToast(t('admin.moduleCards.palaceCredLoadFailed'), 'error');
+      addToast(t('admin.moduleCards.igamesCredLoadFailed'), 'error');
     }
   }, [addToast, t]);
 
@@ -493,10 +375,10 @@ function PalaceModuleBody() {
     if (!Object.keys(patch).length) return;
     setSavingCreds(true);
     try {
-      const { data } = await api.patch('/admin/palace/credentials', patch);
+      const { data } = await api.patch('/admin/igames/credentials', patch);
       setCredStatus(data);
       setCredForm({ apiToken: '', apiBase: data.apiBase || '', callbackToken: '' });
-      addToast(t('admin.moduleCards.palaceCredUpdated'), 'success');
+      addToast(t('admin.moduleCards.igamesCredUpdated'), 'success');
     } catch (e) {
       addToast(e.response?.data?.error || t('admin.moduleCards.updateFailed'), 'error');
     } finally {
@@ -507,15 +389,10 @@ function PalaceModuleBody() {
   useEffect(() => {
     (async () => {
       try {
-        const [settingsRes, catalogRes] = await Promise.all([
-          api.get('/admin/palace/module-settings'),
-          api.post('/palace/game/all', { lang: 'tr' }).catch(() => ({ data: { data: [] } })),
-        ]);
+        const settingsRes = await api.get('/admin/igames/module-settings');
         setLanguage(settingsRes.data.language || 'tr');
-        setSelectedCodes(settingsRes.data.popularGameCodes || []);
-        setCatalog(catalogRes.data?.data || []);
       } catch {
-        addToast(t('admin.moduleCards.palaceLoadFailed'), 'error');
+        addToast(t('admin.moduleCards.igamesLoadFailed'), 'error');
       } finally {
         setLoading(false);
       }
@@ -526,53 +403,20 @@ function PalaceModuleBody() {
     setLanguage(lang);
     setSaving(true);
     try {
-      await api.patch('/admin/palace/module-settings', { language: lang });
-      addToast(t('admin.moduleCards.palaceLangUpdated'), 'success');
+      await api.patch('/admin/igames/module-settings', { language: lang });
+      addToast(t('admin.moduleCards.igamesLangUpdated'), 'success');
     } catch (e) {
       addToast(e.response?.data?.error || t('admin.moduleCards.updateFailed'), 'error');
     } finally {
       setSaving(false);
     }
   }
-
-  function toggleGame(code) {
-    setSelectedCodes(prev => prev.includes(code) ? prev.filter(c => c !== code) : [...prev, code]);
-  }
-
-  function moveGame(code, dir) {
-    setSelectedCodes(prev => {
-      const idx = prev.indexOf(code);
-      const next = [...prev];
-      const swapWith = idx + dir;
-      if (swapWith < 0 || swapWith >= next.length) return prev;
-      [next[idx], next[swapWith]] = [next[swapWith], next[idx]];
-      return next;
-    });
-  }
-
-  async function savePopularGames() {
-    setSaving(true);
-    try {
-      await api.patch('/admin/palace/module-settings', { popularGameCodes: selectedCodes });
-      addToast(t('admin.moduleCards.popularGamesUpdated'), 'success');
-    } catch (e) {
-      addToast(e.response?.data?.error || t('admin.moduleCards.updateFailed'), 'error');
-    } finally {
-      setSaving(false);
-    }
-  }
-
-  const filteredCatalog = catalog.filter(g =>
-    !search || g.game_name?.toLowerCase().includes(search.toLowerCase()) || g.game_code?.includes(search)
-  ).slice(0, 60);
-
-  const byCode = new Map(catalog.map(g => [g.game_code, g]));
 
   if (loading) return <div className="text-text-3 text-sm">{t('common.loading')}</div>;
 
   return (
     <>
-      <p className="text-text-3 text-sm mb-4">{t('admin.moduleCards.palaceDesc')}</p>
+      <p className="text-text-3 text-sm mb-4">{t('admin.moduleCards.igamesDesc')}</p>
 
       <div>
         <div className="text-[10px] uppercase tracking-wide text-text-3 mb-1.5">{t('admin.moduleCards.defaultLangOverride')}</div>
@@ -591,10 +435,10 @@ function PalaceModuleBody() {
         {credStatus && (
           <div className="flex flex-wrap gap-2 mb-3">
             {credStatus.apiTokenConfigured ? <Chip>{t('admin.moduleCards.apiTokenConfigured')}</Chip> : (
-              <span className="text-xs px-2 py-0.5 rounded-full border bg-red-500/20 text-red-300 border-red-500/30">{t('admin.moduleCards.apiTokenNotConfigured')}</span>
+              <span className="text-xs px-2 py-0.5 rounded-full border bg-danger/20 text-danger border-danger/30">{t('admin.moduleCards.apiTokenNotConfigured')}</span>
             )}
             {credStatus.callbackTokenConfigured ? <Chip>{t('admin.moduleCards.callbackTokenConfigured')}</Chip> : (
-              <span className="text-xs px-2 py-0.5 rounded-full border bg-red-500/20 text-red-300 border-red-500/30">{t('admin.moduleCards.callbackTokenNotConfigured')}</span>
+              <span className="text-xs px-2 py-0.5 rounded-full border bg-danger/20 text-danger border-danger/30">{t('admin.moduleCards.callbackTokenNotConfigured')}</span>
             )}
           </div>
         )}
@@ -641,56 +485,6 @@ function PalaceModuleBody() {
         <p className="text-xs text-text-3 mt-1">{t('admin.moduleCards.emptyFieldHelp')}</p>
       </div>
 
-      <div className="mt-5 pt-4 border-t border-white/8">
-        <div className="flex items-center justify-between mb-2">
-          <div className="text-[10px] uppercase tracking-wide text-text-3">
-            {t('admin.moduleCards.popularGames', { count: selectedCodes.length })}
-          </div>
-          <button
-            onClick={savePopularGames}
-            disabled={saving}
-            className="text-xs px-3 py-1.5 rounded-lg bg-primary/20 border border-primary/40 text-primary hover:bg-primary/30 transition disabled:opacity-50"
-          >
-            {saving ? t('admin.moduleCards.saving') : t('admin.moduleCards.saveList')}
-          </button>
-        </div>
-
-        {selectedCodes.length > 0 && (
-          <div className="mb-3 space-y-1">
-            {selectedCodes.map((code, i) => (
-              <div key={code} className="flex items-center gap-2 text-xs bg-white/5 border border-white/10 rounded-lg px-2.5 py-1.5">
-                <span className="text-text-3 w-5">{i + 1}.</span>
-                <span className="flex-1 truncate text-text-1">{byCode.get(code)?.game_name || code}</span>
-                <button onClick={() => moveGame(code, -1)} disabled={i === 0} className="text-text-3 hover:text-text-1 disabled:opacity-20 px-1">↑</button>
-                <button onClick={() => moveGame(code, 1)} disabled={i === selectedCodes.length - 1} className="text-text-3 hover:text-text-1 disabled:opacity-20 px-1">↓</button>
-                <button onClick={() => toggleGame(code)} className="text-red-300 hover:text-red-200 px-1">✕</button>
-              </div>
-            ))}
-          </div>
-        )}
-
-        <input
-          type="text"
-          placeholder={t('admin.moduleCards.searchGame')}
-          value={search}
-          onChange={e => setSearch(e.target.value)}
-          className="w-full bg-black/30 border border-white/10 rounded-lg px-3 py-2 text-sm text-text-1 mb-2"
-        />
-        <div className="max-h-64 overflow-y-auto space-y-1 border border-white/8 rounded-lg p-2">
-          {filteredCatalog.length === 0 && <div className="text-text-3 text-xs p-2">{t('admin.moduleCards.noResults')}</div>}
-          {filteredCatalog.map(g => (
-            <label key={g.game_code} className="flex items-center gap-2 text-xs px-2 py-1.5 rounded hover:bg-white/5 cursor-pointer">
-              <input
-                type="checkbox"
-                checked={selectedCodes.includes(g.game_code)}
-                onChange={() => toggleGame(g.game_code)}
-                className="accent-primary"
-              />
-              <span className="text-text-1">{g.game_name || g.game_code}</span>
-            </label>
-          ))}
-        </div>
-      </div>
     </>
   );
 }
@@ -772,7 +566,7 @@ function KycSettingsBody() {
           onClick={() => saveSetting('KYC_ENABLED', kycEnabled ? 'false' : 'true')}
           role="switch"
           aria-checked={kycEnabled}
-          className={`relative w-12 h-6 rounded-full transition shrink-0 ${kycEnabled ? 'bg-green-500/80' : 'bg-white/10'}`}
+          className={`relative w-12 h-6 rounded-full transition shrink-0 ${kycEnabled ? 'bg-success/80' : 'bg-white/10'}`}
         >
           <span className={`absolute top-0.5 left-0.5 w-5 h-5 rounded-full bg-white transition-transform ${kycEnabled ? 'translate-x-6' : ''}`} />
         </button>
@@ -806,8 +600,8 @@ function KycSettingsBody() {
             ].map(({ key, label, placeholder, secret = true }) => {
               const current = byKey[key] || {};
               const source = current.source || 'unset';
-              const badgeCls = source === 'db' ? 'bg-green-500/20 text-green-300 border-green-500/30'
-                : source === 'env' ? 'bg-blue-500/20 text-blue-300 border-blue-500/30'
+              const badgeCls = source === 'db' ? 'bg-success/15 text-success border-success/30'
+                : source === 'env' ? 'bg-info/15 text-info border-info/30'
                 : 'bg-white/5 text-text-3 border-white/10';
               const badgeLabel = source === 'db' ? t('admin.moduleCards.sourcePanel') : source === 'env' ? t('admin.moduleCards.sourceEnv') : t('admin.moduleCards.sourceUnset');
               return (
@@ -843,28 +637,28 @@ function KycSettingsBody() {
 function CryptoPaymentBody() {
   const addToast = useToastStore(s => s.add);
   const { t } = useTranslation();
+  const currencyCode = getActiveCurrency().code;
   const [settings, setSettings] = useState(null);
   const [saving, setSaving] = useState(false);
-  const [pendingDeposits, setPendingDeposits] = useState([]);
-  const [pendingWithdrawals, setPendingWithdrawals] = useState([]);
   const [hotWallet, setHotWallet] = useState(null);
+  const [walletNotConfigured, setWalletNotConfigured] = useState(false);
 
   const load = useCallback(async () => {
     try {
-      const [settingsRes, depositsRes, withdrawalsRes, hotWalletRes] = await Promise.all([
+      const [settingsRes, hotWalletRes] = await Promise.all([
         api.get('/crypto/settings'),
-        api.get('/admin/crypto/pending-deposits').catch(() => ({ data: [] })),
-        api.get('/admin/crypto/pending-withdrawals').catch(() => ({ data: [] })),
-        api.get('/crypto/hot-wallet-balance').catch(() => ({ data: null })),
+        api.get('/crypto/hot-wallet-balance').catch(e => ({
+          data: null,
+          notConfigured: e.response?.data?.error?.code === 'CRYPTO_WALLET_NOT_CONFIGURED',
+        })),
       ]);
       setSettings(settingsRes.data);
-      setPendingDeposits(depositsRes.data);
-      setPendingWithdrawals(withdrawalsRes.data);
       setHotWallet(hotWalletRes.data);
+      setWalletNotConfigured(Boolean(hotWalletRes.notConfigured));
     } catch {
-      addToast('Crypto ayarları alınamadı.', 'error');
+      addToast(t('admin.modules.cryptoSettingsLoadError'), 'error');
     }
-  }, [addToast]);
+  }, [addToast, t]);
 
   useEffect(() => { load(); }, [load]);
 
@@ -873,61 +667,9 @@ function CryptoPaymentBody() {
     try {
       await api.put('/admin/crypto/settings', patch);
       setSettings(prev => ({ ...prev, ...patch }));
-      addToast('Crypto ayarları güncellendi.', 'success');
+      addToast(t('admin.modules.cryptoSettingsSaved'), 'success');
     } catch (e) {
-      addToast(e.response?.data?.error || 'Güncelleme başarısız.', 'error');
-    } finally {
-      setSaving(false);
-    }
-  }
-
-  async function approveDeposit(depositId) {
-    setSaving(true);
-    try {
-      await api.post(`/admin/crypto/deposits/${depositId}/approve`);
-      addToast('Yatırma onaylandı.', 'success');
-      load();
-    } catch (e) {
-      addToast(e.response?.data?.error || 'Onay başarısız.', 'error');
-    } finally {
-      setSaving(false);
-    }
-  }
-
-  async function rejectDeposit(depositId) {
-    setSaving(true);
-    try {
-      await api.post(`/admin/crypto/deposits/${depositId}/reject`);
-      addToast('Yatırma reddedildi.', 'success');
-      load();
-    } catch (e) {
-      addToast(e.response?.data?.error || 'Red başarısız.', 'error');
-    } finally {
-      setSaving(false);
-    }
-  }
-
-  async function approveWithdrawal(withdrawalId) {
-    setSaving(true);
-    try {
-      await api.post(`/admin/crypto/withdrawals/${withdrawalId}/approve`);
-      addToast('Çekim onaylandı — hot wallet\'tan transfer başlatıldı.', 'success');
-      load();
-    } catch (e) {
-      addToast(e.response?.data?.error || 'Onay başarısız.', 'error');
-    } finally {
-      setSaving(false);
-    }
-  }
-
-  async function rejectWithdrawal(withdrawalId) {
-    setSaving(true);
-    try {
-      await api.post(`/admin/crypto/withdrawals/${withdrawalId}/reject`);
-      addToast('Çekim reddedildi — bakiye iade edildi.', 'success');
-      load();
-    } catch (e) {
-      addToast(e.response?.data?.error || 'Red başarısız.', 'error');
+      addToast(e.response?.data?.error || t('admin.modules.settingsUpdateFailed'), 'error');
     } finally {
       setSaving(false);
     }
@@ -939,22 +681,32 @@ function CryptoPaymentBody() {
     <>
       <p className="text-text-3 text-sm mb-4">{t('admin.cryptoPayment.description')}</p>
 
+      {walletNotConfigured && (
+        <div className="mb-4 p-3 rounded-lg bg-warning/15 border border-warning/30 text-xs text-warning flex items-start gap-2">
+          <span className="material-symbols-outlined !text-[16px]" aria-hidden="true">warning</span>
+          <span>{t('admin.cryptoPayment.walletNotConfigured')}</span>
+        </div>
+      )}
+
       {hotWallet && (
-        <div className="mb-4 p-3 rounded-lg bg-green-500/10 border border-green-500/30">
+        <div className="mb-4 p-3 rounded-lg bg-success/15 border border-success/30">
           <div className="flex items-center gap-2 mb-1">
-            <div className="text-xs font-semibold text-green-300">{t('admin.cryptoPayment.hotWalletBalance')}</div>
+            <div className="text-xs font-semibold text-success">{t('admin.cryptoPayment.hotWalletBalance')}</div>
             <span className={`text-[10px] px-1.5 py-0.5 rounded-full font-bold ${
-              settings.network === 'mainnet' ? 'bg-red-500/20 text-red-300' :
-              settings.network === 'nile' ? 'bg-blue-500/20 text-blue-300' :
-              'bg-yellow-500/20 text-yellow-300'
+              settings.network === 'mainnet' ? 'bg-danger/20 text-danger' :
+              settings.network === 'nile' ? 'bg-info/15 text-info' :
+              'bg-warning/15 text-warning'
             }`}>
               {settings.network === 'mainnet' ? t('admin.cryptoPayment.networkMainnet') :
                settings.network === 'nile' ? t('admin.cryptoPayment.networkNile') :
                t('admin.cryptoPayment.networkShasta')}
             </span>
           </div>
-          <div className="text-lg font-bold text-green-200">{hotWallet.usdt?.toFixed(2) || 0} USDT</div>
-          <div className="text-xs text-green-300/80 mt-1">{t('admin.cryptoPayment.address')} {hotWallet.address}</div>
+          <div className="text-lg font-bold text-success">{hotWallet.usdt?.toFixed(2) || 0} USDT</div>
+          <div className="text-xs text-success/80 mt-1">{t('admin.cryptoPayment.address')} {hotWallet.address}</div>
+          {hotWallet.activated === false && (
+            <div className="text-xs text-warning mt-1.5">{t('admin.cryptoPayment.walletNotActivated')}</div>
+          )}
         </div>
       )}
 
@@ -971,10 +723,10 @@ function CryptoPaymentBody() {
             <option value="shasta">{t('admin.cryptoPayment.networkShastaOption')}</option>
             <option value="nile">{t('admin.cryptoPayment.networkNileOption')}</option>
           </select>
-          <div className="text-xs text-yellow-300/80 mt-1">{t('admin.cryptoPayment.networkWarning')}</div>
+          <div className="text-xs text-warning/80 mt-1">{t('admin.cryptoPayment.networkWarning')}</div>
         </div>
         <div>
-          <div className="text-[10px] uppercase tracking-wide text-text-3 mb-1.5">{t('admin.cryptoPayment.rateLabel')}</div>
+          <div className="text-[10px] uppercase tracking-wide text-text-3 mb-1.5">{t('admin.cryptoPayment.rateLabel', { currency: currencyCode })}</div>
           <div className="flex items-center gap-2">
             <input
               type="number"
@@ -985,9 +737,9 @@ function CryptoPaymentBody() {
               disabled={saving}
               className="flex-1 bg-black/30 border border-white/10 rounded-lg px-3 py-2 text-sm text-text-1 disabled:opacity-50"
             />
-            <span className="text-xs text-text-3 whitespace-nowrap">{t('admin.cryptoPayment.rateUnit')}</span>
+            <span className="text-xs text-text-3 whitespace-nowrap">{t('admin.cryptoPayment.rateUnit', { currency: currencyCode })}</span>
           </div>
-          <div className="text-xs text-text-3 mt-1">{t('admin.cryptoPayment.rateHelp', { rate: settings.usdtTryRate || 1 })}</div>
+          <div className="text-xs text-text-3 mt-1">{t('admin.cryptoPayment.rateHelp', { rate: settings.usdtTryRate || 1, currency: currencyCode })}</div>
         </div>
       </div>
 
@@ -1015,77 +767,115 @@ function CryptoPaymentBody() {
           <div className="text-xs text-text-3 mt-1">{t('admin.cryptoPayment.autoWithdrawHelp')}</div>
         </div>
       </div>
+    </>
+  );
+}
 
-      {pendingDeposits.length > 0 && (
-        <div className="mt-4 pt-4 border-t border-white/8">
-          <div className="text-xs font-semibold text-text-2 mb-2">{t('admin.crypto.deposit')} ({pendingDeposits.length})</div>
-          <div className="space-y-2">
-            {pendingDeposits.map(d => (
-              <div key={d._id} className="flex items-center gap-3 p-2 rounded-lg bg-white/5 border border-white/10">
-                <div className="flex-1 min-w-0">
-                  <div className="text-xs text-text-1">{d.usdtAmount} USDT → {d.creditedTRY} TRY</div>
-                  <div className="text-[10px] text-text-3 truncate">tx: {d.txHash?.slice(0, 16)}…</div>
-                </div>
-                <button
-                  onClick={() => approveDeposit(d._id)}
-                  disabled={saving}
-                  className="text-xs px-2.5 py-1 rounded bg-green-500/20 border border-green-500/30 text-green-300 hover:bg-green-500/30 transition disabled:opacity-50"
-                >
-                  {t('admin.crypto.approve')}
-                </button>
-                <button
-                  onClick={() => rejectDeposit(d._id)}
-                  disabled={saving}
-                  className="text-xs px-2.5 py-1 rounded bg-red-500/20 border border-red-500/30 text-red-300 hover:bg-red-500/30 transition disabled:opacity-50"
-                >
-                  {t('admin.crypto.reject')}
-                </button>
-              </div>
-            ))}
-          </div>
-        </div>
-      )}
+// ─── Slikair Ödeme Ağ Geçidi ───────────────────────────────────────────────
+const SLIKAIR_FIELDS = [
+  { key: 'merchantId', labelKey: 'admin.slikairSettings.merchantId' },
+  { key: 'merchantToken', labelKey: 'admin.slikairSettings.merchantToken', secret: true },
+  { key: 'siteId', labelKey: 'admin.slikairSettings.siteId' },
+  { key: 'baseUrl', labelKey: 'admin.slikairSettings.baseUrl', placeholder: 'https://' },
+  { key: 'webhookSecret', labelKey: 'admin.slikairSettings.webhookSecret', secret: true },
+];
 
-      {pendingWithdrawals.length > 0 && (
-        <div className="mt-4 pt-4 border-t border-white/8">
-          <div className="text-xs font-semibold text-text-2 mb-2">{t('admin.crypto.withdraw')} ({pendingWithdrawals.length})</div>
-          <div className="space-y-2">
-            {pendingWithdrawals.map(w => (
-              <div key={w._id} className="flex items-center gap-3 p-2 rounded-lg bg-white/5 border border-white/10">
-                <div className="flex-1 min-w-0">
-                  <div className="text-xs text-text-1">{w.usdtAmount} USDT → {w.toAddress?.slice(0, 16)}…</div>
-                  <div className="text-[10px] text-text-3">{w.userId?.username || w.userId}</div>
-                </div>
-                <button
-                  onClick={() => approveWithdrawal(w._id)}
-                  disabled={saving}
-                  className="text-xs px-2.5 py-1 rounded bg-green-500/20 border border-green-500/30 text-green-300 hover:bg-green-500/30 transition disabled:opacity-50"
-                >
-                  {t('admin.crypto.approve')}
-                </button>
-                <button
-                  onClick={() => rejectWithdrawal(w._id)}
-                  disabled={saving}
-                  className="text-xs px-2.5 py-1 rounded bg-red-500/20 border border-red-500/30 text-red-300 hover:bg-red-500/30 transition disabled:opacity-50"
-                >
-                  {t('admin.crypto.reject')}
-                </button>
+function SlikairModuleBody() {
+  const { t } = useTranslation();
+  const addToast = useToastStore(s => s.add);
+  const [settings, setSettings] = useState(null);
+  const [form, setForm] = useState({});
+  const [saving, setSaving] = useState(false);
+
+  const load = useCallback(async () => {
+    try {
+      const { data } = await api.get('/admin/slikair/settings');
+      setSettings(data.settings);
+      setForm({});
+    } catch {
+      addToast(t('admin.slikairSettings.loadFailed'), 'error');
+    }
+  }, [addToast, t]);
+
+  useEffect(() => { load(); }, [load]);
+
+  async function save(extra = {}) {
+    setSaving(true);
+    try {
+      const { data } = await api.put('/admin/slikair/settings', { ...form, ...extra });
+      setSettings(data.settings);
+      setForm({});
+      addToast(t('admin.slikairSettings.saved'), 'success');
+    } catch (e) {
+      addToast(e.response?.data?.error?.message || t('admin.slikairSettings.saveFailed'), 'error');
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  if (!settings) return <div className="text-text-3 text-sm">{t('common.loading')}</div>;
+  const byKey = Object.fromEntries(settings.map(s => [s.key, s]));
+  const dirty = Object.keys(form).length > 0;
+
+  return (
+    <>
+      <p className="text-text-3 text-sm mb-4">{t('admin.slikairSettings.intro')}</p>
+      <div className="space-y-3">
+        {SLIKAIR_FIELDS.map(({ key, labelKey, secret, placeholder }) => {
+          const current = byKey[key] || {};
+          const source = current.source || 'unset';
+          const badgeCls = source === 'db' ? 'bg-success/15 text-success border-success/30'
+            : source === 'env' ? 'bg-info/15 text-info border-info/30'
+            : 'bg-white/5 text-text-3 border-white/10';
+          const badgeLabel = source === 'db' ? t('admin.moduleCards.sourcePanel') : source === 'env' ? t('admin.moduleCards.sourceEnv') : t('admin.moduleCards.sourceUnset');
+          return (
+            <div key={key}>
+              <div className="flex items-center gap-2 mb-1">
+                <label className="text-xs font-medium text-text-2" htmlFor={`slikair-${key}`}>{t(labelKey)}</label>
+                <span className={`px-1.5 py-0.5 rounded text-[10px] border ${badgeCls}`}>{badgeLabel}</span>
+                {secret && source === 'db' && (
+                  <button type="button" disabled={saving} onClick={() => save({ clear: [key] })}
+                    className="ml-auto text-[10px] text-text-3 hover:text-text-1 underline disabled:opacity-40">
+                    {t('admin.slikairSettings.revertEnv')}
+                  </button>
+                )}
               </div>
-            ))}
-          </div>
-        </div>
-      )}
+              <input
+                id={`slikair-${key}`}
+                type={secret ? 'password' : 'text'}
+                autoComplete="off"
+                value={form[key] ?? (secret ? '' : (current.value || ''))}
+                placeholder={secret ? (current.value || placeholder || '') : (placeholder || '')}
+                onChange={e => setForm(f => ({ ...f, [key]: e.target.value }))}
+                className="w-full bg-bg-deep border border-white/10 rounded-lg px-3 py-2 text-sm text-text-1 placeholder:text-text-3/60 focus:outline-none focus:border-white/25"
+              />
+              {secret && <div className="mt-1 text-[11px] text-text-3/70">{t('admin.slikairSettings.secretHint')}</div>}
+            </div>
+          );
+        })}
+      </div>
+      <div className="mt-3 flex items-center gap-3">
+        <button
+          onClick={() => save()}
+          disabled={saving || !dirty}
+          className="text-xs px-3 py-2 rounded-lg border border-white/10 text-text-2 hover:text-text-1 disabled:opacity-40 transition"
+        >
+          {saving ? t('admin.settings.savingEllipsis') : t('common.save')}
+        </button>
+        <span className="text-[11px] text-text-3/70">{t('admin.slikairSettings.envNote')}</span>
+      </div>
     </>
   );
 }
 
 // ─── Modül id → kart görünümü (ikon + accordion body + çevrilebilir başlık) ─
 const MODULE_VIEW = {
-  betting:           { icon: '📊', Body: OddsProviderBody, key: 'betting' },
-  'casino-content':  { icon: '🎰', Body: PalaceModuleBody, key: 'casinoContent' },
-  'inhouse-games':   { icon: '🎮', Body: InhouseProviderBody, key: 'inhouseGames' },
-  'crypto-payment':  { icon: '💰', Body: CryptoPaymentBody, key: 'cryptoPayment' },
-  'kyc-verification':{ icon: '🔐', Body: KycSettingsBody, key: 'kycVerification' },
+  betting:           { icon: 'sports', Body: OddsProviderBody, key: 'betting', manageTo: '/admin/events?tab=categories' },
+  'casino-content':  { icon: 'casino', Body: IgamesModuleBody, key: 'casinoContent', manageTo: '/admin/igames?tab=popular' },
+  'inhouse-games':   { icon: 'sports_esports', Body: InhouseProviderBody, key: 'inhouseGames', manageTo: '/admin/game-settings' },
+  'crypto-payment':  { icon: 'currency_bitcoin', Body: CryptoPaymentBody, key: 'cryptoPayment' },
+  'slikair-payment': { icon: 'account_balance', Body: SlikairModuleBody, key: 'slikairPayment' },
+  'kyc-verification':{ icon: 'verified_user', Body: KycSettingsBody, key: 'kycVerification' },
 };
 
 export default function AdminModules() {
@@ -1096,9 +886,9 @@ export default function AdminModules() {
   const [error, setError] = useState('');
 
   const LICENSE_BADGE = {
-    live:   { label: t('admin.modules.licenseLive'), cls: 'bg-green-500/20 text-green-300 border-green-500/30' },
-    cached: { label: t('admin.modules.licenseCached'), cls: 'bg-yellow-500/20 text-yellow-300 border-yellow-500/30' },
-    closed: { label: t('admin.modules.licenseClosed'), cls: 'bg-red-500/20 text-red-300 border-red-500/30' },
+    live:   { label: t('admin.modules.licenseLive'), cls: 'bg-success/15 text-success border-success/30' },
+    cached: { label: t('admin.modules.licenseCached'), cls: 'bg-warning/15 text-warning border-warning/30' },
+    closed: { label: t('admin.modules.licenseClosed'), cls: 'bg-danger/20 text-danger border-danger/30' },
   };
 
   const load = useCallback(async () => {
@@ -1141,9 +931,11 @@ export default function AdminModules() {
   }
 
   return (
-    <div className="p-6 max-w-4xl mx-auto">
-      <div className="flex items-center justify-between mb-6">
-        <h1 className="text-2xl font-bold">{t('admin.modules.title')}</h1>
+    <div>
+      <div className="flex items-center justify-between mb-4">
+        <p className="text-text-3 text-sm">
+          {t('admin.modules.hint')}
+        </p>
         <button
           onClick={refresh}
           disabled={busyId === 'refresh'}
@@ -1153,12 +945,8 @@ export default function AdminModules() {
         </button>
       </div>
 
-      <p className="text-text-3 text-sm mb-6">
-        {t('admin.modules.hint')}
-      </p>
-
       {error && (
-        <div className="mb-4 p-3 rounded-lg bg-red-500/10 border border-red-500/30 text-red-300 text-sm">
+        <div className="mb-4 p-3 rounded-lg bg-danger/15 border border-danger/30 text-danger text-sm">
           {error}
         </div>
       )}
@@ -1179,20 +967,21 @@ export default function AdminModules() {
             return (
               <ModuleCard
                 key={m.id}
-                icon={view?.icon ?? '🧩'}
+                icon={view?.icon ?? 'widgets'}
                 title={title}
                 description={description}
                 enabled={m.enabled}
                 onToggle={() => toggle(m)}
                 toggleBusy={busyId === m.id}
                 coreLabel={t('admin.moduleCards.coreBadge')}
+                manageTo={view?.manageTo}
                 badge={
                   <>
                     <span className={`text-xs px-2 py-0.5 rounded-full border ${badgeInfo.cls}`}>
                       {badgeInfo.label}
                     </span>
                     {m.enabled && !m.licensed && (
-                      <span className="text-xs px-2 py-0.5 rounded-full border bg-red-500/20 text-red-300 border-red-500/30">
+                      <span className="text-xs px-2 py-0.5 rounded-full border bg-danger/20 text-danger border-danger/30">
                         {t('admin.modules.unlicensed')}
                       </span>
                     )}

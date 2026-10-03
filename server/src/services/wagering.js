@@ -1,6 +1,8 @@
+import crypto from 'crypto';
 import BonusWagering from '../models/BonusWagering.js';
 import User from '../models/User.js';
 import Transaction from '../models/Transaction.js';
+import { createTransaction } from './ledger.js';
 
 const DEFAULT_WEIGHTS = {
   sports: 1.0,
@@ -181,18 +183,26 @@ export async function forfeitActiveWagerings(userId) {
   totalForfeitedAmount = parseFloat(totalForfeitedAmount.toFixed(2));
 
   if (totalForfeitedAmount > 0) {
-    const user = await User.findById(userId);
-    const balanceBefore = user.balance;
-    user.balance = Math.max(0, parseFloat((user.balance - totalForfeitedAmount).toFixed(2)));
-    await user.save();
+    // SECURITY FIX (C6): Use atomic $inc instead of read-modify-write
+    const balanceBefore = (await User.findById(userId)).balance;
+    const user = await User.findByIdAndUpdate(
+      userId,
+      { $inc: { balance: -totalForfeitedAmount } },
+      { new: true }
+    );
 
-    await Transaction.create({
+    // SECURITY FIX (C5): Use UUID instead of Date.now() for idempotency key
+    const idempotencyKey = `forfeit_${userId}_${crypto.randomUUID()}`;
+
+    await createTransaction({
       userId,
       type: 'bonus_forfeit',
       amount: -(balanceBefore - user.balance),
       balanceBefore,
       balanceAfter: user.balance,
-      note: 'Aktif bonus wagering çekim talebiyle feshedildi',
+      idempotencyKey,
+      source: 'system',
+      metadata: { forfeitedWagerings: forfeited.length, totalForfeitedAmount },
     });
   }
 

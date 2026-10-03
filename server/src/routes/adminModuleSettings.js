@@ -1,6 +1,6 @@
 /**
  * Modül Ayarları — admin panelinin yeni "in-house oyun provider'ı / odds-data
- * provider'ı / Palace" ayar yüzeyi. `admin.js`'e dokunmadan kendi router'ıyla
+ * provider'ı / Igames" ayar yüzeyi. `admin.js`'e dokunmadan kendi router'ıyla
  * mount edilir (bkz. controllers/modules.js'teki aynı desen — "Akış B'nin
  * alanıyla çakışmaz").
  */
@@ -11,24 +11,25 @@ import { validate } from '../middleware/validate.js';
 import {
   updateInhouseProviderSettingsSchema,
   updateOddsProviderSettingsSchema,
-  updatePalaceModuleSettingsSchema,
-  updatePalaceCredentialsSchema,
+  updateIgamesModuleSettingsSchema,
+  updateIgamesCredentialsSchema,
 } from '../validators/admin.js';
+import { oddsProviderTokenSchema } from '../validators/adminModuleSettings.js';
 import {
   getBettingDisplaySettings,
   updateBettingDisplaySettings,
 } from '../services/bettingDisplaySettings.js';
 import { randomBytes } from 'crypto';
 
-// Palace Casino ayrı (ücretli) bir pakettir — bu kurulumda hiç bulunmayabilir
+// Igames Casino ayrı (ücretli) bir pakettir — bu kurulumda hiç bulunmayabilir
 // (bkz. app.js'deki aynı opsiyonel yükleme deseni).
-let palaceModuleSettings = null;
-let palaceCredentials = null;
+let igamesModuleSettings = null;
+let igamesCredentials = null;
 try {
-  palaceModuleSettings = await import('../premium/palace/palaceModuleSettings.js');
-  palaceCredentials = await import('../premium/palace/palaceCredentials.js');
+  igamesModuleSettings = await import('../premium/igames/igamesModuleSettings.js');
+  igamesCredentials = await import('../premium/igames/igamesCredentials.js');
 } catch {
-  // Palace entegrasyonu bu kurulumda mevcut değil.
+  // Igames entegrasyonu bu kurulumda mevcut değil.
 }
 
 // In-house oyun provider'ı da ayrı (ücretli) bir pakettir — aynı desen.
@@ -144,12 +145,9 @@ r.post('/odds-provider/suggest-token', requireOddsProvider, (req, res) => {
  * olur ama kayıt kalır — `pushed:false` + `message` ile admin'e bildirilir,
  * "Yeniden Gönder" (retry-push) ile tekrar denenebilir.
  */
-r.post('/odds-provider/token', requireOddsProvider, async (req, res, next) => {
+r.post('/odds-provider/token', requireOddsProvider, validate(oddsProviderTokenSchema), async (req, res, next) => {
   try {
-    const { token } = req.body || {};
-    if (!token || typeof token !== 'string' || token.length < 16) {
-      return res.status(400).json({ error: 'token en az 16 karakter olmalı' });
-    }
+    const { token } = req.validated;
     await oddsProviderToken.saveOddsProviderToken(token, req.user?.id);
     const pushResult = await oddsProviderToken.pushTokenToOddsProvider(token);
     res.json({ saved: true, ...pushResult });
@@ -165,34 +163,34 @@ r.post('/odds-provider/token/retry-push', requireOddsProvider, async (req, res, 
   } catch (e) { next(e); }
 });
 
-// ─── Palace Casino modül ayarları ──────────────────────────────────────────
-// Palace paketi mevcut değilse (bkz. yukarıdaki opsiyonel import) her uç
+// ─── Igames Casino modül ayarları ──────────────────────────────────────────
+// Igames paketi mevcut değilse (bkz. yukarıdaki opsiyonel import) her uç
 // tutarlı bir 503 döner — admin panel "modül kurulu değil" olarak gösterebilir.
-function requirePalace(req, res, next) {
-  if (!palaceModuleSettings || !palaceCredentials) {
-    return res.status(503).json({ error: 'MODULE_NOT_INSTALLED', message: 'Palace Casino entegrasyonu bu kurulumda mevcut değil.' });
+function requireIgames(req, res, next) {
+  if (!igamesModuleSettings || !igamesCredentials) {
+    return res.status(503).json({ error: 'MODULE_NOT_INSTALLED', message: 'Igames Casino entegrasyonu bu kurulumda mevcut değil.' });
   }
   next();
 }
 
-r.get('/palace/module-settings', requirePalace, async (req, res, next) => {
+r.get('/igames/module-settings', requireIgames, async (req, res, next) => {
   try {
     const [language, popularGameCodes] = await Promise.all([
-      palaceModuleSettings.getPalaceDefaultLanguage(),
-      palaceModuleSettings.getPopularGameCodes(),
+      igamesModuleSettings.getIgamesDefaultLanguage(),
+      igamesModuleSettings.getPopularGameCodes(),
     ]);
     res.json({ language, popularGameCodes });
   } catch (e) { next(e); }
 });
 
-r.patch('/palace/module-settings', requirePalace, validate(updatePalaceModuleSettingsSchema), async (req, res, next) => {
+r.patch('/igames/module-settings', requireIgames, validate(updateIgamesModuleSettingsSchema), async (req, res, next) => {
   try {
     const { language, popularGameCodes } = req.body;
-    if (language !== undefined) await palaceModuleSettings.setPalaceDefaultLanguage(language, req.user?.id);
-    if (popularGameCodes !== undefined) await palaceModuleSettings.setPopularGameCodes(popularGameCodes, req.user?.id);
+    if (language !== undefined) await igamesModuleSettings.setIgamesDefaultLanguage(language, req.user?.id);
+    if (popularGameCodes !== undefined) await igamesModuleSettings.setPopularGameCodes(popularGameCodes, req.user?.id);
     res.json({
-      language: language !== undefined ? language : await palaceModuleSettings.getPalaceDefaultLanguage(),
-      popularGameCodes: popularGameCodes !== undefined ? popularGameCodes : await palaceModuleSettings.getPopularGameCodes(),
+      language: language !== undefined ? language : await igamesModuleSettings.getIgamesDefaultLanguage(),
+      popularGameCodes: popularGameCodes !== undefined ? popularGameCodes : await igamesModuleSettings.getPopularGameCodes(),
     });
   } catch (e) {
     if (e.message.includes('olmalı')) return res.status(400).json({ error: e.message });
@@ -200,15 +198,15 @@ r.patch('/palace/module-settings', requirePalace, validate(updatePalaceModuleSet
   }
 });
 
-r.get('/palace/credentials', requirePalace, async (req, res, next) => {
+r.get('/igames/credentials', requireIgames, async (req, res, next) => {
   try {
-    res.json(await palaceCredentials.getPalaceCredentialsStatus());
+    res.json(await igamesCredentials.getIgamesCredentialsStatus());
   } catch (e) { next(e); }
 });
 
-r.patch('/palace/credentials', requirePalace, validate(updatePalaceCredentialsSchema), async (req, res, next) => {
+r.patch('/igames/credentials', requireIgames, validate(updateIgamesCredentialsSchema), async (req, res, next) => {
   try {
-    res.json(await palaceCredentials.savePalaceCredentials(req.body, req.user?.id));
+    res.json(await igamesCredentials.saveIgamesCredentials(req.body, req.user?.id));
   } catch (e) { next(e); }
 });
 

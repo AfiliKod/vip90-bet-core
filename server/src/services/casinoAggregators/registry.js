@@ -1,7 +1,7 @@
 /**
  * Casino aggregator kayıt defteri (T3 — Faz 0 sözleşmesi).
  *
- * Palace şu an tek aggregator; ikinci bir sağlayıcı (Evolution, Pragmatic,
+ * Igames şu an tek aggregator; ikinci bir sağlayıcı (Evolution, Pragmatic,
  * genel bir GGR aggregator) eklemek bu kontrata uyan yeni bir adaptör
  * yazmaktan ibaret olmalı. Zorunlu yüzey, platformun bel kemiği olan
  * uçlarla sınırlı — idari/raporlama uçları (bonus call, RTP, transactions)
@@ -19,7 +19,7 @@
  *   }
  */
 
-export const DEFAULT_AGGREGATOR = 'palace';
+export const DEFAULT_AGGREGATOR = 'igames';
 
 const REQUIRED_METHODS = [
   'getAllGames', 'getGameUrl', 'createUser',

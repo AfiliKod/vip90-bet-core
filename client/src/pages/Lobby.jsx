@@ -1,13 +1,13 @@
 import { useEffect, useState, useMemo } from 'react';
 import { useTranslation } from '../i18n';
 import { useEventsStore, groupByLeague } from '../store/eventsStore';
-import { SPORT_META } from '../utils/sportMeta';
+import { SPORT_META, sportLabel } from '../utils/sportMeta';
 import LeagueGroup from '../components/LeagueGroup';
 import BetSlip from '../components/BetSlip';
 import HeroSlider from '../components/HeroSlider';
 
 export default function Lobby() {
-  const { t } = useTranslation();
+  const { t, locale: lang } = useTranslation();
   const {
     sport, statusFilter, setStatusFilter,
     events, isLoading, fetchEvents, initSocket, cleanup,
@@ -100,7 +100,7 @@ export default function Lobby() {
           ) : hierarchicalGroups !== null ? (
             <div>
               {[...hierarchicalGroups.entries()].map(([sport, leagueMap]) => {
-                const meta = SPORT_META[sport] ?? { icon: '🏆', label: sport };
+                const meta = { icon: SPORT_META[sport]?.icon ?? '🏆', label: sportLabel(sport, lang) };
                 const totalCount = [...leagueMap.values()].reduce((n, evs) => n + evs.length, 0);
                 const isCollapsed = !!collapsedSports[sport];
                 return (

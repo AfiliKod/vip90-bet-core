@@ -3,13 +3,13 @@ import { validate } from '../middleware/validate.js';
 import { walletNonceSchema, walletAuthSchema } from '../validators/auth.js';
 import { requireAuth } from '../middleware/auth.js';
 import { guestOnly } from '../middleware/guestOnly.js';
-import { authLimiter } from '../middleware/rateLimit.js';
+import { authLimiter, loginLimiter } from '../middleware/rateLimit.js';
 import {
   setAuthNonce, generateAuthMessage,
   authenticateWithWallet, linkWalletToUser, unlinkWallet,
 } from '../services/web3Auth.js';
 import {
-  signRefresh, setRefreshCookie, enrichWithPalaceBalance, enrichWithLockedBalance,
+  signRefresh, setRefreshCookie, enrichWithIgamesBalance, enrichWithLockedBalance,
 } from '../controllers/auth.js';
 import { getSiteName } from '../branding/index.js';
 
@@ -25,7 +25,7 @@ r.post('/nonce', conditionalAuthLimiter, validate(walletNonceSchema), async (req
 });
 
 // POST /api/auth/wallet/login — cüzdanla giriş (yeni kullanıcı ise otomatik oluşturur)
-r.post('/login', guestOnly, conditionalAuthLimiter, validate(walletAuthSchema), async (req, res, next) => {
+r.post('/login', guestOnly, testMode ? (req, res, next) => next() : loginLimiter, validate(walletAuthSchema), async (req, res, next) => {
   try {
     const { address, signature, message, walletType, chainId } = req.validated;
     const { user, accessToken, refreshToken } = await authenticateWithWallet({
@@ -33,7 +33,7 @@ r.post('/login', guestOnly, conditionalAuthLimiter, validate(walletAuthSchema), 
     });
     setRefreshCookie(res, refreshToken);
     const obj = user.toSafeObject();
-    await enrichWithPalaceBalance(user, obj);
+    await enrichWithIgamesBalance(user, obj);
     await enrichWithLockedBalance(user, obj);
     res.json({ accessToken, user: obj });
   } catch (e) { next(e); }

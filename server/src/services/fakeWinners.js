@@ -56,10 +56,10 @@ const INHOUSE_GAME_TITLES = {
 };
 const INHOUSE_GAME_IDS = Object.keys(INHOUSE_GAME_TITLES);
 
-// HomePage.jsx'teki PALACE_PROVIDER_IDS ile TUTARLI — yalnızca lisanslı/
+// HomePage.jsx'teki IGAMES_PROVIDER_IDS ile TUTARLI — yalnızca lisanslı/
 // gerçek katalogla bağlı sağlayıcılar (bkz. o dosyadaki T5 varlık denetimi
 // notu). Fake casino kazananları da bu allowlist dışına çıkmaz.
-const PALACE_PROVIDER_IDS = [1, 15];
+const IGAMES_PROVIDER_IDS = [1, 15];
 const CASINO_POOL_TTL_MS = 30 * 60_000;
 let casinoGamesCache = [];
 let casinoGamesCacheAt = 0;
@@ -169,13 +169,13 @@ function fireInhouseWin() {
   });
 }
 
-/** 30dk TTL'li basit bellek-içi cache — Palace erişilemezse mevcut (belki boş) cache ile devam eder. */
+/** 30dk TTL'li basit bellek-içi cache — Igames erişilemezse mevcut (belki boş) cache ile devam eder. */
 async function getCasinoGamesPool() {
   if (casinoGamesCache.length && Date.now() - casinoGamesCacheAt < CASINO_POOL_TTL_MS) return casinoGamesCache;
   try {
     const agg = await getActiveCasinoAggregator();
     if (typeof agg.getGames !== 'function') return casinoGamesCache;
-    const lists = await Promise.all(PALACE_PROVIDER_IDS.map(async id => {
+    const lists = await Promise.all(IGAMES_PROVIDER_IDS.map(async id => {
       const result = await agg.getGames(id, 'tr');
       return Array.isArray(result?.data?.data) ? result.data.data : [];
     }));
@@ -185,20 +185,20 @@ async function getCasinoGamesPool() {
       casinoGamesCacheAt = Date.now();
     }
   } catch {
-    // Palace erişilemezse mevcut cache (boş olabilir) korunur, fireCasinoWin fallback yapar.
+    // Igames erişilemezse mevcut cache (boş olabilir) korunur, fireCasinoWin fallback yapar.
   }
   return casinoGamesCache;
 }
 
 async function fireCasinoWin() {
   const games = await getCasinoGamesPool();
-  if (games.length === 0) return fireInhouseWin(); // Palace erişilemezse çekirdeğe düş
+  if (games.length === 0) return fireInhouseWin(); // Igames erişilemezse çekirdeğe düş
   const username = pool[randomInt(0, pool.length - 1)];
   const game = games[randomInt(0, games.length - 1)];
   addRecentWinner({
     userId: fakeUserId(),
     username,
-    gameId: `palace-${game.game_code}`,
+    gameId: `igames-${game.game_code}`,
     gameTitle: game.game_name,
     image: game.game_image_narrow || game.game_image || null,
     amount: randomAmount(),

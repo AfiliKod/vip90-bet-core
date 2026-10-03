@@ -29,7 +29,7 @@ export default function AdminBranding() {
   const [notice, setNotice] = useState(null);
 
   const SOURCE_BADGE = {
-    db:      { label: t('admin.branding.sourceCustomized'), cls: 'bg-green-500/20 text-green-300 border-green-500/30' },
+    db:      { label: t('admin.branding.sourceCustomized'), cls: 'bg-success/15 text-success border-success/30' },
     default: { label: t('admin.branding.sourceDefault'),     cls: 'bg-white/5 text-text-3 border-white/10' },
   };
 
@@ -90,14 +90,13 @@ export default function AdminBranding() {
   const changedCount = getChangedEntries(fields, draft).length;
 
   return (
-    <div className="max-w-3xl mx-auto px-4 py-6">
-      <h1 className="text-2xl font-bold text-text-1 mb-1">🏷️ {t('admin.branding.pageTitle')}</h1>
+    <div className="max-w-3xl">
       <p className="text-text-3 text-sm mb-6">
         {t('admin.branding.pageHint')}
       </p>
 
       {notice && (
-        <div className={`mb-4 px-4 py-2 rounded-lg text-sm ${notice.type === 'ok' ? 'bg-green-500/15 text-green-300' : 'bg-red-500/15 text-red-300'}`}>
+        <div className={`mb-4 px-4 py-2 rounded-lg text-sm ${notice.type === 'ok' ? 'bg-success/15 text-success' : 'bg-danger/15 text-danger'}`}>
           {notice.text}
         </div>
       )}
@@ -124,7 +123,7 @@ export default function AdminBranding() {
                   <input
                     type="text"
                     value={current || ''}
-                    placeholder={f.id === 'siteName' ? 'Site Adınız' : "'Poppins', sans-serif"}
+                    placeholder={f.id === 'siteName' ? t('admin.branding.siteNamePlaceholder') : "'Poppins', sans-serif"}
                     onChange={e => onTextChange(f.id, e.target.value)}
                     className="w-56 bg-bg-base border border-white/10 rounded-lg px-3 py-2 text-sm text-text-1"
                   />

@@ -10,6 +10,7 @@ export default {
         success: '#10b981',
         danger: '#ef4444',
         warning: '#f59e0b',
+        info: '#38bdf8',
         live: '#ef4444',
         text: { 1:'#f0f4ff', 2:'#8a9bc0', 3:'#4a5a78' },
         neon: {

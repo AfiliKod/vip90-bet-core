@@ -5,9 +5,10 @@
  */
 
 import { readFileSync, readdirSync, statSync, writeFileSync } from 'fs';
-import { join, extname, relative } from 'path';
+import { join, extname, relative, dirname } from 'path';
+import { fileURLToPath } from 'url';
 
-const ROOT_DIR = '/path/to/vip90-bet-core/.claude/worktrees/akis-u/client/src';
+const ROOT_DIR = join(dirname(fileURLToPath(import.meta.url)), '../src');
 const EXTENSIONS = ['.js', '.jsx'];
 const EXCLUDE_DIRS = ['node_modules', '.git', 'dist', 'build', 'i18n/dictionaries'];
 const EXCLUDE_FILES = ['i18n.js', 'sportMeta.js'];
@@ -143,7 +144,7 @@ function main() {
   
   // Save to JSON for later use
   writeFileSync(
-    join('/path/to/vip90-bet-core/.claude/worktrees/akis-u/turkish-strings-report.json'),
+    join(process.cwd(), 'turkish-strings-report.json'),
     JSON.stringify(allResults, null, 2)
   );
   console.log('\n📄 Full report saved to turkish-strings-report.json');

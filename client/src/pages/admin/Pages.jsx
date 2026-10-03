@@ -3,6 +3,7 @@ import api from '../../services/api';
 import { DEFAULT_SECTION_ORDER, getSectionLabel, resolveSectionOrder, resolveBanners } from '../home/pageContent';
 import { getPromoSlides, getHeroNavSlides } from '../home/promoSlides';
 import { useTranslation } from '../../i18n';
+import { ADMIN_BTN_PRIMARY } from '../../components/admin/AdminPageHeader.jsx';
 
 const SLIDE_IMAGE_MAX_BYTES = 500_000;
 
@@ -138,12 +139,11 @@ export default function AdminPages() {
   const hiddenBanners = ALL_SLIDES.filter(b => !banners.some(x => x.id === b.id));
 
   return (
-    <div className="max-w-3xl mx-auto px-4 py-6">
-      <h1 className="text-2xl font-bold text-text-1 mb-1">🎞️ {t('admin.pages.title')}</h1>
+    <div className="max-w-3xl">
       <p className="text-text-3 text-sm mb-6">{t('admin.pages.subtitle')}</p>
 
       {notice && (
-        <div className={`mb-4 px-4 py-2 rounded-lg text-sm ${notice.type === 'ok' ? 'bg-green-500/15 text-green-300' : 'bg-red-500/15 text-red-300'}`}>
+        <div className={`mb-4 rounded-xl border px-4 py-3 text-sm ${notice.type === 'ok' ? 'border-success/30 bg-success/15 text-success' : 'border-danger/30 bg-danger/15 text-danger'}`}>
           {notice.text}
         </div>
       )}
@@ -154,14 +154,19 @@ export default function AdminPages() {
         </div>
       ) : (
         <>
-          <h2 className="text-sm font-bold text-text-2 uppercase tracking-wide mb-2">{t('admin.pages.sectionOrder')}</h2>
+          <div className="mb-3 flex items-center gap-2">
+            <span className="grid h-7 w-7 place-items-center rounded-lg bg-primary/10 text-primary"><span className="material-symbols-outlined !text-[16px]" aria-hidden="true">view_list</span></span>
+            <h3 className="text-sm font-extrabold text-text-1">{t('admin.pages.sectionOrder')}</h3>
+            <span className="rounded-full bg-white/10 px-2 py-[3px] font-mono text-[11px] font-bold tabular-nums text-text-2">{sectionOrder.length}</span>
+          </div>
           <div className="space-y-2 mb-8">
             {sectionOrder.map((id, i) => (
-              <div key={id} className="bg-bg-card border border-white/10 rounded-lg p-3 flex items-center gap-3">
-                <span className="flex-1 text-sm text-text-1">{getSectionLabel(t, id)}</span>
-                <button onClick={() => moveSection(i, -1)} disabled={i === 0} className="text-text-3 hover:text-text-1 disabled:opacity-30 px-2">↑</button>
-                <button onClick={() => moveSection(i, 1)} disabled={i === sectionOrder.length - 1} className="text-text-3 hover:text-text-1 disabled:opacity-30 px-2">↓</button>
-                <button onClick={() => toggleSection(id)} className="text-xs text-red-300 hover:text-red-200 px-2">{t('admin.pages.hide')}</button>
+              <div key={id} className="flex items-center gap-3 rounded-xl border border-white/10 bg-bg-card p-3">
+                <span className="material-symbols-outlined !text-[16px] text-text-3/70" aria-hidden="true">drag_indicator</span>
+                <span className="min-w-0 flex-1 truncate text-sm text-text-1">{getSectionLabel(t, id)}</span>
+                <button onClick={() => moveSection(i, -1)} disabled={i === 0} aria-label={t('common.moveUp')} className="inline-flex h-8 w-8 items-center justify-center rounded-lg border border-white/10 bg-bg-hover text-text-2 transition hover:text-text-1 disabled:opacity-30"><span className="material-symbols-outlined !text-[15px]" aria-hidden="true">arrow_upward</span></button>
+                <button onClick={() => moveSection(i, 1)} disabled={i === sectionOrder.length - 1} aria-label={t('common.moveDown')} className="inline-flex h-8 w-8 items-center justify-center rounded-lg border border-white/10 bg-bg-hover text-text-2 transition hover:text-text-1 disabled:opacity-30"><span className="material-symbols-outlined !text-[15px]" aria-hidden="true">arrow_downward</span></button>
+                <button onClick={() => toggleSection(id)} className="inline-flex h-8 items-center gap-1 rounded-lg border border-danger/25 bg-danger/10 px-2.5 text-xs font-bold text-danger transition hover:bg-danger/20"><span className="material-symbols-outlined !text-[14px]" aria-hidden="true">visibility_off</span>{t('admin.pages.hide')}</button>
               </div>
             ))}
           </div>
@@ -171,28 +176,34 @@ export default function AdminPages() {
                 <button
                   key={id}
                   onClick={() => toggleSection(id)}
-                  className="text-xs bg-white/5 text-text-3 border border-white/10 rounded-full px-3 py-1 hover:text-text-1"
+                  className="inline-flex items-center gap-1 rounded-full border border-white/10 bg-white/5 px-3 py-1.5 text-xs font-bold text-text-3 transition hover:text-text-1"
                 >
-                  + {getSectionLabel(t, id)}
+                  <span className="material-symbols-outlined !text-[13px]" aria-hidden="true">add</span>
+                  {getSectionLabel(t, id)}
                 </button>
               ))}
             </div>
           )}
 
-          <h2 className="text-sm font-bold text-text-2 uppercase tracking-wide mb-2">{t('admin.pages.heroSlides')}</h2>
+          <div className="mb-3 flex items-center gap-2">
+            <span className="grid h-7 w-7 place-items-center rounded-lg bg-primary/10 text-primary"><span className="material-symbols-outlined !text-[16px]" aria-hidden="true">campaign</span></span>
+            <h3 className="text-sm font-extrabold text-text-1">{t('admin.pages.heroSlides')}</h3>
+            <span className="rounded-full bg-white/10 px-2 py-[3px] font-mono text-[11px] font-bold tabular-nums text-text-2">{banners.length}</span>
+          </div>
           <div className="space-y-3 mb-4">
             {banners.map((b, i) => (
               <div key={b.id} className="bg-bg-card border border-white/10 rounded-xl p-4">
-                <div className="flex items-center gap-3 mb-3">
-                  <span className="flex-1 text-sm font-semibold text-text-1">{slideLabelKey(b.id) ? t(slideLabelKey(b.id)) : b.id}</span>
-                  <button onClick={() => moveBanner(i, -1)} disabled={i === 0} className="text-text-3 hover:text-text-1 disabled:opacity-30 px-2">↑</button>
-                  <button onClick={() => moveBanner(i, 1)} disabled={i === banners.length - 1} className="text-text-3 hover:text-text-1 disabled:opacity-30 px-2">↓</button>
-                  <button onClick={() => toggleBanner(b.id)} className="text-xs text-red-300 hover:text-red-200 px-2">{t('admin.pages.hide')}</button>
+                <div className="mb-3 flex items-center gap-3">
+                  <span className="material-symbols-outlined !text-[16px] text-text-3/70" aria-hidden="true">drag_indicator</span>
+                  <span className="min-w-0 flex-1 truncate text-sm font-bold text-text-1">{slideLabelKey(b.id) ? t(slideLabelKey(b.id)) : b.id}</span>
+                  <button onClick={() => moveBanner(i, -1)} disabled={i === 0} aria-label={t('common.moveUp')} className="inline-flex h-8 w-8 items-center justify-center rounded-lg border border-white/10 bg-bg-hover text-text-2 transition hover:text-text-1 disabled:opacity-30"><span className="material-symbols-outlined !text-[15px]" aria-hidden="true">arrow_upward</span></button>
+                  <button onClick={() => moveBanner(i, 1)} disabled={i === banners.length - 1} aria-label={t('common.moveDown')} className="inline-flex h-8 w-8 items-center justify-center rounded-lg border border-white/10 bg-bg-hover text-text-2 transition hover:text-text-1 disabled:opacity-30"><span className="material-symbols-outlined !text-[15px]" aria-hidden="true">arrow_downward</span></button>
+                  <button onClick={() => toggleBanner(b.id)} className="inline-flex h-8 items-center gap-1 rounded-lg border border-danger/25 bg-danger/10 px-2.5 text-xs font-bold text-danger transition hover:bg-danger/20"><span className="material-symbols-outlined !text-[14px]" aria-hidden="true">visibility_off</span>{t('admin.pages.hide')}</button>
                 </div>
                 <div className="flex gap-3">
                   <div className="shrink-0">
                     {b.image && <img src={b.image} alt="" className="w-24 h-16 rounded-lg object-cover bg-white/5 border border-white/10 mb-1.5" />}
-                    <label className="block text-center text-[11px] bg-bg-base border border-white/10 rounded-lg px-2 py-1.5 cursor-pointer text-text-2 hover:text-text-1">
+                    <label className="inline-flex h-8 w-full cursor-pointer items-center justify-center gap-1 rounded-lg border border-white/10 bg-bg-card px-2 text-[11.5px] font-bold text-text-2 transition hover:bg-bg-hover hover:text-text-1">
                       {t('admin.pages.selectImage')}
                       <input type="file" accept="image/*" onChange={e => onImageChange(b.id, e)} className="hidden" />
                     </label>
@@ -212,9 +223,10 @@ export default function AdminPages() {
                 <button
                   key={b.id}
                   onClick={() => toggleBanner(b.id)}
-                  className="text-xs bg-white/5 text-text-3 border border-white/10 rounded-full px-3 py-1 hover:text-text-1"
+                  className="inline-flex items-center gap-1 rounded-full border border-white/10 bg-white/5 px-3 py-1.5 text-xs font-bold text-text-3 transition hover:text-text-1"
                 >
-                  + {slideLabelKey(b.id) ? t(slideLabelKey(b.id)) : b.id}
+                  <span className="material-symbols-outlined !text-[13px]" aria-hidden="true">add</span>
+                  {slideLabelKey(b.id) ? t(slideLabelKey(b.id)) : b.id}
                 </button>
               ))}
             </div>
@@ -225,8 +237,9 @@ export default function AdminPages() {
       <button
         onClick={save}
         disabled={saving || loading}
-        className="bg-primary text-black font-semibold px-5 py-2 rounded-lg disabled:opacity-40"
+        className={ADMIN_BTN_PRIMARY}
       >
+        <span className="material-symbols-outlined !text-[16px]" aria-hidden="true">save</span>
         {saving ? t('common.saving') : t('common.save')}
       </button>
     </div>

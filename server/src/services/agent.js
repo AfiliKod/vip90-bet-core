@@ -2,7 +2,10 @@ import Agent from '../models/Agent.js';
 import User from '../models/User.js';
 import Transaction from '../models/Transaction.js';
 import mongoose from 'mongoose';
+import escapeStringRegexp from 'escape-string-regexp';
 import { getIO } from './socketEmitter.js';
+import { createTransaction } from './ledger.js';
+import { createError } from '../middleware/error.js';
 
 /**
  * Create a new agent (admin action)
@@ -11,8 +14,8 @@ export async function createAgent(userId, adminId, options = {}) {
   const { session = null, commissionRate = 10, notes = '' } = options;
 
   const user = await User.findById(userId).session(session);
-  if (!user) throw new Error('User not found');
-  if (user.isAgent) throw new Error('User is already an agent');
+  if (!user) throw createError(404, 'USER_NOT_FOUND', 'User not found');
+  if (user.isAgent) throw createError(409, 'ALREADY_AGENT', 'User is already an agent');
 
   const agent = await Agent.create([{
     userId: user._id,
@@ -38,17 +41,17 @@ export async function assignPlayerToAgent(playerId, agentId, adminId, options = 
   const { session = null } = options;
 
   const agent = await Agent.findById(agentId).session(session);
-  if (!agent) throw new Error('Agent not found');
-  if (!agent.isActive) throw new Error('Agent is not active');
+  if (!agent) throw createError(404, 'AGENT_NOT_FOUND', 'Agent not found');
+  if (!agent.isActive) throw createError(400, 'AGENT_INACTIVE', 'Agent is not active');
 
   const player = await User.findById(playerId).session(session);
-  if (!player) throw new Error('Player not found');
+  if (!player) throw createError(404, 'PLAYER_NOT_FOUND', 'Player not found');
   if (player.agentId) {
     if (player.agentId.equals(agentId)) {
       // Already assigned to this agent - silently return
       return agent;
     }
-    throw new Error('Player already assigned to another agent');
+    throw createError(409, 'PLAYER_ALREADY_ASSIGNED', 'Player already assigned to another agent');
   }
 
   // Add to agent's players
@@ -71,12 +74,12 @@ export async function removePlayerFromAgent(playerId, agentId, options = {}) {
   const { session = null } = options;
 
   const agent = await Agent.findById(agentId).session(session);
-  if (!agent) throw new Error('Agent not found');
+  if (!agent) throw createError(404, 'AGENT_NOT_FOUND', 'Agent not found');
 
   const player = await User.findById(playerId).session(session);
-  if (!player) throw new Error('Player not found');
+  if (!player) throw createError(404, 'PLAYER_NOT_FOUND', 'Player not found');
   if (!player.agentId || !player.agentId.equals(agentId)) {
-    throw new Error('Player not assigned to this agent');
+    throw createError(400, 'PLAYER_NOT_ASSIGNED', 'Player not assigned to this agent');
   }
 
   agent.players = agent.players.filter(id => !id.equals(playerId));
@@ -96,70 +99,81 @@ export async function removePlayerFromAgent(playerId, agentId, options = {}) {
 export async function transferFundsAgentToPlayer(agentUserId, playerId, amount, note, options = {}) {
   const { session = null } = options;
 
-  if (!amount || amount <= 0) throw new Error('Invalid amount');
+  if (!amount || amount <= 0) throw createError(400, 'INVALID_AMOUNT', 'Invalid amount');
 
   const agent = await Agent.findOne({ userId: agentUserId }).session(session);
-  if (!agent) throw new Error('Agent not found');
-  if (!agent.isActive) throw new Error('Agent is not active');
+  if (!agent) throw createError(404, 'AGENT_NOT_FOUND', 'Agent not found');
+  if (!agent.isActive) throw createError(400, 'AGENT_INACTIVE', 'Agent is not active');
 
   const player = await User.findById(playerId).session(session);
-  if (!player) throw new Error('Player not found');
+  if (!player) throw createError(404, 'PLAYER_NOT_FOUND', 'Player not found');
   if (!player.agentId || !player.agentId.equals(agent._id)) {
-    throw new Error('Player not owned by this agent');
-  }
-
-  // Check agent has sufficient balance
-  if (agent.balance < amount) {
-    throw new Error('Agent insufficient balance');
+    throw createError(400, 'PLAYER_NOT_OWNED', 'Player not owned by this agent');
   }
 
   const transferId = new mongoose.Types.ObjectId(); // Link both transactions
+  const idempotencyPrefix = `agent_transfer_${transferId}`;
 
-  // 1. Decrease agent balance
+  // 1. Decrease agent balance (atomic: check + subtract in one operation)
   const agentBalanceBefore = agent.balance;
-  agent.balance = parseFloat((agent.balance - amount).toFixed(2));
-  await agent.save({ session });
+  const updatedAgent = await Agent.findOneAndUpdate(
+    { _id: agent._id, balance: { $gte: amount } },
+    { $inc: { balance: -amount } },
+    { new: true, session },
+  );
+  if (!updatedAgent) {
+    throw createError(400, 'INSUFFICIENT_BALANCE', 'Agent insufficient balance');
+  }
 
-  const agentTransaction = await Transaction.create([{
+  const { transaction: agentTransaction } = await createTransaction({
     userId: agentUserId,
     type: 'agent_transfer_out',
     amount: -amount, // Negative for outgoing
     balanceBefore: agentBalanceBefore,
-    balanceAfter: agent.balance,
-    note: `Agent → Oyuncu transferi: ${note || 'Bakiye aktarımı'}`,
+    balanceAfter: updatedAgent.balance,
     referenceId: transferId,
+    idempotencyKey: `${idempotencyPrefix}_out`,
+    source: 'admin',
+    metadata: { playerId, note },
+    relatedTransactionId: transferId,
     createdBy: agentUserId,
-  }], { session });
+  }, { session });
 
-  // 2. Increase player balance
+  // 2. Increase player balance (atomic $inc, mirroring the agent-side update above)
   const playerBalanceBefore = player.balance;
-  player.balance = parseFloat((player.balance + amount).toFixed(2));
-  await player.save({ session });
+  const updatedPlayer = await User.findByIdAndUpdate(
+    player._id,
+    { $inc: { balance: amount } },
+    { new: true, session },
+  );
 
-  const playerTransaction = await Transaction.create([{
+  const { transaction: playerTransaction } = await createTransaction({
     userId: player._id,
     type: 'agent_transfer_in',
     amount: amount, // Positive for incoming
     balanceBefore: playerBalanceBefore,
-    balanceAfter: player.balance,
-    note: `Agent transferi: ${note || 'Bakiye aktarımı'}`,
+    balanceAfter: updatedPlayer.balance,
     referenceId: transferId,
+    idempotencyKey: `${idempotencyPrefix}_in`,
+    source: 'admin',
+    metadata: { agentUserId, note },
+    relatedTransactionId: agentTransaction._id,
     createdBy: agentUserId,
-  }], { session });
+  }, { session });
 
   // Real-time updates
   const io = getIO();
   if (io) {
-    io.to(`user:${agentUserId}`).emit('balance:update', { balance: agent.balance });
-    io.to(`user:${player._id}`).emit('balance:update', { balance: player.balance });
+    io.to(`user:${agentUserId}`).emit('balance:update', { balance: updatedAgent.balance });
+    io.to(`user:${player._id}`).emit('balance:update', { balance: updatedPlayer.balance });
   }
 
   return {
     transferId,
-    agentTransaction: agentTransaction[0],
-    playerTransaction: playerTransaction[0],
-    agentBalance: agent.balance,
-    playerBalance: player.balance,
+    agentTransaction,
+    playerTransaction,
+    agentBalance: updatedAgent.balance,
+    playerBalance: updatedPlayer.balance,
   };
 }
 
@@ -171,7 +185,7 @@ export async function getAgentPlayers(agentUserId, options = {}) {
   const skip = (Number(page) - 1) * Number(limit);
 
   const agent = await Agent.findOne({ userId: agentUserId });
-  if (!agent) throw new Error('Agent not found');
+  if (!agent) throw createError(404, 'AGENT_NOT_FOUND', 'Agent not found');
 
   const playerIds = agent.players;
   const filter = { _id: { $in: playerIds } };
@@ -197,7 +211,7 @@ export async function getAgentPlayers(agentUserId, options = {}) {
  */
 export async function getAgentStats(agentUserId) {
   const agent = await Agent.findOne({ userId: agentUserId });
-  if (!agent) throw new Error('Agent not found');
+  if (!agent) throw createError(404, 'AGENT_NOT_FOUND', 'Agent not found');
 
   const playerIds = agent.players;
   const [playerCount, totalBalance, totalWagered, totalDeposits] = await Promise.all([
@@ -228,14 +242,25 @@ export async function getAgentStats(agentUserId) {
  * Get all agents (admin)
  */
 export async function getAllAgents(options = {}) {
-  const { page = 1, limit = 20, status = 'all' } = options;
+  const { page = 1, limit = 20, status = 'all', search = '' } = options;
   const skip = (Number(page) - 1) * Number(limit);
 
   const filter = {};
-  if (status === 'active') filter.isActive = true;
+  // UI kuralı (satır rozeti): isActive === false değilse aktif.
+  if (status === 'active') filter.isActive = { $ne: false };
   if (status === 'inactive') filter.isActive = false;
+  if (search && typeof search === 'string') {
+    const trimmed = search.trim().slice(0, 100);
+    if (trimmed) {
+      const re = new RegExp(escapeStringRegexp(trimmed), 'i');
+      const matchedUsers = await User.find({ $or: [{ username: re }, { email: re }] })
+        .select('_id')
+        .limit(1000);
+      filter.userId = { $in: matchedUsers.map(u => u._id) };
+    }
+  }
 
-  const [agents, total] = await Promise.all([
+  const [agents, total, statGroups] = await Promise.all([
     Agent.find(filter)
       .populate('userId', 'username email balance createdAt')
       .populate('registeredBy', 'username')
@@ -243,9 +268,31 @@ export async function getAllAgents(options = {}) {
       .skip(skip)
       .limit(Number(limit)),
     Agent.countDocuments(filter),
+    // Sekme sayaçları + KPI şeridi: filtresiz, global dağılım.
+    Agent.aggregate([
+      { $group: {
+        _id: null,
+        active: { $sum: { $cond: [{ $ne: ['$isActive', false] }, 1, 0] } },
+        inactive: { $sum: { $cond: [{ $eq: ['$isActive', false] }, 1, 0] } },
+        players: { $sum: { $size: { $ifNull: ['$players', []] } } },
+      } },
+    ]),
   ]);
 
-  return { agents, total, page: Number(page), pages: Math.ceil(total / Number(limit)) };
+  const s = statGroups[0] || { active: 0, inactive: 0, players: 0 };
+
+  return {
+    agents,
+    total,
+    page: Number(page),
+    pages: Math.ceil(total / Number(limit)),
+    stats: {
+      all: s.active + s.inactive,
+      active: s.active,
+      inactive: s.inactive,
+      players: s.players,
+    },
+  };
 }
 
 /**
@@ -260,7 +307,7 @@ export async function updateAgent(agentId, updates, options = {}) {
   );
 
   const agent = await Agent.findByIdAndUpdate(agentId, updateData, { new: true, session, runValidators: true });
-  if (!agent) throw new Error('Agent not found');
+  if (!agent) throw createError(404, 'AGENT_NOT_FOUND', 'Agent not found');
 
   return agent;
 }
@@ -301,6 +348,18 @@ export async function payAgentCommission(playerId, houseProfit, options = {}) {
     note: `Agent komisyonu (${agent.commissionRate}%) - Oyuncu: ${player.username || player._id}`,
     referenceId: player._id,
   }], { session });
+
+  const newTransaction = await createTransaction({
+    userId: agent.userId,
+    type: 'agent_commission',
+    amount: commission,
+    balanceBefore,
+    balanceAfter: agent.balance,
+    note: `Agent komisyonu (${agent.commissionRate}%) - Oyuncu: ${player.username || player._id}`,
+    referenceId: player._id,
+    idempotencyKey: `agent_commission_${agent._id}_${player._id}_${Date.now()}`,
+    source: 'system',
+  }, { session });
 
   const io = getIO();
   if (io) io.to(`user:${agent.userId}`).emit('balance:update', { balance: agent.balance });

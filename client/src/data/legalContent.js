@@ -127,7 +127,7 @@ export const PRIVACY = {
     {
       title: '3. Verilerin Paylaşımı',
       content: [
-        'Casino sağlayıcısı (Palace Casino) ile oyun oturumu için gerekli bilgiler',
+        'Casino sağlayıcısı (Igames Casino) ile oyun oturumu için gerekli bilgiler',
         'Ödeme sağlayıcıları ile para yatırma/çekme işlemleri için',
         'Lisans otoritesi ile yasal raporlama yükümlülükleri kapsamında',
         'Yasal merciler ile yasal talepler halinde',
@@ -216,7 +216,7 @@ export const KVKK = {
       content: [
         'Platform kullanımı sırasında otomatik toplama (formlar, çerezler)',
         'Ödeme işlemleri sırasında ödeme sağlayıcısından',
-        'Casino sağlayıcısından (Palace Casino) oyun oturumu için',
+        'Casino sağlayıcısından (Igames Casino) oyun oturumu için',
         'Müşteri destek iletişimi sırasında (e-posta, canlı yardım)',
       ],
     },
@@ -286,7 +286,7 @@ export const COOKIES = {
       title: '3. Üçüncü Taraf Çerezleri',
       content: [
         'Ödeme sağlayıcıları: ödeme işlemleri için',
-        'Casino sağlayıcısı (Palace): oyun oturumu için',
+        'Casino sağlayıcısı (Igames): oyun oturumu için',
         'Analitik sağlayıcıları: kullanım istatistikleri için (consent sonrası)',
       ],
     },
@@ -487,7 +487,7 @@ export const USER_AGREEMENT = {
 export const DATA_EXPORT_CATEGORIES = [
   'Hesap bilgileri (kullanıcı adı, e-posta, kayıt tarihi)',
   'Bahis geçmişi (tüm spor bahisleri)',
-  'Casino oyun geçmişi (Palace turları)',
+  'Casino oyun geçmişi (Igames turları)',
   'Bonus ve çevrim geçmişi',
   'Para yatırma/çekme işlemleri',
   'Banka talepleri (deposit/withdraw)',

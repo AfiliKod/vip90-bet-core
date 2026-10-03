@@ -1,32 +1,37 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, Fragment } from 'react';
 import { useToastStore } from '../../store/toastStore';
 import api from '../../services/api';
 import { useFormatters } from '../../i18n/useFormatters.jsx';
 import { useTranslation } from '../../i18n';
+import { formatMoney, getActiveCurrency } from '../../utils/money.js';
+import WalletStatCards from './components/WalletStatCards.jsx';
+import { AdminTable, AdminTableRow, AdminTableCell, AdminTableActionsCell, AdminExpandRow, AdminPager } from '../../components/admin/AdminTable.jsx';
+import RowActions from '../../components/admin/RowActions.jsx';
 
 const STATUS_TABS = [
-  { key: 'all', label: 'Tümü' },
-  { key: 'completed', label: 'Tamamlanan' },
-  { key: 'pending', label: 'Bekleyen' },
-  { key: 'rejected', label: 'Reddedilen' },
+  { key: 'all', labelKey: 'admin.crypto.tabAll' },
+  { key: 'completed', labelKey: 'admin.crypto.tabCompleted' },
+  { key: 'pending', labelKey: 'admin.crypto.tabPending' },
+  { key: 'rejected', labelKey: 'admin.crypto.tabRejected' },
 ];
 
 const TYPE_TABS = [
-  { key: 'deposit', label: '📥 Yatırmalar' },
-  { key: 'withdraw', label: '📤 Çekimler' },
+  { key: 'deposit', icon: 'arrow_downward', labelKey: 'admin.crypto.tabDeposits' },
+  { key: 'withdraw', icon: 'arrow_upward', labelKey: 'admin.crypto.tabWithdrawals' },
 ];
 
 function WalletBadge({ label, value, color }) {
   return (
     <div className="flex items-center gap-1.5">
       <span className="text-[10px] text-text-3">{label}:</span>
-      <span className={`text-xs font-semibold ${color}`}>{value}₺</span>
+      <span className={`text-xs font-semibold ${color}`}>{formatMoney(value)}</span>
     </div>
   );
 }
 
 function TxDetail({ tx, onAction, saving }) {
   const { t } = useTranslation();
+  const currency = getActiveCurrency().code;
   const [detail, setDetail] = useState(null);
   const [loading, setLoading] = useState(true);
   const [rejectReason, setRejectReason] = useState('');
@@ -49,31 +54,33 @@ function TxDetail({ tx, onAction, saving }) {
       const res = await api.get(`/admin/crypto/tx-verify/${txHash}`);
       setBlockchain(res.data);
     } catch {
-      setBlockchain({ confirmed: false, found: false, error: 'Doğrulama başarısız' });
+      setBlockchain({ confirmed: false, found: false, verifyFailed: true });
     } finally {
       setVerifying(false);
     }
   }, []);
 
-  if (loading) return <div className="text-xs text-text-3 py-2">Bakiye bilgisi yükleniyor…</div>;
-  if (!detail) return <div className="text-xs text-red-400 py-2">Bakiye bilgisi alınamadı</div>;
+  if (loading) return <div className="text-xs text-text-3 py-2">{t('admin.crypto.balanceLoading')}</div>;
+  if (!detail) return <div className="text-xs text-danger py-2">{t('admin.crypto.balanceLoadFailed')}</div>;
 
   const { user: u } = detail;
   const isWithdrawal = tx.type === 'crypto_withdraw';
   const isPending = tx.status === 'pending';
   const tryAmt = Math.abs(tx.amount);
+  // Çekimin USDT karşılığı (metadata; eski kayıtlarda yok → fiat tutara düşer)
+  const usdtNeeded = Number(tx.metadata?.usdtAmount) || tryAmt;
 
   // Risk değerlendirmesi
   let risk = null;
   if (isPending) {
     if (isWithdrawal) {
       if (u.withdrawable >= tryAmt) {
-        risk = { level: 'low', text: `Çekilebilir bakiye yeterli (${u.withdrawable}₺ ≥ ${tryAmt}₺)` };
+        risk = { level: 'low', text: t('admin.crypto.riskOk', { withdrawable: u.withdrawable, amount: tryAmt, currency }) };
       } else {
-        risk = { level: 'high', text: `Çekilebilir bakiye yetersiz (${u.withdrawable}₺ < ${tryAmt}₺)` };
+        risk = { level: 'high', text: t('admin.crypto.riskLow', { withdrawable: u.withdrawable, amount: tryAmt, currency }) };
       }
     } else {
-      risk = { level: 'info', text: `Yatırma onayı — bakiyeye eklenecek: +${tryAmt}₺` };
+      risk = { level: 'info', text: t('admin.crypto.riskDepositPending', { amount: tryAmt, currency }) };
     }
   }
 
@@ -81,17 +88,23 @@ function TxDetail({ tx, onAction, saving }) {
     <div className="mt-3 pt-3 border-t border-white/8 space-y-2">
       {/* Kullanıcı Bakiye Özeti */}
       <div className="bg-black/20 rounded-lg p-3">
-        <div className="text-[10px] uppercase tracking-wide text-text-3 mb-1.5">Kullanıcı Bakiye Özeti</div>
+        <div className="text-[10px] uppercase tracking-wide text-text-3 mb-1.5">{t('admin.crypto.balanceSummary')}</div>
         <div className="flex flex-wrap gap-3">
-          <WalletBadge label="Toplam" value={u.balance} color="text-text-1" />
-          <WalletBadge label="Bonus Kilit" value={u.bonusLocked} color="text-yellow-400" />
-          <WalletBadge label="Çekilebilir" value={u.withdrawable} color={u.withdrawable > 0 ? 'text-green-400' : 'text-red-400'} />
+          <WalletBadge label={t('admin.crypto.balanceTotal')} value={u.balance} color="text-text-1" />
+          <WalletBadge label={t('admin.crypto.balanceBonusLocked')} value={u.bonusLocked} color="text-warning" />
+          <WalletBadge label={t('admin.crypto.balanceWithdrawable')} value={u.withdrawable} color={u.withdrawable > 0 ? 'text-success' : 'text-danger'} />
         </div>
         {u.activeWagerings?.length > 0 && (
           <div className="mt-1.5 text-[10px] text-text-3">
-            Aktif bonus: {u.activeWagerings.map(w =>
-              `${w.bonusAmount}₺ (${Math.round(w.wageringProgress / w.wageringRequired * 100)}% tamamlandı)`
-            ).join(', ')}
+            {t('admin.crypto.activeBonus', {
+              list: u.activeWagerings.map(w =>
+                t('admin.crypto.bonusProgress', {
+                  amount: w.bonusAmount,
+                  currency,
+                  pct: Math.round(w.wageringProgress / w.wageringRequired * 100),
+                })
+              ).join(', '),
+            })}
           </div>
         )}
       </div>
@@ -99,13 +112,13 @@ function TxDetail({ tx, onAction, saving }) {
       {/* Risk Değerlendirmesi */}
       {risk && (
         <div className={`text-xs px-2 py-1 rounded ${
-          risk.level === 'low' ? 'bg-green-500/10 text-green-300' :
-          risk.level === 'high' ? 'bg-red-500/10 text-red-300' :
-          'bg-blue-500/10 text-blue-300'
+          risk.level === 'low' ? 'bg-success/15 text-success' :
+          risk.level === 'high' ? 'bg-danger/15 text-danger' :
+          'bg-info/15 text-info'
         }`}>
-          {risk.level === 'low' && '✅ '}
-          {risk.level === 'high' && '⚠️ '}
-          {risk.level === 'info' && 'ℹ️ '}
+          {risk.level === 'low' && <span className="material-symbols-outlined !text-[14px] align-middle" aria-hidden="true">check_circle</span>}
+          {risk.level === 'high' && <span className="material-symbols-outlined !text-[14px] align-middle" aria-hidden="true">warning</span>}
+          {risk.level === 'info' && <span className="material-symbols-outlined !text-[14px] align-middle" aria-hidden="true">info</span>}
           {risk.text}
         </div>
       )}
@@ -113,11 +126,24 @@ function TxDetail({ tx, onAction, saving }) {
       {/* Hot Wallet Bakiye Kontrolü (çekim pending ise) */}
       {isWithdrawal && isPending && detail.hotWallet && (
         <div className={`text-[10px] px-2 py-1 rounded ${
-          detail.hotWallet.usdt >= tryAmt ? 'bg-green-500/10 text-green-300' : 'bg-red-500/10 text-red-300'
+          detail.hotWallet.usdt >= usdtNeeded ? 'bg-success/15 text-success' : 'bg-danger/15 text-danger'
         }`}>
-          {detail.hotWallet.usdt >= tryAmt
-            ? `✅ Hot wallet yeterli: ${detail.hotWallet.usdt} USDT ≥ ${tryAmt} USDT`
-            : `❌ Hot wallet yetersiz: ${detail.hotWallet.usdt} USDT < ${tryAmt} USDT`}
+          {detail.hotWallet.usdt >= usdtNeeded
+            ? t('admin.crypto.hotWalletOk', { balance: detail.hotWallet.usdt, needed: usdtNeeded })
+            : t('admin.crypto.hotWalletLow', { balance: detail.hotWallet.usdt, needed: usdtNeeded })}
+        </div>
+      )}
+
+      {/* Çekim detayı (metadata: adres, USDT, txHash) */}
+      {isWithdrawal && tx.metadata?.toAddress && (
+        <div className="flex flex-wrap gap-x-3 gap-y-0.5 text-[10px] text-text-3">
+          <span>{t('admin.crypto.address')} <span className="font-mono text-text-2">{tx.metadata.toAddress}</span></span>
+          {tx.metadata.usdtAmount != null && (
+            <span className="font-mono text-text-2">{Number(tx.metadata.usdtAmount).toFixed(2)} USDT</span>
+          )}
+          {tx.metadata.txHash && (
+            <span>{t('admin.crypto.tx')} <span className="font-mono text-text-2">{tx.metadata.txHash.slice(0, 20)}…</span></span>
+          )}
         </div>
       )}
 
@@ -136,16 +162,16 @@ function TxDetail({ tx, onAction, saving }) {
           {isPending && detail.depositWallet && (
             <div className={`flex items-center gap-3 px-2 py-1.5 rounded-lg ${
               detail.depositWallet.usdt >= tryAmt
-                ? 'bg-green-500/10 border border-green-500/20'
+                ? 'bg-success/15 border border-success/20'
                 : detail.depositWallet.usdt > 0
-                  ? 'bg-yellow-500/10 border border-yellow-500/20'
-                  : 'bg-red-500/10 border border-red-500/20'
+                  ? 'bg-warning/15 border border-warning/20'
+                  : 'bg-danger/15 border border-danger/20'
             }`}>
               <div>
                 <span className="text-text-3">{t('admin.crypto.walletBalance')} </span>
                 <span className={`font-bold ${
-                  detail.depositWallet.usdt >= tryAmt ? 'text-green-300' :
-                  detail.depositWallet.usdt > 0 ? 'text-yellow-300' : 'text-red-300'
+                  detail.depositWallet.usdt >= tryAmt ? 'text-success' :
+                  detail.depositWallet.usdt > 0 ? 'text-warning' : 'text-danger'
                 }`}>{detail.depositWallet.usdt?.toFixed(2)} USDT</span>
               </div>
               <div>
@@ -153,11 +179,11 @@ function TxDetail({ tx, onAction, saving }) {
                 <span className="text-text-2">{detail.depositWallet.trx?.toFixed(2)}</span>
               </div>
               {detail.depositWallet.usdt >= tryAmt ? (
-                <span className="text-green-300 font-semibold">{t('admin.crypto.sufficient')}</span>
+                <span className="text-success font-semibold">{t('admin.crypto.sufficient')}</span>
               ) : detail.depositWallet.usdt > 0 ? (
-                <span className="text-yellow-300">{t('admin.crypto.partial', { current: detail.depositWallet.usdt?.toFixed(2), needed: tryAmt })}</span>
+                <span className="text-warning">{t('admin.crypto.partial', { current: detail.depositWallet.usdt?.toFixed(2), needed: tryAmt, currency })}</span>
               ) : (
-                <span className="text-red-300">{t('admin.crypto.empty')}</span>
+                <span className="text-danger">{t('admin.crypto.empty')}</span>
               )}
             </div>
           )}
@@ -168,29 +194,30 @@ function TxDetail({ tx, onAction, saving }) {
               {blockchain === null && !verifying && (
                 <button
                   onClick={() => verifyBlockchain(detail.cryptoDeposit.txHash)}
-                  className="text-[10px] px-2 py-1 rounded bg-blue-500/20 border border-blue-500/30 text-blue-300 hover:bg-blue-500/30 transition"
+                  className="text-[10px] px-2 py-1 rounded bg-info/15 border border-info/30 text-info hover:bg-info/20 transition"
                 >
                   {t('admin.crypto.verifyBlockchain')}
                 </button>
               )}
               {verifying && (
-                <span className="text-[10px] text-blue-300 animate-pulse">{t('admin.crypto.verifying')}</span>
+                <span className="text-[10px] text-info animate-pulse">{t('admin.crypto.verifying')}</span>
               )}
               {blockchain && !verifying && (
                 <div className={`text-[10px] px-2 py-1 rounded ${
-                  blockchain.confirmed ? 'bg-green-500/10 text-green-300' :
-                  blockchain.found ? 'bg-yellow-500/10 text-yellow-300' :
-                  'bg-red-500/10 text-red-300'
+                  blockchain.confirmed ? 'bg-success/15 text-success' :
+                  blockchain.found ? 'bg-warning/15 text-warning' :
+                  'bg-danger/15 text-danger'
                 }`}>
-                  {blockchain.confirmed && t('admin.crypto.confirmed', { block: blockchain.blockNumber })}
-                  {blockchain.found && !blockchain.confirmed && t('admin.crypto.pendingConfirm', { status: blockchain.contractRet })}
-                  {!blockchain.found && t('admin.crypto.notFound', { error: blockchain.error ? ': ' + blockchain.error : '' })}
+                  {blockchain.verifyFailed && t('admin.crypto.verifyFailed')}
+                  {!blockchain.verifyFailed && blockchain.confirmed && t('admin.crypto.confirmed', { block: blockchain.blockNumber })}
+                  {!blockchain.verifyFailed && blockchain.found && !blockchain.confirmed && t('admin.crypto.pendingConfirm', { status: blockchain.contractRet })}
+                  {!blockchain.verifyFailed && !blockchain.found && t('admin.crypto.notFound', { error: blockchain.error ? ': ' + blockchain.error : '' })}
                 </div>
               )}
             </div>
           )}
           {tx.status !== 'completed' && detail.cryptoDeposit.txHash?.startsWith('seed_') && (
-            <div className="text-[10px] text-yellow-300/60">{t('admin.crypto.seedWarning')}</div>
+            <div className="text-[10px] text-warning/60">{t('admin.crypto.seedWarning')}</div>
           )}
         </div>
       )}
@@ -201,9 +228,10 @@ function TxDetail({ tx, onAction, saving }) {
           <button
             onClick={() => onAction(tx, 'approve')}
             disabled={saving}
-            className="text-xs px-3 py-1.5 rounded-lg bg-green-500/20 border border-green-500/30 text-green-300 hover:bg-green-500/30 transition disabled:opacity-50"
+            className="text-xs px-3 py-1.5 rounded-lg bg-success/15 border border-success/30 text-success hover:bg-success/20 transition disabled:opacity-50 inline-flex items-center gap-1"
           >
-            ✅ {t('admin.crypto.approve')}
+            <span className="material-symbols-outlined !text-[14px]" aria-hidden="true">check</span>
+            {t('admin.crypto.approve')}
           </button>
           <input
             type="text"
@@ -215,9 +243,10 @@ function TxDetail({ tx, onAction, saving }) {
           <button
             onClick={() => onAction(tx, 'reject', rejectReason)}
             disabled={saving}
-            className="text-xs px-3 py-1.5 rounded-lg bg-red-500/20 border border-red-500/30 text-red-300 hover:bg-red-500/30 transition disabled:opacity-50"
+            className="text-xs px-3 py-1.5 rounded-lg bg-danger/20 border border-danger/30 text-danger hover:bg-danger/20 transition disabled:opacity-50 inline-flex items-center gap-1"
           >
-            ❌ {t('admin.crypto.reject')}
+            <span className="material-symbols-outlined !text-[14px]" aria-hidden="true">close</span>
+            {t('admin.crypto.reject')}
           </button>
         </div>
       )}
@@ -227,8 +256,9 @@ function TxDetail({ tx, onAction, saving }) {
 
 export default function AdminCrypto() {
   const fmt = useFormatters();
-  const { t } = useTranslation();
+  const { t, locale } = useTranslation();
   const addToast = useToastStore(s => s.add);
+  const currencyCode = getActiveCurrency().code;
   const [type, setType] = useState('deposit');
   const [status, setStatus] = useState('all');
   const [transactions, setTransactions] = useState([]);
@@ -238,6 +268,8 @@ export default function AdminCrypto() {
   const [saving, setSaving] = useState(false);
   const [expanded, setExpanded] = useState(null);
   const [hotWallet, setHotWallet] = useState(null);
+  const [walletNotConfigured, setWalletNotConfigured] = useState(false);
+  const [stats, setStats] = useState(null);
   const [pendingCounts, setPendingCounts] = useState({ deposit: 0, withdraw: 0 });
 
   const load = useCallback(async () => {
@@ -246,50 +278,57 @@ export default function AdminCrypto() {
       const endpoint = type === 'deposit' ? '/admin/crypto/all-deposits' : '/admin/crypto/all-withdrawals';
       const params = { page, limit: 30 };
       if (status !== 'all') params.status = status;
-      const [txRes, hwRes, pendDep, pendWd] = await Promise.all([
+      const [txRes, hwRes, pendDep, pendWd, statsRes] = await Promise.all([
         api.get(endpoint, { params }),
-        api.get('/crypto/hot-wallet-balance').catch(() => ({ data: null })),
+        api.get('/crypto/hot-wallet-balance').catch(e => ({
+          data: null,
+          notConfigured: e.response?.data?.error?.code === 'CRYPTO_WALLET_NOT_CONFIGURED',
+        })),
         api.get('/admin/crypto/all-deposits', { params: { status: 'pending', limit: 1 } }).catch(() => ({ data: { total: 0 } })),
         api.get('/admin/crypto/all-withdrawals', { params: { status: 'pending', limit: 1 } }).catch(() => ({ data: { total: 0 } })),
+        api.get('/admin/crypto/stats').catch(() => ({ data: null })),
       ]);
       setTransactions(txRes.data.transactions);
       setTotal(txRes.data.total);
       setHotWallet(hwRes.data);
+      setWalletNotConfigured(Boolean(hwRes.notConfigured));
       setPendingCounts({ deposit: pendDep.data.total, withdraw: pendWd.data.total });
+      const st = statsRes.data;
+      setStats(st && { deposits: st.deposits.total, payouts: st.payouts.total, net: st.net, count: st.count });
     } catch {
-      addToast('Crypto işlemleri yüklenemedi.', 'error');
+      addToast(t('admin.crypto.loadFailed'), 'error');
     } finally {
       setLoading(false);
     }
-  }, [type, status, page, addToast]);
+  }, [type, status, page, addToast, t]);
 
   useEffect(() => { load(); }, [load]);
   useEffect(() => { setPage(1); }, [type, status]);
 
-  async function handleAction(tx, action, reason) {
+  async function handleAction(tx, action) {
     setSaving(true);
     try {
       if (tx.type === 'crypto_deposit') {
         if (action === 'approve') {
           await api.post(`/admin/crypto/deposits/${tx._id}/approve`);
-          addToast('Yatırma onaylandı — bakiyeye eklendi.', 'success');
+          addToast(t('admin.crypto.depositApproved'), 'success');
         } else {
           await api.post(`/admin/crypto/deposits/${tx._id}/reject`);
-          addToast('Yatırma reddedildi.', 'info');
+          addToast(t('admin.crypto.depositRejected'), 'info');
         }
       } else {
         if (action === 'approve') {
           await api.post(`/admin/crypto/withdrawals/${tx._id}/approve`);
-          addToast('Çekim onaylandı — hot wallet\'tan transfer başlatıldı.', 'success');
+          addToast(t('admin.crypto.withdrawApproved'), 'success');
         } else {
           await api.post(`/admin/crypto/withdrawals/${tx._id}/reject`);
-          addToast('Çekim reddedildi — bakiye iade edildi.', 'info');
+          addToast(t('admin.crypto.withdrawRejected'), 'info');
         }
       }
       setExpanded(null);
       load();
     } catch (e) {
-      addToast(e.response?.data?.error || 'İşlem başarısız.', 'error');
+      addToast(e.response?.data?.error || t('admin.crypto.actionFailed'), 'error');
     } finally {
       setSaving(false);
     }
@@ -298,44 +337,54 @@ export default function AdminCrypto() {
   const totalPages = Math.ceil(total / 30);
 
   const statusColor = (s) => {
-    if (s === 'completed') return 'text-green-400 bg-green-500/10';
-    if (s === 'pending') return 'text-yellow-400 bg-yellow-500/10';
-    if (s === 'rejected') return 'text-red-400 bg-red-500/10';
-    return 'text-text-3 bg-white/5';
+    if (s === 'completed') return { tone: 'bg-success/15 text-success', dot: 'bg-success' };
+    if (s === 'pending') return { tone: 'bg-warning/15 text-warning', dot: 'bg-warning' };
+    if (s === 'rejected') return { tone: 'bg-danger/15 text-danger', dot: 'bg-danger' };
+    return { tone: 'bg-white/10 text-text-2', dot: 'bg-white/40' };
   };
 
   const statusLabel = (s) => {
-    if (s === 'completed') return 'Tamamlandı';
-    if (s === 'pending') return 'Bekliyor';
-    if (s === 'rejected') return 'Reddedildi';
+    if (s === 'completed') return t('admin.crypto.statusCompleted');
+    if (s === 'pending') return t('admin.crypto.statusPending');
+    if (s === 'rejected') return t('admin.crypto.statusRejected');
     return s;
   };
 
   return (
-    <div className="max-w-5xl mx-auto px-4 py-6">
-      <h1 className="text-xl font-bold text-text-1 mb-4">💰 Crypto İşlemleri</h1>
+    <>
+      <WalletStatCards stats={stats} />
 
       {/* Hot Wallet */}
+      {walletNotConfigured && (
+        <div className="mb-4 flex items-start gap-2 rounded-xl border border-warning/30 bg-warning/15 p-3.5 text-xs text-warning">
+          <span className="material-symbols-outlined !text-[16px]" aria-hidden="true">warning</span>
+          <span>{t('admin.cryptoPayment.walletNotConfigured')}</span>
+        </div>
+      )}
       {hotWallet && (
-        <div className="mb-4 p-3 rounded-lg bg-green-500/10 border border-green-500/30 flex items-center gap-4">
-          <div>
-            <div className="text-xs font-semibold text-green-300">Hot Wallet</div>
-            <div className="text-lg font-bold text-green-200">{hotWallet.usdt?.toFixed(2) || 0} USDT</div>
+        <div className="mb-4 rounded-xl border border-white/10 bg-bg-card p-3.5">
+          <div className="text-[11px] font-bold uppercase tracking-[0.07em] text-text-3">Hot Wallet</div>
+          <div className="mt-2 font-mono text-[22px] font-bold tabular-nums tracking-tight text-success">
+            {hotWallet.usdt?.toFixed(2) || 0} USDT
           </div>
-          <div className="text-xs text-green-300/80 truncate">{hotWallet.address}</div>
+          <div className="mt-1.5 truncate font-mono text-xs text-text-3">{hotWallet.address}</div>
+          {hotWallet.activated === false && (
+            <div className="mt-1.5 text-xs text-warning">{t('admin.cryptoPayment.walletNotActivated')}</div>
+          )}
         </div>
       )}
 
       {/* Type Tabs */}
-      <div className="flex gap-1 bg-bg-card border border-white/10 rounded-lg p-1 w-fit mb-3">
+      <div className="flex gap-1 bg-bg-card border border-white/10 rounded-lg p-1 w-fit max-w-full overflow-x-auto mb-3">
         {TYPE_TABS.map(tab => {
           const pendingCount = pendingCounts[tab.key] || 0;
           return (
             <button key={tab.key} onClick={() => setType(tab.key)}
               className={`px-4 py-2 rounded-md text-sm font-medium transition flex items-center gap-1.5 ${type === tab.key ? 'bg-accent text-white' : 'text-text-3 hover:text-text-1'}`}>
-              {tab.label}
+              <span className="material-symbols-outlined !text-[16px]" aria-hidden="true">{tab.icon}</span>
+              {t(tab.labelKey)}
               {pendingCount > 0 && (
-                <span className={`text-[10px] px-1.5 py-0.5 rounded-full font-bold ${type === tab.key ? 'bg-white/20 text-white' : 'bg-yellow-500/20 text-yellow-300'}`}>
+                <span className={`text-[10px] px-1.5 py-0.5 rounded-full font-bold ${type === tab.key ? 'bg-white/20 text-white' : 'bg-warning/15 text-warning'}`}>
                   {pendingCount}
                 </span>
               )}
@@ -345,90 +394,107 @@ export default function AdminCrypto() {
       </div>
 
       {/* Status Tabs */}
-      <div className="flex gap-1 bg-bg-card border border-white/10 rounded-lg p-1 w-fit mb-4">
-        {STATUS_TABS.map(tab => (
-          <button key={tab.key} onClick={() => setStatus(tab.key)}
-            className={`px-3 py-1.5 rounded-md text-xs font-medium transition ${status === tab.key ? 'bg-white/10 text-text-1' : 'text-text-3 hover:text-text-1'}`}>
-            {tab.label}
-          </button>
-        ))}
+      <div className="mb-4 flex flex-wrap items-center gap-2.5">
+        <div className="flex gap-1 bg-bg-card border border-white/10 rounded-lg p-1 w-fit max-w-full overflow-x-auto">
+          {STATUS_TABS.map(tab => (
+            <button key={tab.key} onClick={() => setStatus(tab.key)}
+              className={`px-3 py-1.5 rounded-md text-xs font-bold transition ${status === tab.key ? 'bg-white/10 text-text-1' : 'text-text-3 hover:text-text-1'}`}>
+              {t(tab.labelKey)}
+            </button>
+          ))}
+        </div>
+        <button
+          type="button"
+          onClick={() => { setStatus('all'); setPage(1); }}
+          className="ml-auto inline-flex items-center gap-1.5 text-[13px] font-bold text-text-3 transition hover:text-text-1"
+        >
+          <span className="material-symbols-outlined !text-[15px]" aria-hidden="true">close</span>
+          {t('common.reset')}
+        </button>
       </div>
 
       {/* Transactions */}
-      {loading ? (
-        <div className="text-center text-text-3 py-8 text-sm">Yükleniyor…</div>
-      ) : transactions.length === 0 ? (
-        <div className="text-center text-text-3 py-8 text-sm">Bu kategoride işlem bulunamadı.</div>
-      ) : (
-        <div className="space-y-2">
-          {transactions.map(tx => (
-            <div key={tx._id} className="bg-bg-card border border-white/10 rounded-xl p-4">
-              {/* Ana Satır */}
-              <div
-                className="flex items-center justify-between gap-3 cursor-pointer"
-                onClick={() => setExpanded(expanded === tx._id ? null : tx._id)}
+      <AdminTable
+        loading={loading}
+        empty={transactions.length === 0}
+        emptyLabel={t('admin.crypto.txListEmpty')}
+        columns={[
+          { key: 'user', label: t('admin.crypto.columnUser') },
+          { key: 'type', label: t('admin.crypto.columnType') },
+          { key: 'amount', label: t('admin.crypto.columnAmount'), align: 'right' },
+          { key: 'status', label: t('admin.crypto.columnStatus') },
+          { key: 'date', label: t('admin.crypto.columnDate') },
+          { key: 'actions', label: t('admin.crypto.columnActions'), align: 'right' },
+        ]}
+      >
+        {transactions.map(tx => {
+          const name = tx.userId?.username || '???';
+          const initials = name.slice(0, 2).toUpperCase();
+          const st = statusColor(tx.status);
+          const isPending = tx.status === 'pending';
+          const open = expanded === tx._id;
+          return (
+            <Fragment key={tx._id}>
+              <AdminTableRow
+                className={isPending ? 'cursor-pointer' : ''}
+                onClick={() => isPending && setExpanded(open ? null : tx._id)}
               >
-                <div className="flex-1 min-w-0">
-                  <div className="flex items-center gap-2 mb-1">
-                    <span className="font-semibold text-text-1 text-sm">{tx.userId?.username || '???'}</span>
-                    <span className="text-xs bg-white/10 px-2 py-0.5 rounded text-text-3">{tx.userId?.email}</span>
-                    <span className={`text-[10px] px-2 py-0.5 rounded-full font-medium ${statusColor(tx.status)}`}>
-                      {statusLabel(tx.status)}
+                <AdminTableCell>
+                  <div className="flex items-center gap-2.5">
+                    <span className="grid h-8 w-8 shrink-0 place-items-center rounded-lg border border-white/10 bg-bg-hover text-[11px] font-extrabold text-text-2">
+                      {initials}
                     </span>
-                    {tx.status === 'pending' && (
-                      <span className="text-[10px] text-text-3">{t('admin.crypto.detail')}</span>
-                    )}
+                    <div className="min-w-0">
+                      <div className="truncate font-bold text-text-1">{name}</div>
+                      <div className="mt-0.5 truncate font-mono text-xs text-text-3">{tx.userId?.email || '—'}</div>
+                    </div>
                   </div>
-                  <div className="flex items-center gap-3">
-                    <span className={`text-lg font-black ${tx.amount > 0 ? 'text-green-400' : 'text-red-400'}`}>
-                      {tx.amount > 0 ? '+' : ''}{tx.amount?.toFixed(2)} TRY
-                    </span>
-                    <span className="text-xs text-text-3">
-                      {tx.type === 'crypto_deposit' ? t('admin.crypto.deposit') : t('admin.crypto.withdraw')}
-                    </span>
-                  </div>
-                  <div className="text-xs text-text-3 mt-1 truncate max-w-md">{tx.note}</div>
-                  <div className="text-[10px] text-text-3/60 mt-0.5">{fmt.formatDateTime(tx.createdAt)}</div>
-                </div>
-
-                {/* Hızlı aksiyon (sadece pending) */}
-                {tx.status === 'pending' && expanded !== tx._id && (
-                  <div className="flex gap-1 shrink-0">
-                    <button onClick={(e) => { e.stopPropagation(); handleAction(tx, 'approve'); }} disabled={saving}
-                      className="text-[10px] px-2 py-1 rounded bg-green-500/20 border border-green-500/30 text-green-300 hover:bg-green-500/30 transition disabled:opacity-50">
-                      {t('admin.crypto.approve')}
-                    </button>
-                    <button onClick={(e) => { e.stopPropagation(); handleAction(tx, 'reject'); }} disabled={saving}
-                      className="text-[10px] px-2 py-1 rounded bg-red-500/20 border border-red-500/30 text-red-300 hover:bg-red-500/30 transition disabled:opacity-50">
-                      {t('admin.crypto.reject')}
-                    </button>
-                  </div>
-                )}
-              </div>
-
-              {/* Genişletilmiş Detay */}
-              {expanded === tx._id && tx.status === 'pending' && (
+                </AdminTableCell>
+                <AdminTableCell>
+                  <span className="text-xs font-semibold text-text-2">
+                    {tx.type === 'crypto_deposit' ? t('admin.crypto.deposit') : t('admin.crypto.withdraw')}
+                  </span>
+                </AdminTableCell>
+                <AdminTableCell align="right">
+                  <span className={`font-mono text-sm font-semibold tabular-nums ${tx.amount > 0 ? 'text-success' : 'text-danger'}`}>
+                    {tx.amount > 0 ? '+' : ''}{tx.amount?.toFixed(2)} {currencyCode}
+                  </span>
+                  {tx.note && <div className="mt-0.5 truncate text-xs text-text-3">{tx.note}</div>}
+                </AdminTableCell>
+                <AdminTableCell>
+                  <span className={`inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-[11px] font-extrabold ${st.tone}`}>
+                    <i className={`h-1.5 w-1.5 rounded-full ${st.dot}`} />
+                    {statusLabel(tx.status)}
+                  </span>
+                </AdminTableCell>
+                <AdminTableCell>
+                  <span className="whitespace-nowrap font-mono text-xs text-text-3">{fmt.formatDateTime(tx.createdAt)}</span>
+                </AdminTableCell>
+                <AdminTableActionsCell>
+                  <RowActions
+                    label={t('admin.crypto.columnActions')}
+                    items={isPending ? [
+                      { key: 'approve', label: t('admin.crypto.approve'), icon: 'check', tone: 'success', disabled: saving, onClick: () => handleAction(tx, 'approve') },
+                      { key: 'reject', label: t('admin.crypto.reject'), icon: 'close', tone: 'danger', disabled: saving, onClick: () => handleAction(tx, 'reject') },
+                      { key: 'detail', label: t('admin.crypto.detail'), icon: open ? 'expand_less' : 'expand_more', onClick: () => setExpanded(open ? null : tx._id) },
+                    ] : []}
+                  />
+                </AdminTableActionsCell>
+              </AdminTableRow>
+              <AdminExpandRow colSpan={6} open={open && isPending}>
                 <TxDetail tx={tx} onAction={handleAction} saving={saving} />
-              )}
-            </div>
-          ))}
-        </div>
-      )}
+              </AdminExpandRow>
+            </Fragment>
+          );
+        })}
+      </AdminTable>
 
-      {/* Pagination */}
-      {totalPages > 1 && (
-        <div className="flex items-center justify-center gap-2 mt-4">
-          <button onClick={() => setPage(p => Math.max(1, p - 1))} disabled={page === 1}
-            className="text-xs px-3 py-1.5 rounded-lg bg-white/5 border border-white/10 text-text-2 hover:bg-white/10 transition disabled:opacity-30">
-            Önceki
-          </button>
-          <span className="text-xs text-text-3">{page} / {totalPages}</span>
-          <button onClick={() => setPage(p => Math.min(totalPages, p + 1))} disabled={page === totalPages}
-            className="text-xs px-3 py-1.5 rounded-lg bg-white/5 border border-white/10 text-text-2 hover:bg-white/10 transition disabled:opacity-30">
-            Sonraki
-          </button>
-        </div>
-      )}
-    </div>
+      <AdminPager
+        page={page}
+        pages={totalPages}
+        onPage={setPage}
+        totalLabel={t('admin.crypto.countLine', { count: total.toLocaleString(locale), page, pages: totalPages })}
+      />
+    </>
   );
 }

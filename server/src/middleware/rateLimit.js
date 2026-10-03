@@ -32,6 +32,41 @@ export const authLimiter = createLimiter({
   message: { error: { code: 'RATE_LIMIT', message: 'Çok fazla deneme. 15 dakika sonra tekrar deneyin.' } },
 });
 
+// Kayıt / giriş / e-posta akışları ayrı sayaçlarda. Eskiden hepsi authLimiter'ı
+// (IP başına 15dk'da 5, başarılı/başarısız hepsi sayılır) paylaşıyordu: formu bir
+// iki kez hatalı gönderip (kullanıcı adı alınmış, zayıf şifre) sonra giriş yapan
+// yeni oyuncu "Çok fazla deneme" alıyordu.
+
+// Kayıt — yalnızca başarıyla açılan hesaplar sayılır (toplu hesap açmayı keser),
+// hatalı form gönderimleri kullanıcıyı kilitlemez.
+export const registerLimiter = createLimiter({
+  windowMs: 60 * 60 * 1000,
+  max: 5,
+  skipFailedRequests: true,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { error: { code: 'RATE_LIMIT', message: 'Bu ağdan çok fazla hesap açıldı. Bir saat sonra tekrar deneyin.' } },
+});
+
+// Giriş — credential stuffing koruması: yalnızca başarısız denemeler sayılır.
+export const loginLimiter = createLimiter({
+  windowMs: 15 * 60 * 1000,
+  max: 10,
+  skipSuccessfulRequests: true,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { error: { code: 'RATE_LIMIT', message: 'Çok fazla hatalı giriş denemesi. 15 dakika sonra tekrar deneyin.' } },
+});
+
+// Doğrulama e-postası / şifre sıfırlama — e-posta gönderen uçlar.
+export const emailFlowLimiter = createLimiter({
+  windowMs: 15 * 60 * 1000,
+  max: 8,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { error: { code: 'RATE_LIMIT', message: 'Çok fazla istek. 15 dakika sonra tekrar deneyin.' } },
+});
+
 // Financial — deposit/withdraw
 export const financialLimiter = createLimiter({
   windowMs: 60 * 60 * 1000,
@@ -41,8 +76,8 @@ export const financialLimiter = createLimiter({
   message: { error: { code: 'RATE_LIMIT', message: 'Çok fazla finansal işlem. 1 saat sonra tekrar deneyin.' } },
 });
 
-// Palace callback — provider-side ama savunma amaçlı
-export const palaceCallbackLimiter = createLimiter({
+// Igames callback — provider-side ama savunma amaçlı
+export const igamesCallbackLimiter = createLimiter({
   windowMs: 60 * 1000,
   max: 1000,
   standardHeaders: true,
@@ -81,4 +116,13 @@ export const spinLimiter = createLimiter({
   standardHeaders: true,
   legacyHeaders: false,
   message: { error: { code: 'RATE_LIMIT', message: 'Çok fazla spin isteği. Lütfen yavaşlayın.' } },
+});
+
+// Admin test e-postası — gerçek SMTP'ye giden, kötüye kullanılabilecek uç.
+export const emailTestLimiter = createLimiter({
+  windowMs: 15 * 60 * 1000,
+  max: 5,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { error: { code: 'RATE_LIMIT', message: 'Çok fazla test e-postası. 15 dakika sonra tekrar deneyin.' } },
 });

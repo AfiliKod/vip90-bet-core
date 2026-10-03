@@ -9,16 +9,16 @@ const STATUS_CLS = {
 };
 const STATUS_I18N_KEY = { open: 'open', in_progress: 'inProgress', resolved: 'resolved', closed: 'closed' };
 
-function formatDateTime(value) {
+function formatDateTime(value, locale) {
   if (!value) return '';
-  return new Date(value).toLocaleString('tr-TR', {
+  return new Date(value).toLocaleString(locale, {
     day: '2-digit', month: 'short', year: 'numeric',
     hour: '2-digit', minute: '2-digit',
   });
 }
 
 export default function TicketDetailView({ ticket, onSendReply, onBack }) {
-  const { t } = useTranslation();
+  const { t, locale } = useTranslation();
   const [reply, setReply] = useState('');
 
   const isClosed = ticket?.status === 'closed';
@@ -43,13 +43,14 @@ export default function TicketDetailView({ ticket, onSendReply, onBack }) {
       <div className="max-w-3xl mx-auto px-4 py-6">
         <button
           onClick={onBack}
-          className="mb-4 px-3 py-1.5 rounded-lg text-xs border border-white/10 text-text-2 hover:text-text-1 transition"
+          className="mb-4 inline-flex h-8 items-center gap-1 rounded-lg border border-white/10 bg-bg-hover px-2.5 text-xs font-bold text-text-2 transition hover:text-text-1"
         >
-          ← {t('ticket.back')}
+          <span className="material-symbols-outlined !text-[14px]" aria-hidden="true">arrow_back</span>
+          {t('ticket.back')}
         </button>
         <div className="bg-bg-card border border-dashed border-white/10 rounded-xl py-14 text-center">
-          <div className="text-4xl mb-3">🔍</div>
-          <p className="font-semibold text-text-1">{t('ticket.notFound')}</p>
+          <span className="material-symbols-outlined !text-[32px] text-text-3/60" aria-hidden="true">search</span>
+          <p className="mt-2 font-semibold text-text-1">{t('ticket.notFound')}</p>
         </div>
       </div>
     );
@@ -62,9 +63,10 @@ export default function TicketDetailView({ ticket, onSendReply, onBack }) {
     <div className="max-w-3xl mx-auto px-4 py-6">
       <button
         onClick={onBack}
-        className="mb-4 px-3 py-1.5 rounded-lg text-xs border border-white/10 text-text-2 hover:text-text-1 transition"
+        className="mb-4 inline-flex h-8 items-center gap-1 rounded-lg border border-white/10 bg-bg-hover px-2.5 text-xs font-bold text-text-2 transition hover:text-text-1"
       >
-        ← {t('ticket.back')}
+        <span className="material-symbols-outlined !text-[14px]" aria-hidden="true">arrow_back</span>
+        {t('ticket.back')}
       </button>
 
       <div className="bg-bg-card border border-white/10 rounded-xl p-4 mb-4">
@@ -75,7 +77,7 @@ export default function TicketDetailView({ ticket, onSendReply, onBack }) {
           </span>
         </div>
         <p className="text-text-3 text-xs mt-1.5">
-          {t('ticket.openedAt', { date: formatDateTime(ticket.createdAt) })} · {t('ticket.messageCount', { count: (ticket.messages || []).length })}
+          {t('ticket.openedAt', { date: formatDateTime(ticket.createdAt, locale) })} · {t('ticket.messageCount', { count: (ticket.messages || []).length })}
         </p>
       </div>
 
@@ -96,7 +98,7 @@ export default function TicketDetailView({ ticket, onSendReply, onBack }) {
                 </div>
                 <p className="text-sm text-text-1 whitespace-pre-wrap break-words">{msg.text}</p>
                 <div className="text-[10px] text-text-3 text-right mt-1">
-                  {formatDateTime(msg.createdAt)}
+                  {formatDateTime(msg.createdAt, locale)}
                 </div>
               </div>
             </div>

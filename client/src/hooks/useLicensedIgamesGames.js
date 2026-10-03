@@ -4,10 +4,10 @@ import { readCache, writeCache } from '../utils/apiCache';
 
 // Aynı allowlist HomePage.jsx/SearchOverlay.jsx'te de var — yalnızca
 // lisanslı/gerçek katalogla bağlı sağlayıcıların oyunları.
-const PALACE_PROVIDER_IDS = [1, 15];
+const IGAMES_PROVIDER_IDS = [1, 15];
 const cacheStore = { data: null, expiresAt: 0 };
 
-export function useLicensedPalaceGames() {
+export function useLicensedIgamesGames() {
   const [games, setGames] = useState(() => readCache(cacheStore) || []);
   const [loading, setLoading] = useState(!readCache(cacheStore));
 
@@ -15,8 +15,8 @@ export function useLicensedPalaceGames() {
     if (readCache(cacheStore)) return;
     let cancelled = false;
     Promise.all(
-      PALACE_PROVIDER_IDS.map(provider_id =>
-        api.post('/palace/games', { lang: 'tr', provider_id }).then(r => r.data?.data || []).catch(() => [])
+      IGAMES_PROVIDER_IDS.map(provider_id =>
+        api.post('/igames/games', { lang: 'tr', provider_id }).then(r => r.data?.data || []).catch(() => [])
       )
     ).then(lists => {
       if (cancelled) return;

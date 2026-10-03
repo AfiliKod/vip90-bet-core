@@ -5,9 +5,9 @@ import { useTranslation } from '../../i18n';
 import { HOME_CARD, HOME_BORDER } from '../../pages/home/homeTheme';
 import ScrollHintArrow from './ScrollHintArrow';
 
-// Palace'ın kendi provider API'si (`getProviders()`) `provider_logo` alanını
+// Igames'ın kendi provider API'si (`getProviders()`) `provider_logo` alanını
 // güvenilir doldurmuyor (çoğu sağlayıcıda boş dönüyor) — bu yüzden logolar
-// Palace/casino content provider admin panelinden (Games > Providers List) indirilip
+// Igames/GoldSlotIgames admin panelinden (Games > Providers List) indirilip
 // `public/images/providers/{provider_id}.png` altına yerleştirildi. Anahtar
 // admin paneldeki provider ID'siyle birebir aynı.
 const LOCAL_LOGO_IDS = new Set([1, 2, 3, 4, 5, 7, 9, 12, 13, 14, 15, 16, 17, 20, 21, 23, 24, 25, 26, 29, 30]);
@@ -36,7 +36,7 @@ export default function ProviderRow({ selectedId, onSelect }) {
 
   useEffect(() => {
     let cancelled = false;
-    api.post('/palace/providers', { lang: 'tr' }).then(({ data }) => {
+    api.post('/igames/providers', { lang: 'tr' }).then(({ data }) => {
       if (!cancelled) setProviders(data?.data || []);
     }).catch(() => {});
     return () => { cancelled = true; };

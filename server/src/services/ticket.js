@@ -8,6 +8,7 @@
  * - `closed` bir tikete yazmak status'ü DEĞİŞTİRMEZ — kapanmış bir tiket
  *   sessizce yeniden açılmaz, kapatma kararı ayrı bir işlemdir.
  */
+import { broadcastAdminCounts } from './adminCounts.js';
 import Ticket from '../models/Ticket.js';
 import User from '../models/User.js';
 import { getIO } from './socketEmitter.js';
@@ -81,6 +82,9 @@ export async function updateStatus(ticketId, status) {
 
   const io = getIO();
   if (io) io.to(`user:${ticket.userId}`).emit('ticket:status', { ticketId: ticket._id, status });
+  // `closed` <-/-> diğer durumlar kuyruk sayısını değiştirir; rozet ve
+  // dashboard kartı anında düşsün/yükselsin.
+  broadcastAdminCounts();
 
   return ticket;
 }

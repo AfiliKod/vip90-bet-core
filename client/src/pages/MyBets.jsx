@@ -15,7 +15,7 @@ function statusLabel(t, status) {
 const STATUS_COLOR = { pending: 'text-warning', won: 'text-success', lost: 'text-danger', cancelled: 'text-text-3' };
 
 export default function MyBets() {
-  const { t } = useTranslation();
+  const { t, locale } = useTranslation();
   const [bets, setBets] = useState([]);
   const [filter, setFilter] = useState('');
   const [loading, setLoading] = useState(true);
@@ -51,7 +51,7 @@ export default function MyBets() {
                   <span className="text-xs text-text-3 bg-bg-base px-2 py-0.5 rounded-full">{bet.type === 'combo' ? `🔗 ${t('bets.combo')}` : `📌 ${t('bets.single')}`}</span>
                   <span className={`text-xs font-semibold ${STATUS_COLOR[bet.status]}`}>{statusLabel(t, bet.status)}</span>
                 </div>
-                <span className="text-xs text-text-3">{new Date(bet.createdAt).toLocaleDateString('tr-TR', { day: '2-digit', month: 'short', year: 'numeric' })}</span>
+                <span className="text-xs text-text-3">{new Date(bet.createdAt).toLocaleDateString(locale, { day: '2-digit', month: 'short', year: 'numeric' })}</span>
               </div>
               {bet.selections.map((s, i) => (
                 <div key={i} className="text-sm text-text-2 mb-1">

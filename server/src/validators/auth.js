@@ -5,6 +5,9 @@ export const registerSchema = z.object({
   email:      z.string().email().max(100),
   password:   z.string().min(8).max(128).regex(/[A-Z]/, 'En az 1 büyük harf').regex(/[0-9]/, 'En az 1 rakam'),
   referredBy: z.string().min(3).max(30).optional(),
+  // Slikair payment için opsiyonel alanlar (admin tarafından zorunlu kılınabilir)
+  phone:        z.string().min(7).max(20).optional().nullable(),
+  dateOfBirth:  z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional().nullable(),
   // KVKK + Terms consent
   acceptedTerms:  z.literal(true, { errorMap: () => ({ message: 'Kullanım koşullarını kabul etmelisiniz' }) }),
   acceptedKvkk:   z.literal(true, { errorMap: () => ({ message: 'KVKK aydınlatma metnini kabul etmelisiniz' }) }),

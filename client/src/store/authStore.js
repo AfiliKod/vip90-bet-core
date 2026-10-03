@@ -59,13 +59,15 @@ export const useAuthStore = create((set) => ({
     connectUserSocket(data.user._id || data.user.id, data.user.role);
     return data.user;
   },
-  register: async (username, email, password, consents = {}, referredBy) => {
+  register: async (username, email, password, consents = {}, referredBy, extraFields = {}) => {
     const { data } = await api.post('/auth/register', {
       username, email, password,
       acceptedTerms: consents.acceptedTerms,
       acceptedKvkk: consents.acceptedKvkk,
       consentVersion: consents.consentVersion,
       ...(referredBy ? { referredBy } : {}),
+      ...(extraFields.phone ? { phone: extraFields.phone } : {}),
+      ...(extraFields.dateOfBirth ? { dateOfBirth: extraFields.dateOfBirth } : {}),
     });
     // Task 1: register() artık doğrulanmamış kullanıcı için accessToken döndürmüyor —
     // sadece varsa (ileride backend davranışı değişirse diye login() ile simetrik kalınır) oturum açılır.

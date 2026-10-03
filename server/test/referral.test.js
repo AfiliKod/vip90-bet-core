@@ -231,7 +231,7 @@ describe('Referral System', () => {
         referredBy: level1._id,
       });
 
-      const commissions = await createPendingCommissions(bettor._id, 100, 'palace', null);
+      const commissions = await createPendingCommissions(bettor._id, 100, 'igames', null);
 
       assert.equal(commissions.length, 3);
 

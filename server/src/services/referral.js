@@ -3,6 +3,7 @@ import ReferralTree from '../models/ReferralTree.js';
 import ReferralCommission from '../models/ReferralCommission.js';
 import Transaction from '../models/Transaction.js';
 import { getIO } from './socketEmitter.js';
+import { createTransaction } from './ledger.js';
 
 export const COMMISSION_RATES = {
   1: 10, // 10% for direct referrals
@@ -192,6 +193,19 @@ export async function approveCommission(commissionId, adminId, options = {}) {
     referenceId: commission._id,
     createdBy: adminId,
   }], { session });
+
+  const newTransaction = await createTransaction({
+    userId: referrer._id,
+    type: 'referral_commission',
+    amount: commission.commissionAmount,
+    balanceBefore,
+    balanceAfter: referrer.balance,
+    note: `Referans komisyonu (Seviye ${commission.level}) - ${commission.source}`,
+    referenceId: commission._id,
+    createdBy: adminId,
+    idempotencyKey: `referral_approve_${commission._id}`,
+    source: 'admin',
+  }, { session });
 
   commission.status = 'approved';
   commission.approvedBy = adminId;

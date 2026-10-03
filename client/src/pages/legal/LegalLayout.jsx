@@ -16,8 +16,8 @@ const SECTIONS = [
 
 export default function LegalLayout({ title, intro, sections, children }) {
   const location = useLocation();
-  const { t } = useTranslation();
-  const updatedAt = new Date().toLocaleDateString('tr-TR');
+  const { t, locale } = useTranslation();
+  const updatedAt = new Date().toLocaleDateString(locale);
   const siteName = useBrandingStore(s => s.siteName);
   const legalName = getLegalName(siteName);
 
@@ -34,15 +34,16 @@ export default function LegalLayout({ title, intro, sections, children }) {
     <div className="max-w-6xl mx-auto px-4 py-8">
       {/* Header */}
       <div className="mb-6">
-        <Link to="/" className="text-[10px] uppercase tracking-widest font-bold text-primary">
-          ← {t('common.back')}
+        <Link to="/" className="inline-flex items-center gap-1 text-[10px] uppercase tracking-widest font-bold text-primary">
+          <span className="material-symbols-outlined !text-[13px]" aria-hidden="true">arrow_back</span>
+          {t('common.back')}
         </Link>
         <h1 className="text-2xl font-black mt-2 text-text-1">{displayTitle}</h1>
         <p className="text-sm mt-2 max-w-3xl text-text-3">{intro}</p>
         <div className="flex items-center gap-3 text-[10px] mt-3 text-text-3/70">
-          <span>Versiyon: {LEGAL_VERSION}</span>
+          <span>{t('legal.version', { version: LEGAL_VERSION })}</span>
           <span>·</span>
-          <span>Son güncelleme: {updatedAt}</span>
+          <span>{t('legal.lastUpdated', { date: updatedAt })}</span>
           <span>·</span>
           <span>{legalName}</span>
         </div>

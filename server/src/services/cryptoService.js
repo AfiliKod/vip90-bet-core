@@ -160,7 +160,11 @@ export function getHotWalletSigner() {
     return new Wallet(pk);
   }
   const phrase = process.env.CRYPTO_SEED_PHRASE;
-  if (!phrase) throw new Error('CRYPTO_SEED_PHRASE veya HOT_WALLET_PRIVATE_KEY tanımlı değil');
+  if (!phrase) {
+    const err = new Error('CRYPTO_SEED_PHRASE veya HOT_WALLET_PRIVATE_KEY tanımlı değil');
+    err.code = 'CRYPTO_WALLET_NOT_CONFIGURED';
+    throw err;
+  }
   const mn = Mnemonic.fromPhrase(phrase);
   // Hot wallet: index 0 (ana cüzdan)
   const node = HDNodeWallet.fromMnemonic(mn, "m/44'/195'/0'/0/0");
@@ -176,7 +180,11 @@ export function getHotWalletAddress() {
 }
 
 /**
- * Hot wallet'ın USDT bakiyesini sorgular.
+ * Hot wallet'ın USDT + TRX bakiyesini sorgular.
+ * Adres zincirde hiç işlem görmediyse TronGrid hesap döndürmez; bu hata değildir,
+ * `activated: false` ile sıfır bakiye döner.
+ * Seed/anahtar tanımlı değilse CRYPTO_WALLET_NOT_CONFIGURED kodlu hata fırlatır.
+ * @returns {Promise<{address: string, usdt: number, trx: number, activated: boolean}>}
  */
 export async function getHotWalletBalance() {
   const cfg = getNetworkConfig();
@@ -189,18 +197,15 @@ export async function getHotWalletBalance() {
   if (!resp.ok) throw new Error(`TronGrid hata: ${resp.status}`);
   const json = await resp.json();
   const account = json.data?.[0];
-  if (!account) throw new Error('Hesap bulunamadı');
-  const tokens = account.trc20 || [];
-  // trc20 [{contractAddress: balance}] formatında olabilir
+  if (!account) return { address, usdt: 0, trx: 0, activated: false };
   let usdtBalance = 0;
-  for (const entry of tokens) {
+  // trc20 [{contractAddress: balance}] formatında olabilir
+  for (const entry of account.trc20 || []) {
     const bal = entry[cfg.usdtContract];
     if (bal !== undefined) { usdtBalance = Number(bal) / 1_000_000; break; }
   }
-  return {
-    address,
-    usdt: usdtBalance,
-  };
+  const trxBalance = (account.balance || 0) / 1_000_000;
+  return { address, usdt: usdtBalance, trx: trxBalance, activated: true };
 }
 
 /**

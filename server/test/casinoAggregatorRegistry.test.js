@@ -16,15 +16,15 @@ const fakeAggregator = (name = 'fake') => ({
 describe('createAggregatorRegistry', () => {
   test('kayıtlı aggregator’ı adıyla döndürür', () => {
     const reg = createAggregatorRegistry();
-    const p = fakeAggregator('palace');
+    const p = fakeAggregator('igames');
     reg.register(p);
-    assert.strictEqual(reg.resolve('palace'), p);
+    assert.strictEqual(reg.resolve('igames'), p);
   });
 
   test('bilinmeyen aggregator için mevcutları listeleyen hata fırlatır', () => {
     const reg = createAggregatorRegistry();
-    reg.register(fakeAggregator('palace'));
-    assert.throws(() => reg.resolve('evolution'), err => /evolution/.test(err.message) && /palace/.test(err.message));
+    reg.register(fakeAggregator('igames'));
+    assert.throws(() => reg.resolve('evolution'), err => /evolution/.test(err.message) && /igames/.test(err.message));
   });
 
   test('zorunlu metotları taşımayan aggregator’ı reddeder', () => {
@@ -40,15 +40,15 @@ describe('createAggregatorRegistry', () => {
 
   test('aynı adı iki kez kaydetmeyi reddeder', () => {
     const reg = createAggregatorRegistry();
-    reg.register(fakeAggregator('palace'));
-    assert.throws(() => reg.register(fakeAggregator('palace')), /zaten/i);
+    reg.register(fakeAggregator('igames'));
+    assert.throws(() => reg.register(fakeAggregator('igames')), /zaten/i);
   });
 });
 
 describe('resolveActiveAggregator', () => {
   test('CASINO_AGGREGATOR env değişkenindeki aggregator’ı seçer', () => {
     const reg = createAggregatorRegistry();
-    reg.register(fakeAggregator('palace'));
+    reg.register(fakeAggregator('igames'));
     const ev = fakeAggregator('evolution');
     reg.register(ev);
     assert.strictEqual(resolveActiveAggregator(reg, { CASINO_AGGREGATOR: 'evolution' }), ev);

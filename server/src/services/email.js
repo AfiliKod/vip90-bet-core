@@ -3,22 +3,39 @@
 
 import nodemailer from 'nodemailer';
 import { getSiteName } from '../branding/index.js';
+import { emailConfig } from '../config/emailConfig.js';
 
+// Transport, ayarlar (host/port/secure/user/pass) değişince yeniden kurulur:
+// imza değişmediği sürece aynı örnek yeniden kullanılır. Ayar kaynağı: DB > env.
 let _transporter = null;
+let _signature = null;
+let _createTransport = (opts) => nodemailer.createTransport(opts);
 
-function getTransporter() {
-  if (_transporter) return _transporter;
-  if (!process.env.SMTP_HOST) return null;
-  _transporter = nodemailer.createTransport({
-    host: process.env.SMTP_HOST,
-    port: parseInt(process.env.SMTP_PORT || '587'),
-    secure: process.env.SMTP_SECURE === 'true',
-    auth: process.env.SMTP_USER ? {
-      user: process.env.SMTP_USER,
-      pass: process.env.SMTP_PASS,
-    } : undefined,
-  });
-  return _transporter;
+/** Testler için: gerçek SMTP yerine sahte transport. */
+export function _setCreateTransport(fn) {
+  _createTransport = fn || ((opts) => nodemailer.createTransport(opts));
+  _transporter = null;
+  _signature = null;
+}
+
+async function getTransporter() {
+  const c = await emailConfig.getAll();
+  if (!c.host) {
+    _transporter = null;
+    _signature = null;
+    return { transporter: null, from: c.from };
+  }
+  const signature = JSON.stringify([c.host, c.port, c.secure, c.user, c.pass]);
+  if (!_transporter || signature !== _signature) {
+    _transporter = _createTransport({
+      host: c.host,
+      port: parseInt(c.port || '587', 10),
+      secure: c.secure === 'true',
+      auth: c.user ? { user: c.user, pass: c.pass } : undefined,
+    });
+    _signature = signature;
+  }
+  return { transporter: _transporter, from: c.from };
 }
 
 // ─── Ortak mail görünümü (mail-güvenli: tablo tabanlı, inline CSS) ──────────
@@ -148,7 +165,7 @@ const TEMPLATES = {
 };
 
 export async function sendEmail({ to, subject, template, data, html }) {
-  const transporter = getTransporter();
+  const { transporter, from } = await getTransporter();
   const siteName = await getSiteName();
   let body = { subject, html };
   if (template && TEMPLATES[template]) {
@@ -162,9 +179,29 @@ export async function sendEmail({ to, subject, template, data, html }) {
     return { mock: true, verifyUrl: data?.verifyUrl, resetUrl: data?.resetUrl };
   }
   return transporter.sendMail({
-    from: `"${siteName}" <${process.env.SMTP_FROM || 'noreply@vip90.bet'}>`,
+    from: `"${siteName}" <${from || 'noreply@vip90.bet'}>`,
     to,
     subject: body.subject,
     html: body.html,
+  });
+}
+
+/**
+ * Panelden "test e-postası": SMTP tanımlı DEĞİLSE mock'a düşmez, hata fırlatır
+ * (aksi halde admin yanlış bir "gönderildi" izlenimi alırdı).
+ */
+export async function sendTestEmail(to) {
+  const { transporter, from } = await getTransporter();
+  if (!transporter) {
+    const err = new Error('SMTP sunucusu tanımlı değil');
+    err.code = 'SMTP_NOT_CONFIGURED';
+    throw err;
+  }
+  const siteName = await getSiteName();
+  return transporter.sendMail({
+    from: `"${siteName}" <${from || 'noreply@vip90.bet'}>`,
+    to,
+    subject: `${siteName} - SMTP test`,
+    html: layout({ siteName, preheader: 'SMTP test', body: `<p style="font-family:${FONT};font-size:15px;color:#e6ebf5;">SMTP ayarları çalışıyor.</p>` }),
   });
 }

@@ -1,5 +1,5 @@
 import { lazy, Suspense, useEffect } from 'react';
-import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
+import { BrowserRouter, Routes, Route, Navigate, useLocation } from 'react-router-dom';
 import { useAuthStore } from './store/authStore';
 import { useToastStore } from './store/toastStore';
 import { useBetNotificationStore } from './store/betNotificationStore';
@@ -8,9 +8,11 @@ import ModuleGate from './components/ModuleGate';
 import { formatMoney } from './utils/money.js';
 import { socket } from './services/socket';
 import ProtectedRoute from './components/ProtectedRoute';
+import AdminLayout from './components/admin/AdminLayout.jsx';
 import { useTranslation } from './i18n/I18nProvider.jsx';
 import ThemeStyleInjector from './theme/ThemeStyleInjector.jsx';
 import BrandingInjector from './branding/BrandingInjector.jsx';
+import SeoManager from './seo/SeoManager.jsx';
 import CurrencyLoader from './utils/CurrencyLoader.jsx';
 import GuestRoute from './components/GuestRoute';
 import ToastSystem from './components/ToastSystem';
@@ -30,29 +32,30 @@ const Profile = lazy(() => import('./pages/Profile'));
 const Kyc = lazy(() => import('./pages/Kyc'));
 const Promotions = lazy(() => import('./pages/Promotions'));
 const Settings = lazy(() => import('./pages/Settings'));
+const ResponsibleGamingLimits = lazy(() => import('./pages/ResponsibleGaming'));
 const AdminDashboard = lazy(() => import('./pages/admin/Dashboard'));
 const AdminEvents = lazy(() => import('./pages/admin/Events'));
 const AdminUsers = lazy(() => import('./pages/admin/Users'));
-const AdminGameTasks = lazy(() => import('./pages/admin/GameTasks'));
-const AdminBankRequests = lazy(() => import('./pages/admin/BankRequests'));
 const AdminAnalytics = lazy(() => import('./pages/admin/Analytics'));
-const AdminPalace = lazy(() => import('./pages/admin/Palace'));
-const AdminModules = lazy(() => import('./pages/admin/Modules'));
-const AdminSettings = lazy(() => import('./pages/admin/Settings'));
-const AdminTheme = lazy(() => import('./pages/admin/Theme'));
-const AdminBranding = lazy(() => import('./pages/admin/Branding'));
-const AdminPages = lazy(() => import('./pages/admin/Pages'));
-const AdminGamesShowcase = lazy(() => import('./pages/admin/GamesShowcase'));
+const AdminIgames = lazy(() => import('./pages/admin/Igames'));
 const AdminGameSettings = lazy(() => import('./pages/admin/GameSettings'));
 const AdminRoles = lazy(() => import('./pages/admin/Roles'));
 const AdminVip = lazy(() => import('./pages/admin/Vip'));
 const AdminPromotions = lazy(() => import('./pages/admin/Promotions'));
 const AdminBots = lazy(() => import('./pages/admin/Bots'));
-const AdminStaticPages = lazy(() => import('./pages/admin/StaticPages'));
 const AdminTickets = lazy(() => import('./pages/admin/Tickets'));
-const AdminKycReview = lazy(() => import('./pages/admin/KycReview'));
-const AdminCrypto = lazy(() => import('./pages/admin/Crypto'));
-const PalaceGame = lazy(() => import('./pages/PalaceGame'));
+const AdminSegments = lazy(() => import('./pages/admin/Segments'));
+const AdminAgents = lazy(() => import('./pages/admin/Agents'));
+const AdminAuditTrail = lazy(() => import('./pages/admin/AuditTrail'));
+const AdminHealth = lazy(() => import('./pages/admin/Health'));
+const AdminChatModeration = lazy(() => import('./pages/admin/ChatModeration'));
+const AdminCompliance = lazy(() => import('./pages/admin/Compliance'));
+const AdminGameTasks = lazy(() => import('./pages/admin/GameTasks'));
+const AdminWallet = lazy(() => import('./pages/admin/Wallet'));
+const AdminDemoData = lazy(() => import('./pages/admin/DemoData.jsx'));
+const AdminPlatform = lazy(() => import('./pages/admin/Platform'));
+const AdminPersonalization = lazy(() => import('./pages/admin/Personalization'));
+const IgamesGame = lazy(() => import('./pages/IgamesGame'));
 const InhouseGameLauncher = lazy(() => import('./pages/games/InhouseGameLauncher'));
 const HomePage = lazy(() => import('./pages/HomePage'));
 const Favorites = lazy(() => import('./pages/Favorites'));
@@ -81,6 +84,19 @@ function PageLoader() {
         <p className="text-xs mt-3" style={{ color: '#8899bb' }}>Yükleniyor...</p>
       </div>
     </div>
+  );
+}
+
+// Admin rotalarında müşteri Navbar/BottomNav gizlenir: admin shell'in
+// kendi üst barı var, mobilde çift üst bar + alt bar çakışması düzeltilir.
+function SiteChrome() {
+  const { pathname } = useLocation();
+  if (pathname.startsWith('/admin')) return null;
+  return (
+    <>
+      <Navbar />
+      <BottomNav />
+    </>
   );
 }
 
@@ -130,10 +146,10 @@ export default function App() {
     <BrandingInjector />
     <CurrencyLoader />
     <BrowserRouter>
+      <SeoManager />
       <ToastSystem />
       <PWAUpdateBanner />
-      <Navbar />
-      <BottomNav />
+      <SiteChrome />
       <Routes>
         <Route path="/login" element={<GuestRoute><Suspense fallback={<PageLoader />}><Login /></Suspense></GuestRoute>} />
         <Route path="/auth/callback" element={<Suspense fallback={<PageLoader />}><AuthCallback /></Suspense>} />
@@ -142,7 +158,8 @@ export default function App() {
         <Route path="/canli" element={<Layout><ModuleGate module="betting"><Suspense fallback={<PageLoader />}><Live /></Suspense></ModuleGate></Layout>} />
         <Route path="/events/:id" element={<Layout><ModuleGate module="betting"><Suspense fallback={<PageLoader />}><EventDetail /></Suspense></ModuleGate></Layout>} />
         <Route path="/casino" element={<Layout><ModuleGate module="casino-content"><Suspense fallback={<PageLoader />}><HomePage /></Suspense></ModuleGate></Layout>} />
-        <Route path="/palace/:gameId" element={<ProtectedRoute><Suspense fallback={<PageLoader />}><PalaceGame /></Suspense></ProtectedRoute>} />
+        <Route path="/igames/:gameId" element={<ProtectedRoute><Suspense fallback={<PageLoader />}><IgamesGame /></Suspense></ProtectedRoute>} />
+        <Route path="/responsible-gaming" element={<ProtectedRoute><Layout><Suspense fallback={<PageLoader />}><ResponsibleGamingLimits /></Suspense></Layout></ProtectedRoute>} />
         <Route path="/games/crash" element={<ProtectedRoute><Suspense fallback={<PageLoader />}><InhouseGameLauncher gameId="crash" /></Suspense></ProtectedRoute>} />
         <Route path="/games/mines" element={<ProtectedRoute><Suspense fallback={<PageLoader />}><InhouseGameLauncher gameId="mines" /></Suspense></ProtectedRoute>} />
         <Route path="/games/plinko" element={<ProtectedRoute><Suspense fallback={<PageLoader />}><InhouseGameLauncher gameId="plinko" /></Suspense></ProtectedRoute>} />
@@ -163,30 +180,58 @@ export default function App() {
         <Route path="/kyc" element={<ProtectedRoute><Layout><Suspense fallback={<PageLoader />}><Kyc /></Suspense></Layout></ProtectedRoute>} />
         <Route path="/settings" element={<ProtectedRoute><Layout><Suspense fallback={<PageLoader />}><Settings /></Suspense></Layout></ProtectedRoute>} />
         <Route path="/promotions" element={<ProtectedRoute><Layout><Suspense fallback={<PageLoader />}><Promotions /></Suspense></Layout></ProtectedRoute>} />
-        <Route path="/admin" element={<ProtectedRoute adminOnly><Suspense fallback={<PageLoader />}><AdminDashboard /></Suspense></ProtectedRoute>} />
-        <Route path="/admin/events" element={<ProtectedRoute adminOnly><Suspense fallback={<PageLoader />}><AdminEvents /></Suspense></ProtectedRoute>} />
-        <Route path="/admin/users" element={<ProtectedRoute adminOnly><Suspense fallback={<PageLoader />}><AdminUsers /></Suspense></ProtectedRoute>} />
-        <Route path="/admin/tasks" element={<ProtectedRoute adminOnly><Suspense fallback={<PageLoader />}><AdminGameTasks /></Suspense></ProtectedRoute>} />
-        <Route path="/admin/casino" element={<Navigate to="/admin/analytics" replace />} />
-        <Route path="/admin/palace" element={<ProtectedRoute adminOnly><Suspense fallback={<PageLoader />}><AdminPalace /></Suspense></ProtectedRoute>} />
-        <Route path="/admin/bank" element={<ProtectedRoute adminOnly><Suspense fallback={<PageLoader />}><AdminBankRequests /></Suspense></ProtectedRoute>} />
-        <Route path="/admin/analytics" element={<ProtectedRoute adminOnly><Suspense fallback={<PageLoader />}><AdminAnalytics /></Suspense></ProtectedRoute>} />
-        <Route path="/admin/settings" element={<ProtectedRoute adminOnly><Suspense fallback={<PageLoader />}><AdminSettings /></Suspense></ProtectedRoute>} />
-        <Route path="/admin/modules" element={<ProtectedRoute adminOnly><Suspense fallback={<PageLoader />}><AdminModules /></Suspense></ProtectedRoute>} />
-        <Route path="/admin/theme" element={<ProtectedRoute adminOnly><Suspense fallback={<PageLoader />}><AdminTheme /></Suspense></ProtectedRoute>} />
-        <Route path="/admin/branding" element={<ProtectedRoute adminOnly><Suspense fallback={<PageLoader />}><AdminBranding /></Suspense></ProtectedRoute>} />
-        <Route path="/admin/pages" element={<ProtectedRoute adminOnly><Suspense fallback={<PageLoader />}><AdminPages /></Suspense></ProtectedRoute>} />
-        <Route path="/admin/games-showcase" element={<ProtectedRoute adminOnly><Suspense fallback={<PageLoader />}><AdminGamesShowcase /></Suspense></ProtectedRoute>} />
-        <Route path="/admin/game-settings" element={<ProtectedRoute adminOnly><Suspense fallback={<PageLoader />}><AdminGameSettings /></Suspense></ProtectedRoute>} />
-        <Route path="/admin/module-settings" element={<Navigate to="/admin/modules" replace />} />
-        <Route path="/admin/roles" element={<ProtectedRoute adminOnly><Suspense fallback={<PageLoader />}><AdminRoles /></Suspense></ProtectedRoute>} />
-        <Route path="/admin/vip" element={<ProtectedRoute adminOnly><Suspense fallback={<PageLoader />}><AdminVip /></Suspense></ProtectedRoute>} />
-        <Route path="/admin/promotions" element={<ProtectedRoute adminOnly><Suspense fallback={<PageLoader />}><AdminPromotions /></Suspense></ProtectedRoute>} />
-        <Route path="/admin/bots" element={<ProtectedRoute adminOnly><Suspense fallback={<PageLoader />}><AdminBots /></Suspense></ProtectedRoute>} />
-        <Route path="/admin/static-pages" element={<ProtectedRoute adminOnly><Suspense fallback={<PageLoader />}><AdminStaticPages /></Suspense></ProtectedRoute>} />
-        <Route path="/admin/tickets" element={<ProtectedRoute adminOnly><Suspense fallback={<PageLoader />}><AdminTickets /></Suspense></ProtectedRoute>} />
-        <Route path="/admin/kyc" element={<ProtectedRoute adminOnly><Suspense fallback={<PageLoader />}><AdminKycReview /></Suspense></ProtectedRoute>} />
-        <Route path="/admin/crypto" element={<ProtectedRoute adminOnly><Suspense fallback={<PageLoader />}><AdminCrypto /></Suspense></ProtectedRoute>} />
+        <Route
+          path="/admin"
+          element={
+            <ProtectedRoute adminOnly>
+              <AdminLayout />
+            </ProtectedRoute>
+          }
+        >
+          <Route index element={<Suspense fallback={<PageLoader />}><AdminDashboard /></Suspense>} />
+          <Route path="events" element={<Suspense fallback={<PageLoader />}><AdminEvents /></Suspense>} />
+          <Route path="users" element={<Suspense fallback={<PageLoader />}><AdminUsers /></Suspense>} />
+          <Route path="game-tasks" element={<Suspense fallback={<PageLoader />}><AdminGameTasks /></Suspense>} />
+          <Route path="casino" element={<Navigate to="/admin/analytics" replace />} />
+          <Route path="igames" element={<Suspense fallback={<PageLoader />}><AdminIgames /></Suspense>} />
+          <Route path="wallet" element={<Suspense fallback={<PageLoader />}><AdminWallet /></Suspense>} />
+          <Route path="bank" element={<Navigate to="/admin/wallet?tab=bank" replace />} />
+          <Route path="analytics" element={<Suspense fallback={<PageLoader />}><AdminAnalytics /></Suspense>} />
+          <Route path="settings" element={<Navigate to="/admin/platform?tab=settings" replace />} />
+          <Route path="modules" element={<Navigate to="/admin/platform?tab=modules" replace />} />
+          <Route path="platform" element={<Suspense fallback={<PageLoader />}><AdminPlatform /></Suspense>} />
+          <Route path="personalization" element={<Suspense fallback={<PageLoader />}><AdminPersonalization /></Suspense>} />
+          <Route path="theme" element={<Navigate to="/admin/personalization?tab=theme" replace />} />
+          <Route path="branding" element={<Navigate to="/admin/personalization?tab=branding" replace />} />
+          <Route path="pages" element={<Navigate to="/admin/personalization?tab=pages" replace />} />
+          <Route path="static-pages" element={<Navigate to="/admin/personalization?tab=staticPages" replace />} />
+          <Route path="games-showcase" element={<Navigate to="/admin/igames?tab=showcase" replace />} />
+          <Route path="game-settings" element={<Suspense fallback={<PageLoader />}><AdminGameSettings /></Suspense>} />
+          <Route path="module-settings" element={<Navigate to="/admin/platform?tab=modules" replace />} />
+          <Route path="roles" element={<Suspense fallback={<PageLoader />}><AdminRoles /></Suspense>} />
+          <Route path="vip" element={<Suspense fallback={<PageLoader />}><AdminVip /></Suspense>} />
+          <Route path="promotions" element={<Suspense fallback={<PageLoader />}><AdminPromotions /></Suspense>} />
+          <Route path="bots" element={<Suspense fallback={<PageLoader />}><AdminBots /></Suspense>} />
+          <Route path="tickets" element={<Suspense fallback={<PageLoader />}><AdminTickets /></Suspense>} />
+          <Route path="compliance" element={<Suspense fallback={<PageLoader />}><AdminCompliance /></Suspense>} />
+          <Route path="kyc" element={<Navigate to="/admin/compliance?tab=kyc" replace />} />
+          <Route path="kyc-settings" element={<Navigate to="/admin/compliance?tab=kyc" replace />} />
+          <Route path="crypto" element={<Navigate to="/admin/wallet?tab=crypto" replace />} />
+          <Route path="slikair" element={<Navigate to="/admin/wallet?tab=slikair" replace />} />
+          <Route path="responsible-gaming" element={<Navigate to="/admin/compliance?tab=rg" replace />} />
+          <Route path="segments" element={<Suspense fallback={<PageLoader />}><AdminSegments /></Suspense>} />
+          <Route path="agents" element={<Suspense fallback={<PageLoader />}><AdminAgents /></Suspense>} />
+          <Route path="reconciliation" element={<Navigate to="/admin/compliance?tab=reconciliation" replace />} />
+          {/* 2026-10-02 IA: Currencies/Jurisdictions/Brands → Settings sekmeleri */}
+          <Route path="currencies" element={<Navigate to="/admin/platform?tab=currencies" replace />} />
+          <Route path="brands" element={<Navigate to="/admin/platform?tab=brands" replace />} />
+          <Route path="jurisdictions" element={<Navigate to="/admin/platform?tab=jurisdictions" replace />} />
+          <Route path="audit" element={<Suspense fallback={<PageLoader />}><AdminAuditTrail /></Suspense>} />
+          <Route path="health" element={<Suspense fallback={<PageLoader />}><AdminHealth /></Suspense>} />
+          <Route path="chat" element={<Suspense fallback={<PageLoader />}><AdminChatModeration /></Suspense>} />
+          <Route path="risk" element={<Navigate to="/admin/compliance?tab=risk" replace />} />
+          <Route path="demo-data" element={<Suspense fallback={<PageLoader />}><AdminDemoData /></Suspense>} />
+        </Route>
         {/* Legal pages (public) — kendi TOC sidebar'ını (LegalLayout) korur, Layout'un
             HomeSidebar'ı ile çakışmasın diye Layout.jsx bu rotaları hariç tutar. */}
         <Route path="/legal/terms" element={<Layout><Suspense fallback={<PageLoader />}><Terms /></Suspense></Layout>} />

@@ -32,4 +32,7 @@ r.post('/admin/rooms/:id/mute', requireAuth, requireAdmin, blockDemoAdmin, audit
 r.delete('/admin/rooms/:id/mute/:userId', requireAuth, requireAdmin, blockDemoAdmin, auditLog('CHAT_UNMUTE'), ctrl.unmuteUserHandler);
 r.delete('/admin/messages/:id', requireAuth, requireAdmin, blockDemoAdmin, auditLog('CHAT_MESSAGE_DELETE'), ctrl.deleteMessageHandler);
 
+// Admin — moderasyon geçmişi
+r.get('/admin/rooms/:id/moderation', requireAuth, requireAdmin, ctrl.getModerationHistoryHandler);
+
 export default r;

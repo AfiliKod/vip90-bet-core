@@ -48,15 +48,37 @@ export function createInstallHandlers({ userModel, settingModel, dbState }) {
   return { pageHandler, statusHandler, runHandler };
 }
 
-export default function createInstallRouter() {
+function createInstallRouter() {
   const r = Router();
   const handlers = createInstallHandlers({
     userModel: User,
     settingModel: Setting,
     dbState: () => mongoose.connection.readyState,
   });
-  r.get('/', handlers.pageHandler);
+
+  // SECURITY FIX (C3): Guard install endpoint — reject if system is already installed
+  async function guardNotInstalled(req, res, next) {
+    try {
+      const adminExists = await User.findOne({ role: 'admin' }).lean();
+      if (adminExists) {
+        return res.status(404).json({ error: 'Kurulum zaten tamamlanmış' });
+      }
+      next();
+    } catch {
+      next();
+    }
+  }
+
+  r.get('/', guardNotInstalled, handlers.pageHandler);
   r.get('/api/status', handlers.statusHandler);
-  r.post('/api/run', handlers.runHandler);
+  r.post('/api/run', guardNotInstalled, handlers.runHandler);
   return r;
 }
+
+// app.js router INSTANCE'ı bekliyor (bkz. diğer tüm routes/*.js'in `export
+// default r` deseni) — burada factory fonksiyonun kendisi export edilirse
+// Express onu (req,res,next) ile normal middleware gibi çağırır; fonksiyon
+// hiç next()/res.* çağırmadan yeni (kullanılmayan) bir Router döndürüp
+// sessizce biter — istek SONSUZA DEK asılı kalır (2026-09-15'te Docker
+// installer doğrulamasında bulundu, hiçbir hata/log basmıyordu).
+export default createInstallRouter();

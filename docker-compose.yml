@@ -10,19 +10,39 @@ services:
   mongo:
     image: mongo:7
     restart: unless-stopped
+    # Tek düğümlü replica set — settleEvent (bkz. services/settlement.js)
+    # gibi multi-document transaction kullanan kod, standalone mongod'da
+    # "Transaction numbers are only allowed on a replica set member or
+    # mongos" hatasıyla ÇALIŞMIYOR (2026-09-16'da Docker installer
+    # doğrulamasında bulundu — bahis sonuçlandırma tamamen bozuktu).
+    command: ["--replSet", "rs0", "--bind_ip_all"]
     volumes:
       - mongodata:/data/db
     healthcheck:
-      test: ["CMD", "mongosh", "--quiet", "--eval", "db.adminCommand('ping').ok"]
+      # rs.status() başarısızsa (henüz initiate edilmemiş) tek düğümlü
+      # replica set'i bir kerelik kurar; sonraki her healthcheck çağrısı
+      # artık sadece ping'e düşer. mongod container her restart'ta bu imajı
+      # aynı volume ile yeniden kullandığından initiate idempotent olmalı.
+      test: >
+        mongosh --quiet --eval "
+        try { rs.status() } catch (e) { rs.initiate({_id:'rs0',members:[{_id:0,host:'localhost:27017'}]}) }
+        db.adminCommand('ping').ok
+        "
       interval: 10s
       timeout: 5s
-      retries: 5
+      retries: 10
       start_period: 20s
 
   app:
     build:
       context: .
       dockerfile: Dockerfile
+      # Dockerfile'da bu stage'den SONRA bir `test` stage'i de var (bkz.
+      # docker-compose.test.yml) — target belirtilmezse Docker'ın "hedef
+      # yoksa SON stage'i build et" varsayılanı test image'ını üretir ve
+      # bu servis yanlışlıkla test-runner'ı çalıştırır (production sunucusu
+      # hiç ayağa kalkmaz, Caddy 502 döner).
+      target: production
     restart: unless-stopped
     env_file:
       - .env
@@ -30,7 +50,8 @@ services:
       NODE_ENV: production
       # Atlas URI'sini (.env'den geleni) compose içi mongo ile eziyoruz —
       # tek VPS senaryosunda veritabanı aynı compose ağındadır.
-      MONGODB_URI: mongodb://mongo:27017/betzone
+      # replicaSet=rs0: transaction desteği için zorunlu (yukarı bak).
+      MONGODB_URI: mongodb://mongo:27017/betzone?replicaSet=rs0
     depends_on:
       mongo:
         condition: service_healthy

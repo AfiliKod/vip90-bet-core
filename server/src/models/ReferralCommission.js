@@ -9,7 +9,7 @@ const schema = new mongoose.Schema({
   commissionRate: { type: Number, required: true }, // percentage
   status: { type: String, enum: ['pending', 'approved', 'rejected'], default: 'pending' },
   // Source of the commission
-  source: { type: String, enum: ['sports', 'casino', 'palace'], required: true },
+  source: { type: String, enum: ['sports', 'casino', 'igames'], required: true },
   sourceId: { type: mongoose.Schema.Types.ObjectId, default: null }, // Bet or CasinoRound
   // Admin approval
   approvedBy: { type: mongoose.Schema.Types.ObjectId, ref: 'User', default: null },
@@ -19,6 +19,7 @@ const schema = new mongoose.Schema({
   rejectionReason: { type: String, default: '' },
   // Transaction link (when approved)
   transactionId: { type: mongoose.Schema.Types.ObjectId, ref: 'Transaction', default: null },
+  isSeed: { type: Boolean, default: false, index: true },
 }, { timestamps: true });
 
 schema.index({ referrerId: 1, status: 1, createdAt: -1 });

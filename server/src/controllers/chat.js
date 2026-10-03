@@ -1,7 +1,7 @@
 import {
   createRoom, getAllRooms, getRoomBySlug, updateRoom, deleteRoom,
   getRoomMessages, deleteMessage, banUserFromRoom, unbanUserFromRoom,
-  muteUserInRoom, unmuteUserInRoom,
+  muteUserInRoom, unmuteUserInRoom, getModerationHistory,
 } from '../services/chat.js';
 
 // ─── Public ──────────────────────────────────────────────────────────
@@ -83,5 +83,13 @@ export async function deleteMessageHandler(req, res, next) {
   try {
     const message = await deleteMessage(req.params.id, req.user.id, { reason: req.body?.reason });
     res.json({ message });
+  } catch (e) { next(e); }
+}
+
+export async function getModerationHistoryHandler(req, res, next) {
+  try {
+    const { page, limit, action } = req.query;
+    const result = await getModerationHistory(req.params.id, { page, limit, action });
+    res.json(result);
   } catch (e) { next(e); }
 }

@@ -16,14 +16,14 @@ function GridGameCard({ game }) {
   const user = useAuthStore(s => s.user);
   return (
     <Link
-      to={`/palace/${encodeURIComponent(symbol)}?name=${encodeURIComponent(name)}`}
-      onClick={() => { if (user) recordPlay(symbol, 'palace'); }}
+      to={`/igames/${encodeURIComponent(symbol)}?name=${encodeURIComponent(name)}`}
+      onClick={() => { if (user) recordPlay(symbol, 'igames'); }}
       className="group relative rounded-xl overflow-hidden transition-all duration-200 text-center"
       style={{ background: HOME_CARD, border: `1px solid ${HOME_BORDER}` }}
       onMouseEnter={e => { e.currentTarget.style.borderColor = 'color-mix(in srgb, var(--color-primary) 40%, transparent)'; }}
       onMouseLeave={e => { e.currentTarget.style.borderColor = HOME_BORDER; }}
     >
-      <FavoriteButton gameId={symbol} kind="palace" />
+      <FavoriteButton gameId={symbol} kind="igames" />
       <div className="aspect-[3/4] relative overflow-hidden">
         <img
           src={image}
@@ -48,7 +48,7 @@ function GridGameCard({ game }) {
  *
  * İki modu var:
  * - `providerFilter` yoksa: `games` (HomePage'de bir kez shuffle edilmiş
- *   `palaceGames`) içinden rastgele bir örneklem gösterilir.
+ *   `igamesGames`) içinden rastgele bir örneklem gösterilir.
  * - `providerFilter` varsa (ProviderRow'dan bir sağlayıcı seçildiğinde):
  *   `games` yalnızca o sağlayıcının oyunlarıdır, başlıkta sağlayıcı adı +
  *   filtreyi temizleme butonu gösterilir.

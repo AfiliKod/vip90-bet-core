@@ -11,7 +11,7 @@ export async function getPopularGames(limit = 15) {
 
   const cutoff = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000);
   const rows = await CasinoRound.aggregate([
-    { $match: { provider: 'palace', bet: { $gt: 0 }, createdAt: { $gte: cutoff } } },
+    { $match: { provider: 'igames', bet: { $gt: 0 }, createdAt: { $gte: cutoff } } },
     { $group: { _id: '$gameId', playCount: { $sum: 1 } } },
     { $sort: { playCount: -1 } },
     { $limit: limit },

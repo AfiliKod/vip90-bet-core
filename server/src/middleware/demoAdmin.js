@@ -6,8 +6,8 @@
  * Bayraklı hesap panelden inceleyebilir ama yıkıcı işlemleri yapamaz;
  * yıkıcı route'lara tek tek eklenir.
  *
- * Sorgu patlarsa geçer: yıkıcı işlem zaten DB ister; DB kapalıyken demo
- * admin'in engellenmesi ayrı bir anlam taşımaz (fail-open, bilinçli).
+ * SECURITY FIX (H6): Fail-closed — DB error blocks the request instead of
+ * bypassing the demo admin check.
  */
 import { createError } from './error.js';
 
@@ -21,7 +21,8 @@ export function createDemoAdminBlock({ getUserById }) {
       }
       next();
     } catch {
-      next();
+      // SECURITY FIX (H6): Fail-closed — block request on DB error
+      return next(createError(500, 'DEMO_CHECK_FAILED', 'Demo admin doğrulama başarısız'));
     }
   };
 }

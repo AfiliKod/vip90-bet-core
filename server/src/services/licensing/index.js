@@ -38,10 +38,26 @@ async function fetchFromServer() {
   return data.modules;
 }
 
-export const licenseStore = createLicenseStore({
+const LICENSE_EXEMPT = new Set(MODULE_DEFINITIONS.filter(m => m.licenseExempt).map(m => m.id));
+
+const baseLicenseStore = createLicenseStore({
   fetchLicenseState: fetchFromServer,
   moduleIds: MODULE_DEFINITIONS.map(m => m.id),
 });
+
+// Lisanstan muaf modüller (bkz. MODULE_DEFINITIONS.licenseExempt) her zaman
+// lisanslı sayılır; yalnız admin aç/kapa anahtarı belirleyicidir.
+export const licenseStore = {
+  ...baseLicenseStore,
+  async isLicensed(id) {
+    if (LICENSE_EXEMPT.has(id)) return true;
+    return baseLicenseStore.isLicensed(id);
+  },
+  async list() {
+    const rows = await baseLicenseStore.list();
+    return rows.map(r => (LICENSE_EXEMPT.has(r.id) ? { ...r, licensed: true, source: 'live', expiresAt: null } : r));
+  },
+};
 
 export const isModuleLicensed = id => licenseStore.isLicensed(id);
 export const listLicenses = () => licenseStore.list();

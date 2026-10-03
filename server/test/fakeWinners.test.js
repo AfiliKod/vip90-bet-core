@@ -187,6 +187,6 @@ describe('fireFakeWin — kazanç alanları (Çekirdek/Casino/Bahisler)', () => 
     regeneratePool();
     await fireFakeWin();
     const w = getRecentWinners(1)[0];
-    assert.ok(!w.gameId.startsWith('palace-'));
+    assert.ok(!w.gameId.startsWith('igames-'));
   });
 });

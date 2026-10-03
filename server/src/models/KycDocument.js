@@ -22,6 +22,7 @@ const schema = new mongoose.Schema({
   rejectionReason: { type: String, default: '' },
   // Metadata
   metadata: { type: mongoose.Schema.Types.Mixed, default: {} },
+  isSeed: { type: Boolean, default: false, index: true },
 }, { timestamps: true });
 
 schema.index({ userId: 1, documentType: 1 });

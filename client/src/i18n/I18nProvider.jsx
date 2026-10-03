@@ -1,6 +1,7 @@
 import { createContext, useContext, useMemo, useState, useCallback, useEffect, useRef } from 'react';
 import { createI18nCore, dictionaries, DEFAULT_LOCALE } from './index.js';
 import api from '../services/api';
+import { setMoneyLocale } from '../utils/money.js';
 
 const STORAGE_KEY = 'locale';
 const I18nContext = createContext(null);
@@ -54,6 +55,13 @@ export function I18nProvider({ children }) {
     () => createI18nCore({ dictionaries, defaultLocale: locale, fallbackLocale: DEFAULT_LOCALE }),
     [locale],
   );
+
+  // money.js modül-seviyesinde bir değişken tuttuğu için (React state değil)
+  // burada senkronize edilir — formatMoney her çağrıldığında güncel arayüz
+  // dilini kullanır (bkz. money.js).
+  useEffect(() => {
+    setMoneyLocale(locale);
+  }, [locale]);
 
   const setLocale = useCallback((next) => {
     if (!dictionaries[next]) return;
