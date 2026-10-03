@@ -1,6 +1,6 @@
 {
   "name": "vip90-bet-server",
-  "license": "BUSL-1.1",
+  "license": "AGPL-3.0-only",
   "type": "module",
   "scripts": {
     "dev": "node --watch src/server.js",
