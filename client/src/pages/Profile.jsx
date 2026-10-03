@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { useFormatters } from '../i18n/useFormatters.jsx';
 import { useForm } from 'react-hook-form';
 import { QRCodeSVG } from 'qrcode.react';
@@ -8,8 +8,10 @@ import { useToastStore } from '../store/toastStore';
 import api from '../services/api';
 import { useTranslation } from '../i18n';
 import { formatMoney, getActiveCurrency } from '../utils/money.js';
+import SlikairDeposit from '../components/SlikairDeposit.jsx';
+import { useModuleStore } from '../store/moduleStore';
 
-function txLabel(t, type) {
+function txLabel(t, type, meta) {
   const labels = {
     deposit: t('profile.deposit'),
     withdraw: t('profile.withdraw'),
@@ -22,6 +24,32 @@ function txLabel(t, type) {
     crypto_deposit: t('profile.cryptoDeposit'),
     crypto_withdraw: t('profile.cryptoWithdraw'),
   };
+  // Slikair ödeme yöntemi etiketi
+  if (type === 'deposit' && meta?.paymentMethod) {
+    const methodLabels = {
+      credit_card: t('slikair.creditCard'),
+      credit_card_ftd: t('slikair.creditCardFtd'),
+      open_banking: t('slikair.openBanking'),
+      googlepay: 'Google Pay',
+      applepay: 'Apple Pay',
+      revolut: 'Revolut',
+      skrill: 'Skrill',
+      neteller: 'NETELLER',
+      paysafecard: 'paysafecard',
+      mbway: 'MB WAY',
+      blik: 'BLIK',
+      ideal: 'iDEAL',
+      trustly: 'Trustly',
+      eps: 'EPS',
+      instantbanking: t('slikair.instantBanking'),
+      rapidtransfer: t('slikair.rapidTransfer'),
+      mybank: 'MyBank',
+      interac: 'Interac',
+      crypto: 'Bitcoin',
+    };
+    const methodLabel = methodLabels[meta.paymentMethod] || meta.paymentMethod;
+    return `${labels[type] || type} · ${methodLabel}`;
+  }
   return labels[type] || type;
 }
 
@@ -183,8 +211,11 @@ export default function Profile() {
   const addToast = useToastStore(s => s.add);
   const [searchParams, setSearchParams] = useSearchParams();
   const [transactions, setTransactions] = useState([]);
+  const [slikairPayments, setSlikairPayments] = useState([]);
 
   const [mode, setMode]       = useState(searchParams.get('mode') || 'deposit');
+  // Slikair modülü kapalıyken ödeme seçeneği gizlenir (bilinmiyorsa açık: fail-open sunum)
+  const slikairAvailable = useModuleStore(s => s.available['slikair-payment'] !== false);
   const [method, setMethod]   = useState(searchParams.get('method') || 'bank');
   const [step, setStep]       = useState('amount');
   const [selectedAmount, setSelectedAmount] = useState(null);
@@ -202,15 +233,66 @@ export default function Profile() {
 
   const { register, handleSubmit, reset, formState: { isSubmitting } } = useForm();
 
+  // Sıra koruması: sayfa mount'ta bir fetchTx (istek A) ateşliyor,
+  // SlikairDeposit'in checkPaymentStatus'ü krediyi tespit edince ayrıca bir
+  // tane daha (istek B) ateşliyor — B, A'dan SONRA başlasa bile ağ
+  // gecikmesi yüzünden A'nın yanıtı B'den SONRA gelirse, eski veri (A) yeni
+  // veriyi (B) sessizce ezer ve işlem geçmişi güncel görünmez (2026-09-22
+  // canlı testte gözlemlendi). Yalnızca EN SON ateşlenen isteğin yanıtı
+  // state'e yazılıyor.
+  const txReqId = useRef(0);
   const fetchTx = useCallback(() => {
-    api.get('/users/me/transactions').then(r => setTransactions(r.data.transactions)).catch(() => {});
+    const id = ++txReqId.current;
+    api.get('/users/me/transactions').then(r => {
+      if (id === txReqId.current) setTransactions(r.data.transactions);
+    }).catch(() => {});
+  }, []);
+
+  const slikairReqId = useRef(0);
+  const fetchSlikairPayments = useCallback(() => {
+    const id = ++slikairReqId.current;
+    api.get('/slikair/my-payments').then(r => {
+      if (id === slikairReqId.current) setSlikairPayments(r.data.payments || []);
+    }).catch(() => {});
   }, []);
 
   const fetchWagerings = useCallback(() => {
     api.get('/promotions/my-wagerings').then(r => setWagerings(r.data.wagerings || [])).catch(() => setWagerings([]));
   }, []);
 
-  useEffect(() => { fetchTx(); fetchWagerings(); }, [fetchTx, fetchWagerings]);
+  useEffect(() => { fetchTx(); fetchWagerings(); fetchSlikairPayments(); }, [fetchTx, fetchWagerings, fetchSlikairPayments]);
+
+  // Slikair ve ledger işlemlerini birleştir, tarihe göre sırala. Bir
+  // Slikair yatırması kredilendiğinde HEM ledger'da (Transaction, gerçek
+  // bakiye hareketi) HEM /slikair/my-payments'ta (SlikairPayment, ödeme
+  // durumu) kayıt oluşuyor — aynı olayı iki kez göstermemek için ledger'da
+  // zaten görünen payinId'lere sahip slikairPayments kayıtları eleniyor
+  // (2026-09-22 canlı testte "Deposit" aynı tutarla iki kez listelendiği
+  // gözlemlendi).
+  const allTransactions = useMemo(() => {
+    const ledger = (transactions || []).map(tx => ({
+      _id: tx._id,
+      type: tx.type,
+      amount: tx.amount,
+      note: tx.note,
+      status: tx.status,
+      createdAt: tx.createdAt,
+      meta: { source: 'ledger', payinId: tx.metadata?.payinId || null },
+    }));
+    const ledgerPayinIds = new Set(ledger.map(tx => tx.meta.payinId).filter(Boolean));
+    const slikair = (slikairPayments || [])
+      .filter(p => !ledgerPayinIds.has(p.payinId))
+      .map(p => ({
+        _id: p._id,
+        type: 'deposit',
+        amount: p.amount,
+        note: null,
+        status: p.status,
+        createdAt: p.createdAt,
+        meta: { source: 'slikair', paymentMethod: p.paymentMethod, currency: p.currency },
+      }));
+    return [...ledger, ...slikair].sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
+  }, [transactions, slikairPayments]);
 
   useEffect(() => {
     api.get('/vip/status').then(r => setVipStatus(r.data)).catch(() => {});
@@ -222,9 +304,22 @@ export default function Profile() {
     }
   }, [method]);
 
-  const onBalanceUpdate = (newBalance) => {
-    updateBalance(newBalance);
+  const onBalanceUpdate = async (newBalance) => {
+    // SlikairDeposit'in checkPaymentStatus'ü (webhook onayı gecikmeli
+    // /slikair/my-payments polling'i ile geldiği için) bunu parametresiz
+    // çağırıyor — o durumda tahmini bir değer yerine gerçek güncel bakiyeyi
+    // sunucudan çekiyoruz (eskiden undefined ile çağrılırsa bakiye görünümü
+    // bozuluyordu, 2026-09-22'de canlı testte bulundu).
+    if (newBalance === undefined) {
+      try {
+        const { data } = await api.get('/users/me');
+        updateBalance(data.user.balance);
+      } catch { /* mevcut bakiye korunur */ }
+    } else {
+      updateBalance(newBalance);
+    }
     fetchTx();
+    fetchSlikairPayments();
   };
 
   const syncParams = (m, meth) => {
@@ -357,9 +452,9 @@ const handleBankSubmit = async (confirmForfeit = false) => {
                 {t('profile.withdrawable')}: {formatMoney(user.withdrawable)}
               </div>
             )}
-            {user?.activePalaceBalance != null && (
+            {user?.activeIgamesBalance != null && (
               <div className="text-xs mt-1.5" style={{ color: '#7c8aae' }}>
-                🏰 Casino'da {formatMoney(user.activePalaceBalance)}
+                🏰 Casino'da {formatMoney(user.activeIgamesBalance)}
               </div>
             )}
           </div>
@@ -553,12 +648,13 @@ const handleBankSubmit = async (confirmForfeit = false) => {
             ))}
           </div>
 
-          {/* Alt: Banka / Kripto seçici */}
+          {/* Alt: Banka / Kripto / Slikair seçici */}
           <div className="flex gap-2 mb-4">
             {[
               { key: 'bank', label: `🏦 ${t('profile.viaBank')}`, desc: t('profile.bankTransferShort') },
               { key: 'crypto', label: `🪙 ${t('profile.viaCrypto')}`, desc: 'USDT TRC20' },
-            ].map(m => (
+              { key: 'slikair', label: `💳 ${t('slikair.cardOnline')}`, desc: t('slikair.cardOnlineDesc') },
+            ].filter(m => m.key !== 'slikair' || slikairAvailable).map(m => (
               <button key={m.key} onClick={() => switchMethod(m.key)}
                 className={`flex-1 flex flex-col items-center gap-0.5 py-3 rounded-xl text-sm font-medium border transition ${
                   method === m.key
@@ -794,6 +890,11 @@ const handleBankSubmit = async (confirmForfeit = false) => {
           {/* ── CRYPTO DEPOSIT ── */}
           {method === 'crypto' && mode === 'deposit' && <CryptoDeposit onBalanceUpdate={onBalanceUpdate} />}
 
+          {/* ── SLIKAIR DEPOSIT ── */}
+          {method === 'slikair' && mode === 'deposit' && slikairAvailable && (
+            <SlikairDeposit onBalanceUpdate={onBalanceUpdate} />
+          )}
+
           {/* ── CRYPTO WITHDRAW ── */}
           {method === 'crypto' && mode === 'withdraw' && <CryptoWithdraw onBalanceUpdate={onBalanceUpdate} />}
         </div>
@@ -803,10 +904,10 @@ const handleBankSubmit = async (confirmForfeit = false) => {
       <div className="bg-bg-card border border-white/10 rounded-xl p-4">
         <h3 className="font-semibold text-text-1 mb-3">{t('profile.transactionHistory')}</h3>
         <div className="space-y-2 max-h-80 overflow-y-auto">
-          {transactions.map(tx => (
+          {allTransactions.map(tx => (
             <div key={tx._id} className="flex items-center justify-between text-sm py-2 border-b border-white/5 last:border-0">
               <div>
-                <span className="text-text-2">{txLabel(t, tx.type)}</span>
+                <span className="text-text-2">{txLabel(t, tx.type, tx.meta)}</span>
                 {tx.note && <div className="text-text-3 text-xs truncate max-w-[100px] sm:max-w-[200px]">{tx.note}</div>}
                 <div className="text-text-3 text-xs">{fmt.formatDateTime(tx.createdAt)}</div>
               </div>
@@ -817,14 +918,17 @@ const handleBankSubmit = async (confirmForfeit = false) => {
                 {tx.status === 'pending' && (
                   <div className="text-yellow-400 text-xs">{t('bets.pending')}</div>
                 )}
+                {tx.status === 'processing' && (
+                  <div className="text-yellow-400 text-xs">{t('slikair.processing')}</div>
+                )}
               </div>
             </div>
           ))}
-          {!transactions.length && (
+          {!allTransactions.length && (
             <div className="text-text-3 text-center py-4 text-sm">{t('profile.noTransactions')}</div>
-)}
-         </div>
-       </div>
+          )}
+        </div>
+      </div>
 
        {/* KVKK Privacy & Account Section (Phase A6 / D5) */}
        <div className="mb-5 mt-8">
@@ -849,6 +953,12 @@ const handleBankSubmit = async (confirmForfeit = false) => {
              className="block w-full px-4 py-2.5 rounded-lg text-sm font-semibold border border-white/10 text-text-1 hover:border-white/20 transition text-center"
            >
              🎲 {t('profile.responsibleGaming')}
+           </Link>
+           <Link
+             to="/responsible-gaming"
+             className="block w-full px-4 py-2.5 rounded-lg text-sm font-semibold border border-white/10 text-text-1 hover:border-white/20 transition text-center"
+           >
+             ⚙️ {t('rg.manageLimits')}
            </Link>
          </div>
        </div>

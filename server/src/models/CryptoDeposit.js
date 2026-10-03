@@ -9,6 +9,7 @@ const schema = new mongoose.Schema({
   creditedTRY:  { type: Number, required: true },   // balance'a eklenen miktar
   status:       { type: String, enum: ['confirmed', 'credited', 'pending_approval', 'rejected'], default: 'confirmed' },
   creditedAt:   { type: Date, default: null },
+  isSeed:       { type: Boolean, default: false, index: true },
 }, { timestamps: true });
 
 // Indexes (Phase E1)

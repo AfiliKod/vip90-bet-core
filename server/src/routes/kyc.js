@@ -1,10 +1,12 @@
 import { Router } from 'express';
 import { requireAuth } from '../middleware/auth.js';
+import { validate } from '../middleware/validate.js';
 import { getUserKycStatus, submitKycDocuments } from '../services/kyc.js';
 import { kycConfig } from '../config/kyc.js';
 import { createApplicant, generateSDKToken } from '../services/sumsubService.js';
 import { createError } from '../middleware/error.js';
 import { uploadKycDocs } from '../middleware/upload.js';
+import { initSessionSchema } from '../validators/kycSession.js';
 import User from '../models/User.js';
 
 const r = Router();
@@ -20,7 +22,7 @@ r.get('/status', requireAuth, async (req, res, next) => {
 });
 
 // ─── Sumsub Oturum Başlatma (sadece Sumsub provider) ───────────────
-r.post('/init-session', requireAuth, async (req, res, next) => {
+r.post('/init-session', requireAuth, validate(initSessionSchema), async (req, res, next) => {
   try {
     const provider = await kycConfig.get('KYC_PROVIDER');
     if (provider !== 'sumsub') {
@@ -42,7 +44,7 @@ r.post('/init-session', requireAuth, async (req, res, next) => {
     let applicantId = user.sumsubApplicantId;
     if (!applicantId) {
       const result = await createApplicant(user._id, user.email, {
-        country: req.body?.country,
+        country: req.validated?.country,
       });
       applicantId = result.data?.id;
       if (!applicantId) throw createError(500, 'SUMSUB_ERROR', 'Applicant oluşturulamadı');

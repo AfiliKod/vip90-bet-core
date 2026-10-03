@@ -1,31 +1,50 @@
-import { useEffect, useState, useCallback } from 'react';
+import { useEffect, useState, useCallback, useRef } from 'react';
 import api from '../../services/api';
 import { useToastStore } from '../../store/toastStore';
 import { useFormatters } from '../../i18n/useFormatters.jsx';
+import { useTranslation } from '../../i18n';
+import DetailDrawer from '../../components/admin/DetailDrawer.jsx';
+import { ADMIN_BTN } from '../../components/admin/AdminPageHeader.jsx';
+import { AdminTable, AdminTableRow, AdminTableCell, AdminTableActionsCell } from '../../components/admin/AdminTable.jsx';
 
 const STATUS_FILTERS = [
-  { value: '', label: 'Tümü' },
-  { value: 'pending', label: 'Bekleyen' },
-  { value: 'under_review', label: 'İncelenen' },
-  { value: 'approved', label: 'Onaylanan' },
-  { value: 'rejected', label: 'Reddedilen' },
+  { value: '', labelKey: 'common.all' },
+  { value: 'pending', labelKey: 'admin.kycReview.filterPending' },
+  { value: 'under_review', labelKey: 'admin.kycReview.filterUnderReview' },
+  { value: 'approved', labelKey: 'admin.kycReview.filterApproved' },
+  { value: 'rejected', labelKey: 'admin.kycReview.filterRejected' },
 ];
 
 const STATUS_BADGE = {
-  not_started:  'bg-white/5 text-text-3 border-white/10',
-  pending:      'bg-yellow-500/20 text-yellow-300 border-yellow-500/30',
-  under_review: 'bg-blue-500/20 text-blue-300 border-blue-500/30',
-  approved:     'bg-green-500/20 text-green-300 border-green-500/30',
-  rejected:     'bg-red-500/20 text-red-300 border-red-500/30',
-  expired:      'bg-white/5 text-text-3 border-white/10',
+  not_started:  'bg-white/10 text-text-3',
+  pending:      'bg-warning/20 text-warning',
+  under_review: 'bg-info/15 text-info',
+  approved:     'bg-success/15 text-success',
+  rejected:     'bg-danger/20 text-danger',
+  expired:      'bg-white/10 text-text-3',
 };
 
 const STATUS_LABELS = {
-  not_started: 'Başlamadı', pending: 'Bekliyor', under_review: 'İnceleniyor',
-  approved: 'Onaylandı', rejected: 'Reddedildi', expired: 'Süresi Doldu',
+  not_started: 'admin.kycReview.statusNotStarted', pending: 'admin.kycReview.statusPending',
+  under_review: 'admin.kycReview.statusUnderReview', approved: 'admin.kycReview.statusApproved',
+  rejected: 'admin.kycReview.statusRejected', expired: 'admin.kycReview.statusExpired',
 };
 
+const ACTION_BASE =
+  'inline-flex h-9 w-full items-center justify-center gap-1.5 rounded-lg border text-sm font-bold transition disabled:opacity-40';
+
+function StatusBadge({ status }) {
+  const { t } = useTranslation();
+  return (
+    <span className={`inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-[11px] font-extrabold ${STATUS_BADGE[status] || STATUS_BADGE.not_started}`}>
+      <i className="h-1.5 w-1.5 rounded-full bg-current" />
+      {STATUS_LABELS[status] ? t(STATUS_LABELS[status]) : status}
+    </span>
+  );
+}
+
 export default function AdminKycReview() {
+  const { t, locale } = useTranslation();
   const fmt = useFormatters();
   const addToast = useToastStore(s => s.add);
   const [submissions, setSubmissions] = useState([]);
@@ -42,13 +61,14 @@ export default function AdminKycReview() {
   const [showReject, setShowReject] = useState(false);
   const [acting, setActing] = useState(false);
   const [stats, setStats] = useState(null);
+  const searchTimer = useRef(null);
 
-  const load = useCallback(async () => {
+  const load = useCallback(async (f, s, p) => {
     setLoading(true);
     try {
-      const params = new URLSearchParams({ page, limit: 20 });
-      if (filter) params.set('status', filter);
-      if (search) params.set('search', search);
+      const params = new URLSearchParams({ page: p, limit: 20 });
+      if (f) params.set('status', f);
+      if (s) params.set('search', s);
       const [subRes, statsRes] = await Promise.all([
         api.get(`/admin/kyc/submissions?${params}`),
         api.get('/admin/kyc/stats').catch(() => ({ data: null })),
@@ -58,13 +78,28 @@ export default function AdminKycReview() {
       setPages(subRes.data.pages || 1);
       setStats(statsRes.data);
     } catch {
-      addToast('KYC başvuruları alınamadı.', 'error');
+      addToast(t('admin.kycReview.loadError'), 'error');
     } finally {
       setLoading(false);
     }
-  }, [page, filter, search, addToast]);
+  }, [addToast, t]);
 
-  useEffect(() => { load(); }, [load]);
+  // search bilinçli olarak dışarıda — arama debounce'u onSearch içinde load'u çağırır.
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  useEffect(() => { load(filter, search, page); }, [filter, page, load]);
+
+  const onSearch = (v) => {
+    setSearch(v);
+    setPage(1);
+    clearTimeout(searchTimer.current);
+    searchTimer.current = setTimeout(() => load(filter, v, 1), 300);
+  };
+
+  const onFilter = (v) => {
+    clearTimeout(searchTimer.current);
+    setFilter(v);
+    setPage(1);
+  };
 
   async function openDetail(userId) {
     setSelected(userId);
@@ -76,7 +111,7 @@ export default function AdminKycReview() {
       setSelected(data.user);
       setDetailDocs(data.documents);
     } catch {
-      addToast('Detay alınamadı.', 'error');
+      addToast(t('admin.kycReview.detailLoadError'), 'error');
     } finally {
       setDetailLoading(false);
     }
@@ -87,12 +122,12 @@ export default function AdminKycReview() {
     setActing(true);
     try {
       await api.post(`/admin/kyc/submissions/${selected._id}/approve`);
-      addToast('KYC onaylandı.', 'success');
+      addToast(t('admin.kycReview.approved'), 'success');
       setSelected(null);
       setDetailDocs(null);
-      load();
+      load(filter, search, page);
     } catch (e) {
-      addToast(e.response?.data?.error?.message || 'Onay başarısız.', 'error');
+      addToast(e.response?.data?.error?.message || t('admin.kycReview.approveFailed'), 'error');
     } finally {
       setActing(false);
     }
@@ -103,14 +138,14 @@ export default function AdminKycReview() {
     setActing(true);
     try {
       await api.post(`/admin/kyc/submissions/${selected._id}/reject`, { reason: rejectReason });
-      addToast('KYC reddedildi.', 'success');
+      addToast(t('admin.kycReview.rejected'), 'success');
       setSelected(null);
       setDetailDocs(null);
       setShowReject(false);
       setRejectReason('');
-      load();
+      load(filter, search, page);
     } catch (e) {
-      addToast(e.response?.data?.error?.message || 'Ret başarısız.', 'error');
+      addToast(e.response?.data?.error?.message || t('admin.kycReview.rejectFailed'), 'error');
     } finally {
       setActing(false);
     }
@@ -121,236 +156,309 @@ export default function AdminKycReview() {
     setActing(true);
     try {
       await api.post(`/admin/kyc/submissions/${selected._id}/under-review`);
-      addToast('İnceleniyor olarak işaretlendi.', 'success');
+      addToast(t('admin.kycReview.markedUnderReview'), 'success');
       openDetail(selected._id);
-      load();
+      load(filter, search, page);
     } catch (e) {
-      addToast(e.response?.data?.error?.message || 'İşlem başarısız.', 'error');
+      addToast(e.response?.data?.error?.message || t('admin.kycReview.actionFailed'), 'error');
     } finally {
       setActing(false);
     }
   }
 
   return (
-    <div className="p-6 max-w-5xl mx-auto">
-      <div className="mb-6">
-        <h1 className="text-2xl font-bold">KYC İnceleme</h1>
-        <p className="text-text-3 text-sm mt-1">
-          Kullanıcı kimlik doğrulama başvurularını inceleyin, onaylayın veya reddedin.
-        </p>
-      </div>
+    // Dış sarmalayıcı yok: Compliance.jsx'in max-w-[1400px] wrapper'ı tab içeriğini sarar
+    <div>
+      <p className="mb-6 text-sm text-text-3">{t('admin.kycReview.subtitle')}</p>
 
-      {/* İstatistikler */}
+      {/* KPI şeridi */}
       {stats && (
-        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-6">
+        <div className="mb-4 grid grid-cols-2 gap-3 xl:grid-cols-4">
           {stats.byStatus?.map(s => (
-            <div key={s._id} className="bg-bg-card border border-white/10 rounded-xl p-3">
-              <div className="text-xs text-text-3">{STATUS_LABELS[s._id] || s._id}</div>
-              <div className="text-lg font-bold text-text-1">{s.count}</div>
-            </div>
+            <article key={s._id} className="min-w-0 rounded-xl border border-white/10 bg-bg-card p-3.5">
+              {/* Eski/seed kullanıcılarda kycStatus eksikse _id:null grubu oluşur */}
+              <div className="truncate text-[11px] font-bold uppercase tracking-[0.07em] text-text-3">
+                {STATUS_LABELS[s._id] ? t(STATUS_LABELS[s._id]) : (s._id ? s._id : t('admin.kycReview.statusUnknown'))}
+              </div>
+              <div className="mt-2 font-mono text-[22px] font-bold tabular-nums tracking-tight text-text-1">
+                {Number(s.count || 0).toLocaleString(locale)}
+              </div>
+            </article>
           ))}
-          <div className="bg-bg-card border border-white/10 rounded-xl p-3">
-            <div className="text-xs text-text-3">Bugün Onaylanan</div>
-            <div className="text-lg font-bold text-green-300">{stats.approvedToday || 0}</div>
-          </div>
+          <article className="min-w-0 rounded-xl border border-white/10 bg-bg-card p-3.5">
+            <div className="text-[11px] font-bold uppercase tracking-[0.07em] text-text-3">{t('admin.kycReview.todayApproved')}</div>
+            <div className="mt-2 font-mono text-[22px] font-bold tabular-nums tracking-tight text-success">
+              {Number(stats.approvedToday || 0).toLocaleString(locale)}
+            </div>
+          </article>
         </div>
       )}
 
       {/* Filtre + Arama */}
-      <div className="flex flex-wrap items-center gap-3 mb-4">
-        <div className="flex gap-1 bg-bg-card border border-white/10 rounded-lg p-1">
-          {STATUS_FILTERS.map(f => (
-            <button
-              key={f.value}
-              onClick={() => { setFilter(f.value); setPage(1); }}
-              className={`text-xs px-3 py-1.5 rounded transition ${filter === f.value ? 'bg-primary/20 text-primary' : 'text-text-3 hover:text-text-1'}`}
-            >
-              {f.label}
-            </button>
-          ))}
+      <div className="mb-4 flex flex-wrap items-center gap-2.5">
+        <label className="flex h-9 min-w-[200px] flex-1 items-center gap-2 rounded-lg border border-white/10 bg-bg-card px-3 text-text-3 sm:max-w-[300px]">
+          <span className="material-symbols-outlined !text-[16px] opacity-75" aria-hidden="true">search</span>
+          <input
+            value={search}
+            onChange={e => onSearch(e.target.value)}
+            placeholder={t('admin.kycReview.searchPlaceholder')}
+            className="min-w-0 flex-1 bg-transparent text-[13px] text-text-1 outline-none placeholder:text-text-3"
+          />
+        </label>
+        <div className="flex max-w-full gap-1.5 overflow-x-auto">
+          {STATUS_FILTERS.map(f => {
+            const on = filter === f.value;
+            return (
+              <button
+                key={f.value}
+                type="button"
+                onClick={() => onFilter(f.value)}
+                className={`inline-flex h-8 shrink-0 items-center gap-1 rounded-lg border px-2.5 text-xs font-bold transition ${
+                  on
+                    ? 'border-primary/40 bg-primary/15 text-primary'
+                    : 'border-white/10 bg-bg-hover text-text-2 hover:text-text-1'
+                }`}
+              >
+                {t(f.labelKey)}
+              </button>
+            );
+          })}
         </div>
-        <input
-          type="text"
-          placeholder="Kullanıcı ara..."
-          value={search}
-          onChange={e => { setSearch(e.target.value); setPage(1); }}
-          className="bg-bg-card border border-white/10 rounded-lg px-3 py-2 text-sm text-text-1 placeholder:text-text-3/60 focus:outline-none focus:border-white/25"
-        />
-        <div className="text-xs text-text-3 ml-auto">{total} başvuru</div>
+        <div className="ml-auto flex flex-wrap items-center gap-2.5">
+          <span className="inline-flex h-7 shrink-0 items-center rounded-full border border-white/10 bg-bg-card px-2.5 text-xs font-bold text-text-3">
+            {t('admin.kycReview.countLabel', { count: total.toLocaleString(locale) })}
+          </span>
+          <button
+            type="button"
+            onClick={() => { onSearch(''); onFilter(''); }}
+            className="inline-flex items-center gap-1.5 text-[13px] font-bold text-text-3 transition hover:text-text-1"
+          >
+            <span className="material-symbols-outlined !text-[15px]" aria-hidden="true">close</span>
+            {t('common.reset')}
+          </button>
+        </div>
       </div>
 
       {/* Başvuru Listesi */}
-      {loading ? (
-        <div className="space-y-2">
-          {[1,2,3].map(i => <div key={i} className="h-16 bg-bg-card rounded-xl animate-pulse" />)}
-        </div>
-      ) : submissions.length === 0 ? (
-        <div className="text-center text-text-3 text-sm py-12">Başvuru bulunamadı.</div>
-      ) : (
-        <div className="space-y-2">
-          {submissions.map(u => (
-            <button
-              key={u._id}
-              onClick={() => openDetail(u._id)}
-              className="w-full flex items-center gap-4 p-3 bg-bg-card border border-white/10 rounded-xl hover:border-white/25 transition text-left"
-            >
-              <div className="w-10 h-10 rounded-full bg-accent/20 flex items-center justify-center text-sm font-bold text-accent">
-                {u.username?.[0]?.toUpperCase()}
-              </div>
-              <div className="flex-1 min-w-0">
-                <div className="flex items-center gap-2">
-                  <span className="text-sm font-medium text-text-1">{u.username}</span>
-                  <span className={`text-[10px] px-1.5 py-0.5 rounded-full border ${STATUS_BADGE[u.kycStatus] || STATUS_BADGE.not_started}`}>
-                    {STATUS_LABELS[u.kycStatus] || u.kycStatus}
+      <AdminTable
+        loading={loading}
+        empty={submissions.length === 0}
+        emptyLabel={t('admin.kycReview.listEmpty')}
+        columns={[
+          { key: 'user', label: t('admin.kycReview.columnUser') },
+          { key: 'email', label: t('admin.kycReview.columnEmail') },
+          { key: 'status', label: t('admin.kycReview.columnStatus') },
+          { key: 'pending', label: t('admin.kycReview.columnPending') },
+          { key: 'submitted', label: t('admin.kycReview.columnSubmitted') },
+          { key: 'actions', label: t('admin.kycReview.columnActions'), align: 'right' },
+        ]}
+      >
+        {submissions.map(u => {
+          const initials = (u.username || '?').slice(0, 2).toUpperCase();
+          return (
+            <AdminTableRow key={u._id} className="cursor-pointer" onClick={() => openDetail(u._id)}>
+              <AdminTableCell>
+                <div className="flex items-center gap-2.5">
+                  <span className="grid h-8 w-8 shrink-0 place-items-center rounded-lg border border-white/10 bg-bg-hover text-[11px] font-extrabold text-text-2">
+                    {initials}
                   </span>
+                  <div className="min-w-0">
+                    <div className="truncate font-bold text-text-1">{u.username}</div>
+                    <div className="mt-0.5 font-mono text-xs text-text-3">USR-{String(u._id || '').slice(-6).toUpperCase()}</div>
+                  </div>
                 </div>
-                <div className="text-xs text-text-3 truncate">{u.email}</div>
-              </div>
-              <div className="text-xs text-text-3">
-                {u.docCounts ? `${u.docCounts.pending || 0} bekleyen` : ''}
-              </div>
-              <div className="text-xs text-text-3">
-                {u.kycSubmittedAt ? fmt.formatDate(u.kycSubmittedAt) : '—'}
-              </div>
-            </button>
-          ))}
-        </div>
-      )}
+              </AdminTableCell>
+              <AdminTableCell><span className="font-mono text-xs text-text-3">{u.email || '—'}</span></AdminTableCell>
+              <AdminTableCell><StatusBadge status={u.kycStatus} /></AdminTableCell>
+              <AdminTableCell>
+                <span className="font-mono text-xs font-semibold tabular-nums text-text-2">
+                  {u.docCounts ? (u.docCounts.pending || 0).toLocaleString(locale) : '—'}
+                </span>
+              </AdminTableCell>
+              <AdminTableCell>
+                <span className="font-mono text-xs text-text-3">
+                  {u.kycSubmittedAt ? fmt.formatDate(u.kycSubmittedAt) : '—'}
+                </span>
+              </AdminTableCell>
+              <AdminTableActionsCell>
+                <button
+                  type="button"
+                  onClick={() => openDetail(u._id)}
+                  title={t('admin.kycReview.title')}
+                  aria-label={t('admin.kycReview.title')}
+                  className="grid h-8 w-8 place-items-center rounded-lg border border-white/10 text-text-3 transition hover:bg-bg-hover hover:text-text-1"
+                >
+                  <span className="material-symbols-outlined !text-[18px]" aria-hidden="true">open_in_new</span>
+                </button>
+              </AdminTableActionsCell>
+            </AdminTableRow>
+          );
+        })}
+      </AdminTable>
 
       {/* Sayfalama */}
       {pages > 1 && (
-        <div className="flex justify-center gap-2 mt-4">
-          <button onClick={() => setPage(p => Math.max(1, p - 1))} disabled={page === 1}
-            className="text-xs px-3 py-1.5 rounded border border-white/10 text-text-3 hover:text-text-1 disabled:opacity-40">
-            Önceki
-          </button>
-          <span className="text-xs text-text-3 py-1.5">{page}/{pages}</span>
-          <button onClick={() => setPage(p => Math.min(pages, p + 1))} disabled={page === pages}
-            className="text-xs px-3 py-1.5 rounded border border-white/10 text-text-3 hover:text-text-1 disabled:opacity-40">
-            Sonraki
-          </button>
+        <div className="mt-3 flex flex-wrap items-center justify-between gap-3 rounded-xl border border-white/10 bg-bg-card px-4 py-3 text-[13px] text-text-3">
+          <span>
+            {t('admin.kycReview.countLabel', { count: total.toLocaleString(locale) })}
+          </span>
+          <div className="flex items-center gap-1.5">
+            <button
+              type="button"
+              onClick={() => setPage(p => Math.max(1, p - 1))}
+              disabled={page === 1}
+              className="grid h-8 min-w-8 place-items-center rounded-md border border-white/10 px-2 font-mono text-xs font-bold text-text-2 transition hover:bg-bg-hover disabled:opacity-30"
+            >
+              ‹
+            </button>
+            <span className="px-1 font-mono text-xs text-text-1">{page} / {pages}</span>
+            <button
+              type="button"
+              onClick={() => setPage(p => Math.min(pages, p + 1))}
+              disabled={page === pages}
+              className="grid h-8 min-w-8 place-items-center rounded-md border border-white/10 px-2 font-mono text-xs font-bold text-text-2 transition hover:bg-bg-hover disabled:opacity-30"
+            >
+              ›
+            </button>
+          </div>
         </div>
       )}
 
       {/* Detay Modal */}
-      {selected && (
-        <>
-          <div className="fixed inset-0 z-40 bg-black/50" onClick={() => { setSelected(null); setDetailDocs(null); }} />
-          <div className="fixed right-0 top-0 bottom-0 z-50 w-full max-w-md bg-bg-card border-l border-white/10 flex flex-col shadow-2xl overflow-y-auto">
-            {/* Header */}
-            <div className="flex items-center justify-between p-4 border-b border-white/10">
-              <div>
-                <div className="font-bold text-text-1">{selected.username}</div>
-                <div className="text-xs text-text-3">{selected.email}</div>
-              </div>
-              <button onClick={() => { setSelected(null); setDetailDocs(null); }} className="text-text-3 hover:text-text-1 text-2xl leading-none">&times;</button>
+      <DetailDrawer
+        open={!!selected}
+        onClose={() => { setSelected(null); setDetailDocs(null); }}
+        title={selected?.username}
+        subtitle={selected?.email}
+      >
+        {selected && (
+          <>
+            {/* Durum */}
+            <div className="flex items-center gap-2">
+              <span className="text-sm text-text-2">{t('admin.kycReview.statusLabel')}</span>
+              <StatusBadge status={selected.kycStatus} />
             </div>
 
-            <div className="p-4 space-y-4">
-              {/* Durum */}
-              <div className="flex items-center gap-2">
-                <span className="text-sm text-text-2">Durum:</span>
-                <span className={`text-xs px-2 py-0.5 rounded-full border ${STATUS_BADGE[selected.kycStatus]}`}>
-                  {STATUS_LABELS[selected.kycStatus]}
+            {selected.kycSubmittedAt && (
+              <div className="text-xs text-text-3">{t('admin.kycReview.submittedAt', { date: fmt.formatDate(selected.kycSubmittedAt) })}</div>
+            )}
+            {selected.kycRejectionReason && (
+              <div className="text-xs text-danger">{t('admin.kycReview.rejectionReasonLabel', { reason: selected.kycRejectionReason })}</div>
+            )}
+
+            {/* Belgeler */}
+            <div className="rounded-xl border border-white/10 bg-bg-card p-3.5">
+              <div className="mb-3 flex items-center gap-2">
+                <span className="grid h-7 w-7 place-items-center rounded-lg bg-primary/10 text-primary">
+                  <span className="material-symbols-outlined !text-[16px]" aria-hidden="true">description</span>
                 </span>
-              </div>
-
-              {selected.kycSubmittedAt && (
-                <div className="text-xs text-text-3">Başvuru: {fmt.formatDate(selected.kycSubmittedAt)}</div>
-              )}
-              {selected.kycRejectionReason && (
-                <div className="text-xs text-red-300">Red sebebi: {selected.kycRejectionReason}</div>
-              )}
-
-              {/* Belgeler */}
-              <div>
-                <div className="text-xs font-medium text-text-2 mb-2">Belgeler</div>
-                {detailLoading ? (
-                  <div className="text-center text-text-3 text-sm py-4">Yükleniyor...</div>
-                ) : detailDocs?.length > 0 ? (
-                  <div className="space-y-2">
-                    {detailDocs.map(doc => (
-                      <div key={doc._id} className="bg-bg-hover rounded-xl p-3">
-                        <div className="flex items-center gap-2 mb-2">
-                          <span className="text-lg">{doc.mimeType === 'application/pdf' ? '📄' : '🖼️'}</span>
-                          <div className="flex-1 min-w-0">
-                            <div className="text-xs text-text-1 truncate">{doc.fileName}</div>
-                            <div className="text-[10px] text-text-3">{doc.documentType} • {(doc.fileSize / 1024).toFixed(1)} KB</div>
-                          </div>
-                          <span className={`text-[10px] px-1.5 py-0.5 rounded-full border ${STATUS_BADGE[doc.status]}`}>
-                            {STATUS_LABELS[doc.status] || doc.status}
-                          </span>
-                        </div>
-                        {doc.fileUrl && (
-                          <a
-                            href={doc.fileUrl}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            className="text-xs text-accent hover:underline"
-                          >
-                            Belgeyi Görüntüle
-                          </a>
-                        )}
-                      </div>
-                    ))}
-                  </div>
-                ) : (
-                  <div className="text-xs text-text-3">Belge bulunamadı.</div>
+                <h3 className="text-sm font-extrabold text-text-1">{t('admin.kycReview.documents')}</h3>
+                {!detailLoading && detailDocs?.length > 0 && (
+                  <span className="rounded-full bg-white/10 px-2 py-[3px] font-mono text-[11px] font-bold tabular-nums text-text-2">
+                    {detailDocs.length.toLocaleString(locale)}
+                  </span>
                 )}
               </div>
-
-              {/* Aksiyonlar */}
-              {(selected.kycStatus === 'pending' || selected.kycStatus === 'under_review' || selected.kycStatus === 'not_started') && (
-                <div className="space-y-2 pt-2 border-t border-white/8">
-                  {selected.kycStatus === 'pending' && (
-                    <button
-                      onClick={setUnderReview}
-                      disabled={acting}
-                      className="w-full py-2 rounded-lg bg-blue-500/20 border border-blue-500/30 text-blue-300 text-sm font-medium hover:bg-blue-500/30 transition disabled:opacity-40"
-                    >
-                      İnceleniyor Olarak İşaretle
-                    </button>
-                  )}
-                  <button
-                    onClick={approve}
-                    disabled={acting}
-                    className="w-full py-2 rounded-lg bg-green-500/20 border border-green-500/30 text-green-300 text-sm font-medium hover:bg-green-500/30 transition disabled:opacity-40"
-                  >
-                    Onayla
-                  </button>
-                  {!showReject ? (
-                    <button
-                      onClick={() => setShowReject(true)}
-                      className="w-full py-2 rounded-lg bg-red-500/20 border border-red-500/30 text-red-300 text-sm font-medium hover:bg-red-500/30 transition"
-                    >
-                      Reddet
-                    </button>
-                  ) : (
-                    <div className="space-y-2">
-                      <input
-                        value={rejectReason}
-                        onChange={e => setRejectReason(e.target.value)}
-                        placeholder="Red sebebi..."
-                        className="w-full bg-bg-deep border border-white/10 rounded-lg px-3 py-2 text-sm text-text-1 focus:outline-none focus:border-white/25"
-                      />
-                      <div className="flex gap-2">
-                        <button onClick={() => { setShowReject(false); setRejectReason(''); }}
-                          className="flex-1 py-2 rounded-lg border border-white/10 text-text-3 text-sm hover:bg-bg-hover transition">
-                          İptal
-                        </button>
-                        <button onClick={reject} disabled={acting || !rejectReason.trim()}
-                          className="flex-1 py-2 rounded-lg bg-red-500/80 text-white text-sm font-semibold hover:bg-red-500 transition disabled:opacity-40">
-                          {acting ? 'İşleniyor...' : 'Reddet'}
-                        </button>
+              {detailLoading ? (
+                <div className="py-4 text-center text-sm text-text-3">{t('common.loading')}</div>
+              ) : detailDocs?.length > 0 ? (
+                <div className="space-y-2">
+                  {detailDocs.map(doc => (
+                    <div key={doc._id} className="rounded-lg border border-white/5 bg-bg-hover p-3">
+                      <div className="mb-2 flex items-center gap-2">
+                        <span className="material-symbols-outlined !text-[18px] text-text-3" aria-hidden="true">{doc.mimeType === 'application/pdf' ? 'description' : 'image'}</span>
+                        <div className="min-w-0 flex-1">
+                          <div className="truncate text-xs text-text-1">{doc.fileName}</div>
+                          <div className="font-mono text-[10px] text-text-3">
+                            {doc.documentType} · {fmt.formatNumber(Number((doc.fileSize / 1024).toFixed(1)))} KB
+                          </div>
+                        </div>
+                        <span className={`shrink-0 rounded-full px-2 py-[3px] text-[10.5px] font-extrabold uppercase ${STATUS_BADGE[doc.status] || STATUS_BADGE.not_started}`}>
+                          {STATUS_LABELS[doc.status] ? t(STATUS_LABELS[doc.status]) : doc.status}
+                        </span>
                       </div>
+                      {doc.fileUrl && (
+                        <a
+                          href={doc.fileUrl}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="inline-flex items-center gap-1 text-xs font-bold text-primary transition hover:underline"
+                        >
+                          <span className="material-symbols-outlined !text-[14px]" aria-hidden="true">open_in_new</span>
+                          {t('admin.kycReview.viewDocument')}
+                        </a>
+                      )}
                     </div>
-                  )}
+                  ))}
+                </div>
+              ) : (
+                <div className="rounded-lg border border-white/5 bg-bg-deep px-4 py-8 text-center">
+                  <span className="material-symbols-outlined !text-[32px] text-text-3/60" aria-hidden="true">draft</span>
+                  <div className="mt-2 text-sm text-text-3">{t('admin.kycReview.docEmpty')}</div>
                 </div>
               )}
             </div>
-          </div>
-        </>
-      )}
+
+            {/* Aksiyonlar */}
+            {(selected.kycStatus === 'pending' || selected.kycStatus === 'under_review' || selected.kycStatus === 'not_started') && (
+              <div className="space-y-2 border-t border-white/10 pt-3">
+                {selected.kycStatus === 'pending' && (
+                  <button
+                    onClick={setUnderReview}
+                    disabled={acting}
+                    className={`${ACTION_BASE} border-info/30 bg-info/15 text-info hover:bg-info/25`}
+                  >
+                    <span className="material-symbols-outlined !text-[16px]" aria-hidden="true">visibility</span>
+                    {t('admin.kycReview.markUnderReview')}
+                  </button>
+                )}
+                <button
+                  onClick={approve}
+                  disabled={acting}
+                  className={`${ACTION_BASE} border-success/30 bg-success/15 text-success hover:bg-success/25`}
+                >
+                  <span className="material-symbols-outlined !text-[16px]" aria-hidden="true">check_circle</span>
+                  {t('admin.kycReview.approve')}
+                </button>
+                {!showReject ? (
+                  <button
+                    onClick={() => setShowReject(true)}
+                    className={`${ACTION_BASE} border-danger/30 bg-danger/10 text-danger hover:bg-danger/20`}
+                  >
+                    <span className="material-symbols-outlined !text-[16px]" aria-hidden="true">cancel</span>
+                    {t('admin.kycReview.reject')}
+                  </button>
+                ) : (
+                  <div className="space-y-2">
+                    <input
+                      value={rejectReason}
+                      onChange={e => setRejectReason(e.target.value)}
+                      placeholder={t('admin.kycReview.rejectPlaceholder')}
+                      className="w-full rounded-lg border border-white/10 bg-bg-deep px-3 py-2 text-sm text-text-1 placeholder:text-text-3/60 focus:border-white/25 focus:outline-none"
+                    />
+                    <div className="flex gap-2">
+                      <button
+                        onClick={() => { setShowReject(false); setRejectReason(''); }}
+                        className={`${ADMIN_BTN} flex-1 justify-center`}
+                      >
+                        {t('common.cancel')}
+                      </button>
+                      <button
+                        onClick={reject}
+                        disabled={acting || !rejectReason.trim()}
+                        className={`${ACTION_BASE} flex-1 border-transparent bg-danger text-white hover:brightness-110`}
+                      >
+                        <span className="material-symbols-outlined !text-[16px]" aria-hidden="true">block</span>
+                        {acting ? t('admin.kycReview.working') : t('admin.kycReview.reject')}
+                      </button>
+                    </div>
+                  </div>
+                )}
+              </div>
+            )}
+          </>
+        )}
+      </DetailDrawer>
     </div>
   );
 }

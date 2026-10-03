@@ -4,7 +4,7 @@ import mongoose from 'mongoose';
 import User from '../src/models/User.js';
 import Permission from '../src/models/Permission.js';
 import Role from '../src/models/Role.js';
-import { initDefaultPermissions, initDefaultRoles, userHasPermission, getUserPermissions, assignRoleToUser, removeRoleFromUser, createRole, updateRole, deleteRole, getAllRoles, getAllPermissions } from '../src/services/permissions.js';
+import { initDefaultPermissions, initDefaultRoles, migrateOrphanedAdminRoles, syncMissingPermissions, userHasPermission, getUserPermissions, assignRoleToUser, removeRoleFromUser, createRole, updateRole, deleteRole, getAllRoles, getAllPermissions } from '../src/services/permissions.js';
 
 describe('Permissions System', () => {
   before(async () => {
@@ -72,16 +72,126 @@ describe('Permissions System', () => {
     });
   });
 
+  describe('syncMissingPermissions', () => {
+    it('koleksiyon zaten doluyken bile eksik yeni bir permission\'ı ekler', async () => {
+      await initDefaultPermissions();
+      await initDefaultRoles();
+      // admin:activity:read'i simüle etmek için elle sil (varsayılan seed'de zaten olabilir — bu test onu SİLİP tekrar eklenmesini doğruluyor)
+      await Permission.deleteOne({ key: 'admin:activity:read' });
+      const before = await Permission.countDocuments();
+
+      const result = await syncMissingPermissions();
+
+      assert.ok(result.added >= 1);
+      const perm = await Permission.findOne({ key: 'admin:activity:read' });
+      assert.ok(perm, 'admin:activity:read eklenmeli');
+
+      const superAdmin = await Role.findOne({ name: 'super_admin' }).populate('permissions');
+      assert.ok(superAdmin.permissions.some(p => p.key === 'admin:activity:read'), 'super_admin\'e otomatik eklenmeli');
+    });
+
+    it('hiçbir eksik permission yoksa idempotent — ikinci çağrı 0 ekler', async () => {
+      await initDefaultPermissions();
+      await initDefaultRoles();
+      await syncMissingPermissions();
+      const result = await syncMissingPermissions();
+      assert.equal(result.added, 0);
+    });
+  });
+
+  describe('migrateOrphanedAdminRoles', () => {
+    it('assigns super_admin to a role=admin user with no roles', async () => {
+      await initDefaultPermissions();
+      await initDefaultRoles();
+      const user = await User.create({ username: 'orphanadmin', email: 'orphanadmin@test.com', password: 'x', role: 'admin' });
+      assert.equal(user.roles.length, 0);
+
+      const result = await migrateOrphanedAdminRoles();
+      assert.equal(result.migrated, 1);
+
+      const fresh = await User.findById(user._id);
+      const superAdmin = await Role.findOne({ name: 'super_admin' });
+      assert.equal(fresh.roles.length, 1);
+      assert.equal(fresh.roles[0].toString(), superAdmin._id.toString());
+    });
+
+    it('does not touch a role=admin user who already has a role assigned', async () => {
+      await initDefaultPermissions();
+      await initDefaultRoles();
+      const support = await Role.findOne({ name: 'support' });
+      const user = await User.create({ username: 'supportadmin', email: 'supportadmin@test.com', password: 'x', role: 'admin', roles: [support._id] });
+
+      const result = await migrateOrphanedAdminRoles();
+      assert.equal(result.migrated, 0);
+
+      const fresh = await User.findById(user._id);
+      assert.equal(fresh.roles.length, 1);
+      assert.equal(fresh.roles[0].toString(), support._id.toString());
+    });
+
+    it('does not touch a role=user (non-admin) account', async () => {
+      await initDefaultPermissions();
+      await initDefaultRoles();
+      const user = await User.create({ username: 'regularuser', email: 'regularuser@test.com', password: 'x', role: 'user' });
+
+      const result = await migrateOrphanedAdminRoles();
+      assert.equal(result.migrated, 0);
+
+      const fresh = await User.findById(user._id);
+      assert.equal(fresh.roles.length, 0);
+    });
+
+    it('is idempotent — second call migrates nothing further', async () => {
+      await initDefaultPermissions();
+      await initDefaultRoles();
+      await User.create({ username: 'orphanadmin2', email: 'orphanadmin2@test.com', password: 'x', role: 'admin' });
+
+      const first = await migrateOrphanedAdminRoles();
+      assert.equal(first.migrated, 1);
+      const second = await migrateOrphanedAdminRoles();
+      assert.equal(second.migrated, 0);
+    });
+
+    it('after migration, userHasPermission returns true for a granular admin permission', async () => {
+      await initDefaultPermissions();
+      await initDefaultRoles();
+      const user = await User.create({ username: 'orphanadmin3', email: 'orphanadmin3@test.com', password: 'x', role: 'admin' });
+
+      assert.equal(await userHasPermission(user._id, 'admin:transactions:read'), false);
+      await migrateOrphanedAdminRoles();
+      assert.equal(await userHasPermission(user._id, 'admin:transactions:read'), true);
+    });
+  });
+
   describe('userHasPermission', () => {
-    it('should return true for admin role', async () => {
+    it('should return true for admin with super_admin role', async () => {
       await initDefaultPermissions();
       await initDefaultRoles();
 
+      const superAdminRole = await Role.findOne({ name: 'super_admin' });
       const user = await User.create({
         username: 'admin',
         email: 'admin@example.com',
         password: 'password123',
         role: 'admin',
+        roles: [superAdminRole._id],
+      });
+
+      const hasPerm = await userHasPermission(user._id, 'admin:users:read');
+      assert.equal(hasPerm, true);
+    });
+
+    it('should return true for admin with assigned admin role', async () => {
+      await initDefaultPermissions();
+      await initDefaultRoles();
+
+      const adminRole = await Role.findOne({ name: 'admin' });
+      const user = await User.create({
+        username: 'admin',
+        email: 'admin@example.com',
+        password: 'password123',
+        role: 'admin',
+        roles: [adminRole._id],
       });
 
       const hasPerm = await userHasPermission(user._id, 'admin:users:read');
@@ -144,15 +254,17 @@ describe('Permissions System', () => {
   });
 
   describe('getUserPermissions', () => {
-    it('should return all permissions for admin', async () => {
+    it('should return all permissions for admin with super_admin role', async () => {
       await initDefaultPermissions();
       await initDefaultRoles();
 
+      const superAdminRole = await Role.findOne({ name: 'super_admin' });
       const user = await User.create({
         username: 'admin',
         email: 'admin@example.com',
         password: 'password123',
         role: 'admin',
+        roles: [superAdminRole._id],
       });
 
       const perms = await getUserPermissions(user._id);

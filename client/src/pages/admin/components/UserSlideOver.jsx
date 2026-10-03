@@ -1,6 +1,8 @@
 import { useEffect, useState } from 'react';
 import { useFormatters } from '../../../i18n/useFormatters.jsx';
 import { useForm } from 'react-hook-form';
+import { useNavigate } from 'react-router-dom';
+import { ADMIN_BTN_GHOST } from '../../../components/admin/AdminPageHeader.jsx';
 import api from '../../../services/api';
 import { useToastStore } from '../../../store/toastStore';
 import { useTranslation } from '../../../i18n';
@@ -8,6 +10,7 @@ import { formatMoney, getActiveCurrency } from '../../../utils/money.js';
 
 export default function UserSlideOver({ user, onClose, onUpdated }) {
   const { t } = useTranslation();
+  const navigate = useNavigate();
   const fmt = useFormatters();
   const [tab, setTab] = useState('general');
   const [referrals, setReferrals] = useState(null);
@@ -35,10 +38,10 @@ export default function UserSlideOver({ user, onClose, onUpdated }) {
   const TX_LABELS = {
     deposit: t('admin.userSlideOver.txDeposit'), withdraw: t('admin.userSlideOver.txWithdraw'), bet: t('admin.userSlideOver.txBet'),
     win: t('admin.userSlideOver.txWin'), bonus: t('admin.userSlideOver.txBonus'), refund: t('admin.userSlideOver.txRefund'), admin_adjustment: t('admin.userSlideOver.txAdmin'),
-    crypto_deposit: 'Crypto Yatırma', crypto_withdraw: 'Crypto Çekim',
-    casino_return: 'Casino Dönüşü', bonus_forfeit: 'Bonus Forfeit', referral_commission: 'Referral Komisyon',
-    bonus_conversion: 'Bonus Dönüşüm', agent_transfer_in: 'Agent Transfer Giriş', agent_transfer_out: 'Agent Transfer Çıkış',
-    tip_sent: 'Bahşiş Gönderildi', tip_received: 'Bahşiş Alındı', rain: 'Rain',
+    crypto_deposit: t('admin.userSlideOver.txCryptoDeposit'), crypto_withdraw: t('admin.userSlideOver.txCryptoWithdraw'),
+    casino_return: t('admin.userSlideOver.txCasinoReturn'), bonus_forfeit: t('admin.userSlideOver.txBonusForfeit'), referral_commission: t('admin.userSlideOver.txReferralCommission'),
+    bonus_conversion: t('admin.userSlideOver.txBonusConversion'), agent_transfer_in: t('admin.userSlideOver.txAgentTransferIn'), agent_transfer_out: t('admin.userSlideOver.txAgentTransferOut'),
+    tip_sent: t('admin.userSlideOver.txTipSent'), tip_received: t('admin.userSlideOver.txTipReceived'), rain: t('admin.userSlideOver.txRain'),
   };
 
   useEffect(() => {
@@ -122,18 +125,19 @@ export default function UserSlideOver({ user, onClose, onUpdated }) {
     expired:      'bg-white/5 text-text-3 border-white/10',
   };
   const KYC_STATUS_LABELS = {
-    not_started: 'Başlamadı', pending: 'Bekliyor', under_review: 'İnceleniyor',
-    approved: 'Onaylandı', rejected: 'Reddedildi', expired: 'Süresi Doldu',
+    not_started: 'admin.kycReview.statusNotStarted', pending: 'admin.kycReview.statusPending',
+    under_review: 'admin.kycReview.statusUnderReview', approved: 'admin.kycReview.statusApproved',
+    rejected: 'admin.kycReview.statusRejected', expired: 'admin.kycReview.statusExpired',
   };
 
   const handleKycApprove = async () => {
     setKycActing(true);
     try {
       await api.post(`/admin/users/${user._id}/kyc/approve`);
-      addToast('KYC onaylandı.', 'success');
+      addToast(t('admin.kycReview.approved'), 'success');
       onUpdated();
     } catch (e) {
-      addToast(e.response?.data?.error?.message || 'Onay başarısız.', 'error');
+      addToast(e.response?.data?.error?.message || t('admin.kycReview.approveFailed'), 'error');
     } finally { setKycActing(false); }
   };
 
@@ -142,12 +146,12 @@ export default function UserSlideOver({ user, onClose, onUpdated }) {
     setKycActing(true);
     try {
       await api.post(`/admin/users/${user._id}/kyc/reject`, { reason: rejectReason });
-      addToast('KYC reddedildi.', 'success');
+      addToast(t('admin.kycReview.rejected'), 'success');
       setShowRejectKyc(false);
       setRejectReason('');
       onUpdated();
     } catch (e) {
-      addToast(e.response?.data?.error?.message || 'Ret başarısız.', 'error');
+      addToast(e.response?.data?.error?.message || t('admin.kycReview.rejectFailed'), 'error');
     } finally { setKycActing(false); }
   };
 
@@ -163,7 +167,17 @@ export default function UserSlideOver({ user, onClose, onUpdated }) {
             <div className="font-bold text-text-1">{user.username}</div>
             <div className="text-xs text-text-3">{user.email}</div>
           </div>
-          <button onClick={onClose} className="text-text-3 hover:text-text-1 text-2xl leading-none">&times;</button>
+          <div className="flex items-center gap-2">
+            <button
+              type="button"
+              onClick={() => navigate('/admin/igames?tab=bonus&user=' + encodeURIComponent(user.username))}
+              className={ADMIN_BTN_GHOST}
+            >
+              <span className="material-symbols-outlined !text-[16px]" aria-hidden="true">redeem</span>
+              {t('admin.casinoPromo.giveFromPlayer')}
+            </button>
+            <button onClick={onClose} className="text-text-3 hover:text-text-1 text-2xl leading-none">&times;</button>
+          </div>
         </div>
 
         {/* Tabs */}
@@ -195,11 +209,14 @@ export default function UserSlideOver({ user, onClose, onUpdated }) {
 
               {/* Crypto Bakiye Özeti */}
               <div className="bg-bg-hover rounded-xl p-3">
-                <div className="text-xs text-text-3 mb-2">💰 Crypto Bakiye Özeti</div>
+                <div className="text-xs text-text-3 mb-2 flex items-center gap-1.5">
+                  <span className="material-symbols-outlined !text-[14px]" aria-hidden="true">currency_bitcoin</span>
+                  {t('admin.crypto.balanceSummary')}
+                </div>
                 <div className="flex flex-wrap gap-4 text-xs">
-                  <div><span className="text-text-3">Toplam: </span><span className="font-semibold text-text-1">{formatMoney(user.balance)}</span></div>
-                  <div><span className="text-text-3">Bonus Kilit: </span><span className="font-semibold text-yellow-400">{formatMoney(user.bonusBalance || 0)}</span></div>
-                  <div><span className="text-text-3">Çekilebilir: </span><span className={`font-semibold ${(user.balance - (user.bonusBalance || 0)) > 0 ? 'text-green-400' : 'text-red-400'}`}>{formatMoney(Math.max(0, user.balance - (user.bonusBalance || 0)))}</span></div>
+                  <div><span className="text-text-3">{t('admin.crypto.balanceTotal')}: </span><span className="font-semibold text-text-1">{formatMoney(user.balance)}</span></div>
+                  <div><span className="text-text-3">{t('admin.crypto.balanceBonusLocked')}: </span><span className="font-semibold text-yellow-400">{formatMoney(user.bonusBalance || 0)}</span></div>
+                  <div><span className="text-text-3">{t('admin.crypto.balanceWithdrawable')}: </span><span className={`font-semibold ${(user.balance - (user.bonusBalance || 0)) > 0 ? 'text-green-400' : 'text-red-400'}`}>{formatMoney(Math.max(0, user.balance - (user.bonusBalance || 0)))}</span></div>
                 </div>
               </div>
 
@@ -242,45 +259,45 @@ export default function UserSlideOver({ user, onClose, onUpdated }) {
                 )}
                 <div className="p-3 bg-bg-hover rounded-xl">
                   <div className="flex items-center justify-between mb-1">
-                    <span className="text-sm text-text-2">KYC Kimlik Doğrulama</span>
+                    <span className="text-sm text-text-2">{t('admin.userSlideOver.kycIdentity')}</span>
                     <span className={`text-[10px] px-2 py-0.5 rounded-full border ${KYC_STATUS_BADGE[user.kycStatus] || KYC_STATUS_BADGE.not_started}`}>
-                      {KYC_STATUS_LABELS[user.kycStatus] || user.kycStatus}
+                      {KYC_STATUS_LABELS[user.kycStatus] ? t(KYC_STATUS_LABELS[user.kycStatus]) : user.kycStatus}
                     </span>
                   </div>
                   {user.kycRejectionReason && (
-                    <div className="text-[11px] text-red-300 mb-1">Sebep: {user.kycRejectionReason}</div>
+                    <div className="text-[11px] text-red-300 mb-1">{t('admin.userSlideOver.reasonLabel', { reason: user.kycRejectionReason })}</div>
                   )}
                   {(user.kycStatus === 'pending' || user.kycStatus === 'under_review') && (
                     <div className="flex gap-2 mt-2">
                       <button onClick={handleKycApprove} disabled={kycActing}
                         className="flex-1 py-1.5 rounded-lg bg-success/20 text-success text-xs font-medium hover:bg-success/30 transition disabled:opacity-40">
-                        Onayla
+                        {t('admin.kycReview.approve')}
                       </button>
                       <button onClick={() => setShowRejectKyc(true)} disabled={kycActing}
                         className="flex-1 py-1.5 rounded-lg bg-danger/20 text-danger text-xs font-medium hover:bg-danger/30 transition disabled:opacity-40">
-                        Reddet
+                        {t('admin.kycReview.reject')}
                       </button>
                     </div>
                   )}
                   {user.kycStatus === 'not_started' && (
                     <button onClick={handleKycApprove} disabled={kycActing}
                       className="w-full mt-2 py-1.5 rounded-lg bg-success/20 text-success text-xs font-medium hover:bg-success/30 transition disabled:opacity-40">
-                      Manuel Onayla
+                      {t('admin.userSlideOver.manualApprove')}
                     </button>
                   )}
                   {showRejectKyc && (
                     <div className="mt-2 space-y-2">
                       <input value={rejectReason} onChange={e => setRejectReason(e.target.value)}
-                        placeholder="Red sebebi..."
+                        placeholder={t('admin.kycReview.rejectPlaceholder')}
                         className="w-full bg-bg-deep border border-white/10 rounded-lg px-3 py-1.5 text-xs text-text-1 focus:outline-none focus:border-white/25" />
                       <div className="flex gap-2">
                         <button onClick={() => { setShowRejectKyc(false); setRejectReason(''); }}
                           className="flex-1 py-1.5 rounded-lg border border-white/10 text-text-3 text-xs hover:bg-bg-hover transition">
-                          İptal
+                          {t('common.cancel')}
                         </button>
                         <button onClick={handleKycReject} disabled={!rejectReason.trim() || kycActing}
                           className="flex-1 py-1.5 rounded-lg bg-danger text-white text-xs font-semibold hover:bg-danger/80 transition disabled:opacity-40">
-                          {kycActing ? '...' : 'Reddet'}
+                          {kycActing ? '...' : t('admin.kycReview.reject')}
                         </button>
                       </div>
                     </div>
@@ -452,6 +469,28 @@ export default function UserSlideOver({ user, onClose, onUpdated }) {
           {/* CASİNO */}
           {tab === 'casino' && (
             <div>
+              {(user.dailyStats || user.weeklyStats || user.monthlyStats) && (
+                <div className="mb-4">
+                  <div className="text-xs text-text-3 mb-2 uppercase tracking-wide">{t('admin.userSlideOver.rgStats')}</div>
+                  <div className="grid grid-cols-3 gap-2">
+                    {[
+                      { key: 'daily', label: t('admin.userSlideOver.rgDaily'), stats: user.dailyStats },
+                      { key: 'weekly', label: t('admin.userSlideOver.rgWeekly'), stats: user.weeklyStats },
+                      { key: 'monthly', label: t('admin.userSlideOver.rgMonthly'), stats: user.monthlyStats },
+                    ].map(({ key, label, stats }) => (
+                      <div key={key} className="bg-bg-hover rounded-xl p-2.5">
+                        <div className="text-[10px] text-text-3 mb-1.5">{label}</div>
+                        <div className="text-[11px] text-text-2 flex justify-between"><span>{t('admin.userSlideOver.rgDeposited')}</span><span className="font-semibold text-text-1">{formatMoney(stats?.deposits || 0)}</span></div>
+                        <div className="text-[11px] text-text-2 flex justify-between"><span>{t('admin.userSlideOver.rgWagered')}</span><span className="font-semibold text-text-1">{formatMoney(stats?.wagers || 0)}</span></div>
+                        {/* 3. parti casino (Igames) "kötümser varsayım" deseni yüzünden losses
+                            geçici olarak negatif olabilir (kazanç, birikmiş kaybı aşınca) —
+                            admin ekranında bu bir "kayıp" değil, 0 olarak gösterilir. */}
+                        <div className="text-[11px] text-text-2 flex justify-between"><span>{t('admin.userSlideOver.rgLost')}</span><span className="font-semibold text-danger">{formatMoney(Math.max(0, stats?.losses || 0))}</span></div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
               {casinoSummary && (
                 <div className="mb-4 space-y-3">
                   <div className="grid grid-cols-2 gap-3">

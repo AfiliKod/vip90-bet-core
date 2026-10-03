@@ -8,6 +8,7 @@ const schema = new mongoose.Schema({
   adminNote:  { type: String, default: '' },
   approvedBy: { type: mongoose.Schema.Types.ObjectId, ref: 'User', default: null },
   approvedAt: { type: Date, default: null },
+  isSeed: { type: Boolean, default: false, index: true },
 }, { timestamps: true });
 
 schema.index({ userId: 1, createdAt: -1 });

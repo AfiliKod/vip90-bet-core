@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { Link } from 'react-router-dom';
 import { useTranslation } from '../../i18n';
 
 /**
@@ -20,6 +21,7 @@ export default function ModuleCard({
   onToggle,
   toggleBusy = false,
   defaultOpen = false,
+  manageTo,
   children,
 }) {
   const { t } = useTranslation();
@@ -33,7 +35,7 @@ export default function ModuleCard({
           onClick={() => setOpen(o => !o)}
           className="flex-1 flex items-center gap-3 text-left min-w-0"
         >
-          <span className="text-2xl shrink-0">{icon}</span>
+          <span className="material-symbols-outlined !text-[24px] shrink-0" aria-hidden="true">{icon}</span>
           <div className="min-w-0">
             <div className="flex items-center gap-2 flex-wrap">
               <h2 className="font-semibold text-text-1 truncate">{title}</h2>
@@ -42,6 +44,16 @@ export default function ModuleCard({
             {description && <p className="text-text-3 text-xs mt-0.5 line-clamp-1">{description}</p>}
           </div>
         </button>
+
+        {manageTo && (
+          <Link
+            to={manageTo}
+            className="hidden shrink-0 items-center gap-1 text-xs font-semibold text-text-3 transition hover:text-text-1 sm:inline-flex"
+          >
+            {t('admin.productLinks.manage')}
+            <span className="material-symbols-outlined !text-[14px]" aria-hidden="true">arrow_forward</span>
+          </Link>
+        )}
 
         {alwaysOn ? (
           <span className="text-xs px-2 py-0.5 rounded-full border bg-primary/15 border-primary/30 text-primary shrink-0">
@@ -73,7 +85,7 @@ export default function ModuleCard({
           className="text-text-3 hover:text-text-1 shrink-0 px-1 transition"
           aria-label={open ? t('admin.moduleCards.collapseSettings') : t('admin.moduleCards.expandSettings')}
         >
-          {open ? '▲' : '▼'}
+          <span className="material-symbols-outlined !text-[20px]" aria-hidden="true">{open ? 'expand_less' : 'expand_more'}</span>
         </button>
       </div>
       {open && (
@@ -86,6 +98,15 @@ export default function ModuleCard({
             <p className="text-xs text-amber-300/80 bg-amber-500/10 border border-amber-500/20 rounded-lg px-3 py-2 mt-3 mb-1">
               {t('admin.moduleCards.disabledNotice')}
             </p>
+          )}
+          {manageTo && (
+            <Link
+              to={manageTo}
+              className="mt-3 inline-flex items-center gap-1 text-xs font-semibold text-text-3 transition hover:text-text-1 sm:hidden"
+            >
+              {t('admin.productLinks.manage')}
+              <span className="material-symbols-outlined !text-[14px]" aria-hidden="true">arrow_forward</span>
+            </Link>
           )}
           {children}
         </div>

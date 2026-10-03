@@ -4,7 +4,7 @@ const schema = new mongoose.Schema({
   actorId:    { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true, index: true },
   actorUsername: { type: String, required: true },
   action:     { type: String, required: true, index: true },
-  resource:   { type: String, default: null }, // user, bet, event, bank_request, palace, promotion
+  resource:   { type: String, default: null }, // user, bet, event, bank_request, igames, promotion
   resourceId: { type: String, default: null },
   before:     { type: mongoose.Schema.Types.Mixed, default: null },
   after:      { type: mongoose.Schema.Types.Mixed, default: null },

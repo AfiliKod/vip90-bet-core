@@ -1,11 +1,11 @@
 /**
  * Casino Callbacks Integration Tests
  *
- * Palace'den gelen callback'lerin (Bet/Win/BonusCall/BetCancel) doğru
+ * Igames'den gelen callback'lerin (Bet/Win/BonusCall/BetCancel) doğru
  * işlendiğini gerçek veritabanı ile test eder. Callback payload formatları
- * Palace dökümantasyonundan alınmıştır.
+ * Igames dökümantasyonundan alınmıştır.
  *
- * Gerçek Palace API çağrısı yapmaz, callback handler mantığını test eder.
+ * Gerçek Igames API çağrısı yapmaz, callback handler mantığını test eder.
  *
  * PALACE_API_TOKEN gerekmez (callback handler test).
  */
@@ -59,8 +59,8 @@ await Transaction.deleteMany({});
 console.log('✓ Test DB hazır\n');
 
 // ─── Callback Helper ──────────────────────────────────────────────────────
-// Direct import of callback handler logic (replicated from palace.js)
-// In production, callbacks come via HTTP POST to /api/palace/callback
+// Direct import of callback handler logic (replicated from igames.js)
+// In production, callbacks come via HTTP POST to /api/igames/callback
 
 async function processBetCallback(userCode, trans_amount, prebalance, balance, gameName, gameCode) {
   const user = await User.findOne({ palaceUserCode: String(userCode) });
@@ -72,7 +72,7 @@ async function processBetCallback(userCode, trans_amount, prebalance, balance, g
     userId: user._id,
     gameId: gameCode || '',
     gameTitle: gameName || '',
-    provider: 'palace',
+    provider: 'igames',
     bet: trans_amount,
     payout: 0,
     net: -trans_amount,
@@ -92,7 +92,7 @@ async function processWinCallback(userCode, trans_amount, prebalance, balance, g
     userId: user._id,
     gameId: gameCode || '',
     gameTitle: gameName || '',
-    provider: 'palace',
+    provider: 'igames',
     bet: 0,
     payout: trans_amount,
     net: trans_amount,
@@ -112,7 +112,7 @@ async function processBonusCallCallback(userCode, trans_amount, prebalance, bala
     userId: user._id,
     gameId: 'bonus_call',
     gameTitle: 'Bonus Call Win',
-    provider: 'palace',
+    provider: 'igames',
     bet: 0,
     payout: trans_amount,
     net: trans_amount,
@@ -132,34 +132,34 @@ await test('Setup: test user with palaceUserCode', async () => {
     email: 'cb@test.com',
     password: 'x',
     balance: 1000,
-    palaceUserCode: 'palace_cb_test_001',
+    palaceUserCode: 'igames_cb_test_001',
   });
-  assert(user.palaceUserCode === 'palace_cb_test_001', 'palaceUserCode set');
+  assert(user.palaceUserCode === 'igames_cb_test_001', 'palaceUserCode set');
   assert(user.balance === 1000, 'balance = 1000');
-  console.log(`    User: ${user.username}, palaceCode: ${user.palaceUserCode}, balance: 1000`);
+  console.log(`    User: ${user.username}, igamesCode: ${user.palaceUserCode}, balance: 1000`);
   return user;
 });
 
 // 1. Bet callback: user.balance 1000 → 990 (bet 10)
 await test('Callback: Bet (trans_type=1) → user.balance decrease', async () => {
-  const user = await User.findOne({ palaceUserCode: 'palace_cb_test_001' });
+  const user = await User.findOne({ palaceUserCode: 'igames_cb_test_001' });
 
-  const round = await processBetCallback('palace_cb_test_001', 10, 1000, 990, 'Sweet Bonanza', 'vs20fruitsw');
+  const round = await processBetCallback('igames_cb_test_001', 10, 1000, 990, 'Sweet Bonanza', 'vs20fruitsw');
 
   const updated = await User.findById(user._id);
   assert(updated.balance === 990, `user.balance = ${updated.balance}`);
   assert(round.bet === 10, `round.bet = ${round.bet}`);
   assert(round.net === -10, `round.net = ${round.net}`);
-  assert(round.provider === 'palace', 'provider = palace');
+  assert(round.provider === 'igames', 'provider = igames');
 
   console.log(`    Bet 10: 1000 → 990, CasinoRound.bet=10`);
 });
 
 // 2. Win callback: user.balance 990 → 1050 (win 60)
 await test('Callback: Win (trans_type=2) → user.balance increase', async () => {
-  const user = await User.findOne({ palaceUserCode: 'palace_cb_test_001' });
+  const user = await User.findOne({ palaceUserCode: 'igames_cb_test_001' });
 
-  const round = await processWinCallback('palace_cb_test_001', 60, 990, 1050, 'Sweet Bonanza', 'vs20fruitsw');
+  const round = await processWinCallback('igames_cb_test_001', 60, 990, 1050, 'Sweet Bonanza', 'vs20fruitsw');
 
   const updated = await User.findById(user._id);
   assert(updated.balance === 1050, `user.balance = ${updated.balance}`);
@@ -171,9 +171,9 @@ await test('Callback: Win (trans_type=2) → user.balance increase', async () =>
 
 // 3. BonusCall callback: user.balance 1050 → 1200 (bonus win 150)
 await test('Callback: BonusCall (trans_type=32) → user.balance increase + audit', async () => {
-  const user = await User.findOne({ palaceUserCode: 'palace_cb_test_001' });
+  const user = await User.findOne({ palaceUserCode: 'igames_cb_test_001' });
 
-  const round = await processBonusCallCallback('palace_cb_test_001', 150, 1050, 1200, 42);
+  const round = await processBonusCallCallback('igames_cb_test_001', 150, 1050, 1200, 42);
 
   const updated = await User.findById(user._id);
   assert(updated.balance === 1200, `user.balance = ${updated.balance}`);
@@ -185,17 +185,17 @@ await test('Callback: BonusCall (trans_type=32) → user.balance increase + audi
 
 // 4. Multiple rapid callbacks: cumulative balance updates
 await test('Callback: rapid sequence (Bet→Win→Bet→Win)', async () => {
-  const user = await User.findOne({ palaceUserCode: 'palace_cb_test_001' });
+  const user = await User.findOne({ palaceUserCode: 'igames_cb_test_001' });
   const startBal = user.balance;
 
   // Bet 50
-  await processBetCallback('palace_cb_test_001', 50, startBal, startBal - 50, 'Game', 'g1');
+  await processBetCallback('igames_cb_test_001', 50, startBal, startBal - 50, 'Game', 'g1');
   // Win 30
-  await processWinCallback('palace_cb_test_001', 30, startBal - 50, startBal - 20, 'Game', 'g1');
+  await processWinCallback('igames_cb_test_001', 30, startBal - 50, startBal - 20, 'Game', 'g1');
   // Bet 10
-  await processBetCallback('palace_cb_test_001', 10, startBal - 20, startBal - 30, 'Game', 'g1');
+  await processBetCallback('igames_cb_test_001', 10, startBal - 20, startBal - 30, 'Game', 'g1');
   // Win 100
-  await processWinCallback('palace_cb_test_001', 100, startBal - 30, startBal + 70, 'Game', 'g1');
+  await processWinCallback('igames_cb_test_001', 100, startBal - 30, startBal + 70, 'Game', 'g1');
 
   const updated = await User.findById(user._id);
   assert(updated.balance === startBal + 70, `user.balance = ${updated.balance} (expected ${startBal + 70})`);
@@ -207,7 +207,7 @@ await test('Callback: rapid sequence (Bet→Win→Bet→Win)', async () => {
 // 5. CasinoRound wagering credit (post-save hook)
 await test('Callback: CasinoRound triggers wagering credit', async () => {
   const BonusWagering = (await import('../src/models/BonusWagering.js')).default;
-  const user = await User.findOne({ palaceUserCode: 'palace_cb_test_001' });
+  const user = await User.findOne({ palaceUserCode: 'igames_cb_test_001' });
 
   // Create active wagering
   await BonusWagering.create({
@@ -229,13 +229,13 @@ await test('Callback: CasinoRound triggers wagering credit', async () => {
     userId: user._id,
     gameId: 'sweet_bonanza',
     gameTitle: 'Sweet Bonanza',
-    provider: 'palace',
+    provider: 'igames',
     bet: 100,
     payout: 0,
     net: -100,
     balanceBefore: 0,
     balanceAfter: 0,
-    palaceUserCode: 'palace_cb_test_001',
+    palaceUserCode: 'igames_cb_test_001',
   });
 
   await new Promise(r => setTimeout(r, 200)); // post-save hook
@@ -258,14 +258,14 @@ await test('Callback: unknown user_code → silent ignore', async () => {
 
 // 7. Concurrent callbacks: same user, multiple updates
 await test('Callback: concurrent updates (race-safe)', async () => {
-  const user = await User.findOne({ palaceUserCode: 'palace_cb_test_001' });
+  const user = await User.findOne({ palaceUserCode: 'igames_cb_test_001' });
   const startBal = user.balance;
 
   // Fire 3 concurrent Bet callbacks
   await Promise.all([
-    processBetCallback('palace_cb_test_001', 10, startBal, startBal - 10, 'Game', 'g'),
-    processBetCallback('palace_cb_test_001', 20, startBal - 10, startBal - 30, 'Game', 'g'),
-    processBetCallback('palace_cb_test_001', 30, startBal - 30, startBal - 60, 'Game', 'g'),
+    processBetCallback('igames_cb_test_001', 10, startBal, startBal - 10, 'Game', 'g'),
+    processBetCallback('igames_cb_test_001', 20, startBal - 10, startBal - 30, 'Game', 'g'),
+    processBetCallback('igames_cb_test_001', 30, startBal - 30, startBal - 60, 'Game', 'g'),
   ]);
 
   const updated = await User.findById(user._id);
@@ -275,20 +275,20 @@ await test('Callback: concurrent updates (race-safe)', async () => {
 
 // 8. BetCancel callback (trans_type=16) - refund scenario
 await test('Callback: BetCancel (trans_type=16) → refund record', async () => {
-  const user = await User.findOne({ palaceUserCode: 'palace_cb_test_001' });
+  const user = await User.findOne({ palaceUserCode: 'igames_cb_test_001' });
   const startBal = user.balance;
 
   await CasinoRound.create({
     userId: user._id,
     gameId: 'sweet_bonanza',
     gameTitle: 'Sweet Bonanza',
-    provider: 'palace',
+    provider: 'igames',
     bet: 0,
     payout: 0,
     net: 50,
     balanceBefore: startBal,
     balanceAfter: startBal + 50,
-    palaceUserCode: 'palace_cb_test_001',
+    palaceUserCode: 'igames_cb_test_001',
     note: 'bet_cancel',
   });
 

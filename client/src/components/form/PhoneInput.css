@@ -1,0 +1,71 @@
+/* react-phone-number-input — proje koyu temasına uyarlanmış override'lar.
+   Kütüphanenin varsayılan CSS'i açık tema varsayıyor. */
+.PhoneInput {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.PhoneInputCountry {
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+  padding: 0 0.5rem;
+}
+
+.PhoneInputCountrySelect {
+  background: transparent;
+  color: #f0f4ff;
+  border: none;
+  outline: none;
+}
+
+.PhoneInputCountrySelect option {
+  background: #0d1526;
+  color: #f0f4ff;
+}
+
+.PhoneInputCountryIcon {
+  width: 1.4em;
+  height: 1.4em;
+  box-shadow: none;
+}
+
+.PhoneInputCountryIcon--border {
+  background-color: transparent;
+}
+
+.PhoneInputInput {
+  flex: 1;
+  background: transparent;
+  border: none;
+  outline: none;
+  color: #f0f4ff;
+  font-size: inherit;
+}
+
+.PhoneInputInput::placeholder {
+  color: #4a5a78;
+}
+
+.phone-input-shell {
+  display: flex;
+  align-items: center;
+  width: 100%;
+  background: #0d1526;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 0.5rem;
+  padding: 0.5rem 0.75rem;
+  transition: border-color 0.15s ease;
+}
+
+.phone-input-shell:focus-within {
+  border-color: var(--color-primary);
+}
+
+.phone-input-shell--sm {
+  background: #162038;
+  padding: 0.4rem 0.6rem;
+  font-size: 0.875rem;
+  border-radius: 0.5rem;
+}

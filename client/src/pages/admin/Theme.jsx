@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import api from '../../services/api';
 import { getChangedEntries, tokenCssVar } from '../../theme/editorLogic';
 import { useTranslation } from '../../i18n';
+import { ADMIN_BTN_GHOST, ADMIN_BTN_PRIMARY } from '../../components/admin/AdminPageHeader.jsx';
 
 /**
  * Görsel tema editörü (A2). GET /admin/theme ile tanım+güncel değer+kaynağı
@@ -28,7 +29,7 @@ export default function AdminTheme() {
   };
 
   const SOURCE_BADGE = {
-    db:      { label: t('admin.theme.sourceCustomized'), cls: 'bg-green-500/20 text-green-300 border-green-500/30' },
+    db:      { label: t('admin.theme.sourceCustomized'), cls: 'bg-success/15 text-success border-success/30' },
     default: { label: t('admin.theme.sourceDefault'),     cls: 'bg-white/5 text-text-3 border-white/10' },
   };
 
@@ -106,21 +107,24 @@ export default function AdminTheme() {
   const changedCount = getChangedEntries(tokens, draft).length;
 
   return (
-    <div className="max-w-3xl mx-auto px-4 py-6">
-      <h1 className="text-2xl font-bold text-text-1 mb-1">🎨 {t('admin.theme.pageTitle')}</h1>
+    <div className="max-w-3xl">
       <p className="text-text-3 text-sm mb-6">
         {t('admin.theme.pageHint')}
       </p>
 
       {notice && (
-        <div className={`mb-4 px-4 py-2 rounded-lg text-sm ${notice.type === 'ok' ? 'bg-green-500/15 text-green-300' : 'bg-red-500/15 text-red-300'}`}>
+        <div className={`mb-4 rounded-xl border px-4 py-3 text-sm ${notice.type === 'ok' ? 'border-success/30 bg-success/15 text-success' : 'border-danger/30 bg-danger/15 text-danger'}`}>
           {notice.text}
         </div>
       )}
 
       {presets.length > 0 && (
         <div className="mb-8">
-          <h2 className="text-sm font-bold text-text-2 uppercase tracking-wide mb-2">{t('admin.theme.presetsTitle')}</h2>
+          <div className="mb-3 flex items-center gap-2">
+            <span className="grid h-7 w-7 place-items-center rounded-lg bg-primary/10 text-primary"><span className="material-symbols-outlined !text-[16px]" aria-hidden="true">palette</span></span>
+            <h3 className="text-sm font-extrabold text-text-1">{t('admin.theme.presetsTitle')}</h3>
+            <span className="rounded-full bg-white/10 px-2 py-[3px] font-mono text-[11px] font-bold tabular-nums text-text-2">{presets.length}</span>
+          </div>
           <div className="grid sm:grid-cols-3 gap-3">
             {presets.map(p => (
               <button
@@ -135,7 +139,10 @@ export default function AdminTheme() {
                 </div>
                 <div className="text-sm font-semibold text-text-1">{p.label}</div>
                 <div className="text-text-3 text-xs mt-0.5">{p.description}</div>
-                <div className="text-xs mt-2 text-primary">{applyingPreset === p.id ? t('admin.theme.applying') : t('admin.theme.apply')}</div>
+                <div className="mt-2.5 inline-flex items-center gap-1 rounded-lg border border-white/10 bg-bg-hover px-2 py-1 text-[11.5px] font-bold text-text-2">
+                  <span className="material-symbols-outlined !text-[13px]" aria-hidden="true">{applyingPreset === p.id ? 'progress_activity' : 'check'}</span>
+                  {applyingPreset === p.id ? t('admin.theme.applying') : t('admin.theme.apply')}
+                </div>
               </button>
             ))}
           </div>
@@ -165,14 +172,14 @@ export default function AdminTheme() {
                     type="color"
                     value={/^#[0-9a-fA-F]{6}$/.test(current) ? current : '#000000'}
                     onChange={e => onChange(tk.id, e.target.value)}
-                    className="w-10 h-10 rounded cursor-pointer bg-transparent border border-white/10"
+                    className="h-10 w-10 cursor-pointer rounded-lg border border-white/10 bg-transparent"
                   />
                 ) : null}
                 <input
                   type="text"
                   value={current}
                   onChange={e => onChange(tk.id, e.target.value)}
-                  className="w-40 bg-bg-base border border-white/10 rounded-lg px-3 py-2 text-sm text-text-1"
+                  className="w-40 rounded-lg border border-white/10 bg-bg-deep px-3 py-2 text-sm text-text-1 focus:border-white/25 focus:outline-none"
                 />
               </div>
             );
@@ -180,16 +187,18 @@ export default function AdminTheme() {
         </div>
       )}
 
-      <div className="mt-6 flex gap-3">
+      <div className="mt-6 flex flex-wrap gap-2">
         <button
           onClick={save}
           disabled={saving || !changedCount}
-          className="bg-primary text-black font-semibold px-5 py-2 rounded-lg disabled:opacity-40"
+          className={ADMIN_BTN_PRIMARY}
         >
+          <span className="material-symbols-outlined !text-[16px]" aria-hidden="true">save</span>
           {saving ? t('common.saving') : changedCount ? t('admin.theme.saveButtonCount', { count: changedCount }) : t('common.save')}
         </button>
         {changedCount > 0 && (
-          <button onClick={resetPreview} className="text-text-3 text-sm px-4 py-2 hover:text-text-1">
+          <button onClick={resetPreview} className={ADMIN_BTN_GHOST}>
+            <span className="material-symbols-outlined !text-[16px]" aria-hidden="true">undo</span>
             {t('admin.theme.resetPreview')}
           </button>
         )}

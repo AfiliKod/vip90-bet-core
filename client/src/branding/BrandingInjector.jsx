@@ -22,7 +22,8 @@ export default function BrandingInjector() {
       if (cancelled || !data?.values) return;
       const v = data.values;
 
-      if (v.siteName) document.title = v.siteName;
+      // document.title burada YAZILMAZ — tek sahibi seo/SeoManager.jsx
+      // (başlık şablonu + sayfa adı). siteName brandingStore üzerinden gider.
 
       if (v.favicon) {
         let link = document.querySelector(FAVICON_SELECTOR);

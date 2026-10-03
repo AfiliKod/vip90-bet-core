@@ -1,8 +1,9 @@
 import Promotion from '../models/Promotion.js';
 import User from '../models/User.js';
-import Transaction from '../models/Transaction.js';
 import BonusWagering from '../models/BonusWagering.js';
+import Transaction from '../models/Transaction.js';
 import { createError } from '../middleware/error.js';
+import { createTransaction } from '../services/ledger.js';
 
 export async function list(req, res, next) {
   try {
@@ -14,7 +15,8 @@ export async function list(req, res, next) {
 export async function claim(req, res, next) {
   try {
     // Phase A5 — Bonus T&C zorunlu
-    const { acceptedBonusTerms } = req.body;
+    // SECURITY FIX (M4): Use req.validated (Zod-validated) instead of req.body
+    const { acceptedBonusTerms } = req.validated;
     if (!acceptedBonusTerms) {
       throw createError(400, 'T&C_REQUIRED', 'Bonus kullanım koşullarını kabul etmelisiniz');
     }
@@ -37,15 +39,35 @@ export async function claim(req, res, next) {
     }
     const promo = claimed;
 
+    // Idempotency check MUST run before the balance mutation below — if it ran
+    // after (as createTransaction's own idempotent-return check does), an
+    // operator manually clearing claimedBy to allow a re-claim could hit this
+    // path a second time and the balance would already be credited by the
+    // time the duplicate was detected, leaking a permanent unwagered credit.
+    const idempotencyKey = `promo_claim_${promo._id}_${req.user.id}`;
+    const existingTx = await Transaction.findOne({ idempotencyKey });
+    if (existingTx) {
+      return res.status(409).json({ error: 'Bu promosyon zaten claim edilmiş' });
+    }
+
     // Model B (Kilitli Bakiye): bonus anında gerçek balance'a eklenir, hemen
     // oynanabilir olur. wageringRequired tamamlanana dek lockedAmount kadarı
     // çekilemez (bkz. wagering.js getLockedAmount/getSpendableBreakdown).
-    const user = await User.findById(req.user.id);
-    const balanceBefore = user.balance;
-    user.balance = parseFloat((user.balance + promo.amount).toFixed(2));
-    await user.save();
+    // SECURITY FIX (H9): Use atomic $inc for balance update
+    const balanceBeforeUser = await User.findById(req.user.id);
+    const balanceBefore = balanceBeforeUser.balance;
 
-    await Transaction.create({
+    const user = await User.findByIdAndUpdate(
+      req.user.id,
+      { $inc: { balance: promo.amount } },
+      { new: true }
+    );
+
+    // idempotencyKey pre-check above already guarded against double-claim;
+    // still pass it here as a defense-in-depth second layer (consistent with
+    // this plan's other ledger-migration sites), but the returned `idempotent`
+    // flag no longer needs to be acted on.
+    await createTransaction({
       userId: user._id,
       type: 'bonus',
       amount: promo.amount,
@@ -53,6 +75,8 @@ export async function claim(req, res, next) {
       balanceAfter: user.balance,
       referenceId: promo._id,
       note: `Promosyon: ${promo.title}`,
+      idempotencyKey,
+      source: 'player',
     });
 
     // Wagering requirement oluştur
@@ -80,13 +104,14 @@ export async function claim(req, res, next) {
     // bonusBalance artık ayrı bir para havuzu değil, kilitli/çevrim bekleyen
     // tutarın göstergesi (mirror). Gerçek kaynak: getLockedAmount().
     const { getLockedAmount } = await import('../services/wagering.js');
-    user.bonusBalance = await getLockedAmount(user._id);
-    await user.save();
+    await User.findByIdAndUpdate(user._id, { bonusBalance: await getLockedAmount(user._id) });
+
+    const updatedUser = await User.findById(user._id);
 
     res.json({
       message: 'Bonus bakiyenize eklendi, hemen oynanabilir',
-      balance: user.balance,
-      bonusBalance: user.bonusBalance,
+      balance: updatedUser.balance,
+      bonusBalance: updatedUser.bonusBalance,
       wageringRequired,
       wageringMultiplier,
       deadline,

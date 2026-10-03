@@ -1,9 +1,12 @@
 import { describe, it, before, after, beforeEach, mock } from 'node:test';
 import assert from 'node:assert/strict';
 import mongoose from 'mongoose';
+import express from 'express';
+import crypto from 'crypto';
 import User from '../src/models/User.js';
 import Setting from '../src/models/Setting.js';
 import { kycConfig } from '../src/config/kyc.js';
+import sumsubWebhookRouter from '../src/routes/sumsubWebhook.js';
 
 describe('KYC Config Store', () => {
   before(async () => {
@@ -215,5 +218,64 @@ describe('Sumsub HMAC Signature', () => {
     const sig2 = crypto.default.createHmac('sha256', secret).update('2222222222' + method + urlPath).digest('hex');
 
     assert.notEqual(sig1, sig2);
+  });
+});
+
+describe('Sumsub webhook route — timestamp enforcement', () => {
+  let server;
+  let baseUrl;
+  const WEBHOOK_SECRET = 'test_webhook_secret_for_route_tests';
+
+  before(async () => {
+    if (mongoose.connection.readyState !== 1) {
+      await mongoose.connect(process.env.MONGODB_URI || 'mongodb://localhost:27017/betzone_test_sumsub_route');
+    }
+    await kycConfig.set('SUMSUB_WEBHOOK_SECRET', WEBHOOK_SECRET, null);
+    kycConfig.invalidate();
+
+    const app = express();
+    app.use(sumsubWebhookRouter);
+    server = app.listen(0);
+    await new Promise((resolve) => server.once('listening', resolve));
+    baseUrl = `http://127.0.0.1:${server.address().port}`;
+  });
+
+  after(async () => {
+    await new Promise((resolve) => server.close(resolve));
+    await Setting.deleteMany({ key: 'SUMSUB_WEBHOOK_SECRET' });
+    kycConfig.invalidate();
+    if (mongoose.connection.readyState !== 0) await mongoose.disconnect();
+  });
+
+  function signBody(rawBody) {
+    return crypto.createHmac('sha256', WEBHOOK_SECRET).update(rawBody).digest('hex');
+  }
+
+  it('x-app-timestamp header eksikse 401 döner', async () => {
+    const rawBody = '{}';
+    const res = await fetch(`${baseUrl}/webhook/sumsub`, {
+      method: 'POST',
+      headers: {
+        'content-type': 'application/json',
+        'x-app-signature': signBody(rawBody),
+        // x-app-timestamp KASITLI OLARAK gönderilmiyor
+      },
+      body: rawBody,
+    });
+    assert.strictEqual(res.status, 401);
+  });
+
+  it('x-app-timestamp header geçerliyse (şu ana yakın) kabul edilir', async () => {
+    const rawBody = '{}';
+    const res = await fetch(`${baseUrl}/webhook/sumsub`, {
+      method: 'POST',
+      headers: {
+        'content-type': 'application/json',
+        'x-app-signature': signBody(rawBody),
+        'x-app-timestamp': String(Math.floor(Date.now() / 1000)),
+      },
+      body: rawBody,
+    });
+    assert.strictEqual(res.status, 200);
   });
 });

@@ -35,7 +35,7 @@ describe('Game Settings', () => {
       const crash = await GameSettings.findOne({ gameId: 'inhouse-crash' });
       assert.ok(crash);
       assert.equal(crash.gameTitle, 'Crash');
-      assert.equal(crash.crashHouseEdgePercent, 20);
+      assert.equal(crash.crashHouseEdgePercent, 3);
       assert.equal(crash.crashMinBet, 1);
       assert.equal(crash.crashMaxBet, 50000);
 
@@ -53,29 +53,29 @@ describe('Game Settings', () => {
       const mines = await GameSettings.findOne({ gameId: 'inhouse-mines' });
       assert.ok(mines);
       assert.equal(mines.gameTitle, 'Mines');
-      assert.equal(mines.minesPayoutFactor, 0.78);
+      assert.equal(mines.minesPayoutFactor, 0.97);
       assert.equal(mines.minesMinBet, 1);
       assert.equal(mines.minesMaxBet, 50000);
 
       const dice = await GameSettings.findOne({ gameId: 'inhouse-dice' });
       assert.ok(dice);
       assert.equal(dice.gameTitle, 'Dice');
-      assert.equal(dice.dicePayoutFactor, 78);
+      assert.equal(dice.dicePayoutFactor, 97);
 
       const limbo = await GameSettings.findOne({ gameId: 'inhouse-limbo' });
       assert.ok(limbo);
       assert.equal(limbo.gameTitle, 'Limbo');
-      assert.equal(limbo.limboHouseEdgePercent, 20);
+      assert.equal(limbo.limboHouseEdgePercent, 3);
 
       const hilo = await GameSettings.findOne({ gameId: 'inhouse-hilo' });
       assert.ok(hilo);
       assert.equal(hilo.gameTitle, 'Hi-Lo');
-      assert.equal(hilo.hiloPayoutFactor, 0.78);
+      assert.equal(hilo.hiloPayoutFactor, 0.97);
 
       const dragonTiger = await GameSettings.findOne({ gameId: 'inhouse-dragontiger' });
       assert.ok(dragonTiger);
       assert.equal(dragonTiger.gameTitle, 'Dragon Tiger');
-      assert.equal(dragonTiger.dragonTigerWinMultiplier, 1.6);
+      assert.equal(dragonTiger.dragonTigerWinMultiplier, 2);
       assert.equal(dragonTiger.dragonTigerTieMultiplier, 13);
       assert.equal(dragonTiger.dragonTigerTiePushMultiplier, 0.5);
     });
@@ -97,20 +97,20 @@ describe('Game Settings', () => {
 
       const baccarat = await GameSettings.findOne({ gameId: 'inhouse-baccarat' });
       assert.ok(baccarat);
-      assert.equal(baccarat.baccaratBankerMultiplier, 1.7);
-      assert.equal(baccarat.baccaratPlayerMultiplier, 1.75);
-      assert.equal(baccarat.baccaratTieMultiplier, 8);
+      assert.equal(baccarat.baccaratBankerMultiplier, 1.95);
+      assert.equal(baccarat.baccaratPlayerMultiplier, 2);
+      assert.equal(baccarat.baccaratTieMultiplier, 9);
 
       const blackjack = await GameSettings.findOne({ gameId: 'inhouse-blackjack' });
       assert.ok(blackjack);
-      assert.equal(blackjack.blackjackPayoutMult, 2.0);
-      assert.equal(blackjack.blackjackWinMult, 1.4);
+      assert.equal(blackjack.blackjackPayoutMult, 2.5);
+      assert.equal(blackjack.blackjackWinMult, 2);
       assert.equal(blackjack.dealerHitsSoft17, true);
 
       const vp = await GameSettings.findOne({ gameId: 'inhouse-videopoker' });
       assert.ok(vp);
-      assert.equal(vp.vpJacksOrBetterMult, 0.8);
-      assert.equal(vp.vpRoyalFlushMult, 656);
+      assert.equal(vp.vpJacksOrBetterMult, 1);
+      assert.equal(vp.vpRoyalFlushMult, 800);
     });
 
     it('should not create duplicates on second call', async () => {
@@ -196,7 +196,7 @@ describe('Game Settings', () => {
       await crashA.save();
 
       const crashB = await getCrashSettingsForOperator(opB);
-      assert.equal(crashB.crashHouseEdgePercent, 20); // varsayılan, opA'nın değişikliğinden etkilenmemeli
+      assert.equal(crashB.crashHouseEdgePercent, 3); // varsayılan, opA'nın değişikliğinden etkilenmemeli
     });
   });
 
@@ -236,7 +236,7 @@ describe('Game Settings', () => {
       assert.equal(result.settings.updatedBy.toString(), admin._id.toString());
       assert.equal(result.changes.length, 3);
       assert.equal(result.changes[0].field, 'crashHouseEdgePercent');
-      assert.equal(result.changes[0].oldValue, 20);
+      assert.equal(result.changes[0].oldValue, 3);
       assert.equal(result.changes[0].newValue, 15);
       assert.equal(result.changes[0].reason, 'House edge reduced for promotion');
     });
@@ -297,15 +297,18 @@ describe('Game Settings', () => {
         role: 'admin',
       });
 
+      // NOT: varsayılanlar artık zaten standart bakara oranları (1.95/2.0/9,
+      // bkz. initDefaultGameSettings) — changeLog mekanizmasını gerçekten
+      // test edebilmek için varsayılandan FARKLI değerlere güncelliyoruz.
       const result = await updateGameSettings('inhouse-baccarat', {
-        baccaratBankerMultiplier: 1.95,
-        baccaratPlayerMultiplier: 2.0,
-        baccaratTieMultiplier: 9,
-      }, admin._id, { reason: 'Standart bakara oranlarına yaklaştırma' });
+        baccaratBankerMultiplier: 1.8,
+        baccaratPlayerMultiplier: 1.85,
+        baccaratTieMultiplier: 12,
+      }, admin._id, { reason: 'Yüksek bahis segmenti için özel oran' });
 
-      assert.equal(result.settings.baccaratBankerMultiplier, 1.95);
-      assert.equal(result.settings.baccaratPlayerMultiplier, 2.0);
-      assert.equal(result.settings.baccaratTieMultiplier, 9);
+      assert.equal(result.settings.baccaratBankerMultiplier, 1.8);
+      assert.equal(result.settings.baccaratPlayerMultiplier, 1.85);
+      assert.equal(result.settings.baccaratTieMultiplier, 12);
       assert.equal(result.changes.length, 3);
     });
 
@@ -319,15 +322,19 @@ describe('Game Settings', () => {
         role: 'admin',
       });
 
+      // NOT: varsayılanlar artık zaten standart 3:2 ödeme + 2x normal kazanç
+      // (bkz. initDefaultGameSettings) — changeLog mekanizmasını gerçekten
+      // test edebilmek için payout/win değerlerini varsayılandan FARKLI
+      // (ama şema aralığı içinde) seçiyoruz.
       const result = await updateGameSettings('inhouse-blackjack', {
         dealerHitsSoft17: false,
-        blackjackPayoutMult: 2.5,
-        blackjackWinMult: 2.0,
-      }, admin._id, { reason: 'Standart 3:2 + S17 kuralına dönüş' });
+        blackjackPayoutMult: 2.2,
+        blackjackWinMult: 1.8,
+      }, admin._id, { reason: 'Dealer hits soft 17 kuralına dönüş + özel ödeme' });
 
       assert.equal(result.settings.dealerHitsSoft17, false);
-      assert.equal(result.settings.blackjackPayoutMult, 2.5);
-      assert.equal(result.settings.blackjackWinMult, 2.0);
+      assert.equal(result.settings.blackjackPayoutMult, 2.2);
+      assert.equal(result.settings.blackjackWinMult, 1.8);
       assert.equal(result.changes.length, 3);
     });
 

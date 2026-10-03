@@ -8,7 +8,7 @@
  *
  * 2026-09-10: `inhouse-games` de bu listeye eklendi. Önceki yorum "13 in-house
  * oyun çekirdek platform, asla gate'lenmez" diyordu — bu, `server/src/provider/`
- * mimarisi (in-house oyunları Palace ile AYNI çok-kiracılı provider desenine
+ * mimarisi (in-house oyunları Igames ile AYNI çok-kiracılı provider desenine
  * — API key + JWT launch/session + HMAC callback — sokan mimari) henüz yokken
  * alınmış geçici bir karardı. In-house oyunlar artık `casino-content` ile
  * birebir aynı ilişkide (ayrı bir "sağlayıcı" olarak operatöre bağlanıyor,
@@ -30,6 +30,10 @@ export const MODULE_DEFINITIONS = [
   { id: 'casino-content', title: 'Casino İçeriği', description: 'Slot ve masa oyunları, aggregator üzerinden.' },
   { id: 'inhouse-games', title: 'In-house Oyunlar', description: 'Özel geliştirilmiş casino oyunları (Crash, Mines, Roulette vb.), ayrı bir oyun sunucusundan servis edilir.' },
   { id: 'crypto-payment', title: 'Crypto Ödeme Ağ Geçidi', description: 'TRC20 USDT ile para yatırma ve çekme.' },
+  // licenseExempt: operatörün kendi ödeme yöntemi, satılan eklenti değil —
+  // yalnız admin anahtarıyla açılıp kapanır. Lisans sunucusu bu modülü
+  // listelemese bile kapanmaz (aksi halde canlıda ödemeler dururdu).
+  { id: 'slikair-payment', title: 'Slikair Ödeme Ağ Geçidi', description: 'Kart ve alternatif ödeme yöntemleriyle para yatırma (Slikair).', licenseExempt: true },
   { id: 'kyc-verification', title: 'KYC Kimlik Doğrulama', description: 'Manuel belge inceleme veya Sumsub ile otomatik doğrulama.' },
 ];
 

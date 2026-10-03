@@ -12,6 +12,7 @@ const CasinoSessionSchema = new mongoose.Schema({
   finalBalance:  { type: Number, default: null },
   withdrawnAmount: { type: Number, default: null },
   closeReason:   { type: String, default: null }, // 'user' | 'timeout' | 'replaced'
+  netResult:     { type: Number, default: null }, // CasinoRound.net toplamı (transferredAt..closedAt) — ileride bildirim için
 }, { timestamps: { createdAt: true, updatedAt: true } });
 
 CasinoSessionSchema.index({ userId: 1, status: 1 });

@@ -13,23 +13,23 @@ function getLastMessage(ticket) {
   return Array.isArray(msgs) && msgs.length > 0 ? msgs[msgs.length - 1] : null;
 }
 
-function formatDateTime(value) {
+function formatDateTime(value, locale) {
   if (!value) return '';
-  return new Date(value).toLocaleString('tr-TR', {
+  return new Date(value).toLocaleString(locale, {
     day: '2-digit', month: 'short', year: 'numeric',
     hour: '2-digit', minute: '2-digit',
   });
 }
 
 export default function TicketListView({ tickets = [], onSelectTicket, onNewTicket }) {
-  const { t } = useTranslation();
+  const { t, locale } = useTranslation();
   return (
     <div className="max-w-3xl mx-auto px-4 py-6">
       <div className="flex items-center justify-between mb-6">
         <div>
           <h1 className="text-2xl font-bold text-text-1">🎧 {t('ticket.title')}</h1>
           <p className="text-text-3 text-sm mt-1">
-            {t('ticket.yourTickets')}{tickets.length > 0 ? ` (${tickets.length})` : ''}
+            {t('ticket.yourTickets')}{tickets.length > 0 ? ` (${tickets.length.toLocaleString(locale)})` : ''}
           </p>
         </div>
         <button
@@ -72,7 +72,7 @@ export default function TicketListView({ tickets = [], onSelectTicket, onNewTick
                 </p>
                 <div className="flex items-center gap-1 text-text-3 text-xs mt-2">
                   <span>🕒</span>
-                  <span>{formatDateTime(ticket.createdAt)}</span>
+                  <span>{formatDateTime(ticket.createdAt, locale)}</span>
                   <span>· {t('ticket.messageCount', { count: (ticket.messages || []).length })}</span>
                 </div>
               </div>

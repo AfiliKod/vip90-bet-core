@@ -4,7 +4,7 @@
 // Çalıştır: cd server && node scripts/run-all-tests.cjs
 //
 // Not: Bu, VIP90.bet çekirdek platformunun açık kaynak dağıtımıdır. In-house
-// oyunlar, bahis/canlı bahis oran motoru ve Palace Casino entegrasyonu ayrı,
+// oyunlar, bahis/canlı bahis oran motoru ve Igames casino entegrasyonu ayrı,
 // lisanslı bir pakette yaşar — bu yüzden o alanlara özel testler burada yok.
 
 require('dotenv').config({ path: require('path').resolve(__dirname, '../.env') });

@@ -7,9 +7,9 @@ const SYSTEM_META = {
   rain: { icon: '🌧️', cls: 'text-neon-cyan' },
 };
 
-function formatTime(value) {
+function formatTime(value, locale) {
   if (!value) return '';
-  return new Date(value).toLocaleTimeString('tr-TR', { hour: '2-digit', minute: '2-digit' });
+  return new Date(value).toLocaleTimeString(locale, { hour: '2-digit', minute: '2-digit' });
 }
 
 function SystemNotice({ msg }) {
@@ -24,7 +24,7 @@ function SystemNotice({ msg }) {
   );
 }
 
-function MessageBubble({ msg, isMine, onOpenTip, t }) {
+function MessageBubble({ msg, isMine, onOpenTip, t, locale }) {
   return (
     <div className={`flex flex-col animate-fade-in ${isMine ? 'items-end' : 'items-start'}`}>
       <div
@@ -38,7 +38,7 @@ function MessageBubble({ msg, isMine, onOpenTip, t }) {
           <span className={`text-[11px] font-medium ${isMine ? 'text-text-2' : 'text-accent'}`}>
             {isMine ? t('common.you') : msg.username}
           </span>
-          <span className="text-[10px] text-text-3">{formatTime(msg.createdAt)}</span>
+          <span className="text-[10px] text-text-3">{formatTime(msg.createdAt, locale)}</span>
         </div>
         <p className="text-sm text-text-1 whitespace-pre-wrap break-words">{msg.message}</p>
       </div>
@@ -63,7 +63,7 @@ export default function ChatWidget({
   onOpenTip,
   onlineCount,
 }) {
-  const { t } = useTranslation();
+  const { t, locale } = useTranslation();
   const [draft, setDraft] = useState('');
 
   const list = Array.isArray(messages) ? messages : [];
@@ -116,7 +116,7 @@ export default function ChatWidget({
           aria-label={t('common.cancel')}
           className="ml-auto w-7 h-7 rounded-lg text-text-3 hover:text-text-1 hover:bg-bg-hover flex items-center justify-center transition"
         >
-          ✕
+          <span className="material-symbols-outlined !text-[18px]" aria-hidden="true">close</span>
         </button>
       </div>
 
@@ -137,6 +137,7 @@ export default function ChatWidget({
                 isMine={msg.userId === currentUserId}
                 onOpenTip={onOpenTip}
                 t={t}
+                locale={locale}
               />
             )
           )
@@ -158,7 +159,7 @@ export default function ChatWidget({
           aria-label={t('chat.send')}
           className="shrink-0 w-9 h-9 rounded-lg bg-primary text-white text-sm flex items-center justify-center disabled:opacity-40 disabled:cursor-not-allowed transition"
         >
-          ➤
+          <span className="material-symbols-outlined !text-[18px]" aria-hidden="true">send</span>
         </button>
       </div>
     </div>

@@ -41,3 +41,22 @@ export async function setModuleEnabled(id, enabled, updatedBy) {
   );
   invalidateModules();
 }
+
+/**
+ * Yayın öncesi zaten canlı olan modüller: DB'de kaydı yoksa AÇIK olarak tohumlanır
+ * (idempotent, `$setOnInsert` — var olan bir kaydı, açık ya da kapalı, asla ezmez).
+ * Aksi halde registry'nin "kayıt yok = kapalı" varsayılanı yayından sonra Slikair'i
+ * kapatırdı. Yeni kurulumlarda da çalışır; operatör panelden kapatabilir.
+ */
+export const DEFAULT_ENABLED_MODULES = ['slikair-payment'];
+
+export async function seedDefaultEnabledModules() {
+  for (const id of DEFAULT_ENABLED_MODULES) {
+    await Setting.updateOne(
+      { key: dbKey(id) },
+      { $setOnInsert: { key: dbKey(id), value: 'true' } },
+      { upsert: true },
+    );
+  }
+  invalidateModules();
+}

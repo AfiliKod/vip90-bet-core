@@ -38,7 +38,7 @@ api.interceptors.response.use(
     const isRefreshEndpoint = err.config?.url?.includes('/auth/refresh');
     if (err.response?.status === 401 && !err.config._retry && !isRefreshEndpoint) {
       // Login olmadan gezinme mümkün olduğu için (bkz. ProtectedRoute), misafir bir
-      // kullanıcının auth gerektiren bir endpoint'e (örn. Casino'daki Palace çağrıları)
+      // kullanıcının auth gerektiren bir endpoint'e (örn. Casino'daki Igames çağrıları)
       // isteği de 401 dönebiliyor — bu bir "oturum sona erdi" durumu DEĞİL, hiç login
       // olunmamış demek. Sadece daha önce gerçek bir accessToken varsa (yani bir zamanlar
       // giriş yapılmışsa) session-expiry uyarısı/yönlendirmesi tetiklenmeli.

@@ -4,17 +4,18 @@ import crypto from 'crypto';
 import User from '../models/User.js';
 import { createError } from '../middleware/error.js';
 import { requireAuth } from '../middleware/auth.js';
+import { validate } from '../middleware/validate.js';
 import { adminLimiter } from '../middleware/rateLimit.js';
+import { setup2faSchema, verify2faSchema, disable2faSchema } from '../validators/admin2fa.js';
 import { getSiteName } from '../branding/index.js';
 import { Router } from 'express';
 
 const r = Router();
 
 // Admin için 2FA setup (Phase B6)
-r.post('/setup', requireAuth, adminLimiter, async (req, res, next) => {
+r.post('/setup', requireAuth, adminLimiter, validate(setup2faSchema), async (req, res, next) => {
   try {
-    const { password } = req.body;
-    if (!password) return next(createError(400, 'MISSING_PASSWORD', 'Şifre gerekli'));
+    const { password } = req.validated;
     const user = await User.findById(req.user.id).select('+password');
     if (!user || user.role !== 'admin') return next(createError(403, 'NOT_ADMIN', 'Sadece admin'));
     if (!(await user.comparePassword(password))) return next(createError(401, 'WRONG_PASSWORD', 'Şifre yanlış'));
@@ -47,10 +48,9 @@ r.post('/setup', requireAuth, adminLimiter, async (req, res, next) => {
 });
 
 // 2FA token doğrula + aktifleştir
-r.post('/verify', requireAuth, adminLimiter, async (req, res, next) => {
+r.post('/verify', requireAuth, adminLimiter, validate(verify2faSchema), async (req, res, next) => {
   try {
-    const { token } = req.body;
-    if (!token) return next(createError(400, 'MISSING_TOKEN', 'Token gerekli'));
+    const { token } = req.validated;
     const user = await User.findById(req.user.id);
     if (!user || user.role !== 'admin') return next(createError(403, 'NOT_ADMIN', 'Sadece admin'));
     if (!user.twoFactorSecret) return next(createError(400, 'NOT_SETUP', 'Önce setup yapın'));
@@ -79,9 +79,9 @@ r.post('/verify', requireAuth, adminLimiter, async (req, res, next) => {
 });
 
 // 2FA disable
-r.post('/disable', requireAuth, adminLimiter, async (req, res, next) => {
+r.post('/disable', requireAuth, adminLimiter, validate(disable2faSchema), async (req, res, next) => {
   try {
-    const { password, token } = req.body;
+    const { password, token } = req.validated;
     const user = await User.findById(req.user.id).select('+password');
     if (!user || user.role !== 'admin') return next(createError(403, 'NOT_ADMIN', 'Sadece admin'));
     if (!(await user.comparePassword(password))) return next(createError(401, 'WRONG_PASSWORD', 'Şifre yanlış'));

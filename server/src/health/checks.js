@@ -18,7 +18,7 @@ const REQUIRED_ENV = [
 ];
 
 const OPTIONAL_SERVICES = [
-  { name: 'service:palace', label: 'Palace Casino', envKey: 'PALACE_API_TOKEN' },
+  { name: 'service:igames', label: 'Igames Casino', envKey: 'PALACE_API_TOKEN' },
   { name: 'service:smtp', label: 'SMTP e-posta', envKey: 'SMTP_HOST' },
 ];
 

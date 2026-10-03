@@ -1,0 +1,26 @@
+# Test overlay — ana docker-compose.yml'e ek olarak kullanılır, tek başına
+# `docker compose up` ile başlamaz (test servisi ayrı, tek seferlik çalışır).
+#
+# Kullanım:
+#   docker compose -f docker-compose.yml -f docker-compose.test.yml run --rm test
+#
+# Test servisi mongo container'ının AĞ NAMESPACE'ini paylaşır
+# (network_mode: service:mongo) — böylece test dosyalarındaki hardcoded
+# `mongodb://localhost:27017/...` bağlantı string'leri (ayrı bir MONGODB_URI
+# env'i olmadan) doğrudan çalışır, hiçbir test dosyasını değiştirmeye gerek
+# kalmaz.
+
+services:
+  test:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      target: test
+    network_mode: "service:mongo"
+    depends_on:
+      mongo:
+        condition: service_healthy
+    environment:
+      NODE_ENV: test
+      JWT_SECRET: test-jwt-secret-not-for-production-use-only-ci
+      JWT_REFRESH_SECRET: test-jwt-refresh-secret-not-for-production-ci

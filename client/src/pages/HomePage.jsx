@@ -20,14 +20,14 @@ import { shuffle } from '../utils/shuffle';
 import { resolveSectionOrder } from './home/pageContent';
 import { HOME_CARD, HOME_BORDER } from './home/homeTheme';
 
-// Palace agregatörden gerçek/lisanslı oyun kataloğu çekilecek sağlayıcılar
-// (bkz. GET /api/palace/providers) — T3'te bağlanan gerçek kontrat. Belirli
+// Igames agregatörden gerçek/lisanslı oyun kataloğu çekilecek sağlayıcılar
+// (bkz. GET /api/igames/providers) — T3'te bağlanan gerçek kontrat. Belirli
 // oyun görselleri/başlıkları burada kod içine GÖMÜLMEDİ (T5 varlık denetiminde
 // lisanssız Pragmatic Play/BGaming verisi tam da bu yüzden silinmişti) —
-// hepsi çalışma zamanında Palace'ın kendi CDN'inden canlı çekiliyor.
-const PALACE_PROVIDER_IDS = [1, 15]; // Pragmatic Play, Spribe
+// hepsi çalışma zamanında Igames'ın kendi CDN'inden canlı çekiliyor.
+const IGAMES_PROVIDER_IDS = [1, 15]; // Pragmatic Play, Spribe
 
-function PalaceGameCard({ game }) {
+function IgamesGameCard({ game }) {
   const symbol = game.game_code;
   const name = game.game_name;
   const image = game.game_image_narrow || game.game_image;
@@ -35,14 +35,14 @@ function PalaceGameCard({ game }) {
   const user = useAuthStore(s => s.user);
   return (
     <Link
-      to={`/palace/${encodeURIComponent(symbol)}?name=${encodeURIComponent(name)}`}
-      onClick={() => { if (user) recordPlay(symbol, 'palace'); }}
+      to={`/igames/${encodeURIComponent(symbol)}?name=${encodeURIComponent(name)}`}
+      onClick={() => { if (user) recordPlay(symbol, 'igames'); }}
       className="group relative rounded-xl overflow-hidden transition-all duration-200 text-center shrink-0 w-[140px] sm:w-[150px]"
       style={{ background: HOME_CARD, border: `1px solid ${HOME_BORDER}` }}
       onMouseEnter={e => { e.currentTarget.style.borderColor = 'color-mix(in srgb, var(--color-primary) 40%, transparent)'; }}
       onMouseLeave={e => { e.currentTarget.style.borderColor = HOME_BORDER; }}
     >
-      <FavoriteButton gameId={symbol} kind="palace" />
+      <FavoriteButton gameId={symbol} kind="igames" />
       <div className="aspect-[3/4] relative overflow-hidden">
         <img
           src={image}
@@ -99,7 +99,7 @@ export default function HomePage() {
   const recordPlay = useGameActivityStore(s => s.recordPlay);
   const currentUser = useAuthStore(s => s.user);
   const [pageContent, setPageContent] = useState(null);
-  const [palaceGames, setPalaceGames] = useState([]);
+  const [igamesGames, setIgamesGames] = useState([]);
   // Admin'in Modül Ayarları'ndan seçtiği "Popüler Oyunlar" listesi (game_code
   // dizisi) — boşsa aşağıda eski davranışa (ilk 10 oyun) düşülür.
   const [popularGameCodes, setPopularGameCodes] = useState([]);
@@ -118,58 +118,58 @@ export default function HomePage() {
     if (currentUser) useGameActivityStore.getState().ensureLoaded();
   }, [currentUser]);
 
-  // Palace agregatörden gerçek katalog — hiçbir oyun adı/görseli kod içinde
+  // Igames agregatörden gerçek katalog — hiçbir oyun adı/görseli kod içinde
   // sabit değil, hepsi burada canlı çekiliyor (bkz. yukarıdaki not).
   useEffect(() => {
     let cancelled = false;
     Promise.all(
-      PALACE_PROVIDER_IDS.map(provider_id =>
-        api.post('/palace/games', { lang: 'tr', provider_id }).then(r => r.data?.data || []).catch(() => [])
+      IGAMES_PROVIDER_IDS.map(provider_id =>
+        api.post('/igames/games', { lang: 'tr', provider_id }).then(r => r.data?.data || []).catch(() => [])
       )
     ).then(lists => {
       if (cancelled) return;
-      setPalaceGames(lists.flat().filter(g => g.launch_enable !== false));
+      setIgamesGames(lists.flat().filter(g => g.launch_enable !== false));
     });
     return () => { cancelled = true; };
   }, []);
 
   useEffect(() => {
-    api.get('/palace/popular-games').then(({ data }) => setPopularGameCodes(data?.gameCodes || [])).catch(() => {});
+    api.get('/igames/popular-games').then(({ data }) => setPopularGameCodes(data?.gameCodes || [])).catch(() => {});
   }, []);
 
   const { popularGames, slotGames, newGames } = useMemo(() => {
-    const slots = palaceGames.filter(g => g.category === 'Slots');
-    const byDateDesc = [...palaceGames].sort((a, b) => new Date(b.reg_date) - new Date(a.reg_date));
+    const slots = igamesGames.filter(g => g.category === 'Slots');
+    const byDateDesc = [...igamesGames].sort((a, b) => new Date(b.reg_date) - new Date(a.reg_date));
 
-    // Admin curated bir liste seçtiyse (Modül Ayarları → Palace) o sırayla
+    // Admin curated bir liste seçtiyse (Modül Ayarları → Igames) o sırayla
     // göster; hiç seçim yapılmamışsa eski davranışa (ilk 10 oyun) düş.
     let curatedPopular = null;
     if (popularGameCodes.length) {
-      const byCode = new Map(palaceGames.map(g => [g.game_code, g]));
+      const byCode = new Map(igamesGames.map(g => [g.game_code, g]));
       curatedPopular = popularGameCodes.map(code => byCode.get(code)).filter(Boolean);
     }
 
     return {
-      popularGames: curatedPopular?.length ? curatedPopular : palaceGames.slice(0, 10),
+      popularGames: curatedPopular?.length ? curatedPopular : igamesGames.slice(0, 10),
       slotGames: slots.slice(0, 10),
       newGames: byDateDesc.slice(0, 10),
     };
-  }, [palaceGames, popularGameCodes]);
+  }, [igamesGames, popularGameCodes]);
 
   // "Tüm Oyunlar" alanının varsayılan (sağlayıcı filtresi yokken) içeriği —
   // diğer satırlar gibi kürasyonlu değil, gerçekten rastgele bir örneklem.
-  const randomAllGames = useMemo(() => shuffle(palaceGames), [palaceGames]);
+  const randomAllGames = useMemo(() => shuffle(igamesGames), [igamesGames]);
 
   // /casino?provider=X deep-link'i (SearchOverlay'den, arama sonucundaki bir
   // sağlayıcıya tıklayınca) — CasinoRedesign.jsx bunu useSearchParams ile
   // okuyordu, /casino artık bu bileşeni (HomePage) render ettiği için aynı
-  // davranış burada korunuyor. Gerçek görünen adı almak için /palace/providers
+  // davranış burada korunuyor. Gerçek görünen adı almak için /igames/providers
   // sorgulanıyor; bulunamazsa ham id gösterilir.
   useEffect(() => {
     const providerId = searchParams.get('provider');
     if (!providerId) return;
     let cancelled = false;
-    api.post('/palace/providers', { lang: 'tr' }).then(({ data }) => {
+    api.post('/igames/providers', { lang: 'tr' }).then(({ data }) => {
       if (cancelled) return;
       const match = (data?.data || []).find(p => p.provider_id === providerId);
       setSelectedProvider({ id: providerId, name: match?.name || providerId });
@@ -185,7 +185,7 @@ export default function HomePage() {
     if (!selectedProvider) { setProviderGames([]); return; }
     let cancelled = false;
     setProviderGamesLoading(true);
-    api.post('/palace/games', { lang: 'tr', provider_id: selectedProvider.id }).then(({ data }) => {
+    api.post('/igames/games', { lang: 'tr', provider_id: selectedProvider.id }).then(({ data }) => {
       if (!cancelled) setProviderGames((data?.data || []).filter(g => g.launch_enable !== false));
     }).catch(() => { if (!cancelled) setProviderGames([]); })
       .finally(() => { if (!cancelled) setProviderGamesLoading(false); });
@@ -239,19 +239,19 @@ export default function HomePage() {
 
     popularGames: popularGames.length > 0 ? (
       <GameRowSection id="popular-oyunlar" icon="whatshot" title={t('home.sidebar.popularGames')} viewAllTo="/casino" viewAllLabel={t('home.games.viewAll')}>
-        {popularGames.map(g => <PalaceGameCard key={g.game_code} game={g} />)}
+        {popularGames.map(g => <IgamesGameCard key={g.game_code} game={g} />)}
       </GameRowSection>
     ) : null,
 
     slotGames: slotGames.length > 0 ? (
       <GameRowSection id="slot-oyunlari" icon="casino" title={t('home.sidebar.slotGames')} viewAllTo="/casino" viewAllLabel={t('home.games.viewAll')}>
-        {slotGames.map(g => <PalaceGameCard key={g.game_code} game={g} />)}
+        {slotGames.map(g => <IgamesGameCard key={g.game_code} game={g} />)}
       </GameRowSection>
     ) : null,
 
     newGames: newGames.length > 0 ? (
       <GameRowSection id="yeni-oyunlar" icon="fiber_new" title={t('home.sidebar.newGames')} viewAllTo="/casino" viewAllLabel={t('home.games.viewAll')}>
-        {newGames.map(g => <PalaceGameCard key={g.game_code} game={g} />)}
+        {newGames.map(g => <IgamesGameCard key={g.game_code} game={g} />)}
       </GameRowSection>
     ) : null,
   };

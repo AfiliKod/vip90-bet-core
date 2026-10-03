@@ -1,6 +1,7 @@
 import VipLevel from '../models/VipLevel.js';
 import User from '../models/User.js';
 import Transaction from '../models/Transaction.js';
+import { createTransaction } from './ledger.js';
 
 /**
  * XP calculation rules:
@@ -101,6 +102,17 @@ export async function payCashback(userId, betAmount, options = {}) {
     note: `VIP cashback (${levelDoc.name} %${levelDoc.cashbackPercent})`,
   }], { session });
 
+  await createTransaction({
+    userId: user._id,
+    type: 'cashback',
+    amount: cashback,
+    balanceBefore,
+    balanceAfter: user.balance,
+    note: `VIP cashback (${levelDoc.name} %${levelDoc.cashbackPercent})`,
+    idempotencyKey: `vip_cashback_${user._id}_${Date.now()}`,
+    source: 'system',
+  }, { session });
+
   const io = getIO();
   if (io) io.to(`user:${user._id}`).emit('balance:update', { balance: user.balance });
 
@@ -166,6 +178,17 @@ async function checkLevelUp(user, session) {
         balanceAfter: user.balance,
         note: `VIP seviye ödülü: ${qualifiedLevel.name}`,
       }], { session });
+
+      await createTransaction({
+        userId: user._id,
+        type: 'bonus',
+        amount: rewardAmount,
+        balanceBefore,
+        balanceAfter: user.balance,
+        note: `VIP seviye ödülü: ${qualifiedLevel.name}`,
+        idempotencyKey: `vip_levelup_${user._id}_${qualifiedLevel._id}`,
+        source: 'system',
+      }, { session });
     } else if (qualifiedLevel.rewardType === 'bonus') {
       // Bonus balance would be handled by wagering system
       // For now, treat as balance with bonus type
@@ -179,6 +202,17 @@ async function checkLevelUp(user, session) {
         balanceAfter: user.balance,
         note: `VIP seviye bonus ödülü: ${qualifiedLevel.name}`,
       }], { session });
+
+      await createTransaction({
+        userId: user._id,
+        type: 'bonus',
+        amount: rewardAmount,
+        balanceBefore,
+        balanceAfter: user.balance,
+        note: `VIP seviye bonus ödülü: ${qualifiedLevel.name}`,
+        idempotencyKey: `vip_levelup_${user._id}_${qualifiedLevel._id}_bonus`,
+        source: 'system',
+      }, { session });
     }
 
     reward = {
@@ -247,16 +281,44 @@ export async function initDefaultVipLevels() {
   const count = await VipLevel.countDocuments();
   if (count > 0) return;
 
+  // icon değerleri Material Symbols glyph adı olmalı (admin panelinde
+  // Faz 9'dan beri material-symbols-outlined span'i içinde render ediliyor
+  // — emoji/yıldız karakteri geçersiz ligature üretip boş/kutu görünüyordu).
   const levels = [
-    { level: 1, name: 'Bronze', xpRequired: 0, cashbackPercent: 0, rewardAmount: 0, color: '#cd7f32', icon: '★' },
-    { level: 2, name: 'Silver', xpRequired: 1000, cashbackPercent: 2, rewardAmount: 10, rewardType: 'balance', color: '#c0c0c0', icon: '★★' },
-    { level: 3, name: 'Gold', xpRequired: 5000, cashbackPercent: 5, rewardAmount: 50, rewardType: 'balance', color: '#ffd700', icon: '★★★' },
-    { level: 4, name: 'Platinum', xpRequired: 20000, cashbackPercent: 8, rewardAmount: 200, rewardType: 'balance', color: '#e5e4e2', icon: '★★★★' },
-    { level: 5, name: 'Diamond', xpRequired: 50000, cashbackPercent: 12, rewardAmount: 500, rewardType: 'balance', color: '#b9f2ff', icon: '💎' },
+    { level: 1, name: 'Bronze', xpRequired: 0, cashbackPercent: 0, rewardAmount: 0, color: '#cd7f32', icon: 'military_tech' },
+    { level: 2, name: 'Silver', xpRequired: 1000, cashbackPercent: 2, rewardAmount: 10, rewardType: 'balance', color: '#c0c0c0', icon: 'workspace_premium' },
+    { level: 3, name: 'Gold', xpRequired: 5000, cashbackPercent: 5, rewardAmount: 50, rewardType: 'balance', color: '#ffd700', icon: 'star' },
+    { level: 4, name: 'Platinum', xpRequired: 20000, cashbackPercent: 8, rewardAmount: 200, rewardType: 'balance', color: '#e5e4e2', icon: 'auto_awesome' },
+    { level: 5, name: 'Diamond', xpRequired: 50000, cashbackPercent: 12, rewardAmount: 500, rewardType: 'balance', color: '#b9f2ff', icon: 'diamond' },
   ];
 
   await VipLevel.insertMany(levels);
   return levels;
+}
+
+const LEGACY_ICON_MAP = {
+  '★': 'military_tech',
+  '★★': 'workspace_premium',
+  '★★★': 'star',
+  '★★★★': 'auto_awesome',
+  '💎': 'diamond',
+};
+const VALID_GLYPH_RE = /^[a-z][a-z0-9_]*$/;
+
+/**
+ * Faz 9 (emoji → Material Symbols) öncesi oluşturulmuş VipLevel kayıtlarının
+ * icon alanını geçerli bir glyph adına taşır — bu diff'ten önce var olan ya
+ * da admin tarafından hiç dokunulmamış seviyeler eski '★'/emoji değerini
+ * taşıyordu, admin panelindeki material-symbols-outlined span'i bunları
+ * çizemeyip boş karakter gösteriyordu.
+ */
+export async function migrateLegacyVipIcons() {
+  const levels = await VipLevel.find({});
+  for (const level of levels) {
+    if (VALID_GLYPH_RE.test(level.icon || '')) continue;
+    level.icon = LEGACY_ICON_MAP[level.icon] || 'military_tech';
+    await level.save();
+  }
 }
 
 /**

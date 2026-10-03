@@ -32,7 +32,7 @@ export function useRecentWinners() {
 }
 
 /**
- * 'inhouse-crash' -> '/images/games/crash.png'. `palace-...` (casino) zaten
+ * 'inhouse-crash' -> '/images/games/crash.png'. `igames-...` (casino) zaten
  * backend'den gerçek `image` alanıyla geliyor, bu fonksiyona hiç düşmüyor.
  * `bet-...` (canlı bahis kazananı) için kapak görseli YOK — null döner,
  * WinnersPanel/RecentWinnersTicker bunu jenerik bir ikonla gösterir.

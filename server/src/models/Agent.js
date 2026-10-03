@@ -13,6 +13,7 @@ const schema = new mongoose.Schema({
   // Metadata
   registeredBy: { type: mongoose.Schema.Types.ObjectId, ref: 'User' }, // admin who created
   notes: { type: String, default: '' },
+  isSeed: { type: Boolean, default: false, index: true },
 }, { timestamps: true });
 
 schema.index({ userId: 1 }, { unique: true });

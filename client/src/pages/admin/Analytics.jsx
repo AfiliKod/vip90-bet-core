@@ -2,6 +2,8 @@ import { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import api from '../../services/api';
 import { useTranslation } from '../../i18n';
+import AdminPageHeader, { ADMIN_BTN_PRIMARY, AdminTabs } from '../../components/admin/AdminPageHeader.jsx';
+import { useFormatters } from '../../i18n/useFormatters.jsx';
 import { formatMoney, getActiveCurrency } from '../../utils/money.js';
 import {
   AreaChart, Area, BarChart, Bar, PieChart, Pie, Cell,
@@ -12,88 +14,162 @@ import {
 const CHART_COLORS = ['#8b5cf6', '#f59e0b', '#10b981', '#ef4444', '#3b82f6', '#ec4899', '#14b8a6', '#f97316', '#6366f1', '#84cc16'];
 const PIE_COLORS = ['#8b5cf6', '#f59e0b', '#10b981', '#ef4444', '#3b82f6', '#ec4899', '#14b8a6', '#f97316', '#6366f1'];
 
-function formatCurrency(v) {
-  const symbol = getActiveCurrency().symbol;
-  if (v >= 1000000) return `${symbol}${(v / 1000000).toFixed(1)}M`;
-  if (v >= 1000) return `${symbol}${(v / 1000).toFixed(1)}B`;
-  return `${symbol}${Number(v).toFixed(0)}`;
+const MONEY_DATA_KEYS = new Set([
+  'bet', 'ggr', 'total', 'totalBet', 'totalPayout', 'totalStake', 'avgStake',
+  'deposit', 'withdraw', 'crypto_deposit', 'crypto_withdraw', 'pendingWithdrawTotal',
+]);
+
+function formatCurrency(value) {
+  return formatMoney(value);
 }
 
-function formatNumber(v) {
-  if (v >= 1000000) return `${(v / 1000000).toFixed(1)}M`;
-  if (v >= 1000) return `${(v / 1000).toFixed(1)}B`;
-  return Number(v).toFixed(0);
+function formatNumber(value, locale) {
+  const number = Number(value);
+  if (!Number.isFinite(number)) return '—';
+  return number.toLocaleString(locale, {
+    notation: Math.abs(number) >= 1000 ? 'compact' : 'standard',
+    maximumFractionDigits: 1,
+  });
+}
+
+function useApiData(url) {
+  const [state, setState] = useState({ data: null, error: false, loading: true });
+
+  useEffect(() => {
+    let mounted = true;
+    api.get(url)
+      .then(response => {
+        if (mounted) setState({ data: response.data, error: false, loading: false });
+      })
+      .catch(() => {
+        if (mounted) setState({ data: null, error: true, loading: false });
+      });
+    return () => { mounted = false; };
+  }, [url]);
+
+  return state;
+}
+
+function LoadingState() {
+  const { t } = useTranslation();
+  return (
+    <div className="rounded-xl border border-white/10 bg-bg-card px-4 py-12 text-center">
+      <span className="material-symbols-outlined !text-[32px] text-text-3/60" aria-hidden="true">progress_activity</span>
+      <div className="mt-2 text-sm text-text-3">{t('common.loading')}</div>
+    </div>
+  );
+}
+
+function ErrorState() {
+  const { t } = useTranslation();
+  return (
+    <div className="rounded-xl border border-danger/30 bg-danger/15 px-4 py-3 text-sm text-danger">
+      {t('common.error')}
+    </div>
+  );
 }
 
 function MetricCard({ title, value, subtitle, color }) {
   return (
-    <div className="bg-bg-card border border-white/10 rounded-xl p-4">
-      <div className="text-xs text-text-3 mb-1">{title}</div>
-      <div className={`text-2xl font-black ${color || 'text-text-1'}`}>{value}</div>
-      {subtitle && <div className="text-xs text-text-3 mt-1">{subtitle}</div>}
+    <article className="min-w-0 rounded-xl border border-white/10 bg-bg-card p-3.5">
+      <div className="text-[11px] font-bold uppercase tracking-[0.07em] text-text-3">{title}</div>
+      <div className={`mt-2 truncate font-mono text-[22px] font-bold tabular-nums tracking-tight ${color || 'text-text-1'}`}>{value}</div>
+      {subtitle && <div className="mt-1 truncate text-xs text-text-3">{subtitle}</div>}
+    </article>
+  );
+}
+
+function PanelTitle({ children, icon = 'show_chart' }) {
+  return (
+    <div className="mb-3 flex items-center gap-2">
+      <span className="grid h-7 w-7 shrink-0 place-items-center rounded-lg bg-primary/10 text-primary">
+        <span className="material-symbols-outlined !text-[16px]" aria-hidden="true">{icon}</span>
+      </span>
+      <h3 className="min-w-0 truncate text-sm font-extrabold text-text-1">{children}</h3>
     </div>
   );
 }
 
 function CustomTooltip({ active, payload, label }) {
+  const { locale } = useTranslation();
   if (!active || !payload?.length) return null;
   return (
-    <div className="bg-bg-card border border-white/20 rounded-lg px-3 py-2 text-xs shadow-xl">
-      <div className="text-text-3 mb-1">{label}</div>
-      {payload.map((p, i) => (
-        <div key={i} className="flex items-center gap-2">
-          <span className="w-2 h-2 rounded-full" style={{ background: p.color }} />
-          <span className="text-text-2">{p.name}: <strong className="text-text-1">{typeof p.value === 'number' ? p.name?.includes(getActiveCurrency().symbol) || p.name?.includes('Tutar') || p.value > 1000 ? formatCurrency(p.value) : formatNumber(p.value) : p.value}</strong></span>
-        </div>
-      ))}
+    <div className="rounded-lg border border-white/20 bg-bg-card px-3 py-2 text-xs shadow-xl">
+      <div className="mb-1 text-text-3">{label}</div>
+      {payload.map((p, i) => {
+        const value = typeof p.value === 'number'
+          ? MONEY_DATA_KEYS.has(p.dataKey) ? formatCurrency(p.value) : formatNumber(p.value, locale)
+          : p.value;
+        return (
+          <div key={i} className="flex items-center gap-2">
+            <span className="h-2 w-2 rounded-full" style={{ background: p.color }} />
+            <span className="text-text-2">{p.name}: <strong className="text-text-1">{value}</strong></span>
+          </div>
+        );
+      })}
     </div>
   );
 }
 
 function OverviewTab() {
-  const { t } = useTranslation();
-  const [data, setData] = useState(null);
-  useEffect(() => { api.get('/admin/analytics/overview').then(r => setData(r.data)).catch(() => {}); }, []);
-  if (!data) return <div className="text-center text-text-3 py-12 text-sm">{t('common.loading')}</div>;
+  const { t, locale } = useTranslation();
+  const { data, error, loading } = useApiData('/admin/analytics/overview');
+  if (loading) return <LoadingState />;
+  if (error || !data) return <ErrorState />;
+
+  const users = data.users || {};
+  const bets = data.bets || {};
+  const casino = data.casino || {};
+  const sports = data.sports || {};
+  const finance = data.finance || {};
+  const pending = data.pending || {};
 
   return (
     <div className="space-y-6">
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-        <MetricCard title={t('admin.analytics.totalUsers')} value={formatNumber(data.users.total)} subtitle={t('admin.analytics.newToday', { count: data.users.newToday })} color="text-purple-400" />
-        <MetricCard title={t('admin.analytics.totalBets')} value={formatNumber(data.bets.total)} subtitle={t('admin.analytics.pendingCount', { count: data.bets.pending })} color="text-blue-400" />
-        <MetricCard title={t('admin.analytics.casinoRounds')} value={formatNumber(data.casino.totalRounds)} subtitle={`GGR ${formatCurrency(data.casino.ggr)}`} color="text-amber-400" />
-        <MetricCard title={t('admin.analytics.sportsVolume')} value={formatCurrency(data.sports.totalStake)} subtitle={t('admin.analytics.betsSuffix', { count: formatNumber(data.sports.betCount) })} color="text-green-400" />
+      <PanelTitle icon="monitoring">{t('admin.analytics.tabOverview')}</PanelTitle>
+      <div className="grid grid-cols-2 gap-3 xl:grid-cols-4">
+        <MetricCard title={t('admin.analytics.totalUsers')} value={formatNumber(users.total, locale)} subtitle={t('admin.analytics.newToday', { count: Number(users.newToday || 0).toLocaleString(locale) })} color="text-primary" />
+        <MetricCard title={t('admin.analytics.totalBets')} value={formatNumber(bets.total, locale)} subtitle={t('admin.analytics.pendingCount', { count: Number(bets.pending || 0).toLocaleString(locale) })} color="text-primary" />
+        <MetricCard title={t('admin.analytics.casinoRounds')} value={formatNumber(casino.totalRounds, locale)} subtitle={`GGR ${formatCurrency(casino.ggr)}`} color="text-warning" />
+        <MetricCard title={t('admin.analytics.sportsVolume')} value={formatCurrency(sports.totalStake)} subtitle={t('admin.analytics.betsSuffix', { count: formatNumber(sports.betCount, locale) })} color="text-success" />
       </div>
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-        <MetricCard title={t('admin.analytics.totalDeposit')} value={formatCurrency(data.finance.totalDeposit)} color="text-emerald-400" />
-        <MetricCard title={t('admin.analytics.totalWithdraw')} value={formatCurrency(data.finance.totalWithdraw)} color="text-red-400" />
-        <MetricCard title={t('admin.analytics.pendingDeposits')} value={formatNumber(data.pending.deposits)} subtitle={t('admin.analytics.awaitingApproval')} color="text-yellow-400" />
-        <MetricCard title={t('admin.analytics.pendingWithdraws')} value={formatNumber(data.pending.withdraws)} subtitle={t('admin.analytics.awaitingApproval')} color="text-orange-400" />
+      <div className="grid grid-cols-2 gap-3 xl:grid-cols-4">
+        <MetricCard title={t('admin.analytics.totalDeposit')} value={formatCurrency(finance.totalDeposit)} color="text-success" />
+        <MetricCard title={t('admin.analytics.totalWithdraw')} value={formatCurrency(finance.totalWithdraw)} color="text-danger" />
+        <MetricCard title={t('admin.analytics.pendingDeposits')} value={formatNumber(pending.deposits, locale)} subtitle={t('admin.analytics.awaitingApproval')} color="text-warning" />
+        <MetricCard title={t('admin.analytics.pendingWithdraws')} value={formatNumber(pending.withdraws, locale)} subtitle={t('admin.analytics.awaitingApproval')} color="text-warning" />
       </div>
     </div>
   );
 }
 
 function UsersTab() {
-  const { t } = useTranslation();
-  const [data, setData] = useState(null);
-  useEffect(() => { api.get('/admin/analytics/users?days=30').then(r => setData(r.data)).catch(() => {}); }, []);
-  if (!data) return <div className="text-center text-text-3 py-12 text-sm">{t('common.loading')}</div>;
+  const { t, locale } = useTranslation();
+  const { data, error, loading } = useApiData('/admin/analytics/users?days=30');
+  if (loading) return <LoadingState />;
+  if (error || !data) return <ErrorState />;
 
-  const activePct = data.registrations.length > 0 ? ((data.activeUsers / (data.registrations.reduce((s, r) => s + r.count, 0))) * 100).toFixed(1) : '0';
+  const registrations = data.registrations || [];
+  const balanceBuckets = data.balanceBuckets || [];
+  const hourlyActivity = data.hourlyActivity || [];
+  const totalRegistrations = registrations.reduce((sum, row) => sum + (row.count || 0), 0);
+  const activePct = totalRegistrations > 0 ? (data.activeUsers / totalRegistrations) * 100 : 0;
+  const activePctLabel = activePct.toLocaleString(locale, { maximumFractionDigits: 1 });
+  const peak = hourlyActivity.reduce((best, row) => row.count > best.count ? row : best, { count: 0, _id: null });
 
   return (
     <div className="space-y-6">
-      <div className="grid grid-cols-3 gap-3">
-        <MetricCard title={t('admin.analytics.last30DaysRegistrations')} value={formatNumber(data.registrations.reduce((s, r) => s + r.count, 0))} color="text-purple-400" />
-        <MetricCard title={t('admin.analytics.activeUsers30d')} value={formatNumber(data.activeUsers)} subtitle={t('admin.analytics.activityPct', { pct: activePct })} color="text-green-400" />
-        <MetricCard title={t('admin.analytics.peakHourlyActivity')} value={data.hourlyActivity?.reduce((a, b) => a.count > b.count ? a : b, { count: 0 })._id + ':00' || '-'} color="text-amber-400" />
+      <PanelTitle icon="group">{t('admin.analytics.tabUsers')}</PanelTitle>
+      <div className="grid grid-cols-2 gap-3 xl:grid-cols-3">
+        <MetricCard title={t('admin.analytics.last30DaysRegistrations')} value={formatNumber(totalRegistrations, locale)} color="text-primary" />
+        <MetricCard title={t('admin.analytics.activeUsers30d')} value={formatNumber(data.activeUsers, locale)} subtitle={t('admin.analytics.activityPct', { pct: activePctLabel })} color="text-success" />
+        <MetricCard title={t('admin.analytics.peakHourlyActivity')} value={peak._id != null ? `${peak._id}:00` : '—'} color="text-warning" />
       </div>
 
       <div className="bg-bg-card border border-white/10 rounded-xl p-4">
-        <h4 className="text-sm font-semibold text-text-1 mb-3">{t('admin.analytics.dailyRegistrations30d')}</h4>
+        <PanelTitle icon="edit_calendar">{t('admin.analytics.dailyRegistrations30d')}</PanelTitle>
         <ResponsiveContainer width="100%" height={220}>
-          <AreaChart data={data.registrations}>
+          <AreaChart data={registrations}>
             <defs>
               <linearGradient id="regGrad" x1="0" y1="0" x2="0" y2="1"><stop offset="5%" stopColor="#8b5cf6" stopOpacity={0.3}/><stop offset="95%" stopColor="#8b5cf6" stopOpacity={0}/></linearGradient>
             </defs>
@@ -108,28 +184,28 @@ function UsersTab() {
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
         <div className="bg-bg-card border border-white/10 rounded-xl p-4">
-          <h4 className="text-sm font-semibold text-text-1 mb-3">{t('admin.analytics.balanceDistribution')}</h4>
+          <PanelTitle icon="donut_small">{t('admin.analytics.balanceDistribution')}</PanelTitle>
           <ResponsiveContainer width="100%" height={260}>
-            <BarChart data={data.balanceBuckets}>
+            <BarChart data={balanceBuckets}>
               <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.05)" />
               <XAxis dataKey="label" tick={{ fill: '#888', fontSize: 9 }} angle={-30} textAnchor="end" height={50} />
               <YAxis tick={{ fill: '#888', fontSize: 10 }} />
               <Tooltip content={<CustomTooltip />} />
               <Bar dataKey="count" name={t('admin.analytics.user')} radius={[4, 4, 0, 0]}>
-                {data.balanceBuckets.map((_, i) => <Cell key={i} fill={CHART_COLORS[i % CHART_COLORS.length]} />)}
+                {balanceBuckets.map((_, i) => <Cell key={i} fill={CHART_COLORS[i % CHART_COLORS.length]} />)}
               </Bar>
             </BarChart>
           </ResponsiveContainer>
         </div>
         <div className="bg-bg-card border border-white/10 rounded-xl p-4">
-          <h4 className="text-sm font-semibold text-text-1 mb-3">{t('admin.analytics.hourlyActivity')}</h4>
+          <PanelTitle icon="schedule">{t('admin.analytics.hourlyActivity')}</PanelTitle>
           <ResponsiveContainer width="100%" height={260}>
-            <BarChart data={data.hourlyActivity}>
+            <BarChart data={hourlyActivity}>
               <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.05)" />
               <XAxis dataKey="_id" tick={{ fill: '#888', fontSize: 10 }} tickFormatter={v => `${v}:00`} />
               <YAxis tick={{ fill: '#888', fontSize: 10 }} />
               <Tooltip content={<CustomTooltip />} />
-              <Bar dataKey="count" name="Round" fill="#f59e0b" radius={[2, 2, 0, 0]} />
+              <Bar dataKey="count" name={t('admin.analytics.colRound')} fill="#f59e0b" radius={[2, 2, 0, 0]} />
             </BarChart>
           </ResponsiveContainer>
         </div>
@@ -138,46 +214,47 @@ function UsersTab() {
   );
 }
 
-function fmtTr(n) {
-  if (n === undefined || n === null) return '—';
-  return Number(n).toLocaleString('tr');
-}
-
-function PalaceLiveStatus() {
+function IgamesLiveStatus() {
   const { t } = useTranslation();
-  const [palace, setPalace] = useState(null);
-  useEffect(() => { api.get('/admin/palace/summary').then(r => setPalace(r.data)).catch(() => {}); }, []);
-  if (!palace) return null;
+  const fmt = useFormatters();
+  const { data: igames, error } = useApiData('/admin/igames/summary');
+  if (error || !igames) return null;
+  const today = igames.today || {};
 
   return (
     <div>
       <div className="flex items-center gap-2 mb-3">
-        <h4 className="text-sm font-semibold text-text-1">🎰 {t('admin.casinoStats.liveStatusTitle')}</h4>
-        {palace.agentError && (
-          <span className="text-[10px] text-amber-400" title={palace.agentError}>
+        <div className="flex min-w-0 items-center gap-2">
+          <span className="grid h-7 w-7 shrink-0 place-items-center rounded-lg bg-primary/10 text-primary">
+            <span className="material-symbols-outlined !text-[16px]" aria-hidden="true">casino</span>
+          </span>
+          <h3 className="min-w-0 truncate text-sm font-extrabold text-text-1">{t('admin.casinoStats.liveStatusTitle')}</h3>
+        </div>
+        {igames.agentError && (
+          <span className="text-[11px] font-bold text-warning" title={igames.agentError}>
             ({t('admin.casinoStats.agentInfoUnavailable')})
           </span>
         )}
       </div>
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-3">
-        <MetricCard title={t('admin.casinoStats.agentBalance')} value={palace.agent?.balance !== undefined ? formatCurrency(palace.agent.balance) : '—'} subtitle={palace.agent?.currency || 'TRY'} color="text-cyan-400" />
-        <MetricCard title={t('admin.casinoStats.palaceUsers')} value={fmtTr(palace.palaceUserCount)} subtitle={t('admin.casinoStats.totalRegistered')} />
+      <div className="grid grid-cols-2 gap-3 xl:grid-cols-4 mb-3">
+        <MetricCard title={t('admin.casinoStats.agentBalance')} value={igames.agent?.balance !== undefined ? formatCurrency(igames.agent.balance) : '—'} subtitle={igames.agent?.currency || 'TRY'} color="text-primary" />
+        <MetricCard title={t('admin.casinoStats.igamesUsers')} value={igames.igamesUserCount == null ? '—' : fmt.formatNumber(igames.igamesUserCount)} subtitle={t('admin.casinoStats.totalRegistered')} />
         <MetricCard
           title={t('admin.casinoStats.activeSessions')}
-          value={fmtTr(palace.activeSessionCount)}
-          subtitle={palace.stuckSessionCount > 0 ? `⚠️ ${t('admin.casinoStats.stuckCount', { count: palace.stuckSessionCount })}` : t('admin.casinoStats.noIssues')}
+          value={igames.activeSessionCount == null ? '—' : fmt.formatNumber(igames.activeSessionCount)}
+          subtitle={igames.stuckSessionCount > 0 ? t('admin.casinoStats.stuckCount', { count: fmt.formatNumber(igames.stuckSessionCount || 0) }) : t('admin.casinoStats.noIssues')}
         />
         <MetricCard
           title={t('admin.casinoStats.todayGGR')}
-          value={formatCurrency(palace.today.ggr)}
-          subtitle={t('admin.casinoStats.roundsPlayers', { rounds: palace.today.rounds, players: palace.today.uniqueUsers })}
-          color="text-green-400"
+          value={formatCurrency(today.ggr)}
+          subtitle={t('admin.casinoStats.roundsPlayers', { rounds: fmt.formatNumber(today.rounds || 0), players: fmt.formatNumber(today.uniqueUsers || 0) })}
+          color="text-success"
         />
       </div>
-      {palace.stuckSessionCount > 0 && (
-        <div className="text-xs px-3 py-2 rounded-lg flex items-center gap-2 bg-amber-500/10 border border-amber-500/30 text-amber-400">
-          <span>⚠️</span>
-          <span>{t('admin.casinoStats.stuckSessionsHint', { count: palace.stuckSessionCount })}</span>
+      {igames.stuckSessionCount > 0 && (
+        <div className="flex items-center gap-2 rounded-xl border border-warning/25 bg-warning/10 px-3 py-2 text-xs text-warning">
+          <span className="material-symbols-outlined !text-[16px]" aria-hidden="true">warning</span>
+          <span>{t('admin.casinoStats.stuckSessionsHint', { count: fmt.formatNumber(igames.stuckSessionCount || 0) })}</span>
         </div>
       )}
     </div>
@@ -186,23 +263,28 @@ function PalaceLiveStatus() {
 
 function TopSpendingUsers() {
   const { t } = useTranslation();
-  const [users, setUsers] = useState(null);
-  useEffect(() => { api.get('/admin/casino/stats').then(r => setUsers(r.data?.topUsers || [])).catch(() => setUsers([])); }, []);
-  if (!users) return <div className="text-center text-text-3 text-sm py-8">{t('common.loading')}</div>;
+  const fmt = useFormatters();
+  const { data: users, error, loading } = useApiData('/admin/casino/stats');
+  if (loading) return <LoadingState />;
+  if (error) return <ErrorState />;
+  const rows = Array.isArray(users?.topUsers) ? users.topUsers : [];
 
   return (
     <div className="bg-bg-card border border-white/10 rounded-xl p-4">
-      <h4 className="text-sm font-semibold text-text-1 mb-3">{t('admin.casinoStats.topSpendingUsers')}</h4>
-      {users.length === 0 ? (
-        <div className="text-center text-text-3 text-sm py-4">{t('admin.casinoStats.noDataYet')}</div>
+      <PanelTitle icon="leaderboard">{t('admin.casinoStats.topSpendingUsers')}</PanelTitle>
+      {rows.length === 0 ? (
+        <div className="rounded-xl border border-white/10 bg-bg-card px-4 py-12 text-center">
+          <span className="material-symbols-outlined !text-[32px] text-text-3/60" aria-hidden="true">person_off</span>
+          <div className="mt-2 text-sm text-text-3">{t('admin.casinoStats.noDataYet')}</div>
+        </div>
       ) : (
         <div className="space-y-2">
-          {users.map((u, i) => (
+          {rows.map((u, i) => (
             <div key={String(u._id)} className="flex items-center gap-3 bg-bg-hover rounded-lg p-2.5">
               <span className="text-xs text-text-3 w-5 shrink-0">#{i + 1}</span>
               <div className="flex-1 min-w-0">
                 <div className="text-sm text-text-1 font-medium truncate">{u.user?.username || t('admin.casinoStats.unknown')}</div>
-                <div className="text-[10px] text-text-3">{t('admin.casinoStats.roundsCount', { count: u.rounds })}</div>
+                <div className="text-[10px] text-text-3">{t('admin.casinoStats.roundsCount', { count: fmt.formatNumber(u.rounds || 0) })}</div>
               </div>
               <div className="text-right shrink-0">
                 <div className="text-sm font-bold text-primary">{formatCurrency(u.totalBet)}</div>
@@ -217,30 +299,35 @@ function TopSpendingUsers() {
 }
 
 function CasinoTab() {
-  const { t } = useTranslation();
-  const [data, setData] = useState(null);
-  useEffect(() => { api.get('/admin/analytics/casino?days=30').then(r => setData(r.data)).catch(() => {}); }, []);
-  if (!data) return <div className="text-center text-text-3 py-12 text-sm">{t('common.loading')}</div>;
+  const { t, locale } = useTranslation();
+  const fmt = useFormatters();
+  const { data, error, loading } = useApiData('/admin/analytics/casino?days=30');
+  if (loading) return <LoadingState />;
+  if (error || !data) return <ErrorState />;
 
-  const topGames = data.perGame?.slice(0, 10) || [];
+  const perGame = data.perGame || [];
+  const providerStats = data.providerStats || [];
+  const dailyTrend = data.dailyTrend || [];
+  const topGames = perGame.slice(0, 10);
 
   return (
     <div className="space-y-6">
-      <PalaceLiveStatus />
+      <PanelTitle icon="casino">{t('admin.analytics.tabCasino')}</PanelTitle>
+      <IgamesLiveStatus />
 
-      <div className="grid grid-cols-3 gap-3">
-        <MetricCard title={t('admin.analytics.totalRounds')} value={formatNumber(data.perGame?.reduce((s, g) => s + g.rounds, 0) || 0)} color="text-amber-400" />
-        <MetricCard title={t('admin.analytics.totalBets')} value={formatCurrency(data.perGame?.reduce((s, g) => s + g.totalBet, 0) || 0)} color="text-blue-400" />
-        <MetricCard title={t('admin.analytics.totalGGR')} value={formatCurrency(data.perGame?.reduce((s, g) => s + g.ggr, 0) || 0)} color="text-green-400" />
+      <div className="grid grid-cols-2 gap-3 xl:grid-cols-3">
+        <MetricCard title={t('admin.analytics.totalRounds')} value={formatNumber(perGame.reduce((s, g) => s + (g.rounds || 0), 0), locale)} color="text-warning" />
+        <MetricCard title={t('admin.analytics.totalBets')} value={formatCurrency(perGame.reduce((s, g) => s + (g.totalBet || 0), 0))} color="text-primary" />
+        <MetricCard title={t('admin.analytics.totalGGR')} value={formatCurrency(perGame.reduce((s, g) => s + (g.ggr || 0), 0))} color="text-success" />
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
         <div className="bg-bg-card border border-white/10 rounded-xl p-4">
-          <h4 className="text-sm font-semibold text-text-1 mb-3">{t('admin.analytics.top10Games')}</h4>
+          <PanelTitle icon="sports_esports">{t('admin.analytics.top10Games')}</PanelTitle>
           <ResponsiveContainer width="100%" height={300}>
             <BarChart data={topGames} layout="vertical">
               <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.05)" />
-              <XAxis type="number" tick={{ fill: '#888', fontSize: 10 }} tickFormatter={v => `${getActiveCurrency().symbol}${v.toFixed(0)}`} />
+              <XAxis type="number" tick={{ fill: '#888', fontSize: 10 }} tickFormatter={v => formatMoney(v)} />
               <YAxis type="category" dataKey="gameTitle" tick={{ fill: '#888', fontSize: 9 }} width={100} />
               <Tooltip content={<CustomTooltip />} />
               <Bar dataKey="ggr" name={`GGR (${getActiveCurrency().symbol})`} radius={[0, 4, 4, 0]}>
@@ -251,11 +338,11 @@ function CasinoTab() {
         </div>
 
         <div className="bg-bg-card border border-white/10 rounded-xl p-4">
-          <h4 className="text-sm font-semibold text-text-1 mb-3">{t('admin.analytics.providerDistribution')}</h4>
+          <PanelTitle icon="hub">{t('admin.analytics.providerDistribution')}</PanelTitle>
           <ResponsiveContainer width="100%" height={300}>
             <PieChart>
-              <Pie data={data.providerStats} dataKey="ggr" nameKey="_id" cx="50%" cy="50%" outerRadius={90} label={({ _id, ggr }) => `${_id} ${formatMoney(ggr || 0)}`}>
-                {data.providerStats.map((_, i) => <Cell key={i} fill={PIE_COLORS[i % PIE_COLORS.length]} />)}
+              <Pie data={providerStats} dataKey="ggr" nameKey="_id" cx="50%" cy="50%" outerRadius={90} label={({ _id, ggr }) => `${_id} ${formatMoney(ggr || 0)}`}>
+                {providerStats.map((_, i) => <Cell key={i} fill={PIE_COLORS[i % PIE_COLORS.length]} />)}
               </Pie>
               <Tooltip />
             </PieChart>
@@ -264,19 +351,19 @@ function CasinoTab() {
       </div>
 
       <div className="bg-bg-card border border-white/10 rounded-xl p-4">
-        <h4 className="text-sm font-semibold text-text-1 mb-3">{t('admin.analytics.dailyCasinoVolume30d')}</h4>
+        <PanelTitle icon="show_chart">{t('admin.analytics.dailyCasinoVolume30d')}</PanelTitle>
         <ResponsiveContainer width="100%" height={220}>
-          <AreaChart data={data.dailyTrend}>
+          <AreaChart data={dailyTrend}>
             <defs>
               <linearGradient id="casinoBet" x1="0" y1="0" x2="0" y2="1"><stop offset="5%" stopColor="#f59e0b" stopOpacity={0.3}/><stop offset="95%" stopColor="#f59e0b" stopOpacity={0}/></linearGradient>
               <linearGradient id="casinoGgr" x1="0" y1="0" x2="0" y2="1"><stop offset="5%" stopColor="#10b981" stopOpacity={0.3}/><stop offset="95%" stopColor="#10b981" stopOpacity={0}/></linearGradient>
             </defs>
             <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.05)" />
             <XAxis dataKey="_id" tick={{ fill: '#888', fontSize: 10 }} />
-            <YAxis tick={{ fill: '#888', fontSize: 10 }} tickFormatter={v => `${getActiveCurrency().symbol}${(v / 1000).toFixed(0)}B`} />
+            <YAxis tick={{ fill: '#888', fontSize: 10 }} tickFormatter={v => formatMoney(v)} />
             <Tooltip content={<CustomTooltip />} />
             <Legend />
-            <Area type="monotone" dataKey="bet" name={`Bahis (${getActiveCurrency().symbol})`} stroke="#f59e0b" fill="url(#casinoBet)" strokeWidth={2} />
+            <Area type="monotone" dataKey="bet" name={`${t('admin.analytics.colBet')} (${getActiveCurrency().symbol})`} stroke="#f59e0b" fill="url(#casinoBet)" strokeWidth={2} />
             <Area type="monotone" dataKey="ggr" name={`GGR (${getActiveCurrency().symbol})`} stroke="#10b981" fill="url(#casinoGgr)" strokeWidth={2} />
           </AreaChart>
         </ResponsiveContainer>
@@ -285,32 +372,37 @@ function CasinoTab() {
       <TopSpendingUsers />
 
       <div className="bg-bg-card border border-white/10 rounded-xl overflow-hidden">
-        <h4 className="text-sm font-semibold text-text-1 p-4 border-b border-white/10">{t('admin.analytics.gameDetailTable')}</h4>
+        <div className="flex items-center gap-2 border-b border-white/10 p-4">
+            <span className="grid h-7 w-7 shrink-0 place-items-center rounded-lg bg-primary/10 text-primary">
+              <span className="material-symbols-outlined !text-[16px]" aria-hidden="true">table_chart</span>
+            </span>
+             <h3 className="min-w-0 truncate text-sm font-extrabold text-text-1">{t('admin.analytics.gameDetailTable')}</h3>
+          </div>
         <div className="overflow-x-auto">
           <table className="w-full text-xs">
             <thead>
               <tr className="text-text-3 border-b border-white/10">
-                <th className="text-left p-3 font-medium">{t('admin.analytics.colGame')}</th>
-                <th className="text-left p-3 font-medium hidden sm:table-cell">{t('admin.analytics.colProvider')}</th>
-                <th className="text-right p-3 font-medium">Round</th>
-                <th className="text-right p-3 font-medium">{t('admin.analytics.colBet')}</th>
-                <th className="text-right p-3 font-medium">{t('admin.analytics.colPayout')}</th>
-                <th className="text-right p-3 font-medium">GGR</th>
-                <th className="text-right p-3 font-medium">RTP</th>
-                <th className="text-right p-3 font-medium hidden md:table-cell">{t('admin.analytics.colPlayer')}</th>
+                <th className="p-3 text-left text-[11px] font-bold uppercase tracking-[0.07em]">{t('admin.analytics.colGame')}</th>
+                <th className="hidden p-3 text-left text-[11px] font-bold uppercase tracking-[0.07em] sm:table-cell">{t('admin.analytics.colProvider')}</th>
+                <th className="p-3 text-right text-[11px] font-bold uppercase tracking-[0.07em]">{t('admin.analytics.colRound')}</th>
+                <th className="p-3 text-right text-[11px] font-bold uppercase tracking-[0.07em]">{t('admin.analytics.colBet')}</th>
+                <th className="p-3 text-right text-[11px] font-bold uppercase tracking-[0.07em]">{t('admin.analytics.colPayout')}</th>
+                <th className="p-3 text-right text-[11px] font-bold uppercase tracking-[0.07em]">GGR</th>
+                <th className="p-3 text-right text-[11px] font-bold uppercase tracking-[0.07em]">RTP</th>
+                <th className="hidden p-3 text-right text-[11px] font-bold uppercase tracking-[0.07em] md:table-cell">{t('admin.analytics.colPlayer')}</th>
               </tr>
             </thead>
             <tbody>
-              {data.perGame?.map(g => (
+              {perGame.map(g => (
                 <tr key={g._id} className="border-b border-white/5 hover:bg-bg-hover transition">
                   <td className="p-3 text-text-1 font-medium">{g.gameTitle || g._id}</td>
                   <td className="p-3 text-text-3 hidden sm:table-cell">{g.provider || '-'}</td>
-                  <td className="p-3 text-right text-text-2">{formatNumber(g.rounds)}</td>
+                  <td className="p-3 text-right text-text-2">{formatNumber(g.rounds, locale)}</td>
                   <td className="p-3 text-right text-text-2">{formatCurrency(g.totalBet)}</td>
                   <td className="p-3 text-right text-text-2">{formatCurrency(g.totalPayout)}</td>
                   <td className={`p-3 text-right font-semibold ${g.ggr >= 0 ? 'text-success' : 'text-danger'}`}>{formatCurrency(g.ggr)}</td>
-                  <td className={`p-3 text-right ${g.rtp > 100 ? 'text-danger' : 'text-text-2'}`}>{g.rtp?.toFixed(1)}%</td>
-                  <td className="p-3 text-right text-text-3 hidden md:table-cell">{g.uniquePlayerCount}</td>
+                  <td className={`p-3 text-right ${g.rtp > 100 ? 'text-danger' : 'text-text-2'}`}>{g.rtp != null ? fmt.formatPercent(g.rtp / 100) : '—'}</td>
+                  <td className="p-3 text-right text-text-3 hidden md:table-cell">{formatNumber(g.uniquePlayerCount, locale)}</td>
                 </tr>
               ))}
             </tbody>
@@ -323,16 +415,18 @@ function CasinoTab() {
 
 function FinanceTab() {
   const { t } = useTranslation();
-  const [data, setData] = useState(null);
-  useEffect(() => { api.get('/admin/analytics/finance?days=30').then(r => setData(r.data)).catch(() => {}); }, []);
-  if (!data) return <div className="text-center text-text-3 py-12 text-sm">{t('common.loading')}</div>;
+  const fmt = useFormatters();
+  const { data, error, loading } = useApiData('/admin/analytics/finance?days=30');
+  if (loading) return <LoadingState />;
+  if (error || !data) return <ErrorState />;
 
   const processedDaily = [];
   const dateMap = {};
-  data.dailyFlow?.forEach(d => {
+  (data.dailyFlow || []).forEach(d => {
+    if (!d?._id?.date) return;
     const date = d._id.date;
     if (!dateMap[date]) dateMap[date] = { date };
-    dateMap[date][d._id.type] = Math.abs(d.total);
+    dateMap[date][d._id.type] = Math.abs(d.total || 0);
   });
   Object.keys(dateMap).sort().forEach(d => processedDaily.push(dateMap[d]));
 
@@ -343,23 +437,35 @@ function FinanceTab() {
     refund: t('admin.analytics.typeLabel.refund'), admin_adjustment: t('admin.analytics.typeLabel.adminAdjustment'),
   };
 
+  // Not: bankOnlyDeposit'i typeBreakdown'daki toplam 'deposit'ten Slikair'i
+  // ÇIKARARAK türetmiyoruz — iki aggregation farklı eşleşme koşulları
+  // kullanıyor (typeBreakdown tüm zamanlar, depositProviderBreakdown günlük
+  // pencereyle hizalı), aradaki fark kayarsa Math.max(0,...) sessizce yanlış
+  // bir rakama yuvarlardı. depositProviderBreakdown zaten 'bank' bucket'ını
+  // aynı aggregation'da doğrudan üretiyor (analytics.js:268), onu kullan.
+  const typeBreakdown = data.typeBreakdown || [];
+  const bankOnlyDeposit = data.depositProviderBreakdown?.find(x => x._id === 'bank')?.total || 0;
+  const slikairDepositTotal = data.depositProviderBreakdown?.find(x => x._id === 'slikair')?.total || 0;
+
   return (
     <div className="space-y-6">
-      <div className="grid grid-cols-4 gap-3">
-        <MetricCard title={t('admin.analytics.bankDeposit')} value={formatCurrency(data.typeBreakdown?.find(t => t._id === 'deposit')?.total || 0)} color="text-emerald-400" />
-        <MetricCard title={t('admin.analytics.bankWithdraw')} value={formatCurrency(data.typeBreakdown?.find(t => t._id === 'withdraw')?.total || 0)} color="text-red-400" />
-        <MetricCard title={t('admin.analytics.cryptoDeposit')} value={formatCurrency(data.typeBreakdown?.find(t => t._id === 'crypto_deposit')?.total || 0)} color="text-amber-400" />
-        <MetricCard title={t('admin.analytics.cryptoWithdraw')} value={formatCurrency(data.typeBreakdown?.find(t => t._id === 'crypto_withdraw')?.total || 0)} color="text-orange-400" />
+      <PanelTitle icon="payments">{t('admin.analytics.tabFinance')}</PanelTitle>
+      <div className="grid grid-cols-2 gap-3 xl:grid-cols-5">
+        <MetricCard title={t('admin.analytics.bankDeposit')} value={formatCurrency(bankOnlyDeposit)} color="text-success" />
+        <MetricCard title={t('admin.analytics.slikairDeposit')} value={formatCurrency(slikairDepositTotal)} color="text-success" />
+        <MetricCard title={t('admin.analytics.bankWithdraw')} value={formatCurrency(typeBreakdown.find(x => x._id === 'withdraw')?.total || 0)} color="text-danger" />
+        <MetricCard title={t('admin.analytics.cryptoDeposit')} value={formatCurrency(typeBreakdown.find(x => x._id === 'crypto_deposit')?.total || 0)} color="text-warning" />
+        <MetricCard title={t('admin.analytics.cryptoWithdraw')} value={formatCurrency(typeBreakdown.find(x => x._id === 'crypto_withdraw')?.total || 0)} color="text-warning" />
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
         <div className="bg-bg-card border border-white/10 rounded-xl p-4">
-          <h4 className="text-sm font-semibold text-text-1 mb-3">{t('admin.analytics.dailyMoneyFlow30d')}</h4>
+          <PanelTitle icon="account_balance">{t('admin.analytics.dailyMoneyFlow30d')}</PanelTitle>
           <ResponsiveContainer width="100%" height={260}>
             <LineChart data={processedDaily}>
               <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.05)" />
               <XAxis dataKey="date" tick={{ fill: '#888', fontSize: 9 }} />
-              <YAxis tick={{ fill: '#888', fontSize: 10 }} tickFormatter={v => `${getActiveCurrency().symbol}${(v / 1000).toFixed(0)}B`} />
+              <YAxis tick={{ fill: '#888', fontSize: 10 }} tickFormatter={v => formatMoney(v)} />
               <Tooltip content={<CustomTooltip />} />
               <Legend />
               <Line type="monotone" dataKey="deposit" name={t('admin.analytics.typeLabel.deposit')} stroke="#10b981" strokeWidth={2} dot={false} />
@@ -371,11 +477,11 @@ function FinanceTab() {
         </div>
 
         <div className="bg-bg-card border border-white/10 rounded-xl p-4">
-          <h4 className="text-sm font-semibold text-text-1 mb-3">{t('admin.analytics.transactionTypeDistribution')}</h4>
+          <PanelTitle icon="donut_small">{t('admin.analytics.transactionTypeDistribution')}</PanelTitle>
           <ResponsiveContainer width="100%" height={260}>
             <PieChart>
-              <Pie data={data.typeBreakdown?.filter(t => !['bet', 'win', 'refund'].includes(t._id))} dataKey="total" nameKey="_id" cx="50%" cy="50%" outerRadius={90} label={({ _id, total }) => `${typeLabels[_id] || _id} ${formatCurrency(total)}`}>
-                {data.typeBreakdown?.map((_, i) => <Cell key={i} fill={PIE_COLORS[i % PIE_COLORS.length]} />)}
+              <Pie data={typeBreakdown.filter(item => !['bet', 'win', 'refund'].includes(item._id))} dataKey="total" nameKey="_id" cx="50%" cy="50%" outerRadius={90} label={({ _id, total }) => `${typeLabels[_id] || _id} ${formatCurrency(total)}`}>
+                {typeBreakdown.map((_, i) => <Cell key={i} fill={PIE_COLORS[i % PIE_COLORS.length]} />)}
               </Pie>
               <Tooltip />
             </PieChart>
@@ -384,9 +490,9 @@ function FinanceTab() {
       </div>
 
       {data.pendingWithdrawCount > 0 && (
-        <div className="bg-amber-500/10 border border-amber-500/30 rounded-xl p-4 text-center">
-          <div className="text-lg font-bold text-amber-400">{formatCurrency(data.pendingWithdrawTotal)}</div>
-          <div className="text-xs text-amber-300">{t('admin.analytics.pendingWithdrawRequest', { count: data.pendingWithdrawCount })}</div>
+        <div className="rounded-xl border border-warning/25 bg-warning/10 px-4 py-4 text-center">
+          <div className="font-mono text-lg font-bold tabular-nums text-warning">{formatCurrency(data.pendingWithdrawTotal)}</div>
+          <div className="mt-1 text-xs text-text-2">{t('admin.analytics.pendingWithdrawRequest', { count: fmt.formatNumber(data.pendingWithdrawCount || 0) })}</div>
         </div>
       )}
     </div>
@@ -394,38 +500,43 @@ function FinanceTab() {
 }
 
 function SportsTab() {
-  const { t } = useTranslation();
-  const [data, setData] = useState(null);
-  useEffect(() => { api.get('/admin/analytics/sports?days=30').then(r => setData(r.data)).catch(() => {}); }, []);
-  if (!data) return <div className="text-center text-text-3 py-12 text-sm">{t('common.loading')}</div>;
+  const { t, locale } = useTranslation();
+  const fmt = useFormatters();
+  const { data, error, loading } = useApiData('/admin/analytics/sports?days=30');
+  if (loading) return <LoadingState />;
+  if (error || !data) return <ErrorState />;
 
-  const winRate = data.winRate;
-  const winPct = winRate.won + winRate.lost > 0 ? ((winRate.won / (winRate.won + winRate.lost)) * 100).toFixed(1) : '0';
+  const dailyBets = data.dailyBets || [];
+  const popularSports = data.popularSports || [];
+  const averageStake = data.averageStake || [];
+  const winRate = data.winRate || { won: 0, lost: 0, wonAmount: 0, totalStake: 0 };
+  const winPct = winRate.won + winRate.lost > 0 ? (winRate.won / (winRate.won + winRate.lost)) * 100 : 0;
   const pieData = [
-    { name: t('admin.analytics.won'), value: winRate.won },
-    { name: t('admin.analytics.lost'), value: winRate.lost },
+    { name: t('admin.analytics.won'), value: winRate.won || 0 },
+    { name: t('admin.analytics.lost'), value: winRate.lost || 0 },
   ];
 
   return (
     <div className="space-y-6">
-      <div className="grid grid-cols-4 gap-3">
-        <MetricCard title={t('admin.analytics.totalBets')} value={formatNumber(data.dailyBets?.reduce((s, d) => s + d.count, 0) || 0)} subtitle={t('admin.analytics.days30')} color="text-blue-400" />
-        <MetricCard title={t('admin.analytics.totalVolume')} value={formatCurrency(data.dailyBets?.reduce((s, d) => s + d.totalStake, 0) || 0)} color="text-purple-400" />
-        <MetricCard title={t('admin.analytics.winRate')} value={`%${winPct}`} subtitle={t('admin.analytics.wonVsLost', { won: winRate.won, lost: winRate.lost })} color="text-green-400" />
+      <PanelTitle icon="sports_soccer">{t('admin.analytics.tabSports')}</PanelTitle>
+      <div className="grid grid-cols-2 gap-3 xl:grid-cols-4">
+        <MetricCard title={t('admin.analytics.totalBets')} value={formatNumber(dailyBets.reduce((s, d) => s + (d.count || 0), 0), locale)} subtitle={t('admin.analytics.days30')} color="text-primary" />
+        <MetricCard title={t('admin.analytics.totalVolume')} value={formatCurrency(dailyBets.reduce((s, d) => s + (d.totalStake || 0), 0))} color="text-primary" />
+        <MetricCard title={t('admin.analytics.winRate')} value={fmt.formatPercent(winPct / 100)} subtitle={t('admin.analytics.wonVsLost', { won: fmt.formatNumber(winRate.won || 0), lost: fmt.formatNumber(winRate.lost || 0) })} color="text-success" />
         <MetricCard title={t('admin.analytics.netWin')} value={formatCurrency(winRate.wonAmount - winRate.totalStake)} subtitle={t('admin.analytics.perPlayer')} color={winRate.wonAmount >= winRate.totalStake ? 'text-danger' : 'text-success'} />
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
         <div className="bg-bg-card border border-white/10 rounded-xl p-4">
-          <h4 className="text-sm font-semibold text-text-1 mb-3">{t('admin.analytics.dailyBetVolume30d')}</h4>
+          <PanelTitle icon="show_chart">{t('admin.analytics.dailyBetVolume30d')}</PanelTitle>
           <ResponsiveContainer width="100%" height={240}>
-            <AreaChart data={data.dailyBets}>
+            <AreaChart data={dailyBets}>
               <defs>
                 <linearGradient id="betGrad" x1="0" y1="0" x2="0" y2="1"><stop offset="5%" stopColor="#3b82f6" stopOpacity={0.3}/><stop offset="95%" stopColor="#3b82f6" stopOpacity={0}/></linearGradient>
               </defs>
               <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.05)" />
               <XAxis dataKey="_id" tick={{ fill: '#888', fontSize: 10 }} />
-              <YAxis yAxisId="left" tick={{ fill: '#888', fontSize: 10 }} tickFormatter={v => `${getActiveCurrency().symbol}${(v / 1000).toFixed(0)}B`} />
+              <YAxis yAxisId="left" tick={{ fill: '#888', fontSize: 10 }} tickFormatter={v => formatMoney(v)} />
               <YAxis yAxisId="right" orientation="right" tick={{ fill: '#888', fontSize: 10 }} />
               <Tooltip content={<CustomTooltip />} />
               <Legend />
@@ -436,10 +547,10 @@ function SportsTab() {
         </div>
 
         <div className="bg-bg-card border border-white/10 rounded-xl p-4">
-          <h4 className="text-sm font-semibold text-text-1 mb-3">{t('admin.analytics.winLossRatio')}</h4>
+          <PanelTitle icon="donut_small">{t('admin.analytics.winLossRatio')}</PanelTitle>
           <ResponsiveContainer width="100%" height={240}>
             <PieChart>
-              <Pie data={pieData} dataKey="value" nameKey="name" cx="50%" cy="50%" outerRadius={90} innerRadius={45} label={({ name, value }) => `${name}: ${value}`}>
+              <Pie data={pieData} dataKey="value" nameKey="name" cx="50%" cy="50%" outerRadius={90} innerRadius={45} label={({ name, value }) => `${name}: ${fmt.formatNumber(value)}`}>
                 <Cell fill="#10b981" />
                 <Cell fill="#ef4444" />
               </Pie>
@@ -451,27 +562,27 @@ function SportsTab() {
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
         <div className="bg-bg-card border border-white/10 rounded-xl p-4">
-          <h4 className="text-sm font-semibold text-text-1 mb-3">{t('admin.analytics.popularSports')}</h4>
+          <PanelTitle icon="sports">{t('admin.analytics.popularSports')}</PanelTitle>
           <ResponsiveContainer width="100%" height={280}>
-            <BarChart data={data.popularSports} layout="vertical">
+            <BarChart data={popularSports} layout="vertical">
               <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.05)" />
               <XAxis type="number" tick={{ fill: '#888', fontSize: 10 }} />
               <YAxis type="category" dataKey="_id" tick={{ fill: '#888', fontSize: 10 }} width={80} />
               <Tooltip content={<CustomTooltip />} />
               <Bar dataKey="count" name={t('admin.analytics.betCount')} radius={[0, 4, 4, 0]}>
-                {data.popularSports.map((_, i) => <Cell key={i} fill={CHART_COLORS[i % CHART_COLORS.length]} />)}
+                {popularSports.map((_, i) => <Cell key={i} fill={CHART_COLORS[i % CHART_COLORS.length]} />)}
               </Bar>
             </BarChart>
           </ResponsiveContainer>
         </div>
 
         <div className="bg-bg-card border border-white/10 rounded-xl p-4">
-          <h4 className="text-sm font-semibold text-text-1 mb-3">{t('admin.analytics.avgBetAmount30d')}</h4>
+          <PanelTitle icon="query_stats">{t('admin.analytics.avgBetAmount30d')}</PanelTitle>
           <ResponsiveContainer width="100%" height={280}>
-            <LineChart data={data.averageStake}>
+            <LineChart data={averageStake}>
               <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.05)" />
               <XAxis dataKey="_id" tick={{ fill: '#888', fontSize: 10 }} />
-              <YAxis tick={{ fill: '#888', fontSize: 10 }} tickFormatter={v => `${getActiveCurrency().symbol}${v.toFixed(0)}`} domain={['dataMin - 10', 'dataMax + 10']} />
+              <YAxis tick={{ fill: '#888', fontSize: 10 }} tickFormatter={v => formatMoney(v)} domain={['dataMin - 10', 'dataMax + 10']} />
               <Tooltip content={<CustomTooltip />} />
               <Line type="monotone" dataKey="avgStake" name={t('admin.analytics.avgBet', { symbol: getActiveCurrency().symbol })} stroke="#ec4899" strokeWidth={2} dot={false} />
             </LineChart>
@@ -480,21 +591,21 @@ function SportsTab() {
       </div>
 
       <div className="bg-bg-card border border-white/10 rounded-xl p-4">
-        <h4 className="text-sm font-semibold text-text-1 mb-3">{t('admin.analytics.popularLeaguesSports')}</h4>
+        <PanelTitle icon="trophy">{t('admin.analytics.popularLeaguesSports')}</PanelTitle>
         <div className="overflow-x-auto">
           <table className="w-full text-xs">
             <thead>
               <tr className="text-text-3 border-b border-white/10">
-                <th className="text-left p-3 font-medium">{t('admin.analytics.colLeagueSport')}</th>
-                <th className="text-right p-3 font-medium">{t('admin.analytics.betCount')}</th>
-                <th className="text-right p-3 font-medium">{t('admin.analytics.totalVolume')}</th>
+                <th className="p-3 text-left text-[11px] font-bold uppercase tracking-[0.07em]">{t('admin.analytics.colLeagueSport')}</th>
+                <th className="p-3 text-right text-[11px] font-bold uppercase tracking-[0.07em]">{t('admin.analytics.betCount')}</th>
+                <th className="p-3 text-right text-[11px] font-bold uppercase tracking-[0.07em]">{t('admin.analytics.totalVolume')}</th>
               </tr>
             </thead>
             <tbody>
-              {data.popularSports?.map(s => (
+              {popularSports.map(s => (
                 <tr key={s._id} className="border-b border-white/5 hover:bg-bg-hover transition">
                   <td className="p-3 text-text-1 font-medium">{s._id}</td>
-                  <td className="p-3 text-right text-text-2">{formatNumber(s.count)}</td>
+                  <td className="p-3 text-right text-text-2">{formatNumber(s.count, locale)}</td>
                   <td className="p-3 text-right text-text-2">{formatCurrency(s.totalStake)}</td>
                 </tr>
               ))}
@@ -519,38 +630,33 @@ export default function AdminAnalytics() {
   const [activeTab, setActiveTab] = useState('overview');
 
   const TABS = [
-    { key: 'overview', label: `📊 ${t('admin.analytics.tabOverview')}` },
-    { key: 'users',    label: `👥 ${t('admin.analytics.tabUsers')}` },
-    { key: 'casino',   label: `🎰 ${t('admin.analytics.tabCasino')}` },
-    { key: 'finance',  label: `💰 ${t('admin.analytics.tabFinance')}` },
-    { key: 'sports',   label: `⚽ ${t('admin.analytics.tabSports')}` },
+    { key: 'overview', icon: 'monitoring', label: t('admin.analytics.tabOverview') },
+    { key: 'users',    icon: 'group', label: t('admin.analytics.tabUsers') },
+    { key: 'casino',   icon: 'casino', label: t('admin.analytics.tabCasino') },
+    { key: 'finance',  icon: 'payments', label: t('admin.analytics.tabFinance') },
+    { key: 'sports',   icon: 'sports_soccer', label: t('admin.analytics.tabSports') },
   ];
 
   const TabComponent = TAB_COMPONENTS[activeTab];
 
   return (
-    <div className="max-w-7xl mx-auto px-4 py-6">
-      <div className="flex items-center justify-between mb-6">
-        <h1 className="text-xl font-bold text-text-1">📈 {t('admin.analytics.title')}</h1>
-        {activeTab === 'casino' && (
-          <Link
-            to="/admin/palace"
-            className="px-3 py-1.5 rounded-lg text-xs font-bold text-black"
-            style={{ background: 'linear-gradient(90deg, #00d4ff, #7c3aed)' }}
-          >
-            🎰 {t('admin.casinoStats.palaceManagement')}
+    <div className="mx-auto w-full max-w-[1400px] px-4 py-5 sm:px-6">
+      <AdminPageHeader
+        crumbs={[{ label: t('admin.nav.groupOverview') }, { label: t('admin.analytics.title') }]}
+        title={t('admin.analytics.title')}
+        actions={activeTab === 'casino' ? (
+          <Link to="/admin/igames" className={ADMIN_BTN_PRIMARY}>
+            <span className="material-symbols-outlined !text-[16px]" aria-hidden="true">casino</span>
+            {t('admin.casinoStats.igamesManagement')}
           </Link>
-        )}
-      </div>
-
-      <div className="flex gap-1 bg-bg-card border border-white/10 rounded-lg p-1 mb-6 overflow-x-auto">
-        {TABS.map(tab => (
-          <button key={tab.key} onClick={() => setActiveTab(tab.key)}
-            className={`px-4 py-2 rounded-md text-sm font-medium transition whitespace-nowrap ${
-              activeTab === tab.key ? 'bg-accent text-white' : 'text-text-3 hover:text-text-1'
-            }`}>{tab.label}</button>
-        ))}
-      </div>
+        ) : null}
+      >
+        <AdminTabs
+          items={TABS}
+          value={activeTab}
+          onChange={key => setActiveTab(key)}
+        />
+      </AdminPageHeader>
 
       <TabComponent />
     </div>

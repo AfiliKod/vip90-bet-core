@@ -49,9 +49,9 @@ function makeEvent(overrides = {}) {
 
 await resetDb();
 
-await test('varsayılan istek: 14 günden uzak upcoming event listede DÖNMEZ', async () => {
+await test('varsayılan istek: 30 günden uzak upcoming event listede DÖNMEZ', async () => {
   const near = new Date(Date.now() + 5 * 24 * 60 * 60 * 1000);
-  const far = new Date(Date.now() + 20 * 24 * 60 * 60 * 1000);
+  const far = new Date(Date.now() + 40 * 24 * 60 * 60 * 1000);
   await Event.create(makeEvent({ startTime: near }));
   await Event.create(makeEvent({ startTime: far }));
 
@@ -59,13 +59,13 @@ await test('varsayılan istek: 14 günden uzak upcoming event listede DÖNMEZ', 
   await eventsCtrl.list(req, res, next);
   const { events } = getResult();
 
-  assert(events.some(e => new Date(e.startTime).getTime() === near.getTime()), '14 gün içindeki event dönmeliydi');
-  assert(!events.some(e => new Date(e.startTime).getTime() === far.getTime()), '14 günden uzak event DÖNMEMELİYDİ');
+  assert(events.some(e => new Date(e.startTime).getTime() === near.getTime()), '30 gün içindeki event dönmeliydi');
+  assert(!events.some(e => new Date(e.startTime).getTime() === far.getTime()), '30 günden uzak event DÖNMEMELİYDİ');
 });
 
 await resetDb();
 
-await test('status=upcoming açık istek: 14 günden uzak event DÖNMEZ (önceden hiç sınır yoktu)', async () => {
+await test('status=upcoming açık istek: 30 günden uzak event DÖNMEZ (önceden hiç sınır yoktu)', async () => {
   const near = new Date(Date.now() + 5 * 24 * 60 * 60 * 1000);
   const far = new Date(Date.now() + 40 * 24 * 60 * 60 * 1000);
   await Event.create(makeEvent({ startTime: near }));
@@ -75,8 +75,8 @@ await test('status=upcoming açık istek: 14 günden uzak event DÖNMEZ (öncede
   await eventsCtrl.list(req, res, next);
   const { events } = getResult();
 
-  assert(events.some(e => new Date(e.startTime).getTime() === near.getTime()), '14 gün içindeki event dönmeliydi');
-  assert(!events.some(e => new Date(e.startTime).getTime() === far.getTime()), '14 günden uzak event DÖNMEMELİYDİ');
+  assert(events.some(e => new Date(e.startTime).getTime() === near.getTime()), '30 gün içindeki event dönmeliydi');
+  assert(!events.some(e => new Date(e.startTime).getTime() === far.getTime()), '30 günden uzak event DÖNMEMELİYDİ');
 });
 
 await resetDb();
@@ -89,7 +89,7 @@ await test('full=1 istekte gelecek penceresi sınırı uygulanmaz (admin muaf)',
   await eventsCtrl.list(req, res, next);
   const { events } = getResult();
 
-  assert(events.some(e => new Date(e.startTime).getTime() === far.getTime()), 'full=1 ile 14 günden uzak event de dönmeliydi');
+  assert(events.some(e => new Date(e.startTime).getTime() === far.getTime()), 'full=1 ile 30 günden uzak event de dönmeliydi');
 });
 
 await resetDb();

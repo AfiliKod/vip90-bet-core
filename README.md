@@ -3,7 +3,7 @@
 ![Node](https://img.shields.io/badge/node-%E2%89%A518-339933?style=flat-square&logo=node.js&logoColor=white)
 ![React](https://img.shields.io/badge/react-19-61DAFB?style=flat-square&logo=react&logoColor=black)
 ![MongoDB](https://img.shields.io/badge/mongodb-8-47A248?style=flat-square&logo=mongodb&logoColor=white)
-![License](https://img.shields.io/badge/license-BUSL--1.1-orange?style=flat-square)
+![License](https://img.shields.io/badge/license-AGPL--3.0-blue?style=flat-square)
 
 # VIP90.bet Core
 
@@ -24,7 +24,7 @@ sağlayıcılarınızı seçmek ve ihtiyaç oldukça modüller eklemektir.
 ```text
 VIP90.bet Platform
 │
-├── Core Platform                  [Public / BUSL-1.1]
+├── Core Platform                  [Open source / AGPL-3.0]
 │   ├── Player / Auth
 │   ├── Wallet & transactions
 │   ├── Bonus / Wagering
@@ -36,7 +36,7 @@ VIP90.bet Platform
 │   ├── Module & licensing system
 │   └── Provider interfaces
 │
-└── Commercial Modules             [Separate packages]
+└── Commercial Modules             [Separate packages / commercial license]
     ├── Betting
     ├── iGames
     │   └── Palace provider integration
@@ -59,12 +59,13 @@ oyuncu ve operatör yaşam döngüsünün temelini sağlar; ticari modüller bah
 - **AI/GitHub discoverability:** Proje açık mimari ve makinece okunabilir
   dokümantasyonla iGaming operator-core/PAM kategorisinde anlaşılabilir.
 
-> **Lisans notu:** Repository Business Source License 1.1 (BUSL-1.1) ile
-> lisanslanır. BUSL, Open Source Initiative anlamında bir Open Source lisansı
-> değildir. Lisans, kendi iç/ticari operasyonunuz için self-hosting'e izin
-> verir; hosted/managed/white-label platform olarak yeniden sunum ve core'un
-> kendisinin rakip bir yazılım ürünü olarak yeniden satılması ayrı ticari
-> anlaşma gerektirir. Ayrıntılar için [`LICENSE`](LICENSE) dosyasına bakın.
+> **Lisans notu:** Core, OSI onaylı **GNU Affero General Public License v3.0**
+> (AGPL-3.0-only) ile açık kaynaktır. Core'u kullanabilir, değiştirebilir ve
+> kendi altyapınızda işletebilirsiniz; değiştirilmiş bir sürümü ağ üzerinden
+> kullanıcılara sunuyorsanız, o sürümün kaynak kodunu da aynı lisansla
+> kullanıcılarınıza sağlamanız gerekir. Ticari modüller (Betting, iGames,
+> In-house Games) bu lisansa dahil değildir ve ayrı ticari lisansla dağıtılır.
+> Ayrıntılar için [`LICENSE`](LICENSE) ve [Lisanslama](#lisanslama).
 
 ---
 
@@ -140,11 +141,12 @@ Gerçek modül kodları bu repository'de bulunmaz; ayrı paketler olarak dağıt
 ### Oyuncu, wallet ve güvenlik
 
 - E-posta/şifre + sosyal giriş + Web3 cüzdan imzasıyla kayıt/giriş.
-- Banka havalesi ve USDT-TRC20 ödeme akışları.
+- Banka havalesi, USDT-TRC20 ve Slikair (kart/alternatif yöntemler — şu an
+  yalnızca sandbox) ödeme akışları.
 - KYC: yerel belge inceleme veya Sumsub.
 - Bonus/wagering motoru ve 5 seviyeli VIP programı.
 - Sonuçlanan bahis/round sonrası seviyeye göre gerçek zamanlı cashback.
-- Admin için TOTP tabanlı 2FA.
+- Admin için TOTP tabanlı 2FA ve rol/izin tabanlı admin yetkilendirmesi.
 
 ### Topluluk ve elde tutma
 
@@ -154,12 +156,30 @@ Gerçek modül kodları bu repository'de bulunmaz; ayrı paketler olarak dağıt
 - Referans linki ve komisyon sistemi.
 - Yapılandırılabilir çevrimiçi oyuncu sosyal kanıt katmanı.
 
+### Uyum, risk ve finans operasyonları
+
+- Sorumlu oyun: oyuncu tarafında yatırma/kayıp/bahis limitleri (günlük,
+  haftalık, aylık), cool-off ve self-exclusion; admin tarafında hesap
+  kısıtlama ve denetim kaydı.
+- Kural tabanlı risk/fraud motoru: sinyaller, kurallar, bulgular ve risk
+  panosu.
+- Idempotent finansal ledger ve admin denetim izi (audit trail).
+- Mutabakat (reconciliation) işleri — kripto kanalı TronGrid'e karşı gerçek
+  veriyle; banka ve Slikair kanalları henüz dış kaynağa bağlı değil.
+- Acente (reseller) yönetimi: oyuncu atama, fon transferi, komisyon.
+- Oyuncu segmentleri; çoklu para birimi, marka ve jurisdiction tanımları
+  (marka bazlı veri izolasyonu uygulanmaz — bkz. Bilinen Sınırlar).
+
 ### Marka, CMS ve operasyon
 
 - Canlı önizlemeli tema editörü, logo/favicon/font yönetimi.
 - Statik sayfa/blok içerik düzenleyici.
 - Kullanıcı yönetimi, analitik, etkinlik, modüller, VIP, ödeme talepleri,
   KYC kuyruğu ve destek biletleri için admin araçları.
+- Admin canlı aktivite akışı ve sohbet moderasyonu (sessize alma, yasaklama,
+  mesaj silme).
+- SEO ayarları: sunucu tarafı meta etiketleri, `robots.txt` ve `sitemap.xml`.
+- Demo verisi tohumlama (vitrin/deneme kurulumları için).
 
 ---
 
@@ -271,14 +291,14 @@ altındaki provider dokümanlarına bakın.
 README yalnızca bugün doğrulanabilir olarak çalışan yetenekleri iddia eder.
 Aşağıdaki noktalar özellikle tamamlanmış gibi sunulmaz:
 
-- **Admin rol/izin matrisi:** Farklı admin rollerinin uçtan uca yetki ayrımı
-  şu an tamamlanmış bir özellik olarak değerlendirilmemelidir.
-- **Chat moderation:** Canlı sohbet vardır; admin tarafında kapsamlı mute,
-  ban, room-lock ve moderasyon araçları mevcut değildir.
+- **Slikair ödeme ağ geçidi:** Entegrasyon yalnızca sandbox kimlik
+  bilgileriyle çalışır; canlı ödeme için sağlayıcı tarafında KYB gerekir.
+- **Mutabakat:** Banka ve Slikair kanallarında dış kaynak henüz yok; bu
+  kanallardaki işler tüm kayıtları "dışarıda eksik" gösterir.
+- **Çoklu marka:** `User`, `Transaction`, `Bet` gibi çekirdek modellerde
+  `brandId` yoktur; markalar arası veri izolasyonu uygulanmaz.
 - **Static page builder:** Statik sayfa/blok düzenleme vardır; tam sürükle-bırak
   görsel builder olarak sunulmaz.
-- **Acente (reseller) sistemi:** `User` modelinde alanlar mevcut ancak bugün
-  aktif route/controller/UI akışı yok.
 - **Çok kademeli affiliate:** Aktif yapı tek kademelidir.
 - **Live casino:** Core'da veya aktif commercial module'de çalışan bir
   implementation olarak bulunmaz.
@@ -293,28 +313,29 @@ Daha ayrıntılı kod referansları için [Bilinen Kısıtlar](docs/product/09-b
 kontrol yüzeylerine göre yapılır. Özellikle aşağıdaki alanlar ürünün
 olgunlaşma sırasındadır:
 
-- Admin role/permission enforcement
-- Chat moderation tooling
+- Banka ve Slikair kanalları için gerçek mutabakat kaynakları
+- Marka bazlı veri izolasyonu (çekirdek modellerde `brandId`)
 - Görsel page-builder / drag-and-drop içerik düzenleme
 - Çok kademeli affiliate
-- Acente / reseller operasyonları
-- Responsible-gaming ve ileri compliance otomasyonları
-- Daha kapsamlı fraud/risk ve regulatory reporting
+- İleri compliance otomasyonları ve regulatory reporting
 - Live casino capability
 
 ---
 
 ## Lisanslama
 
-Repository **Business Source License 1.1 (BUSL-1.1)** ile lisanslanır.
+Core, **GNU Affero General Public License v3.0** (`AGPL-3.0-only`) ile
+lisanslanır.
 
-Lisansın mevcut Additional Use Grant'i kendi internal veya commercial
-operation'ınız için self-hosting'e izin verir. Hosted/managed/white-label
-PaaS olarak üçüncü taraflara sunmak veya core'u rakip bir software product
-olarak yeniden satmak ayrı ticari anlaşma gerektirir.
+- Kullanabilir, inceleyebilir, değiştirebilir ve kendi altyapınızda
+  ticari olarak işletebilirsiniz.
+- Değiştirilmiş bir sürümü ağ üzerinden kullanıcılara sunuyorsanız
+  (AGPL §13), o sürümün tam kaynak kodunu kullanıcılarınıza aynı lisansla
+  sağlamanız gerekir.
+- Core'dan türetilmiş çalışmaları yeniden dağıtırken de AGPL-3.0 geçerlidir.
 
-**Change Date:** 2030-09-11  
-**Change License:** Apache License 2.0
+**Ticari modüller** (Betting, iGames, In-house Games) bu repository'de
+bulunmaz, AGPL-3.0 kapsamında değildir ve ayrı ticari lisansla dağıtılır.
 
 Tam şartlar için [`LICENSE`](LICENSE) dosyasına bakın.
 

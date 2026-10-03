@@ -12,13 +12,36 @@ router.post('/webhook/sumsub', expressRawBody(), async (req, res) => {
   try {
     const signature = req.headers['x-app-signature'];
     const webhookSecret = await kycConfig.get('SUMSUB_WEBHOOK_SECRET');
-    if (webhookSecret && signature) {
-      const rawBody = req.rawBody;
-      const expectedSig = crypto.createHmac('sha256', webhookSecret).update(rawBody).digest('hex');
-      if (!crypto.timingSafeEqual(Buffer.from(signature), Buffer.from(expectedSig))) {
-        errorLogger.warn('sumsub_webhook', 'Invalid webhook signature');
-        return res.status(401).json({ error: 'Invalid signature' });
-      }
+
+    // SECURITY FIX (H5): Reject if webhook secret not configured
+    if (!webhookSecret) {
+      errorLogger.warn('sumsub_webhook', 'Webhook secret not configured — rejecting request');
+      return res.status(503).json({ error: 'Webhook not configured' });
+    }
+
+    // SECURITY FIX (H4): Always require signature when secret is configured
+    if (!signature) {
+      return res.status(401).json({ error: 'Missing signature' });
+    }
+
+    const rawBody = req.rawBody;
+    const expectedSig = crypto.createHmac('sha256', webhookSecret).update(rawBody).digest('hex');
+    if (!crypto.timingSafeEqual(Buffer.from(signature), Buffer.from(expectedSig))) {
+      errorLogger.warn('sumsub_webhook', 'Invalid webhook signature');
+      return res.status(401).json({ error: 'Invalid signature' });
+    }
+
+    // SECURITY FIX (H4): Timestamp validation — reject webhooks older than 5 minutes
+    const timestamp = req.headers['x-app-timestamp'];
+    if (!timestamp) {
+      errorLogger.warn('sumsub_webhook', 'Webhook missing x-app-timestamp header');
+      return res.status(401).json({ error: 'Missing timestamp header' });
+    }
+    const webhookTime = Number(timestamp);
+    const now = Math.floor(Date.now() / 1000);
+    if (Math.abs(now - webhookTime) > 300) {
+      errorLogger.warn('sumsub_webhook', `Webhook timestamp too old: ${timestamp}`);
+      return res.status(401).json({ error: 'Webhook timestamp expired' });
     }
 
     const { type, payload } = req.body;

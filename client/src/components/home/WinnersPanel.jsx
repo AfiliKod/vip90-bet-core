@@ -13,7 +13,7 @@ import { HOME_CARD, HOME_BORDER } from '../../pages/home/homeTheme';
  * sayfanın en üstünde ayrı bir yeşil bant olarak duran gösterge kaldırıldı.
  */
 export default function WinnersPanel() {
-  const { t } = useTranslation();
+  const { t, locale } = useTranslation();
   const winners = useRecentWinners();
   const onlineCount = useOnlineCount();
 
@@ -24,8 +24,8 @@ export default function WinnersPanel() {
       <div className="flex items-center justify-between pb-3 mb-1 border-b" style={{ borderColor: HOME_BORDER }}>
         <span className="text-[15px] font-bold text-white font-ui whitespace-nowrap">{t('home.rail.winners')}</span>
         <span className="inline-flex items-center gap-1.5 text-[11px] font-semibold font-ui text-[#c8ced2] shrink-0">
-          <span className="w-[7px] h-[7px] rounded-full bg-green-500 animate-pulse shrink-0" />
-          {t('home.rail.online', { count: onlineCount.toLocaleString('tr-TR') })}
+          <span className="w-[7px] h-[7px] rounded-full bg-success animate-pulse shrink-0" />
+          {t('home.rail.online', { count: onlineCount.toLocaleString(locale) })}
         </span>
       </div>
       <div className="flex flex-col">

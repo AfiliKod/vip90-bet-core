@@ -16,6 +16,7 @@ const schema = new mongoose.Schema({
   potentialWin: { type: Number, required: true },
   status:       { type: String, enum: ['pending','won','lost','cancelled'], default: 'pending' },
   settledAt:    Date,
+  isSeed:       { type: Boolean, default: false, index: true },
 }, { timestamps: true });
 
 // Indexes (Phase E1)
@@ -23,5 +24,40 @@ schema.index({ userId: 1, createdAt: -1 });
 schema.index({ userId: 1, status: 1, createdAt: -1 });
 schema.index({ status: 1 });
 schema.index({ createdAt: -1 });
+
+schema.post('save', async function() {
+  try {
+    const { logActivity } = await import('../services/activityFeed.js');
+    if (this.wasNew) {
+      await logActivity({
+        type: 'bet_placed', userId: this.userId, status: this.status,
+        // summary artık salt-okunur değil — client ActivityFeed.jsx bu ham
+        // Türkçe metni değil, type+data'dan i18n ile ürettiği kendi metnini
+        // gösteriyor (bkz. renderSummary). data.selectionCount o yüzden burada.
+        summary: `Bahis: ${this.stake}₺, ${this.selections.length} seçim`,
+        amount: this.stake, data: { selectionCount: this.selections.length },
+        referenceId: this._id, referenceModel: 'Bet',
+      });
+    } else if (this._statusModified && ['won', 'lost', 'cancelled'].includes(this.status)) {
+      await logActivity({
+        type: 'bet_settled', userId: this.userId, status: this.status,
+        summary: `Bahis sonuçlandı: ${this.status}`,
+        amount: this.status === 'won' ? this.potentialWin : this.stake,
+        referenceId: this._id, referenceModel: 'Bet',
+      });
+    }
+  } catch (e) {
+    console.error('[activity] Bet post-save error:', e.message);
+  }
+});
+
+// wasNew — post('save') içinde this.isNew her zaman false olur (save tamamlandıktan
+// sonra tetiklenir), bu yüzden pre('save')'de yakalanan orijinal isNew değeri kullanılır.
+// Mongoose 8'de post('save')'de isModified da false döner; status değişimi pre'de yakalanır.
+schema.pre('save', function(next) {
+  this.wasNew = this.isNew;
+  this._statusModified = this.isModified('status');
+  next();
+});
 
 export default mongoose.model('Bet', schema);

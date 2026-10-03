@@ -7,6 +7,8 @@ import User from '../models/User.js';
 import Transaction from '../models/Transaction.js';
 import { getIO } from './socketEmitter.js';
 import { createError } from '../middleware/error.js';
+import { createTransaction } from './ledger.js';
+import { logAuditEvent } from './audit.js';
 
 /**
  * Chat Room Management
@@ -183,6 +185,22 @@ export async function deleteMessage(messageId, adminId, options = {}) {
   message.deleteReason = reason;
   await message.save({ session });
   
+  // Log audit event
+  const admin = await User.findById(adminId).select('username');
+  await logAuditEvent({
+    actorId: adminId,
+    actorType: 'admin',
+    actorUsername: admin?.username || 'unknown',
+    action: 'CHAT_MESSAGE_DELETE',
+    category: 'chat',
+    targetType: 'chat',
+    targetId: messageId,
+    before: { message: message.message },
+    after: { isDeleted: true, deleteReason: reason },
+    reason,
+    metadata: { roomId: message.roomId, userId: message.userId },
+  });
+  
   // Emit real-time
   const io = getIO();
   if (io) {
@@ -219,7 +237,7 @@ export async function editMessage(messageId, userId, newMessage, options = {}) {
  */
 
 export async function banUserFromRoom(roomId, userId, adminId, options = {}) {
-  const { session = null } = options;
+  const { session = null, reason = '' } = options;
   
   const room = await ChatRoom.findById(roomId).session(session);
   if (!room) throw createError(404, 'NOT_FOUND', 'Oda bulunamadı');
@@ -230,6 +248,22 @@ export async function banUserFromRoom(roomId, userId, adminId, options = {}) {
   
   room.bannedUsers.push(userId);
   await room.save({ session });
+  
+  // Log audit event
+  const admin = await User.findById(adminId).select('username');
+  await logAuditEvent({
+    actorId: adminId,
+    actorType: 'admin',
+    actorUsername: admin?.username || 'unknown',
+    action: 'CHAT_BAN',
+    category: 'chat',
+    targetType: 'chat',
+    targetId: roomId.toString(),
+    before: { bannedUsers: room.bannedUsers.filter(id => !id.equals(userId)) },
+    after: { bannedUsers: room.bannedUsers },
+    reason,
+    metadata: { roomId, userId },
+  });
   
   // Remove user from room if connected
   const io = getIO();
@@ -265,6 +299,21 @@ export async function muteUserInRoom(roomId, userId, duration, reason, adminId, 
   room.mutedUsers = room.mutedUsers.filter(m => !m.userId.equals(userId));
   room.mutedUsers.push({ userId, until, reason });
   await room.save({ session });
+  
+  // Log audit event
+  const admin = await User.findById(adminId).select('username');
+  await logAuditEvent({
+    actorId: adminId,
+    actorType: 'admin',
+    actorUsername: admin?.username || 'unknown',
+    action: 'CHAT_MUTE',
+    category: 'chat',
+    targetType: 'chat',
+    targetId: roomId.toString(),
+    after: { userId, until, reason },
+    reason,
+    metadata: { roomId, userId, duration },
+  });
   
   const io = getIO();
   if (io) {
@@ -349,6 +398,7 @@ export async function createRain(roomId, createdBy, options = {}) {
   
   // Distribute — atomic $inc (routes/inhouse.js deseni): read-modify-write
   // yerine tek operasyonda güncellenir, eşzamanlı bir işlemin kaybolmasını önler.
+  const rainId = `rain_${roomId}_${createdBy}_${Date.now()}`;
   for (const userId of recipients) {
     const user = await User.findOneAndUpdate(
       { _id: userId },
@@ -359,17 +409,19 @@ export async function createRain(roomId, createdBy, options = {}) {
 
     const balanceBefore = parseFloat((user.balance - amountPerUser).toFixed(2));
 
-    const transaction = await Transaction.create([{
+    const { transaction } = await createTransaction({
       userId,
       type: 'rain',
       amount: amountPerUser,
       balanceBefore,
       balanceAfter: user.balance,
-      note: `Yağmur dağıtımı (Oda: ${roomId})`,
-      referenceId: rain._id,
-    }], { session });
+      idempotencyKey: `${rainId}_${userId}`,
+      source: 'player',
+      metadata: { roomId, rainCreator: createdBy },
+      relatedTransactionId: rain._id,
+    }, { session });
     
-    rain.recipients.push({ userId, amount: amountPerUser, transactionId: transaction[0]._id, claimedAt: new Date() });
+    rain.recipients.push({ userId, amount: amountPerUser, transactionId: transaction._id, claimedAt: new Date() });
     
     // Emit real-time
     const io = getIO();
@@ -428,16 +480,19 @@ export async function sendTip(fromUserId, toUserId, roomId, amount, message, opt
 
   // Create from transaction (outgoing)
   const fromBalanceBefore = parseFloat((fromUser.balance + amount).toFixed(2));
+  const tipId = `tip_${fromUserId}_${toUserId}_${Date.now()}`;
 
-  const fromTransaction = await Transaction.create([{
+  const { transaction: fromTransaction } = await createTransaction({
     userId: fromUserId,
     type: 'tip_sent',
     amount: -amount,
     balanceBefore: fromBalanceBefore,
     balanceAfter: fromUser.balance,
-    note: `Bahşiş gönderildi: ${toUser.username}`,
-    referenceId: toUser._id,
-  }], { session });
+    idempotencyKey: `${tipId}_sent`,
+    source: 'player',
+    metadata: { roomId, recipientUsername: toUser.username },
+    relatedTransactionId: null,
+  }, { session });
   
   // Create to transaction (incoming) — atomic $inc, tutarlılık için aynı desen.
   const updatedToUser = await User.findOneAndUpdate(
@@ -448,15 +503,17 @@ export async function sendTip(fromUserId, toUserId, roomId, amount, message, opt
   const toBalanceBefore = parseFloat((updatedToUser.balance - amount).toFixed(2));
   toUser.balance = updatedToUser.balance;
 
-  const toTransaction = await Transaction.create([{
+  const { transaction: toTransaction } = await createTransaction({
     userId: toUserId,
     type: 'tip_received',
     amount,
     balanceBefore: toBalanceBefore,
     balanceAfter: toUser.balance,
-    note: `Bahşiş alındı: ${fromUser.username}`,
-    referenceId: fromUser._id,
-  }], { session });
+    idempotencyKey: `${tipId}_received`,
+    source: 'player',
+    metadata: { roomId, senderUsername: fromUser.username },
+    relatedTransactionId: fromTransaction._id,
+  }, { session });
   
   // Create tip record
   const tip = await ChatTip.create([{
@@ -465,8 +522,8 @@ export async function sendTip(fromUserId, toUserId, roomId, amount, message, opt
     toUserId,
     amount,
     message,
-    fromTransactionId: fromTransaction[0]._id,
-    toTransactionId: toTransaction[0]._id,
+    fromTransactionId: fromTransaction._id,
+    toTransactionId: toTransaction._id,
     status: 'completed',
   }], { session });
   
@@ -540,6 +597,35 @@ export async function getRoomTips(roomId, options = {}) {
   ]);
   
   return { tips, total, page: Number(page), pages: Math.ceil(total / Number(limit)) };
+}
+
+/**
+ * Moderation History
+ */
+
+export async function getModerationHistory(roomId, options = {}) {
+  const { page = 1, limit = 20, action = null } = options;
+  const skip = (Number(page) - 1) * Number(limit);
+
+  const query = { targetType: 'chat', 'metadata.roomId': roomId.toString() };
+  if (action) query.action = action;
+
+  const AuditLog = (await import('../models/AuditLog.js')).default;
+  const [logs, total] = await Promise.all([
+    AuditLog.find(query)
+      .sort({ createdAt: -1 })
+      .skip(skip)
+      .limit(Number(limit))
+      .populate('actorId', 'username'),
+    AuditLog.countDocuments(query),
+  ]);
+
+  return {
+    logs,
+    total,
+    page: Number(page),
+    pages: Math.ceil(total / Number(limit)),
+  };
 }
 
 /**

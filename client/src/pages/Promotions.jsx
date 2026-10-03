@@ -17,6 +17,7 @@ export default function Promotions() {
   const addToast = useToastStore(s => s.add);
   const user = useAuthStore(s => s.user);
   const updateBonusBalance = useAuthStore(s => s.updateBonusBalance);
+  const updateBalance = useAuthStore(s => s.updateBalance);
 
   useEffect(() => {
     api.get('/promotions').then(r => setPromos(r.data.promotions)).catch(() => {});
@@ -31,7 +32,10 @@ export default function Promotions() {
       const { data } = await api.post(`/promotions/${activePromo._id}/claim`, {
         acceptedBonusTerms: true,
       });
-      addToast(data.message, 'success');
+      // Sunucu mesajı sabit Türkçe — arayüz dilinde göster. Bonus doğrudan
+      // gerçek bakiyeye eklendiği (Model B) için üst bardaki bakiye de güncellenir.
+      addToast(t('promotions.claimSuccess'), 'success');
+      if (typeof data.balance === 'number') updateBalance(data.balance);
       if (typeof data.bonusBalance === 'number') updateBonusBalance(data.bonusBalance);
       setPromos(p => p.map(x => x._id === activePromo._id ? { ...x, claimedBy: [...(x.claimedBy || []), user?._id] } : x));
       setActivePromo(null);

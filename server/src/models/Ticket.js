@@ -12,6 +12,7 @@ const schema = new mongoose.Schema({
   status:     { type: String, enum: ['open', 'in_progress', 'resolved', 'closed'], default: 'open' },
   messages:   [messageSchema],
   assignedTo: { type: mongoose.Schema.Types.ObjectId, ref: 'User', default: null },
+  isSeed: { type: Boolean, default: false, index: true },
 }, { timestamps: true });
 
 schema.index({ userId: 1, createdAt: -1 });

@@ -1,6 +1,9 @@
 import { useEffect, useState } from 'react';
 import api from '../../services/api';
 import { useTranslation } from '../../i18n';
+import AdminPageHeader, { ADMIN_BTN, ADMIN_BTN_PRIMARY } from '../../components/admin/AdminPageHeader.jsx';
+import { AdminTable, AdminTableRow, AdminTableCell, AdminTableEmpty, AdminKpiCard, AdminTableActionsCell } from '../../components/admin/AdminTable.jsx';
+import RowActions from '../../components/admin/RowActions.jsx';
 
 /**
  * O4 — Kademeli yönetici yetkileri.
@@ -15,7 +18,7 @@ import { useTranslation } from '../../i18n';
  * ayrı, daha büyük bir route-bazlı denetim turu gerektiriyor.
  */
 export default function AdminRoles() {
-  const { t } = useTranslation();
+  const { t, locale } = useTranslation();
   const [roles, setRoles] = useState([]);
   const [permissions, setPermissions] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -90,56 +93,98 @@ export default function AdminRoles() {
   }
 
   return (
-    <div className="p-6 max-w-4xl mx-auto">
-      <div className="flex items-center justify-between mb-2">
-        <h1 className="text-2xl font-bold">{t('admin.roles.title')}</h1>
-        <button
-          onClick={openCreate}
-          className="px-4 py-2 rounded-lg bg-primary text-white text-sm font-medium"
-        >
-          {t('admin.roles.newRole')}
-        </button>
-      </div>
-      <p className="text-text-3 text-sm mb-6">{t('admin.roles.subtitle')}</p>
+    <div className="mx-auto w-full max-w-[1400px] px-4 py-5 sm:px-6">
+      <AdminPageHeader
+        crumbs={[{ label: t('admin.nav.groupPlatform') }, { label: t('admin.roles.title') }]}
+        title={t('admin.roles.title')}
+        sub={t('admin.roles.subtitle')}
+        actions={(
+          <button onClick={openCreate} className={ADMIN_BTN_PRIMARY}>
+            {t('admin.roles.newRole')}
+          </button>
+        )}
+      />
 
       {error && (
-        <div className="mb-4 p-3 rounded-lg bg-red-500/10 border border-red-500/30 text-red-300 text-sm">{error}</div>
+        <div className="mb-4 p-3 rounded-lg bg-danger/10 border border-danger/30 text-sm text-danger">{error}</div>
       )}
 
       {loading ? (
-        <div className="text-text-3">{t('admin.roles.loading')}</div>
+        <AdminTable
+          columns={[
+            { key: 'role', label: t('admin.roles.columnRole') },
+            { key: 'perms', label: t('admin.roles.columnPermissions') },
+            { key: 'priority', label: t('admin.roles.columnPriority'), align: 'right' },
+            { key: 'actions', label: t('admin.roles.columnActions'), align: 'right' },
+          ]}
+        >
+          <AdminTableEmpty colSpan={4}>{t('admin.roles.loading')}</AdminTableEmpty>
+        </AdminTable>
       ) : (
-        <div className="space-y-3">
-          {roles.map(role => (
-            <div key={role._id} className="bg-bg-card border border-white/10 rounded-xl p-4">
-              <div className="flex items-center justify-between">
-                <div>
-                  <div className="font-semibold flex items-center gap-2">
-                    {role.displayName}
-                    {role.isSystem && (
-                      <span className="px-1.5 py-0.5 rounded text-[10px] bg-white/5 text-text-3 border border-white/10">
-                        {t('admin.roles.systemBadge')}
+        <>
+          {/* Mini KPI */}
+          <section className="mb-4 grid grid-cols-2 gap-3 xl:grid-cols-3">
+            {[
+              { label: t('admin.roles.statRoles'), value: roles.length.toLocaleString(locale) },
+              { label: t('admin.roles.statPerms'), value: permissions.length.toLocaleString(locale) },
+              { label: t('admin.roles.statSystem'), value: roles.filter(r => r.isSystem).length.toLocaleString(locale) },
+            ].map(k => <AdminKpiCard key={k.label} label={k.label} value={k.value} />)}
+          </section>
+
+          <AdminTable
+            empty={roles.length === 0}
+            emptyLabel={t('common.noData')}
+            columns={[
+              { key: 'role', label: t('admin.roles.columnRole') },
+              { key: 'perms', label: t('admin.roles.columnPermissions') },
+              { key: 'priority', label: t('admin.roles.columnPriority'), align: 'right' },
+              { key: 'actions', label: t('admin.roles.columnActions'), align: 'right' },
+            ]}
+          >
+            {roles.map(role => {
+              const initials = (role.displayName || role.name || '?').slice(0, 2).toUpperCase();
+              return (
+                <AdminTableRow key={role._id} className="cursor-pointer" onClick={() => openEdit(role)}>
+                  <AdminTableCell>
+                    <div className="flex items-center gap-2.5">
+                      <span className="grid h-8 w-8 shrink-0 place-items-center rounded-lg border border-white/10 bg-primary/15 text-[11px] font-extrabold text-primary">
+                        {initials}
                       </span>
-                    )}
-                  </div>
-                  <div className="text-xs text-text-3 mt-0.5">
-                    {role.description} · {t('admin.roles.permCount', { count: role.permissions.length })}
-                  </div>
-                </div>
-                {!role.isSystem && (
-                  <div className="flex gap-2">
-                    <button onClick={() => openEdit(role)} className="px-3 py-1.5 rounded-lg text-xs border border-white/10 text-text-2 hover:text-text-1">
-                      {t('common.edit')}
-                    </button>
-                    <button onClick={() => remove(role._id)} className="px-3 py-1.5 rounded-lg text-xs border border-red-500/20 text-red-300 hover:bg-red-500/10">
-                      {t('common.delete')}
-                    </button>
-                  </div>
-                )}
-              </div>
-            </div>
-          ))}
-        </div>
+                      <div className="min-w-0">
+                        <div className="flex items-center gap-2">
+                          <span className="truncate font-bold text-text-1">{role.displayName}</span>
+                          {role.isSystem && (
+                            <span className="shrink-0 rounded-full bg-gold/15 px-2 py-[3px] text-[10.5px] font-extrabold uppercase text-gold">
+                              {t('admin.roles.systemBadge')}
+                            </span>
+                          )}
+                        </div>
+                        <div className="mt-0.5 truncate font-mono text-xs text-text-3">{role.description || '—'}</div>
+                      </div>
+                    </div>
+                  </AdminTableCell>
+                  <AdminTableCell>
+                    <span className="rounded-full bg-info/15 px-2.5 py-1 font-mono text-[11px] font-extrabold text-info">
+                      {t('admin.roles.permCount', { count: role.permissions.length })}
+                    </span>
+                  </AdminTableCell>
+                  <AdminTableCell align="right">
+                    <span className="font-mono text-xs tabular-nums text-text-2">{role.priority}</span>
+                  </AdminTableCell>
+                  <AdminTableActionsCell>
+                    <RowActions
+                      label={t('admin.roles.columnActions')}
+                      items={[
+                        { key: 'edit', label: t('common.edit'), icon: 'edit', onClick: () => openEdit(role) },
+                        { key: 'delete', label: t('common.delete'), icon: 'delete', tone: 'danger', hidden: role.isSystem, onClick: () => remove(role._id) },
+                      ]}
+                    />
+                  </AdminTableActionsCell>
+                </AdminTableRow>
+              );
+            })}
+          </AdminTable>
+        </>
       )}
 
       {form && (
@@ -209,12 +254,12 @@ export default function AdminRoles() {
               ))}
             </div>
 
-            <div className="flex gap-2">
-              <button onClick={save} className="px-4 py-2 rounded-lg bg-primary text-white text-sm font-medium">
-                {t('common.save')}
-              </button>
-              <button onClick={() => setForm(null)} className="px-4 py-2 rounded-lg border border-white/10 text-text-2 text-sm">
+            <div className="mt-5 flex justify-end gap-2">
+              <button onClick={() => setForm(null)} className={ADMIN_BTN}>
                 {t('common.cancel')}
+              </button>
+              <button onClick={save} className={ADMIN_BTN_PRIMARY}>
+                {t('common.save')}
               </button>
             </div>
           </div>

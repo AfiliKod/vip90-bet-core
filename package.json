@@ -1,7 +1,7 @@
 {
   "name": "vip90-bet",
   "version": "0.3.0",
-  "license": "BUSL-1.1",
+  "license": "AGPL-3.0-only",
   "private": true,
   "type": "module",
   "scripts": {
@@ -9,13 +9,16 @@
     "install:all": "npm i && npm i --prefix server && npm i --prefix client",
     "build": "npm install --prefix client && npm run build --prefix client",
     "start": "npm run build && node server/src/server.js",
-    "test": "node --test server/test/*.test.js client/src/i18n/*.test.js",
+    "test": "node --test server/test/*.test.js client/src/i18n/*.test.js client/src/pages/admin/dashboard/*.test.js",
     "test:e2e": "playwright test --config=tests/e2e/playwright.config.js",
     "test:e2e:headed": "playwright test --config=tests/e2e/playwright.config.js --headed",
     "test:e2e:debug": "playwright test --config=tests/e2e/playwright.config.js --debug",
     "test:e2e:ui": "playwright test --config=tests/e2e/playwright.config.js --ui",
     "test:e2e:report": "playwright show-report tests/playwright-report",
-    "test:e2e:install": "playwright install chromium"
+    "test:e2e:install": "playwright install chromium",
+    "docker:test": "docker compose -f docker-compose.yml -f docker-compose.test.yml build test && docker compose -f docker-compose.yml -f docker-compose.test.yml run --rm test",
+    "docker:up": "docker compose up -d --build",
+    "docker:down": "docker compose down"
   },
   "devDependencies": {
     "@playwright/test": "^1.61.1",

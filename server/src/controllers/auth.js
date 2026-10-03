@@ -5,18 +5,19 @@ import LoginAttempt from '../models/LoginAttempt.js';
 import CasinoSession from '../models/CasinoSession.js';
 import CasinoRound from '../models/CasinoRound.js';
 import { createError } from '../middleware/error.js';
+import { invalidateTokenVersionCache } from '../middleware/auth.js';
 import { sendEmail } from '../services/email.js';
 
-async function enrichWithPalaceBalance(user, obj) {
+async function enrichWithIgamesBalance(user, obj) {
   try {
     const activeSession = await CasinoSession.findOne({ userId: user._id, status: 'active' });
     if (activeSession) {
       const roundAgg = await CasinoRound.aggregate([
-        { $match: { userId: user._id, provider: 'palace', createdAt: { $gte: activeSession.transferredAt } } },
+        { $match: { userId: user._id, provider: 'igames', createdAt: { $gte: activeSession.transferredAt } } },
         { $group: { _id: null, net: { $sum: '$net' } } },
       ]);
       const netChange = roundAgg[0]?.net || 0;
-      obj.activePalaceBalance = Math.max(0, activeSession.initialBalance + netChange);
+      obj.activeIgamesBalance = Math.max(0, activeSession.initialBalance + netChange);
     }
   } catch {}
 }
@@ -38,7 +39,7 @@ function signAccess(user) {
   );
 }
 
-export { signAccess, enrichWithPalaceBalance, enrichWithLockedBalance };
+export { signAccess, enrichWithIgamesBalance, enrichWithLockedBalance };
 
 function signRefresh(user) {
   return jwt.sign(
@@ -72,6 +73,7 @@ export async function register(req, res, next) {
   try {
     const {
       username, email, password, referredBy,
+      phone, dateOfBirth,
       acceptedTerms, acceptedKvkk, consentVersion,
     } = req.validated;
 
@@ -91,6 +93,9 @@ export async function register(req, res, next) {
     const now = new Date();
     const user = await User.create({
       username, email, password, referredBy: referredById,
+      // Slikair payment için opsiyonel alanlar
+      phone: phone || null,
+      dateOfBirth: dateOfBirth ? new Date(dateOfBirth) : null,
       // KVKK + Terms consent (Phase A4)
       acceptedTermsAt:  acceptedTerms ? now : null,
       acceptedKvkkAt:   acceptedKvkk ? now : null,
@@ -143,6 +148,32 @@ export async function login(req, res, next) {
       createdAt: { $gt: new Date(Date.now() - LOGIN_LOCKOUT_MINUTES * 60 * 1000) },
     });
     if (recentFails >= LOGIN_LOCKOUT_THRESHOLD) {
+      // 429 dönen kilitli istekler hiç yeni LoginAttempt yazmıyor, bu yüzden
+      // recentFails eşikte donuk kalıyor — "=== THRESHOLD" tek başına brute
+      // force altında HER istekte tekrar true olup feed'i flood'luyordu
+      // (2026-09-23'te final review'da bulundu, ampirik doğrulandı: 3 kilitli
+      // istek → 3 event). Zaman-pencereli tekrar-önleme: bu kilitlenme
+      // penceresi için zaten bir login_risk event'i varsa tekrar loglama.
+      try {
+        const { logActivity } = await import('../services/activityFeed.js');
+        const ActivityEvent = (await import('../models/ActivityEvent.js')).default;
+        const lockedUser = await User.findOne({ username }).select('_id');
+        if (lockedUser) {
+          const alreadyLogged = await ActivityEvent.exists({
+            type: 'login_risk', userId: lockedUser._id, status: 'locked',
+            createdAt: { $gt: new Date(Date.now() - LOGIN_LOCKOUT_MINUTES * 60 * 1000) },
+          });
+          if (!alreadyLogged) {
+            await logActivity({
+              type: 'login_risk', userId: lockedUser._id, status: 'locked',
+              summary: `Hesap kilitlendi: ${recentFails} başarısız giriş denemesi`,
+              data: { ip, recentFails },
+            });
+          }
+        }
+      } catch (e) {
+        console.error('[activity] login lockout error:', e.message);
+      }
       return next(createError(429, 'TOO_MANY_ATTEMPTS', `Çok fazla başarısız deneme. ${LOGIN_LOCKOUT_MINUTES} dakika bekleyin.`));
     }
 
@@ -157,6 +188,7 @@ export async function login(req, res, next) {
     }
     if (!(await user.comparePassword(password))) {
       await LoginAttempt.create({ userId: user._id, username, ip, userAgent, success: false, failReason: 'wrong_password' });
+      try { const { onFailedLogin } = await import('../services/riskDetector.js'); await onFailedLogin(user._id, { ip }); } catch {}
       return next(createError(401, 'INVALID_CREDENTIALS', 'Kullanıcı adı veya şifre hatalı'));
     }
     if (!user.emailVerified && user.createdAt >= EMAIL_VERIFICATION_CUTOFF) {
@@ -169,11 +201,12 @@ export async function login(req, res, next) {
     user.lastLoginIp = ip;
     user.tokenVersion = (user.tokenVersion || 0) + 1; // eski token'ları geçersiz kıl
     await user.save();
+    invalidateTokenVersionCache(user._id); // bkz. refresh()'teki not — aynı 30sn önbellek riski
 
     const accessToken = signAccess(user);
     setRefreshCookie(res, signRefresh(user));
     const obj = user.toSafeObject();
-    await enrichWithPalaceBalance(user, obj);
+    await enrichWithIgamesBalance(user, obj);
     await enrichWithLockedBalance(user, obj);
     res.json({ accessToken, user: obj });
   } catch (e) { next(e); }
@@ -193,10 +226,15 @@ export async function refresh(req, res, next) {
     // Rotation: her refresh'te tokenVersion artır (Phase B9)
     user.tokenVersion = (user.tokenVersion || 0) + 1;
     await user.save();
+    // 2026-09-23: middleware/auth.js'in requireAuth'u DB tokenVersion'ını 30sn
+    // önbellekliyor — burada artırıp önbelleği haberdar etmezsek, az önce
+    // basılan bu YENİ (geçerli) access token bile "tokenVersion uyuşmazlığı"
+    // ile reddedilir (bkz. invalidateTokenVersionCache'in üstündeki not).
+    invalidateTokenVersionCache(user._id);
     const accessToken = signAccess(user);
     setRefreshCookie(res, signRefresh(user));
     const obj = user.toSafeObject();
-    await enrichWithPalaceBalance(user, obj);
+    await enrichWithIgamesBalance(user, obj);
     await enrichWithLockedBalance(user, obj);
     res.json({ accessToken, user: obj });
   } catch { next(createError(401, 'INVALID_REFRESH_TOKEN', 'Geçersiz refresh token')); }
@@ -302,6 +340,7 @@ export async function resetPassword(req, res, next) {
     user.passwordResetExpires = null;
     user.tokenVersion = (user.tokenVersion || 0) + 1; // eski token'ları revoke
     await user.save();
+    invalidateTokenVersionCache(user._id); // revoke'un 30sn önbellek gecikmesi olmadan anında etkili olması için
     res.json({ message: 'Şifreniz başarıyla değiştirildi. Yeni şifrenizle giriş yapabilirsiniz.' });
   } catch (e) { next(e); }
 }

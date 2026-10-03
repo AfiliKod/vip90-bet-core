@@ -40,7 +40,7 @@ function formatLine(level, category, message, meta) {
 
 export const errorLogger = {
   /**
-   * Kritik hata (Palace API timeout, casino crash, bonus kayıp)
+   * Kritik hata (Igames API timeout, casino crash, bonus kayıp)
    */
   critical(category, message, meta) {
     const line = formatLine('CRITICAL', category, message, meta);
@@ -52,7 +52,7 @@ export const errorLogger = {
   },
 
   /**
-   * Hata (Palace API 500, DB timeout)
+   * Hata (Igames API 500, DB timeout)
    */
   error(category, message, meta) {
     const line = formatLine('ERROR', category, message, meta);
@@ -63,7 +63,7 @@ export const errorLogger = {
   },
 
   /**
-   * Uyarı (Palace API 4xx, kullanıcı limit aşımı)
+   * Uyarı (Igames API 4xx, kullanıcı limit aşımı)
    */
   warn(category, message, meta) {
     const line = formatLine('WARN', category, message, meta);

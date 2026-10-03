@@ -1,6 +1,6 @@
 import { test, describe } from 'node:test';
 import assert from 'node:assert';
-import { formatMoney, setActiveCurrency, getActiveCurrency, resetActiveCurrency } from './money.js';
+import { formatMoney, setActiveCurrency, getActiveCurrency, resetActiveCurrency, setMoneyLocale, resetMoneyLocale } from './money.js';
 
 const TRY = { code: 'TRY', symbol: '₺', locale: 'tr-TR' };
 const USD = { code: 'USD', symbol: '$', locale: 'en-US' };
@@ -53,5 +53,29 @@ describe('aktif para birimi (uygulama genelinde önbelleklenen tek durum)', () =
     setActiveCurrency(USD);
     resetActiveCurrency();
     assert.strictEqual(getActiveCurrency().code, 'TRY');
+  });
+});
+
+describe('setMoneyLocale (arayüz diline göre sayı biçimi)', () => {
+  test('setMoneyLocale verilmezse currency.locale kullanılır (tr-TR biçimi)', () => {
+    resetMoneyLocale();
+    const out = formatMoney(1000, TRY);
+    assert.match(out, /1\.000,00/);
+  });
+
+  test('setMoneyLocale sonrası para birimi kodu/sembolü korunur ama sayı biçimi arayüz diline göre değişir', () => {
+    resetMoneyLocale();
+    setMoneyLocale('en');
+    const out = formatMoney(1000, TRY);
+    assert.match(out, /₺/);
+    assert.match(out, /1,000\.00/);
+    resetMoneyLocale();
+  });
+
+  test('resetMoneyLocale eski davranışa (currency.locale) döner', () => {
+    setMoneyLocale('en');
+    resetMoneyLocale();
+    const out = formatMoney(1000, TRY);
+    assert.match(out, /1\.000,00/);
   });
 });

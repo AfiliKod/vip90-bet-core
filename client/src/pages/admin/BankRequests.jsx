@@ -4,6 +4,9 @@ import api from '../../services/api';
 import { useToastStore } from '../../store/toastStore';
 import { useTranslation } from '../../i18n';
 import { formatMoney } from '../../utils/money.js';
+import WalletStatCards from './components/WalletStatCards.jsx';
+import { AdminTable, AdminTableRow, AdminTableCell, AdminTableActionsCell } from '../../components/admin/AdminTable.jsx';
+import RowActions from '../../components/admin/RowActions.jsx';
 
 export default function AdminBankRequests() {
   const { t } = useTranslation();
@@ -11,6 +14,7 @@ export default function AdminBankRequests() {
   const [requests, setRequests] = useState([]);
   const [type, setType] = useState('deposit');
   const [loading, setLoading] = useState(true);
+  const [stats, setStats] = useState(null);
   const addToast = useToastStore(s => s.add);
 
   const load = (typ) => {
@@ -19,6 +23,9 @@ export default function AdminBankRequests() {
       .then(r => setRequests(r.data.requests))
       .catch(() => {})
       .finally(() => setLoading(false));
+    api.get('/admin/bank/stats')
+      .then(r => setStats({ deposits: r.data.deposits.total, payouts: r.data.payouts.total, net: r.data.net, count: r.data.count }))
+      .catch(() => {});
   };
 
   useEffect(() => { load(type); }, [type]);
@@ -41,59 +48,70 @@ export default function AdminBankRequests() {
   };
 
   const TABS = [
-    { key: 'deposit', label: `📥 ${t('admin.bankRequests.depositRequests')}` },
-    { key: 'withdraw', label: `📤 ${t('admin.bankRequests.withdrawRequests')}` },
+    { key: 'deposit', icon: 'arrow_downward', label: t('admin.bankRequests.depositRequests') },
+    { key: 'withdraw', icon: 'arrow_upward', label: t('admin.bankRequests.withdrawRequests') },
   ];
 
   return (
-    <div className="max-w-4xl mx-auto px-4 py-6">
-      <h1 className="text-xl font-bold text-text-1 mb-4">🏦 {t('admin.bankRequests.title')}</h1>
+    <>
+      <WalletStatCards stats={stats} />
 
-      <div className="flex gap-1 bg-bg-card border border-white/10 rounded-lg p-1 w-fit mb-4">
+      <div className="flex gap-1 bg-bg-card border border-white/10 rounded-lg p-1 w-fit max-w-full overflow-x-auto mb-4">
         {TABS.map(tab => (
           <button key={tab.key} onClick={() => setType(tab.key)}
-            className={`px-4 py-2 rounded-md text-sm font-medium transition ${type === tab.key ? 'bg-accent text-white' : 'text-text-3 hover:text-text-1'}`}>
+            className={`px-4 py-2 rounded-md text-sm font-medium transition inline-flex items-center gap-1.5 ${type === tab.key ? 'bg-accent text-white' : 'text-text-3 hover:text-text-1'}`}>
+            <span className="material-symbols-outlined !text-[16px]" aria-hidden="true">{tab.icon}</span>
             {tab.label}
           </button>
         ))}
       </div>
 
-      {loading ? (
-        <div className="text-center text-text-3 py-8 text-sm">{t('common.loading')}</div>
-      ) : requests.length === 0 ? (
-        <div className="text-center text-text-3 py-8 text-sm">{t('admin.bankRequests.noneWaiting')}</div>
-      ) : (
-        <div className="space-y-3">
-          {requests.map(r => (
-            <div key={r._id} className="bg-bg-card border border-white/10 rounded-xl p-4 flex items-center justify-between gap-4">
-              <div className="flex-1 min-w-0">
-                <div className="flex items-center gap-2 mb-1">
-                  <span className="font-semibold text-text-1">{r.userId?.username || '???'}</span>
-                  <span className="text-xs bg-white/10 px-2 py-0.5 rounded text-text-3">
-                    {r.userId?.email}
+      <AdminTable
+        loading={loading}
+        empty={requests.length === 0}
+        emptyLabel={t('admin.bankRequests.noneWaiting')}
+        columns={[
+          { key: 'user', label: t('admin.bankRequests.columnUser') },
+          { key: 'amount', label: t('admin.bankRequests.columnAmount'), align: 'right' },
+          { key: 'date', label: t('admin.bankRequests.columnDate') },
+          { key: 'actions', label: t('admin.bankRequests.columnActions'), align: 'right' },
+        ]}
+      >
+        {requests.map(r => {
+          const name = r.userId?.username || '???';
+          const initials = name.slice(0, 2).toUpperCase();
+          return (
+            <AdminTableRow key={r._id}>
+              <AdminTableCell>
+                <div className="flex items-center gap-2.5">
+                  <span className="grid h-8 w-8 shrink-0 place-items-center rounded-lg border border-white/10 bg-bg-hover text-[11px] font-extrabold text-text-2">
+                    {initials}
                   </span>
+                  <div className="min-w-0">
+                    <div className="truncate font-bold text-text-1">{name}</div>
+                    <div className="mt-0.5 truncate font-mono text-xs text-text-3">{r.userId?.email || '—'}</div>
+                  </div>
                 </div>
-                <div className="text-2xl font-black text-primary">
-                  {formatMoney(r.amount)}
-                </div>
-                <div className="text-xs text-text-3 mt-1">
-                  {fmt.formatDateTime(r.createdAt)}
-                </div>
-              </div>
-              <div className="flex gap-2 shrink-0">
-                <button onClick={() => reject(r._id)}
-                  className="px-4 py-2 border border-danger/40 text-danger rounded-lg text-sm font-medium hover:bg-danger/10 transition">
-                  {t('admin.bankRequests.reject')}
-                </button>
-                <button onClick={() => approve(r._id)}
-                  className="px-4 py-2 bg-success text-white rounded-lg text-sm font-semibold hover:opacity-90 transition">
-                  {t('admin.bankRequests.approve')}
-                </button>
-              </div>
-            </div>
-          ))}
-        </div>
-      )}
-    </div>
+              </AdminTableCell>
+              <AdminTableCell align="right">
+                <span className="font-mono font-semibold tabular-nums text-primary">{formatMoney(r.amount)}</span>
+              </AdminTableCell>
+              <AdminTableCell>
+                <span className="whitespace-nowrap font-mono text-xs text-text-3">{fmt.formatDateTime(r.createdAt)}</span>
+              </AdminTableCell>
+              <AdminTableActionsCell>
+                <RowActions
+                  label={t('admin.bankRequests.columnActions')}
+                  items={[
+                    { key: 'approve', label: t('admin.bankRequests.approve'), icon: 'check', tone: 'success', onClick: () => approve(r._id) },
+                    { key: 'reject', label: t('admin.bankRequests.reject'), icon: 'close', tone: 'danger', onClick: () => reject(r._id) },
+                  ]}
+                />
+              </AdminTableActionsCell>
+            </AdminTableRow>
+          );
+        })}
+      </AdminTable>
+    </>
   );
 }

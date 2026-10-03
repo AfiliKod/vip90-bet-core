@@ -1,6 +1,12 @@
 import { useEffect, useState, useCallback } from 'react';
 import api from '../../services/api';
 import { useTranslation } from '../../i18n';
+import AdminPageHeader, { ADMIN_BTN_PRIMARY } from '../../components/admin/AdminPageHeader.jsx';
+import { useFormatters } from '../../i18n/useFormatters.jsx';
+import ConnectionSettingsLink from './components/ConnectionSettingsLink.jsx';
+import InhouseAllowedGames from './components/InhouseAllowedGames.jsx';
+import { AdminTable, AdminTableRow, AdminTableCell, AdminExpandRow, ActiveSwitch, AdminTableActionsCell } from '../../components/admin/AdminTable.jsx';
+import RowActions from '../../components/admin/RowActions.jsx';
 
 /**
  * O6 — Oyun limitleri, RTP ve bahis limitleri.
@@ -237,6 +243,29 @@ const FIELDS_BY_GAME = {
   'inhouse-videopoker': VIDEOPOKER_FIELDS,
 };
 
+const RISK_LABEL_KEYS = {
+  low: 'admin.gameSettings.risk.low',
+  medium: 'admin.gameSettings.risk.medium',
+  high: 'admin.gameSettings.risk.high',
+};
+
+const FIELD_LABEL_KEYS = Object.fromEntries(
+  [...Object.values(FIELDS_BY_GAME).flat(), ...BLACKJACK_BOOL_FIELDS].map(field => [field.key, `admin.gameSettings.field.${field.key}`]),
+);
+
+function fieldLabel(t, key) {
+  const labelKey = FIELD_LABEL_KEYS[key];
+  return labelKey ? t(labelKey) : key;
+}
+
+function fieldHelp(t, key) {
+  const labelKey = FIELD_LABEL_KEYS[key];
+  if (!labelKey) return '';
+  const helpKey = `${labelKey}.help`;
+  const value = t(helpKey);
+  return value === helpKey ? '' : value;
+}
+
 const BOOL_FIELDS_BY_GAME = {
   'inhouse-blackjack': BLACKJACK_BOOL_FIELDS,
 };
@@ -267,14 +296,14 @@ const RTP_CALC_BY_GAME = {
   'inhouse-plinko': (t, form) => {
     const scale = Number(form.plinkoPayoutScale) || 0;
     return ['low', 'medium', 'high'].map(risk => ({
-      label: t(`admin.gameSettings.risk.${risk}`),
+      label: RISK_LABEL_KEYS[risk] ? t(RISK_LABEL_KEYS[risk]) : risk,
       value: plinkoBaseRtp(risk) * scale,
     }));
   },
   'inhouse-wheel': (t, form) => {
     const scale = Number(form.wheelPayoutScale) || 0;
     return ['low', 'medium', 'high'].map(risk => ({
-      label: t(`admin.gameSettings.risk.${risk}`),
+      label: RISK_LABEL_KEYS[risk] ? t(RISK_LABEL_KEYS[risk]) : risk,
       value: wheelBaseRtp(risk) * scale,
     }));
   },
@@ -328,6 +357,7 @@ function fromDisplay(f, display) {
  * aralığıyla bir tahmin.
  */
 function SimulateRtpButton({ t, gameId, form, simFields }) {
+  const fmt = useFormatters();
   const [result, setResult] = useState(null);
   const [loading, setLoading] = useState(false);
   const [err, setErr] = useState(false);
@@ -348,30 +378,75 @@ function SimulateRtpButton({ t, gameId, form, simFields }) {
   }
 
   return (
-    <div className="mb-4 px-3 py-2 rounded-lg bg-white/5 border border-white/10 text-xs">
-      <div className="flex items-center justify-between gap-2">
-        <span className="text-text-3">{t('admin.gameSettings.simulate.label')}</span>
+    <div className="mb-4 rounded-xl border border-white/10 bg-bg-deep px-3 py-2.5 text-xs">
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <span className="flex items-center gap-1.5 text-text-3">
+          <span className="material-symbols-outlined !text-[14px]" aria-hidden="true">casino</span>
+          {t('admin.gameSettings.simulate.label')}
+        </span>
         <button
           onClick={run}
           disabled={loading}
           type="button"
-          className="px-3 py-1.5 rounded-lg bg-white/10 hover:bg-white/15 text-text-1 text-xs font-medium disabled:opacity-40 transition"
+          className="inline-flex h-8 items-center gap-1 rounded-lg border border-white/10 bg-bg-hover px-2.5 text-xs font-bold text-text-2 transition hover:text-text-1 disabled:opacity-40"
         >
+          <span className="material-symbols-outlined !text-[14px]" aria-hidden="true">calculate</span>
           {loading ? t('admin.gameSettings.simulate.running') : t('admin.gameSettings.simulate.button')}
         </button>
       </div>
       {result && (
-        <div className="mt-2 text-text-1 font-medium">
-          RTP: {result.rtp.toFixed(2)}% ± {result.marginOfError.toFixed(2)}%
-          <span className="text-text-3 font-normal"> ({result.hands.toLocaleString()} {t('admin.gameSettings.simulate.hands')})</span>
+        <div className="mt-2 font-medium text-text-1">
+          <span className="font-mono tabular-nums">RTP: {fmt.formatPercent(result.rtp / 100)} ± {fmt.formatPercent(result.marginOfError / 100)}</span>
+          <span className="font-normal text-text-3"> ({fmt.formatNumber(result.hands)} {t('admin.gameSettings.simulate.hands')})</span>
         </div>
       )}
-      {err && <div className="mt-2 text-red-300">{t('admin.gameSettings.saveError')}</div>}
+      {err && <div className="mt-2 text-danger">{t('admin.gameSettings.saveError')}</div>}
     </div>
   );
 }
 
-function GameCard({ t, settings, fields, boolFields = [], onSave, busy, staticRtpNote, rtpCalc, infoNoteKey, simFields }) {
+/** Evrensel sütunlar: RTP / Min / Max — oyuna özgü kalan alanlar accordion'da. */
+function universalFields(fields) {
+  const rtp = fields.find(f =>
+    f.transform === 'houseEdgeToRtp'
+    || f.transform === 'fractionToPercent'
+    || f.key.endsWith('PayoutFactor')
+  );
+  const min = fields.find(f => f.key.endsWith('MinBet'));
+  const max = fields.find(f => f.key.endsWith('MaxBet'));
+  const rest = fields.filter(f => f !== rtp && f !== min && f !== max);
+  return { rtp, min, max, rest };
+}
+
+function rowRtpDisplay({ staticRtpNote, rtpCalc, rtpField, form, t, fmt }) {
+  const pct = v => (typeof v === 'number' && Number.isFinite(v) ? fmt.formatPercent(v / 100) : '—');
+  if (staticRtpNote) return pct(Number(staticRtpNote));
+  if (rtpCalc) {
+    const first = rtpCalc(t, form)[0];
+    return first ? pct(first.value) : '—';
+  }
+  if (rtpField) {
+    const v = toDisplay(rtpField, form[rtpField.key]);
+    return v === '' || v == null ? '—' : pct(Number(v));
+  }
+  return '—';
+}
+
+function GameRow({
+  t,
+  fmt,
+  settings,
+  fields,
+  boolFields = [],
+  onSave,
+  busy,
+  staticRtpNote,
+  rtpCalc,
+  infoNoteKey,
+  simFields,
+  expanded,
+  onToggle,
+}) {
   const [form, setForm] = useState(settings);
 
   useEffect(() => { setForm(settings); }, [settings]);
@@ -380,114 +455,145 @@ function GameCard({ t, settings, fields, boolFields = [], onSave, busy, staticRt
     setForm(f => ({ ...f, [key]: value }));
   }
 
+  const { rtp, min, max, rest } = universalFields(fields);
+
   const changed = fields.some(f => Number(form[f.key]) !== Number(settings[f.key]))
     || boolFields.some(f => form[f.key] !== settings[f.key])
     || form.isActive !== settings.isActive;
 
+  const cellInput = (f) => (
+    <input
+      type={f.type}
+      step={f.step}
+      min={f.min}
+      max={f.max}
+      value={toDisplay(f, form[f.key]) ?? ''}
+      onChange={e => setField(f.key, e.target.value === '' ? '' : fromDisplay(f, e.target.value))}
+      className="h-8 w-24 rounded-lg border border-white/10 bg-bg-deep px-2 text-sm tabular-nums text-text-1 focus:border-white/25 focus:outline-none"
+    />
+  );
+
   return (
-    <div className="bg-bg-card border border-white/10 rounded-xl p-4">
-      <div className="flex items-center justify-between mb-4">
-        <div className="font-semibold">{settings.gameTitle}</div>
-        <button
-          onClick={() => setField('isActive', !form.isActive)}
-          role="switch"
-          aria-checked={form.isActive}
-          aria-label={t('admin.gameSettings.toggleActive')}
-          className={`relative w-12 h-6 rounded-full transition shrink-0 ${form.isActive ? 'bg-green-500/80' : 'bg-white/10'}`}
-        >
-          <span className={`absolute top-0.5 left-0.5 w-5 h-5 rounded-full bg-white transition-transform ${form.isActive ? 'translate-x-6' : ''}`} />
-        </button>
-      </div>
+    <>
+      <AdminTableRow>
+        <AdminTableCell>
+          <div className="font-medium text-text-1">{settings.gameTitle}</div>
+        </AdminTableCell>
+        <AdminTableCell className="text-text-2 tabular-nums">
+          {staticRtpNote || rtpCalc
+            ? rowRtpDisplay({ staticRtpNote, rtpCalc, rtpField: rtp, form, t, fmt })
+            : rtp ? cellInput(rtp) : '—'}
+        </AdminTableCell>
+        <AdminTableCell className="text-text-2 tabular-nums">{min ? cellInput(min) : '—'}</AdminTableCell>
+        <AdminTableCell className="text-text-2 tabular-nums">{max ? cellInput(max) : '—'}</AdminTableCell>
+        <AdminTableCell>
+          <ActiveSwitch
+            checked={!!form.isActive}
+            onChange={() => setField('isActive', !form.isActive)}
+            label={t('admin.gameSettings.toggleActive')}
+          />
+        </AdminTableCell>
+        <AdminTableActionsCell>
+          <RowActions
+            label={t('admin.gameSettings.columnDetails')}
+            items={[
+              { key: 'save', label: busy ? t('admin.gameSettings.saving') : t('admin.gameSettings.save'), icon: 'save', tone: 'success', disabled: !changed || busy, onClick: () => onSave(form) },
+              { key: 'details', label: expanded ? t('admin.gameSettings.collapseDetails') : t('admin.gameSettings.expandDetails'), icon: expanded ? 'expand_less' : 'expand_more', onClick: onToggle },
+            ]}
+          />
+        </AdminTableActionsCell>
+      </AdminTableRow>
 
-      {staticRtpNote && (
-        <div className="mb-4 px-3 py-2 rounded-lg bg-white/5 border border-white/10 text-xs text-text-3">
-          <span className="text-text-1 font-medium">{t('admin.gameSettings.rtpFixedLabel')}: {staticRtpNote}%</span>
-          <div className="mt-0.5">{t('admin.gameSettings.rtpFixedNote')}</div>
-        </div>
-      )}
-
-      {infoNoteKey && t(infoNoteKey) !== infoNoteKey && (
-        <div className="mb-4 px-3 py-2 rounded-lg bg-amber-500/10 border border-amber-500/20 text-xs text-text-3 whitespace-pre-line">
-          {t(infoNoteKey)}
-        </div>
-      )}
-
-      {rtpCalc && (
-        <div className="mb-4 flex flex-wrap gap-2">
-          {rtpCalc(t, form).map(({ label, value }) => (
-            <div key={label} className="px-3 py-2 rounded-lg bg-white/5 border border-white/10 text-xs">
-              <span className="text-text-3">{label}: </span>
-              <span className={`font-medium ${value < 90 ? 'text-amber-400' : 'text-text-1'}`}>
-                {value.toFixed(2)}%
-              </span>
-            </div>
-          ))}
-        </div>
-      )}
-
-      {simFields && <SimulateRtpButton t={t} gameId={settings.gameId} form={form} simFields={simFields} />}
-
-      {boolFields.map(f => {
-        const helpKey = `admin.gameSettings.field.${f.key}.help`;
-        const help = t(helpKey);
-        return (
-          <div key={f.key} className="mb-3 px-3 py-2 rounded-lg bg-white/5 border border-white/10">
-            <div className="flex items-center justify-between gap-2">
-              <span className="text-xs text-text-3">{t(`admin.gameSettings.field.${f.key}`)}</span>
-              <button
-                onClick={() => setField(f.key, !form[f.key])}
-                role="switch"
-                aria-checked={!!form[f.key]}
-                type="button"
-                className={`relative w-10 h-5 rounded-full transition shrink-0 ${form[f.key] ? 'bg-green-500/80' : 'bg-white/10'}`}
-              >
-                <span className={`absolute top-0.5 left-0.5 w-4 h-4 rounded-full bg-white transition-transform ${form[f.key] ? 'translate-x-5' : ''}`} />
-              </button>
-            </div>
-            {help !== helpKey && <div className="mt-1 text-[11px] text-text-3/70 leading-snug">{help}</div>}
+      <AdminExpandRow colSpan={6} open={expanded}>
+        {staticRtpNote && (
+          <div className="mb-4 rounded-xl border border-white/10 bg-bg-deep px-3 py-2.5 text-xs text-text-3">
+            <span className="font-mono font-semibold tabular-nums text-text-1">
+              {t('admin.gameSettings.rtpFixedLabel')}: {fmt.formatPercent(Number(staticRtpNote) / 100)}
+            </span>
+            <div className="mt-0.5">{t('admin.gameSettings.rtpFixedNote')}</div>
           </div>
-        );
-      })}
+        )}
 
-      <div className="grid grid-cols-2 gap-3 mb-4">
-        {fields.map(f => {
-          const helpKey = `admin.gameSettings.field.${f.key}.help`;
-          const help = t(helpKey);
+        {infoNoteKey && t(infoNoteKey) !== infoNoteKey && (
+          <div className="mb-4 whitespace-pre-line rounded-xl border border-warning/25 bg-warning/10 px-3 py-2.5 text-xs text-text-3">
+            {t(infoNoteKey)}
+          </div>
+        )}
+
+        {rtpCalc && (
+          <div className="mb-4 flex flex-wrap gap-2">
+            {rtpCalc(t, form).map(({ label, value }) => (
+              <div key={label} className="rounded-lg border border-white/10 bg-bg-deep px-3 py-2 text-xs">
+                <span className="text-text-3">{label}: </span>
+                <span className={`font-mono font-bold tabular-nums ${value < 90 ? 'text-warning' : 'text-text-1'}`}>
+                  {fmt.formatPercent(value / 100)}
+                </span>
+              </div>
+            ))}
+          </div>
+        )}
+
+        {simFields && <SimulateRtpButton t={t} gameId={settings.gameId} form={form} simFields={simFields} />}
+
+        {boolFields.map(f => {
+          const help = fieldHelp(t, f.key);
           return (
-            <label key={f.key} className="text-xs text-text-3">
-              {t(`admin.gameSettings.field.${f.key}`)}
-              <input
-                type={f.type}
-                step={f.step}
-                min={f.min}
-                max={f.max}
-                value={toDisplay(f, form[f.key]) ?? ''}
-                onChange={e => setField(f.key, e.target.value === '' ? '' : fromDisplay(f, e.target.value))}
-                className="mt-1 w-full h-9 rounded-lg bg-bg-base border border-white/10 px-3 text-sm text-text-1 focus:outline-none focus:border-primary/50"
-              />
-              {help !== helpKey && <div className="mt-1 text-[11px] text-text-3/70 leading-snug">{help}</div>}
-            </label>
+            <div key={f.key} className="mb-3 rounded-lg border border-white/10 bg-bg-deep px-3 py-2">
+              <div className="flex items-center justify-between gap-2">
+                <span className="text-xs text-text-3">{fieldLabel(t, f.key)}</span>
+                <ActiveSwitch
+                  checked={!!form[f.key]}
+                  onChange={() => setField(f.key, !form[f.key])}
+                  label={fieldLabel(t, f.key)}
+                />
+              </div>
+              {help && <div className="mt-1 text-[11px] text-text-3/70 leading-snug">{help}</div>}
+            </div>
           );
         })}
-      </div>
 
-      <button
-        onClick={() => onSave(form)}
-        disabled={!changed || busy}
-        className="px-4 py-2 rounded-lg bg-primary text-white text-sm font-medium disabled:opacity-40 transition"
-      >
-        {busy ? t('admin.gameSettings.saving') : t('admin.gameSettings.save')}
-      </button>
-    </div>
+        <div className="grid grid-cols-2 gap-3 mb-4">
+          {rest.map(f => {
+            const help = fieldHelp(t, f.key);
+            return (
+              <label key={f.key} className="mb-1.5 block text-[11px] font-bold uppercase tracking-wide text-text-3">
+                {fieldLabel(t, f.key)}
+                <input
+                  type={f.type}
+                  step={f.step}
+                  min={f.min}
+                  max={f.max}
+                  value={toDisplay(f, form[f.key]) ?? ''}
+                  onChange={e => setField(f.key, e.target.value === '' ? '' : fromDisplay(f, e.target.value))}
+                  className="mt-1.5 h-9 w-full rounded-lg border border-white/10 bg-bg-deep px-3 text-sm tabular-nums text-text-1 focus:border-white/25 focus:outline-none"
+                />
+                {help && <div className="mt-1 text-[11px] text-text-3/70 leading-snug">{help}</div>}
+              </label>
+            );
+          })}
+        </div>
+
+        <button
+          onClick={() => onSave(form)}
+          disabled={!changed || busy}
+          className={`${ADMIN_BTN_PRIMARY} disabled:opacity-40`}
+        >
+          <span className="material-symbols-outlined !text-[16px]" aria-hidden="true">save</span>
+          {busy ? t('admin.gameSettings.saving') : t('admin.gameSettings.save')}
+        </button>
+      </AdminExpandRow>
+    </>
   );
 }
 
 export default function AdminGameSettings() {
-  const { t } = useTranslation();
+  const { t, locale } = useTranslation();
+  const fmt = useFormatters();
   const [settings, setSettings] = useState([]);
   const [loading, setLoading] = useState(true);
   const [busyId, setBusyId] = useState(null);
   const [error, setError] = useState('');
+  const [expandedId, setExpandedId] = useState(null);
 
   const load = useCallback(async () => {
     setError('');
@@ -507,7 +613,9 @@ export default function AdminGameSettings() {
     setBusyId(gameId);
     setError('');
     try {
-      const { _id, gameId: _g, gameTitle, createdAt, updatedAt, changeLog, __v, ...updates } = form;
+      const updates = Object.fromEntries(
+        Object.entries(form).filter(([key]) => !['_id', 'gameId', 'gameTitle', 'createdAt', 'updatedAt', 'changeLog', '__v'].includes(key)),
+      );
       const r = await api.patch(`/admin/game-settings/${gameId}`, updates);
       setSettings(prev => prev.map(s => (s.gameId === gameId ? r.data.settings : s)));
     } catch {
@@ -518,24 +626,63 @@ export default function AdminGameSettings() {
   }
 
   return (
-    <div className="p-6 max-w-4xl mx-auto">
-      <h1 className="text-2xl font-bold mb-2">{t('admin.gameSettings.title')}</h1>
-      <p className="text-text-3 text-sm mb-6">{t('admin.gameSettings.subtitle')}</p>
+    <div className="mx-auto w-full max-w-[1400px] px-4 py-5 sm:px-6">
+      <AdminPageHeader
+        crumbs={[{ label: t('admin.nav.groupProducts') }, { label: t('admin.gameSettings.title') }]}
+        title={t('admin.gameSettings.title')}
+        sub={t('admin.gameSettings.subtitle')}
+        actions={<ConnectionSettingsLink />}
+      />
+
+      <InhouseAllowedGames />
 
       {error && (
-        <div className="mb-4 p-3 rounded-lg bg-red-500/10 border border-red-500/30 text-red-300 text-sm">
+        <div className="mb-4 rounded-xl border border-danger/30 bg-danger/15 px-4 py-3 text-sm text-danger">
           {error}
         </div>
       )}
 
       {loading ? (
-        <div className="text-text-3">{t('admin.gameSettings.loading')}</div>
+        <div className="rounded-xl border border-white/10 bg-bg-card px-4 py-12 text-center">
+          <span className="material-symbols-outlined !text-[32px] text-text-3/60" aria-hidden="true">progress_activity</span>
+          <div className="mt-2 text-sm text-text-3">{t('admin.gameSettings.loading')}</div>
+        </div>
       ) : (
-        <div className="grid sm:grid-cols-2 gap-4">
+        <>
+        <div className="mb-3 flex items-center gap-2">
+          <span className="grid h-7 w-7 place-items-center rounded-lg bg-primary/10 text-primary">
+            <span className="material-symbols-outlined !text-[16px]" aria-hidden="true">tune</span>
+          </span>
+          <h3 className="text-sm font-extrabold text-text-1">{t('admin.gameSettings.title')}</h3>
+          <span className="rounded-full bg-white/10 px-2 py-[3px] font-mono text-[11px] font-bold tabular-nums text-text-2">
+            {settings.length.toLocaleString(locale)}
+          </span>
+        </div>
+        <AdminTable
+          columns={[
+            { key: 'game', label: t('admin.gameSettings.title') },
+            { key: 'rtp', label: t('admin.gameSettings.columnRtp') },
+            { key: 'min', label: t('admin.gameSettings.columnMinBet') },
+            { key: 'max', label: t('admin.gameSettings.columnMaxBet') },
+            { key: 'active', label: t('admin.gameSettings.columnActive') },
+            { key: 'actions', label: t('admin.gameSettings.columnDetails'), align: 'right' },
+          ]}
+        >
+          {settings.length === 0 && (
+            <tr>
+              <td colSpan={6} className="p-0">
+                <div className="rounded-xl border border-white/10 bg-bg-card px-4 py-12 text-center">
+                  <span className="material-symbols-outlined !text-[32px] text-text-3/60" aria-hidden="true">sports_esports</span>
+                  <div className="mt-2 text-sm text-text-3">{t('admin.gameSettings.noGames')}</div>
+                </div>
+              </td>
+            </tr>
+          )}
           {settings.map(s => (
-            <GameCard
+            <GameRow
               key={s.gameId}
               t={t}
+              fmt={fmt}
               settings={s}
               fields={FIELDS_BY_GAME[s.gameId] ?? []}
               onSave={form => save(s.gameId, form)}
@@ -545,9 +692,12 @@ export default function AdminGameSettings() {
               infoNoteKey={INFO_NOTE_BY_GAME[s.gameId]}
               boolFields={BOOL_FIELDS_BY_GAME[s.gameId] ?? []}
               simFields={SIM_FIELDS_BY_GAME[s.gameId]}
+              expanded={expandedId === s.gameId}
+              onToggle={() => setExpandedId(id => (id === s.gameId ? null : s.gameId))}
             />
           ))}
-        </div>
+        </AdminTable>
+        </>
       )}
     </div>
   );

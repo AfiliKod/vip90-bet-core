@@ -63,6 +63,16 @@ export default defineConfig({
         ],
       },
       workbox: {
+        // 2026-10-02: skipWaiting/clientsClaim YOKTU. Bu yüzden yeni service
+        // worker indirilip "waiting"de kalıyor ve eski bundle'ı servis etmeye
+        // devam ediyordu. Sunucu tarafındaki no-cache başlığı sw.js'in
+        // ÇEKİLMEŞİNİ düzeltir, AKTİVASYONUNU düzeltmez — kullanıcı yeni
+        // build'e geçemeden eski kodda kalıyordu (belgelenen olay:
+        // dashboard eski ucu çağırıp 404 alıyordu).
+        // Bu iki ayar yeni SW'nin beklemeden devreye girmesini ve açık
+        // sekmeleri hemen devralmasını sağlar.
+        skipWaiting: true,
+        clientsClaim: true,
         // material-symbols-outlined.woff2 (~4MB, tüm ikon setini kapsıyor)
         // service-worker precache'ine dahil edilmiyor — normal HTTP cache
         // (uzun max-age) yeterli, precache manifest'i şişirmesin.

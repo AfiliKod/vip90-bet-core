@@ -1,6 +1,8 @@
 import { useState } from 'react';
 import { Link, useNavigate, useSearchParams } from 'react-router-dom';
-import { useForm } from 'react-hook-form';
+import { useForm, Controller } from 'react-hook-form';
+import BirthDatePicker from '../components/form/BirthDatePicker.jsx';
+import PhoneInput from '../components/form/PhoneInput.jsx';
 import Swal from 'sweetalert2';
 import { useAuthStore } from '../store/authStore';
 import { useToastStore } from '../store/toastStore';
@@ -27,7 +29,7 @@ export default function Login() {
   const [walletLoading, setWalletLoading] = useState(false);
   const addToast = useToastStore(s => s.add);
   const navigate = useNavigate();
-  const { register, handleSubmit, formState: { isSubmitting } } = useForm();
+  const { register, control, handleSubmit, formState: { isSubmitting } } = useForm();
 
   const canSubmitRegister = acceptedTerms && acceptedKvkk;
 
@@ -46,7 +48,10 @@ export default function Login() {
           acceptedTerms,
           acceptedKvkk,
           consentVersion: LEGAL_VERSION,
-        }, (data.referredBy?.trim() || refUsername || undefined));
+        }, (data.referredBy?.trim() || refUsername || undefined), {
+          phone: data.phone || undefined,
+          dateOfBirth: data.dateOfBirth || undefined,
+        });
         if (result.accessToken) {
           navigate('/');
         } else {
@@ -205,6 +210,20 @@ export default function Login() {
               {tab === 'register' && (
                 <input {...register('referredBy')} defaultValue={refUsername || ''} placeholder={t('auth.referredByPlaceholder')}
                   className="w-full bg-bg-base border border-white/10 rounded-lg px-4 py-3 text-text-1 placeholder-text-3 focus:outline-none focus:border-primary transition" />
+              )}
+              {tab === 'register' && (
+                <div>
+                  <label className="text-xs text-text-3 mb-1 block">{t('auth.phone')}</label>
+                  <Controller name="phone" control={control} defaultValue=""
+                    render={({ field }) => <PhoneInput value={field.value} onChange={field.onChange} />} />
+                </div>
+              )}
+              {tab === 'register' && (
+                <div>
+                  <label className="text-xs text-text-3 mb-1 block">{t('auth.dateOfBirth')}</label>
+                  <Controller name="dateOfBirth" control={control} defaultValue=""
+                    render={({ field }) => <BirthDatePicker value={field.value} onChange={field.onChange} />} />
+                </div>
               )}
               <div>
                 <div className="relative">

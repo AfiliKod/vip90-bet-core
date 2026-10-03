@@ -5,7 +5,7 @@
  * sıralaması ürettiğini gerçek DB'ye karşı test eder — bet/win double-count,
  * 7 günlük cutoff, provider filtresi, cache davranışı.
  *
- * Gerçek Palace API çağrısı yapmaz.
+ * Gerçek Igames API çağrısı yapmaz.
  */
 
 import { config } from 'dotenv';
@@ -56,7 +56,7 @@ function daysAgo(n) {
   return new Date(Date.now() - n * 24 * 60 * 60 * 1000);
 }
 
-async function createRound({ gameId, bet = 10, payout = 0, note = '', createdAt, provider = 'palace' }) {
+async function createRound({ gameId, bet = 10, payout = 0, note = '', createdAt, provider = 'igames' }) {
   const round = await CasinoRound.create({
     userId: user._id,
     gameId,
@@ -123,15 +123,15 @@ await test('getPopularGames: 7 günden eski kayıtlar cutoff dışında kalır',
   assert(result.some(r => r.game_code === 'fresh_game'), 'fresh_game listede olmalı');
 });
 
-// 5. provider != palace olan kayıtlar hariç tutulur (limit=14)
-await test('getPopularGames: provider != palace olan kayıtlar hariç tutulur', async () => {
+// 5. provider != igames olan kayıtlar hariç tutulur (limit=14)
+await test('getPopularGames: provider != igames olan kayıtlar hariç tutulur', async () => {
   await CasinoRound.deleteMany({});
   await createRound({ gameId: 'inhouse_crash', bet: 10, provider: 'inhouse', createdAt: daysAgo(1) });
-  await createRound({ gameId: 'palace_game', bet: 10, provider: 'palace', createdAt: daysAgo(1) });
+  await createRound({ gameId: 'igames_game', bet: 10, provider: 'igames', createdAt: daysAgo(1) });
 
   const result = await getPopularGames(14);
   assert(!result.some(r => r.game_code === 'inhouse_crash'), 'inhouse oyunları listede olmamalı');
-  assert(result.some(r => r.game_code === 'palace_game'), 'palace_game listede olmalı');
+  assert(result.some(r => r.game_code === 'igames_game'), 'igames_game listede olmalı');
 });
 
 // 6. limit parametresi sonuç sayısını sınırlar (limit=3)

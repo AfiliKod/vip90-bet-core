@@ -1,8 +1,10 @@
 import { useEffect, useState } from 'react';
 import api from '../../services/api';
 import { useTranslation } from '../../i18n';
+import { AdminTable, AdminTableRow, AdminTableCell, AdminTableActionsCell } from '../../components/admin/AdminTable.jsx';
+import RowActions from '../../components/admin/RowActions.jsx';
 
-const COLUMN_LABELS = { brand: 'Marka (Hakkımızda vb.)', support: 'Destek', legal: 'Yasal' };
+const COLUMN_LABELS = { brand: 'admin.staticPages.colBrand', support: 'admin.staticPages.colSupport', legal: 'admin.staticPages.colLegal' };
 
 /**
  * Footer/statik sayfa yönetimi. Hakkımızda/Kariyer/Basın/İletişim (yeni) +
@@ -101,48 +103,61 @@ export default function AdminStaticPages() {
   const groups = ['brand', 'support', 'legal'];
 
   return (
-    <div className="p-6 max-w-4xl mx-auto">
-      <h1 className="text-2xl font-bold mb-2">{t('admin.staticPages.title')}</h1>
+    <div>
       <p className="text-text-3 text-sm mb-6">{t('admin.staticPages.subtitle')}</p>
 
       {error && (
-        <div className="mb-4 p-3 rounded-lg bg-red-500/10 border border-red-500/30 text-red-300 text-sm">{error}</div>
+        <div className="mb-4 rounded-xl border border-danger/30 bg-danger/15 px-4 py-3 text-sm text-danger">{error}</div>
       )}
 
-      {loading ? (
-        <div className="text-text-3">{t('admin.staticPages.loading')}</div>
-      ) : (
-        <div className="space-y-8">
-          {groups.map(group => (
-            <div key={group}>
-              <div className="text-xs uppercase tracking-widest text-text-3 font-bold mb-3">{COLUMN_LABELS[group]}</div>
-              <div className="space-y-2">
-                {pages.filter(p => p.footerColumn === group).map(p => (
-                  <div key={p.slug} className="bg-bg-card border border-white/10 rounded-xl p-4 flex items-center justify-between">
-                    <div>
-                      <div className="font-semibold flex items-center gap-2">
-                        {p.title}
-                        <span className={`text-xs px-2 py-0.5 rounded-full ${p.isEnabled ? 'bg-green-500/15 text-green-300' : 'bg-white/5 text-text-3'}`}>
-                          {p.isEnabled ? t('admin.staticPages.enabled') : t('admin.staticPages.disabled')}
-                        </span>
-                      </div>
-                      <div className="text-xs text-text-3 mt-0.5">{p.route}</div>
-                    </div>
-                    <div className="flex gap-2">
-                      <button onClick={() => openEdit(p)} className="px-3 py-1.5 rounded-lg text-xs border border-white/10 text-text-2 hover:text-text-1">
-                        {t('common.edit')}
-                      </button>
-                      <button onClick={() => toggle(p)} className="px-3 py-1.5 rounded-lg text-xs border border-white/10 text-text-2 hover:text-text-1">
-                        {p.isEnabled ? t('admin.staticPages.disable') : t('admin.staticPages.enable')}
-                      </button>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </div>
-          ))}
-        </div>
-      )}
+      <AdminTable
+        loading={loading}
+        empty={pages.length === 0}
+        emptyLabel={t('common.noData')}
+        columns={[
+          { key: 'page', label: t('admin.staticPages.columnPage') },
+          { key: 'group', label: t('admin.staticPages.columnGroup') },
+          { key: 'status', label: t('admin.staticPages.columnStatus') },
+          { key: 'actions', label: t('admin.staticPages.columnActions'), align: 'right' },
+        ]}
+      >
+        {groups.map(group =>
+          pages.filter(p => p.footerColumn === group).map(p => (
+            <AdminTableRow key={p.slug}>
+              <AdminTableCell>
+                <div className="truncate font-bold text-text-1">{p.title}</div>
+                <div className="mt-0.5 font-mono text-xs text-text-3">{p.route}</div>
+              </AdminTableCell>
+              <AdminTableCell>
+                <span className="rounded-full bg-white/10 px-2.5 py-1 text-[10.5px] font-extrabold uppercase text-text-2">
+                  {t(COLUMN_LABELS[group])}
+                </span>
+              </AdminTableCell>
+              <AdminTableCell>
+                {p.isEnabled ? (
+                  <span className="inline-flex items-center gap-1.5 rounded-full bg-success/15 px-2.5 py-1 text-[11px] font-extrabold text-success">
+                    <i className="h-1.5 w-1.5 rounded-full bg-success" />
+                    {t('admin.staticPages.enabled')}
+                  </span>
+                ) : (
+                  <span className="rounded-full bg-white/10 px-2.5 py-1 text-[11px] font-extrabold text-text-3">
+                    {t('admin.staticPages.disabled')}
+                  </span>
+                )}
+              </AdminTableCell>
+              <AdminTableActionsCell>
+                <RowActions
+                  label={t('admin.staticPages.columnActions')}
+                  items={[
+                    { key: 'edit', label: t('common.edit'), icon: 'edit', onClick: () => openEdit(p) },
+                    { key: 'toggle', label: p.isEnabled ? t('admin.staticPages.disable') : t('admin.staticPages.enable'), icon: p.isEnabled ? 'toggle_off' : 'toggle_on', onClick: () => toggle(p) },
+                  ]}
+                />
+              </AdminTableActionsCell>
+            </AdminTableRow>
+          )),
+        )}
+      </AdminTable>
 
       {editing && (
         // items-center YERİNE items-start: içerik viewport'tan uzun olduğunda
@@ -176,7 +191,9 @@ export default function AdminStaticPages() {
                     <input value={section.title} placeholder={t('admin.staticPages.sectionTitleField')}
                       onChange={e => updateSectionTitle(sIdx, e.target.value)}
                       className="flex-1 h-8 rounded-lg bg-bg-base border border-white/10 px-2 text-sm text-text-1" />
-                    <button onClick={() => removeSection(sIdx)} className="text-xs text-red-300 px-2">✕</button>
+                    <button onClick={() => removeSection(sIdx)} className="text-danger px-2" aria-label={t('common.delete')}>
+                      <span className="material-symbols-outlined !text-[16px]" aria-hidden="true">close</span>
+                    </button>
                   </div>
                   <div className="space-y-2">
                     {section.content.map((p, pIdx) => (
@@ -184,7 +201,9 @@ export default function AdminStaticPages() {
                         <textarea value={p} rows={2}
                           onChange={e => updateParagraph(sIdx, pIdx, e.target.value)}
                           className="flex-1 rounded-lg bg-bg-base border border-white/10 px-2 py-1.5 text-xs text-text-1" />
-                        <button onClick={() => removeParagraph(sIdx, pIdx)} className="text-xs text-red-300 px-1">✕</button>
+                        <button onClick={() => removeParagraph(sIdx, pIdx)} className="text-danger px-1" aria-label={t('common.delete')}>
+                          <span className="material-symbols-outlined !text-[16px]" aria-hidden="true">close</span>
+                        </button>
                       </div>
                     ))}
                   </div>

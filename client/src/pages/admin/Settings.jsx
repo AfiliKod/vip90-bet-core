@@ -1,6 +1,8 @@
 import { useEffect, useState } from 'react';
 import api from '../../services/api';
+import { useToastStore } from '../../store/toastStore';
 import { useTranslation } from '../../i18n';
+import { ADMIN_BTN, ADMIN_BTN_GHOST, ADMIN_BTN_PRIMARY } from '../../components/admin/AdminPageHeader.jsx';
 
 /**
  * U4/U5 — Bölge ve para birimi kartı.
@@ -101,14 +103,19 @@ function RegionCurrencyCard({ t }) {
 
   return (
     <div className="bg-bg-card border border-white/10 rounded-xl p-4 mb-4">
-      <h2 className="text-lg font-semibold text-text-1">🌍 {t('admin.settings.region.title')}</h2>
-      <p className="text-xs text-text-3 mt-0.5 mb-4">{t('admin.settings.region.hint')}</p>
+      <div className="mb-4 flex items-center gap-2">
+        <span className="grid h-7 w-7 place-items-center rounded-lg bg-primary/10 text-primary"><span className="material-symbols-outlined !text-[16px]" aria-hidden="true">public</span></span>
+        <div className="min-w-0">
+          <h3 className="text-sm font-extrabold text-text-1">{t('admin.settings.region.title')}</h3>
+          <p className="truncate text-[11.5px] text-text-3">{t('admin.settings.region.hint')}</p>
+        </div>
+      </div>
 
       {notice && (
-        <div className={`mb-4 rounded-lg px-3 py-2 text-xs border ${
+        <div className={`mb-4 rounded-xl border px-3 py-2 text-xs ${
           notice.type === 'ok'
-            ? 'border-green-500/30 bg-green-500/10 text-green-200'
-            : 'border-red-500/30 bg-red-500/10 text-red-200'
+            ? 'border-success/30 bg-success/15 text-success'
+            : 'border-danger/30 bg-danger/15 text-danger'
         }`}>
           {notice.text}
         </div>
@@ -125,8 +132,8 @@ function RegionCurrencyCard({ t }) {
               disabled={savingCurrency || c.code === currency.active.code}
               className={`px-3 py-1.5 rounded-lg text-xs font-medium border transition disabled:opacity-100 ${
                 c.code === currency.active.code
-                  ? 'bg-accent/20 text-accent border-accent/30'
-                  : 'border-white/10 text-text-3 hover:text-text-1 hover:border-white/25'
+                  ? 'border-primary/40 bg-primary/15 text-primary'
+                  : 'border-white/10 text-text-3 hover:border-white/25 hover:text-text-1'
               }`}
             >
               {c.symbol} {c.code}
@@ -149,8 +156,9 @@ function RegionCurrencyCard({ t }) {
           <button
             onClick={saveTimezone}
             disabled={savingTimezone || tzInput.trim() === timezone}
-            className="px-4 py-2 rounded-lg text-xs font-medium bg-accent/20 text-accent border border-accent/30 hover:bg-accent/30 disabled:opacity-40 transition"
+            className={`${ADMIN_BTN} shrink-0 disabled:opacity-40`}
           >
+            <span className="material-symbols-outlined !text-[15px]" aria-hidden="true">save</span>
             {savingTimezone ? t('admin.settings.savingEllipsis') : t('common.save')}
           </button>
         </div>
@@ -167,8 +175,8 @@ function RegionCurrencyCard({ t }) {
               disabled={savingLocale || code === defaultLocale}
               className={`px-3 py-1.5 rounded-lg text-xs font-medium border transition disabled:opacity-100 ${
                 code === defaultLocale
-                  ? 'bg-accent/20 text-accent border-accent/30'
-                  : 'border-white/10 text-text-3 hover:text-text-1 hover:border-white/25'
+                  ? 'border-primary/40 bg-primary/15 text-primary'
+                  : 'border-white/10 text-text-3 hover:border-white/25 hover:text-text-1'
               }`}
             >
               {code.toUpperCase()}
@@ -176,6 +184,128 @@ function RegionCurrencyCard({ t }) {
           ))}
         </div>
       </div>
+    </div>
+  );
+}
+
+/**
+ * E-posta (SMTP) kartı. Mail servisi modül DEĞİL: kapanırsa kayıt doğrulama ve
+ * şifre sıfırlama çalışmaz. Değerler DB'de (şifre şifreli), boş alanlar sunucu
+ * ortam değişkenlerinden okunur. Şifre alanı boş bırakılırsa değişmez.
+ */
+const EMAIL_FIELDS = [
+  { key: 'host', labelKey: 'admin.emailSettings.host', placeholder: 'smtp.mailgun.org' },
+  { key: 'port', labelKey: 'admin.emailSettings.port', placeholder: '587', inputMode: 'numeric' },
+  { key: 'user', labelKey: 'admin.emailSettings.user' },
+  { key: 'pass', labelKey: 'admin.emailSettings.pass', secret: true },
+  { key: 'from', labelKey: 'admin.emailSettings.from', placeholder: 'noreply@example.com' },
+];
+
+function EmailSettingsCard({ t }) {
+  const addToast = useToastStore(s => s.add);
+  const [settings, setSettings] = useState(null);
+  const [form, setForm] = useState({});
+  const [saving, setSaving] = useState(false);
+  const [testing, setTesting] = useState(false);
+
+  useEffect(() => {
+    api.get('/admin/settings/email')
+      .then(r => setSettings(r.data.settings))
+      .catch(() => addToast(t('admin.emailSettings.loadFailed'), 'error'));
+  }, [t, addToast]);
+
+  async function save() {
+    setSaving(true);
+    try {
+      const r = await api.put('/admin/settings/email', form);
+      setSettings(r.data.settings);
+      setForm({});
+      addToast(t('admin.emailSettings.saved'), 'success');
+    } catch (e) {
+      addToast(e.response?.data?.error?.message || t('admin.emailSettings.saveFailed'), 'error');
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  async function sendTest() {
+    setTesting(true);
+    try {
+      const r = await api.post('/admin/settings/email/test');
+      addToast(t('admin.emailSettings.testSent', { email: r.data.to }), 'success');
+    } catch (e) {
+      addToast(e.response?.data?.error?.message || t('admin.emailSettings.testFailed'), 'error');
+    } finally {
+      setTesting(false);
+    }
+  }
+
+  if (!settings) return <div className="h-40 bg-bg-card rounded-xl animate-pulse mb-4" />;
+
+  const byKey = Object.fromEntries(settings.map(s => [s.key, s]));
+  const secureCurrent = form.secure ?? (byKey.secure?.value === 'true');
+  const dirty = Object.keys(form).length > 0;
+  const inputCls = 'w-full bg-bg-deep border border-white/10 rounded-lg px-3 py-2 text-sm text-text-1 placeholder:text-text-3/60 focus:outline-none focus:border-white/25';
+
+  return (
+    <div className="bg-bg-card border border-white/10 rounded-xl p-4 mb-4">
+      <div className="mb-4 flex items-center gap-2">
+        <span className="grid h-7 w-7 place-items-center rounded-lg bg-primary/10 text-primary"><span className="material-symbols-outlined !text-[16px]" aria-hidden="true">mail</span></span>
+        <div className="min-w-0">
+          <h3 className="text-sm font-extrabold text-text-1">{t('admin.emailSettings.title')}</h3>
+          <p className="truncate text-[11.5px] text-text-3">{t('admin.emailSettings.hint')}</p>
+        </div>
+      </div>
+
+      <div className="grid gap-3 sm:grid-cols-2">
+        {EMAIL_FIELDS.map(({ key, labelKey, secret, placeholder, inputMode }) => {
+          const current = byKey[key] || {};
+          return (
+            <div key={key}>
+              <label className="text-xs font-medium text-text-2 mb-1 block" htmlFor={`smtp-${key}`}>{t(labelKey)}</label>
+              <input
+                id={`smtp-${key}`}
+                type={secret ? 'password' : 'text'}
+                inputMode={inputMode}
+                autoComplete="off"
+                value={form[key] ?? (secret ? '' : (current.value || ''))}
+                placeholder={secret ? (current.value || '') : placeholder}
+                onChange={e => setForm(f => ({ ...f, [key]: e.target.value }))}
+                className={inputCls}
+              />
+              {secret && <div className="mt-1 text-[11px] text-text-3/70">{t('admin.emailSettings.passHint')}</div>}
+            </div>
+          );
+        })}
+        <div className="flex items-center justify-between gap-3 rounded-lg bg-bg-hover p-3 sm:col-span-2">
+          <div className="min-w-0">
+            <div className="text-xs font-medium text-text-2">{t('admin.emailSettings.secure')}</div>
+            <div className="text-[11px] text-text-3/70">{t('admin.emailSettings.secureHelp')}</div>
+          </div>
+          <button
+            type="button"
+            role="switch"
+            aria-checked={secureCurrent}
+            aria-label={t('admin.emailSettings.secure')}
+            onClick={() => setForm(f => ({ ...f, secure: !secureCurrent }))}
+            className={`relative w-12 h-6 rounded-full transition shrink-0 ${secureCurrent ? 'bg-success/80' : 'bg-white/10'}`}
+          >
+            <span className={`absolute top-0.5 left-0.5 w-5 h-5 rounded-full bg-white transition-transform ${secureCurrent ? 'translate-x-6' : ''}`} />
+          </button>
+        </div>
+      </div>
+
+      <div className="mt-4 flex flex-wrap items-center gap-2">
+        <button onClick={save} disabled={saving || !dirty} className={`${ADMIN_BTN} disabled:opacity-40`}>
+          <span className="material-symbols-outlined !text-[15px]" aria-hidden="true">save</span>
+          {saving ? t('admin.settings.savingEllipsis') : t('common.save')}
+        </button>
+        <button onClick={sendTest} disabled={testing || dirty} className={`${ADMIN_BTN} disabled:opacity-40`}>
+          <span className="material-symbols-outlined !text-[15px]" aria-hidden="true">send</span>
+          {testing ? t('admin.emailSettings.sending') : t('admin.emailSettings.sendTest')}
+        </button>
+      </div>
+      <p className="mt-3 text-[11px] text-text-3/70">{t('admin.emailSettings.envNote')}</p>
     </div>
   );
 }
@@ -193,8 +323,13 @@ function PanelLanguageCard() {
   const { t, locale, setLocale, locales } = useTranslation();
   return (
     <div className="bg-bg-card border border-white/10 rounded-xl p-4 mb-4">
-      <h2 className="text-lg font-semibold text-text-1">🌐 {t('admin.settings.panelLanguage.title')}</h2>
-      <p className="text-xs text-text-3 mt-0.5 mb-4">{t('admin.settings.panelLanguage.hint')}</p>
+      <div className="mb-4 flex items-center gap-2">
+        <span className="grid h-7 w-7 place-items-center rounded-lg bg-primary/10 text-primary"><span className="material-symbols-outlined !text-[16px]" aria-hidden="true">translate</span></span>
+        <div className="min-w-0">
+          <h3 className="text-sm font-extrabold text-text-1">{t('admin.settings.panelLanguage.title')}</h3>
+          <p className="truncate text-[11.5px] text-text-3">{t('admin.settings.panelLanguage.hint')}</p>
+        </div>
+      </div>
       <div className="flex flex-wrap gap-2">
         {locales.map(code => (
           <button
@@ -202,8 +337,8 @@ function PanelLanguageCard() {
             onClick={() => setLocale(code)}
             className={`px-3 py-1.5 rounded-lg text-xs font-medium border transition ${
               code === locale
-                ? 'bg-accent/20 text-accent border-accent/30'
-                : 'border-white/10 text-text-3 hover:text-text-1 hover:border-white/25'
+                ? 'border-primary/40 bg-primary/15 text-primary'
+                : 'border-white/10 text-text-3 hover:border-white/25 hover:text-text-1'
             }`}
           >
             {code.toUpperCase()}
@@ -225,7 +360,8 @@ export default function AdminSettings() {
 
   const GROUPS = [
     {
-      title: `📨 ${t('admin.settings.telegram')}`,
+      icon: 'send',
+      title: t('admin.settings.telegram'),
       hint: t('admin.settings.telegramHint'),
       keys: [
         { key: 'TELEGRAM_BOT_TOKEN', label: t('admin.settings.botToken'), placeholder: '123456:ABC-DEF…' },
@@ -233,14 +369,16 @@ export default function AdminSettings() {
       ],
     },
     {
-      title: `🔗 ${t('admin.settings.webhook')}`,
+      icon: 'link',
+      title: t('admin.settings.webhook'),
       hint: t('admin.settings.webhookHint'),
       keys: [
         { key: 'ALERT_WEBHOOK_URL', label: t('admin.settings.webhookUrl'), placeholder: 'https://hooks.slack.com/…' },
       ],
     },
     {
-      title: `✉️ ${t('admin.settings.email')}`,
+      icon: 'mail',
+      title: t('admin.settings.email'),
       hint: t('admin.settings.emailHint'),
       keys: [
         { key: 'ALERT_EMAIL_TO', label: t('admin.settings.recipientAddress'), placeholder: 'admin@example.com' },
@@ -249,8 +387,8 @@ export default function AdminSettings() {
   ];
 
   const SOURCE_BADGE = {
-    db:    { label: t('admin.settings.sourcePanel'), cls: 'bg-green-500/20 text-green-300 border-green-500/30' },
-    env:   { label: '.env',  cls: 'bg-blue-500/20 text-blue-300 border-blue-500/30' },
+    db:    { label: t('admin.settings.sourcePanel'), cls: 'bg-success/15 text-success border-success/30' },
+    env:   { label: '.env',  cls: 'bg-info/15 text-info border-info/30' },
     unset: { label: t('admin.settings.sourceUndefined'), cls: 'bg-white/5 text-text-3 border-white/10' },
   };
 
@@ -299,19 +437,22 @@ export default function AdminSettings() {
   const dirty = Object.values(draft).some(v => v?.trim());
 
   return (
-    <div className="max-w-3xl mx-auto px-4 py-6">
-      <h1 className="text-2xl font-bold text-text-1 mb-6">⚙️ {t('admin.settings.pageTitle')}</h1>
-
+    <div>
       <PanelLanguageCard />
       <RegionCurrencyCard t={t} />
+      <EmailSettingsCard t={t} />
 
-      <div className="flex items-center justify-between mb-2">
-        <h2 className="text-lg font-semibold text-text-1">🔔 {t('admin.settings.alertChannels')}</h2>
+      <div className="mb-2 flex flex-wrap items-center justify-between gap-2">
+        <div className="flex items-center gap-2">
+          <span className="grid h-7 w-7 place-items-center rounded-lg bg-primary/10 text-primary"><span className="material-symbols-outlined !text-[16px]" aria-hidden="true">notifications</span></span>
+          <h3 className="text-sm font-extrabold text-text-1">{t('admin.settings.alertChannels')}</h3>
+        </div>
         <button
           onClick={runTest}
           disabled={testing || !anyConfigured}
-          className="px-3 py-1.5 rounded-lg text-xs font-medium border border-white/10 text-text-2 hover:text-text-1 disabled:opacity-40 transition"
+          className={`${ADMIN_BTN} disabled:opacity-40`}
         >
+          <span className="material-symbols-outlined !text-[15px]" aria-hidden="true">send</span>
           {testing ? t('admin.settings.sending') : t('admin.settings.sendTest')}
         </button>
       </div>
@@ -320,16 +461,16 @@ export default function AdminSettings() {
       </p>
 
       {!loading && !anyConfigured && (
-        <div className="mb-4 rounded-xl border border-yellow-500/30 bg-yellow-500/10 px-4 py-3 text-sm text-yellow-200">
+        <div className="mb-4 rounded-xl border border-warning/30 bg-warning/15 px-4 py-3 text-sm text-warning">
           {t('admin.settings.noChannelConfigured')}
         </div>
       )}
 
       {notice && (
-        <div className={`mb-4 rounded-xl px-4 py-3 text-sm border ${
+        <div className={`mb-4 rounded-xl border px-4 py-3 text-sm ${
           notice.type === 'ok'
-            ? 'border-green-500/30 bg-green-500/10 text-green-200'
-            : 'border-red-500/30 bg-red-500/10 text-red-200'
+            ? 'border-success/30 bg-success/15 text-success'
+            : 'border-danger/30 bg-danger/15 text-danger'
         }`}>
           {notice.text}
         </div>
@@ -341,64 +482,75 @@ export default function AdminSettings() {
         </div>
       ) : (
         <div className="space-y-4">
-          {GROUPS.map(group => (
-            <div key={group.title} className="bg-bg-card border border-white/10 rounded-xl p-4">
-              <h2 className="font-semibold text-text-1">{group.title}</h2>
-              <p className="text-xs text-text-3 mt-0.5 mb-4">{group.hint}</p>
+          {/* Tek dış konteyner: 3 kanal alt-bölüm olarak, ayrı kart YOK (Faz 4.2) */}
+          <div className="bg-bg-card border border-white/10 rounded-xl p-4">
+            {GROUPS.map((group, idx) => (
+              <div
+                key={group.title}
+                className={idx > 0 ? 'border-t border-white/[0.06] pt-4 mt-4' : ''}
+              >
+                <h4 className="flex items-center gap-1.5 text-sm font-bold text-text-1">
+                  <span className="material-symbols-outlined !text-[18px] text-primary" aria-hidden="true">{group.icon}</span>
+                  {group.title}
+                </h4>
+                <p className="text-xs text-text-3 mt-0.5 mb-4">{group.hint}</p>
 
-              <div className="space-y-3">
-                {group.keys.map(({ key, label, placeholder }) => {
-                  const current = byKey[key] || { source: 'unset' };
-                  const badge = SOURCE_BADGE[current.source];
-                  return (
-                    <div key={key}>
-                      <div className="flex items-center gap-2 mb-1">
-                        <label className="text-xs font-medium text-text-2">{label}</label>
-                        <span className={`px-1.5 py-0.5 rounded text-[10px] border ${badge.cls}`}>
-                          {badge.label}
-                        </span>
-                        {current.value && (
-                          <span className="text-[10px] text-text-3 font-mono">{current.value}</span>
-                        )}
+                <div className="space-y-3">
+                  {group.keys.map(({ key, label, placeholder }) => {
+                    const current = byKey[key] || { source: 'unset' };
+                    const badge = SOURCE_BADGE[current.source];
+                    return (
+                      <div key={key}>
+                        <div className="flex items-center gap-2 mb-1">
+                          <label className="text-xs font-medium text-text-2">{label}</label>
+                          <span className={`px-1.5 py-0.5 rounded text-[10px] border ${badge.cls}`}>
+                            {badge.label}
+                          </span>
+                          {current.value && (
+                            <span className="text-[10px] text-text-3 font-mono">{current.value}</span>
+                          )}
+                        </div>
+                        <div className="flex gap-2">
+                          <input
+                            type="text"
+                            value={draft[key] ?? ''}
+                            onChange={e => setDraft(d => ({ ...d, [key]: e.target.value }))}
+                            placeholder={current.source === 'unset' ? placeholder : t('admin.settings.enterNewValue')}
+                            className="flex-1 bg-bg-deep border border-white/10 rounded-lg px-3 py-2 text-sm text-text-1 placeholder:text-text-3/60 focus:outline-none focus:border-white/25"
+                          />
+                          {current.source === 'db' && (
+                            <button
+                              onClick={() => save({ [key]: '' }, t('admin.settings.cleared', { label }))}
+                              disabled={saving}
+                              className="rounded-lg border border-white/10 px-3 py-2 text-xs font-bold text-text-3 transition hover:border-danger/40 hover:text-danger disabled:opacity-40"
+                            >
+                              {t('admin.igames.clear')}
+                            </button>
+                          )}
+                        </div>
                       </div>
-                      <div className="flex gap-2">
-                        <input
-                          type="text"
-                          value={draft[key] ?? ''}
-                          onChange={e => setDraft(d => ({ ...d, [key]: e.target.value }))}
-                          placeholder={current.source === 'unset' ? placeholder : t('admin.settings.enterNewValue')}
-                          className="flex-1 bg-bg-deep border border-white/10 rounded-lg px-3 py-2 text-sm text-text-1 placeholder:text-text-3/60 focus:outline-none focus:border-white/25"
-                        />
-                        {current.source === 'db' && (
-                          <button
-                            onClick={() => save({ [key]: '' }, t('admin.settings.cleared', { label }))}
-                            disabled={saving}
-                            className="px-3 rounded-lg text-xs border border-white/10 text-text-3 hover:text-red-300 hover:border-red-500/30 disabled:opacity-40 transition"
-                          >
-                            {t('admin.palace.clear')}
-                          </button>
-                        )}
-                      </div>
-                    </div>
-                  );
-                })}
+                    );
+                  })}
+                </div>
               </div>
-            </div>
-          ))}
+            ))}
+          </div>
 
-          <div className="flex items-center gap-3">
+          <div className="flex flex-wrap items-center gap-2">
             <button
               onClick={() => save(
                 Object.fromEntries(Object.entries(draft).filter(([, v]) => v?.trim())),
                 t('admin.settings.settingsSaved'),
               )}
               disabled={saving || !dirty}
-              className="px-4 py-2 rounded-lg text-sm font-medium bg-accent/20 text-accent border border-accent/30 hover:bg-accent/30 disabled:opacity-40 transition"
+              className={`${ADMIN_BTN_PRIMARY} disabled:opacity-40`}
             >
+              <span className="material-symbols-outlined !text-[16px]" aria-hidden="true">save</span>
               {saving ? t('admin.settings.savingEllipsis') : t('common.save')}
             </button>
             {dirty && (
-              <button onClick={() => setDraft({})} className="text-xs text-text-3 hover:text-text-2">
+              <button onClick={() => setDraft({})} className={ADMIN_BTN_GHOST}>
+                <span className="material-symbols-outlined !text-[16px]" aria-hidden="true">undo</span>
                 {t('admin.settings.discard')}
               </button>
             )}

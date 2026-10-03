@@ -1,4 +1,7 @@
+import crypto from 'crypto';
 import mongoose from 'mongoose';
+import { withTransactionRetry } from '../utils/transactionRetry.js';
+import { createTransaction } from '../services/ledger.js';
 import User from '../models/User.js';
 import Event from '../models/Event.js';
 import Bet from '../models/Bet.js';
@@ -8,7 +11,10 @@ import GameTask from '../models/GameTask.js';
 import CasinoRound from '../models/CasinoRound.js';
 import CasinoSession from '../models/CasinoSession.js';
 import Promotion from '../models/Promotion.js';
+import VipLevel from '../models/VipLevel.js';
+import RiskProfile from '../models/RiskProfile.js';
 import { createError } from '../middleware/error.js';
+import { getAdminCounts, broadcastAdminCounts } from '../services/adminCounts.js';
 import { errorLogger } from '../services/errorLogger.js';
 import Setting from '../models/Setting.js';
 import { ALERT_KEYS, SECRET_KEYS, maskSecret, getSetting, getSettingSource, invalidateSettings } from '../services/settings.js';
@@ -20,16 +26,21 @@ import { setBrandingField as setBrandingFieldImpl, listBranding } from '../brand
 import { setHomeContent as setHomeContentImpl, getHomeContent } from '../pages/index.js';
 import { getConfig as getFakeWinnersConfig, saveConfig as saveFakeWinnersConfig, getPoolSize as getFakeWinnersPoolSize } from '../services/fakeWinners.js';
 import { getAllGameSettings } from '../services/gameSettings.js';
+import { updateDailyStats } from '../services/responsibleGaming.js';
 import { getActiveCurrency, listCurrencies, setActiveCurrency } from '../currency/index.js';
+import { getIgames } from '../services/casinoPromo/provider.js';
+import * as promoGrants from '../services/casinoPromo/grants.js';
+import { listPromoGrantsQuerySchema } from '../validators/admin.js';
 import {
   getAllRoles, getAllPermissions, createRole, updateRole, deleteRole,
-  assignRoleToUser, removeRoleFromUser,
+  assignRoleToUser, removeRoleFromUser, userHasPermission, getUserPermissions,
 } from '../services/permissions.js';
 import { getAllVipLevels, upsertVipLevel, deleteVipLevel } from '../services/vip.js';
 import { getReferralTreeView } from '../services/referralTreeView.js';
 import { createBot, getAllBots, getBotById, updateBot, deleteBot, getBotStats, startAllBots, stopAllBots } from '../services/bot.js';
 import { listAllForAdmin as listAllStaticPagesForAdmin, upsertPage as upsertStaticPageSvc, togglePage as toggleStaticPageSvc } from '../services/staticPages.js';
 import { setFeaturedGameCodes as setFeaturedGameCodesImpl, getFeaturedGameCodes } from '../games/index.js';
+import * as demoDataRegistry from '../services/demoData/registry.js';
 
 // In-house oyun provider'ı ayrı (ücretli) bir pakettir — bu kurulumda hiç
 // bulunmayabilir (bkz. app.js'deki aynı opsiyonel yükleme deseni).
@@ -63,19 +74,36 @@ function safeRegex(input, maxLength = 100) {
 
 // ─── Standard Admin Functions ──────────────────────────────────────
 
+// Users listesi ve facet sayaçları aynı filtre tanımlarını kullanır.
+// VIP = taban seviyenin (level 1, Bronze) ÜSTÜNDE bir VipLevel'e sahip olmak:
+// services/vip.js checkLevelUp herkese sessizce Bronze atar; yalnızca
+// "vipLevel != null" demek tüm oyuncuları VIP sayardı.
+const STATUS_FILTERS = {
+  active:    { isActive: true,  deletedAt: null },
+  suspended: { isActive: false, deletedAt: null },
+  deleted:   { deletedAt: { $ne: null } },
+};
+
+async function vipFilter() {
+  const ids = await VipLevel.find({ level: { $gt: 1 } }).distinct('_id');
+  return { vipLevel: { $in: ids }, deletedAt: null };
+}
+
+async function statusFilter(status) {
+  if (status === 'vip') return vipFilter();
+  return STATUS_FILTERS[status] ? { ...STATUS_FILTERS[status] } : {};
+}
+
 export async function getUsers(req, res, next) {
   try {
     const { search = '', status = 'all', page = 1, limit = 20 } = req.query;
     const skip = (Number(page) - 1) * Number(limit);
 
-    const filter = {};
+    const filter = await statusFilter(status);
     if (search) {
       const re = safeRegex(search);
       if (re) filter.$or = [{ username: re }, { email: re }];
     }
-    if (status === 'active')    { filter.isActive = true;  filter.deletedAt = null; }
-    if (status === 'suspended') { filter.isActive = false; filter.deletedAt = null; }
-    if (status === 'deleted')   { filter.deletedAt = { $ne: null }; }
     const [users, total] = await Promise.all([
       User.find(filter)
         .select('-password')
@@ -83,17 +111,70 @@ export async function getUsers(req, res, next) {
         .populate('roles', 'name displayName')
         .sort({ createdAt: -1 })
         .skip(skip)
-        .limit(Number(limit)),
+        .limit(Number(limit))
+        .lean(),
       User.countDocuments(filter),
     ]);
 
-    res.json({ users, total, page: Number(page), pages: Math.ceil(total / Number(limit)) });
+    // Sayfadaki kullanıcılar için tek toplu risk sorgusu (N+1 yok).
+    const profiles = users.length
+      ? await RiskProfile.find({ playerId: { $in: users.map(u => u._id) } }).select('playerId riskLevel').lean()
+      : [];
+    const riskByUser = new Map(profiles.map(p => [String(p.playerId), String(p.riskLevel).toLowerCase()]));
+    const rows = users.map(u => ({
+      ...u,
+      kycTier: u.kycStatus || null,
+      riskTier: riskByUser.get(String(u._id)) || null,
+    }));
+
+    res.json({ users: rows, total, page: Number(page), pages: Math.ceil(total / Number(limit)) });
+  } catch(e) { next(e); }
+}
+
+export async function getUsersFacets(req, res, next) {
+  try {
+    const [vip, all, active, suspended, deleted] = await Promise.all([
+      vipFilter().then(f => User.countDocuments(f)),
+      User.countDocuments({}),
+      User.countDocuments(STATUS_FILTERS.active),
+      User.countDocuments(STATUS_FILTERS.suspended),
+      User.countDocuments(STATUS_FILTERS.deleted),
+    ]);
+    res.json({ all, active, suspended, deleted, vip });
+  } catch(e) { next(e); }
+}
+
+// Delta alanları: modelde geçmiş anlık görüntü (bakiye/aktivite geçmişi) tutulmadığı
+// için hesaplanamaz; uydurmak yerine null döner, istemci satırı gizler.
+export async function getUsersKpis(req, res, next) {
+  try {
+    const now = Date.now();
+    const since30d = new Date(now - 30 * 24 * 60 * 60 * 1000);
+    const startOfToday = new Date(now);
+    startOfToday.setHours(0, 0, 0, 0);
+    const [active30d, kycPending, newToday, avg] = await Promise.all([
+      User.countDocuments({ deletedAt: null, lastLoginAt: { $gte: since30d } }),
+      User.countDocuments({ kycStatus: { $in: ['pending', 'under_review'] } }),
+      User.countDocuments({ createdAt: { $gte: startOfToday } }),
+      User.aggregate([
+        { $match: { deletedAt: null } },
+        { $group: { _id: null, avg: { $avg: '$balance' } } },
+      ]),
+    ]);
+    res.json({
+      active30d,
+      kycPending,
+      avgBalance: Math.round((avg[0]?.avg || 0) * 100) / 100,
+      newToday,
+      active30dDeltaPct: null,
+      avgBalanceDeltaPct: null,
+    });
   } catch(e) { next(e); }
 }
 
 export async function createUser(req, res, next) {
   try {
-    const { username, email, password, role, referredBy } = req.validated;
+    const { username, email, password, role, referredBy, phone, dateOfBirth, roles } = req.validated;
     if (await User.findOne({ $or: [{ username }, { email }] }))
       throw createError(409, 'USER_EXISTS', 'Kullanıcı adı veya email zaten kullanımda');
 
@@ -104,7 +185,21 @@ export async function createUser(req, res, next) {
       referredById = referrer._id;
     }
 
-    const user = await User.create({ username, email, password, role, referredBy: referredById });
+    // roles yalnızca role='admin' iken VE isteği yapanın admin:roles:write
+    // izni varsa uygulanır — UI'da zaten gizli, ama sunucu tarafında da
+    // ayrıca zorlanıyor (izinsiz biri payload'a elle roles ekleyemez).
+    if (roles?.length && (role !== 'admin' || !(await userHasPermission(req.user.id, 'admin:roles:write')))) {
+      throw createError(403, 'FORBIDDEN', 'Yetki yok: admin:roles:write');
+    }
+
+    const user = await User.create({ username, email, password, role, referredBy: referredById, phone: phone || null, dateOfBirth: dateOfBirth || null });
+
+    if (roles?.length) {
+      for (const roleId of roles) {
+        await assignRoleToUser(user._id, roleId, req.user.id);
+      }
+    }
+
     res.status(201).json({ user: user.toSafeObject() });
   } catch(e) { next(e); }
 }
@@ -132,13 +227,18 @@ export async function updateUser(req, res, next) {
 export async function updateBalance(req, res, next) {
   try {
     const { amount, type, note } = req.validated;
-    const user = await User.findById(req.params.id);
-    if (!user) throw createError(404, 'NOT_FOUND', 'Kullanıcı bulunamadı');
 
     if (type === 'bonus') {
-      const balanceBefore = user.balance;
-      user.balance = parseFloat((user.balance + amount).toFixed(2));
-      await user.save();
+      // SECURITY FIX (H10): Use atomic $inc for balance update
+      const balanceBeforeUser = await User.findById(req.params.id);
+      if (!balanceBeforeUser) throw createError(404, 'NOT_FOUND', 'Kullanıcı bulunamadı');
+      const balanceBefore = balanceBeforeUser.balance;
+
+      const user = await User.findByIdAndUpdate(
+        req.params.id,
+        { $inc: { balance: amount } },
+        { new: true }
+      );
 
       const wageringMultiplier = 35;
       const wageringRequired = parseFloat((amount * wageringMultiplier).toFixed(2));
@@ -156,41 +256,53 @@ export async function updateBalance(req, res, next) {
         status: 'active',
       });
 
-      const transaction = await Transaction.create({
-        userId:        user._id,
-        type:          'bonus',
+      const idempotencyKey = `admin_balance_${req.params.id}_${crypto.randomUUID()}`;
+      const { transaction } = await createTransaction({
+        userId: user._id,
+        type: 'bonus',
         amount,
         balanceBefore,
-        balanceAfter:  user.balance,
-        note:          note || '',
-        createdBy:     req.user.id,
+        balanceAfter: user.balance,
+        note: note || '',
+        createdBy: req.user.id,
+        idempotencyKey,
+        source: 'admin',
       });
 
       // bonusBalance artık kilitli/çevrim bekleyen tutarın göstergesi (mirror).
       const { getLockedAmount } = await import('../services/wagering.js');
-      user.bonusBalance = await getLockedAmount(user._id);
-      await user.save();
+      await User.findByIdAndUpdate(user._id, { bonusBalance: await getLockedAmount(user._id) });
 
       return res.json({ user: user.toSafeObject(), transaction });
     }
 
-    const balanceBefore = user.balance;
-    if (type === 'credit') {
-      user.balance = balanceBefore + amount;
-    } else {
-      if (balanceBefore < amount) throw createError(400, 'INSUFFICIENT_BALANCE', 'Yetersiz bakiye');
-      user.balance = balanceBefore - amount;
-    }
-    await user.save();
+    // SECURITY FIX (H10): Use atomic $inc for balance update
+    const balanceBeforeUser = await User.findById(req.params.id);
+    if (!balanceBeforeUser) throw createError(404, 'NOT_FOUND', 'Kullanıcı bulunamadı');
+    const balanceBefore = balanceBeforeUser.balance;
 
-    const transaction = await Transaction.create({
-      userId:        user._id,
-      type:          'admin_adjustment',
-      amount:        type === 'debit' ? -amount : amount,
+    if (type === 'debit') {
+      if (balanceBefore < amount) throw createError(400, 'INSUFFICIENT_BALANCE', 'Yetersiz bakiye');
+    }
+
+    const incAmount = type === 'credit' ? amount : -amount;
+    const user = await User.findByIdAndUpdate(
+      req.params.id,
+      { $inc: { balance: incAmount } },
+      { new: true }
+    );
+
+    const idempotencyKey = `admin_balance_${req.params.id}_${crypto.randomUUID()}`;
+    const { transaction } = await createTransaction({
+      userId: user._id,
+      type: 'admin_adjustment',
+      amount: type === 'debit' ? -amount : amount,
       balanceBefore,
-      balanceAfter:  user.balance,
-      note:          note || '',
-      createdBy:     req.user.id,
+      balanceAfter: user.balance,
+      note: note || '',
+      createdBy: req.user.id,
+      idempotencyKey,
+      source: 'admin',
     });
 
     res.json({ user: user.toSafeObject(), transaction });
@@ -352,9 +464,10 @@ export const updateFeaturedGames = createUpdateFeaturedGames();
 
 export async function getArchivedEvents(req, res, next) {
   try {
-    const { page = 1, limit = 30, search = '' } = req.query;
+    const { page = 1, limit = 30, search = '', sport = '' } = req.query;
     const skip = (Number(page) - 1) * Number(limit);
     const filter = { archivedAt: { $ne: null } };
+    if (sport && sport !== 'all') filter.sport = String(sport);
     if (search) {
       const re = safeRegex(search);
       if (re) filter.$or = [
@@ -384,7 +497,12 @@ export async function createEvent(req, res, next) {
 
 export async function updateEvent(req, res, next) {
   try {
-    const event = await Event.findByIdAndUpdate(req.params.id, req.body, { new:true });
+    // SECURITY FIX (M1): Whitelist allowed fields to prevent mass assignment
+    const allowedFields = ['homeTeam', 'awayTeam', 'league', 'leagueFlag', 'sport', 'status', 'result', 'startTime', 'markets', 'archivedAt'];
+    const filtered = Object.fromEntries(
+      Object.entries(req.body).filter(([k]) => allowedFields.includes(k))
+    );
+    const event = await Event.findByIdAndUpdate(req.params.id, filtered, { new:true });
     if (!event) throw createError(404,'NOT_FOUND','Etkinlik bulunamadı');
     // emit odds update via socket if available
     try {
@@ -431,6 +549,8 @@ export async function settle(req, res, next) {
 
 export async function getStats(req, res, next) {
   try {
+    // isSeed filtresi bilerek yok: seed/demo veri analytics ile birlikte
+    // bu genel sayaçlara da dahildir (bkz. Faz 3 kararı).
     const [userCount, totalBets, pendingBets, depositSum] = await Promise.all([
       User.countDocuments({ role:'user' }),
       Bet.countDocuments(),
@@ -443,10 +563,24 @@ export async function getStats(req, res, next) {
 
 export async function getTasks(req, res, next) {
   try {
-    const { status } = req.query;
-    const filter = status ? { status: String(status) } : {};
-    const tasks = await GameTask.find(filter).sort({ detectedAt: -1 }).limit(200);
-    res.json({ tasks });
+    const { status, page, limit } = req.query;
+    const filter = status && status !== 'all' ? { status: String(status) } : {};
+    // Sabit limit(200) yerine gerçek sayfalama — 200'den fazla kırık oyun
+    // kaydı biriktikçe eski kuyruk sessizce kırpılıyordu.
+    const perPage = Math.max(1, Math.min(parseInt(limit) || 20, 100));
+    const current = Math.max(1, parseInt(page) || 1);
+    const [tasks, total] = await Promise.all([
+      GameTask.find(filter).sort({ detectedAt: -1 })
+        .skip((current - 1) * perPage)
+        .limit(perPage),
+      GameTask.countDocuments(filter),
+    ]);
+    res.json({
+      tasks,
+      total,
+      page: current,
+      pages: Math.max(1, Math.ceil(total / perPage)),
+    });
   } catch(e) { next(e); }
 }
 
@@ -469,6 +603,8 @@ export async function getCasinoStats(req, res, next) {
     const now = new Date();
     const day7ago = new Date(now - 7 * 24 * 60 * 60 * 1000);
 
+    // isSeed filtresi bilerek yok (seed nesilleri gerçekçi house-edge ile
+    // üretilir — casinoSeed.js / sportsSeed.js; bkz. Faz 3 kararı).
     const [overview, topGames, topUsers, daily] = await Promise.all([
       CasinoRound.aggregate([
         { $group: {
@@ -595,82 +731,136 @@ export async function getUserCasinoRounds(req, res, next) {
   } catch(e) { next(e); }
 }
 
-// ─── Palace Casino Admin Handlers ─────────────────────────────────────
+// ─── Igames Casino Admin Handlers ─────────────────────────────────────
 
-// `_getPalaceService` palaceden test/mock için override edilebilir
-async function getPalace() {
-  const sessionMod = await import('../premium/palace/palaceSession.js');
-  if (sessionMod._getPalaceService) return sessionMod._getPalaceService();
-  return await import('../premium/palace/palaceCasinoService.js');
-}
+// getIgames: test/mock override için services/casinoPromo/provider.js
 
-export async function getPalaceAgentInfo(req, res, next) {
+export async function getIgamesAgentInfo(req, res, next) {
   try {
-    const palace = await getPalace();
-    const result = await palace.getAgentInfo();
+    const igames = await getIgames();
+    const result = await igames.getAgentInfo();
     res.json(result.data);
   } catch(e) { next(e); }
 }
 
-export async function setPalaceRtp(req, res, next) {
+export async function setIgamesRtp(req, res, next) {
   try {
     const { rtp } = req.body;
     if (typeof rtp !== 'number' || rtp < 75 || rtp > 95) {
       throw createError(400, 'INVALID_RTP', 'RTP 75-95 arasında olmalı');
     }
-    const palace = await getPalace();
-    const result = await palace.setAgentRTP(rtp);
+    const igames = await getIgames();
+    const result = await igames.setAgentRTP(rtp);
     res.json(result.data);
   } catch(e) { next(e); }
 }
 
-export async function startPalaceBonusCall(req, res, next) {
+// Sağlayıcıda şu an açık oyun oturumları (bonus call yalnızca bunlara verilebilir).
+export async function getIgamesOnlinePlays(req, res, next) {
   try {
-    const { username, gplay_id, set_point, memo } = req.body;
-    if (!username || !gplay_id) {
-      throw createError(400, 'MISSING_FIELDS', 'username ve gplay_id gerekli');
-    }
-    const user = await User.findOne({ username });
-    if (!user || !user.palaceUserCode) {
-      throw createError(404, 'USER_NOT_FOUND', 'Kullanıcı Palace hesabına bağlı değil');
-    }
-    const palace = await getPalace();
-    const result = await palace.startBonusCall(gplay_id, set_point || 0, 1, memo);
+    const igames = await getIgames();
+    const result = await igames.getOnlineGames();
+    const rows = Array.isArray(result.data?.data) ? result.data.data : [];
+    // Çalışan bonus call kayıtlarını canlı listeyle eşitle; senkron hatası yanıtı bozmasın.
+    try { await promoGrants.syncBonusCallsFromOnline(rows); }
+    catch (syncErr) { console.error('[casinoPromo] online sync failed:', syncErr.message); }
     res.json({
-      ...result.data,
-      username,
-      palaceUserCode: user.palaceUserCode,
+      plays: rows.map(r => ({
+        gplay_id: r.gplay_id,
+        user_name: r.user_name,
+        game_name: r.game_name,
+        game_code: r.game_code,
+        provider_name: r.provider_name,
+        spend: r.spend,
+        win: r.win,
+        call_enable: !!r.call_enable,
+        call_id: r.call_id || null,
+        call_status: r.call_status,
+        last_update: r.last_update,
+      })),
     });
+  } catch (e) { next(e); }
+}
+
+function promoActor(req) {
+  return { id: req.user.id, username: req.user.username || 'admin' };
+}
+
+export async function startIgamesBonusCall(req, res, next) {
+  try {
+    const { gplay_id, set_point, memo } = req.validated;
+    const grant = await promoGrants.startBonusCall({ actor: promoActor(req), gplayId: gplay_id, setPoint: set_point, memo });
+    res.json(grant);
   } catch(e) { next(e); }
 }
 
-export async function cancelPalaceBonusCall(req, res, next) {
+export async function cancelIgamesBonusCall(req, res, next) {
   try {
-    const { call_id } = req.body;
-    if (!call_id) throw createError(400, 'MISSING_FIELDS', 'call_id gerekli');
-    const palace = await getPalace();
-    const result = await palace.cancelBonusCall(call_id);
-    res.json(result.data);
+    const grant = await promoGrants.cancelBonusCall({ actor: promoActor(req), grantId: req.validated.grant_id });
+    res.json(grant);
   } catch(e) { next(e); }
 }
 
-export async function getPalaceBonusCallConfig(req, res, next) {
+export async function getPromoConfig(req, res, next) {
   try {
-    const palace = await getPalace();
-    const result = await palace.getCallConfig();
-    res.json(result.data);
+    res.json(await promoGrants.getPromoConfig());
   } catch(e) { next(e); }
 }
 
-export async function createPalaceUser(req, res, next) {
+export async function listPromoGrants(req, res, next) {
   try {
-    const palace = await getPalace();
-    const { name, linkToUserId } = req.validated || req.body;
-    const result = await palace.createUser(name);
-    if (result.data?.code !== 0) {
-      throw createError(400, 'PALACE_ERROR', result.data?.message || 'User oluşturulamadı');
+    const parsed = listPromoGrantsQuerySchema.safeParse(req.query || {});
+    if (!parsed.success) {
+      return res.status(400).json({ error: { code: 'VALIDATION_ERROR', message: 'Geçersiz sorgu', details: parsed.error.flatten() } });
     }
-    // Optionally link palace user_code to local user
+    res.json(await promoGrants.listGrants(parsed.data));
+  } catch(e) { next(e); }
+}
+
+export async function createFreeRound(req, res, next) {
+  try {
+    const b = req.validated;
+    const grant = await promoGrants.createFreeRound({
+      actor: promoActor(req),
+      userId: b.user_id,
+      providerId: b.provider_id,
+      gameCode: b.game_code,
+      gameName: b.game_name,
+      rounds: b.rounds,
+      bet: b.bet,
+      win: b.win,
+      scenario: b.scenario ?? null,
+      expiresAt: b.expires_at,
+      memo: b.memo,
+    });
+    res.status(201).json(grant);
+  } catch(e) { next(e); }
+}
+
+export async function cancelFreeRound(req, res, next) {
+  try {
+    const grant = await promoGrants.cancelFreeRound({ actor: promoActor(req), grantId: req.validated.grant_id });
+    res.json(grant);
+  } catch(e) { next(e); }
+}
+
+export async function getIgamesBonusCallConfig(req, res, next) {
+  try {
+    const igames = await getIgames();
+    const result = await igames.getCallConfig();
+    res.json(result.data);
+  } catch(e) { next(e); }
+}
+
+export async function createIgamesUser(req, res, next) {
+  try {
+    const igames = await getIgames();
+    const { name, linkToUserId } = req.validated || req.body;
+    const result = await igames.createUser(name);
+    if (result.data?.code !== 0) {
+      throw createError(400, 'IGAMES_ERROR', result.data?.message || 'User oluşturulamadı');
+    }
+    // Optionally link igames user_code to local user
     if (linkToUserId && result.data?.data?.user_code) {
       await User.findByIdAndUpdate(linkToUserId, { palaceUserCode: result.data.data.user_code });
     }
@@ -678,18 +868,18 @@ export async function createPalaceUser(req, res, next) {
   } catch(e) { next(e); }
 }
 
-export async function launchPalaceGame(req, res, next) {
+export async function launchIgamesGame(req, res, next) {
   try {
-    const palace = await getPalace();
+    const igames = await getIgames();
     const { user_code, game_id, mode, language, return_url } = req.body;
     // Ensure user_code exists for the authenticated user
     const user = await User.findById(req.user.id);
     if (!user) throw createError(404, 'USER_NOT_FOUND', 'Kullanıcı bulunamadı');
     if (!user.palaceUserCode) {
-      throw createError(400, 'PALACE_USER_NOT_LINKED', 'Kullanıcı Palace hesabına bağlı değil. Önce kullanıcı oluşturun.');
+      throw createError(400, 'IGAMES_USER_NOT_LINKED', 'Kullanıcı Igames hesabına bağlı değil. Önce kullanıcı oluşturun.');
     }
 
-    const result = await palace.launchGame({
+    const result = await igames.launchGame({
       userCode: user.palaceUserCode,
       gameId: game_id,
       mode,
@@ -697,25 +887,25 @@ export async function launchPalaceGame(req, res, next) {
       returnUrl: return_url
     });
     if (result.data?.code !== 0) {
-      throw createError(400, 'PALACE_ERROR', result.data?.message || 'Oyun başlatılamadı');
+      throw createError(400, 'IGAMES_ERROR', result.data?.message || 'Oyun başlatılamadı');
     }
     res.json(result.data);
   } catch(e) { next(e); }
 }
 
-export async function getPalaceGameList(req, res, next) {
+export async function getIgamesGameList(req, res, next) {
   try {
-    const palace = await getPalace();
+    const igames = await getIgames();
     const { provider, page, limit } = req.query;
-    const result = await palace.getGameList(provider, Number(page) || 1, Number(limit) || 50);
+    const result = await igames.getGameList(provider, Number(page) || 1, Number(limit) || 50);
     res.json(result.data);
   } catch(e) { next(e); }
 }
 
-// Get all test users with Palace balances
-export async function getPalaceTestUsers(req, res, next) {
+// Get all test users with Igames balances
+export async function getIgamesTestUsers(req, res, next) {
   try {
-    const palace = await getPalace();
+    const igames = await getIgames();
 
     // Find users with palaceUserCode
     const users = await User.find({
@@ -728,13 +918,13 @@ export async function getPalaceTestUsers(req, res, next) {
     const userList = [];
     for (const user of users) {
       try {
-        const info = await palace.getUserInfo(user.palaceUserCode);
+        const info = await igames.getUserInfo(user.palaceUserCode);
         userList.push({
           _id: user._id,
           username: user.username,
           palaceUserCode: user.palaceUserCode,
           casinoBalance: user.balance,
-          palaceBalance: info.data?.data?.balance || 0,
+          igamesBalance: info.data?.data?.balance || 0,
           currency: info.data?.data?.currency || 4,
           createdAt: user.createdAt
         });
@@ -744,7 +934,7 @@ export async function getPalaceTestUsers(req, res, next) {
           username: user.username,
           palaceUserCode: user.palaceUserCode,
           casinoBalance: user.balance,
-          palaceBalance: 'error',
+          igamesBalance: 'error',
           error: e.message
         });
       }
@@ -753,15 +943,15 @@ export async function getPalaceTestUsers(req, res, next) {
     res.json({
       users: userList,
       totalUsers: userList.length,
-      totalPalaceBalance: userList.reduce((sum, u) => sum + (typeof u.palaceBalance === 'number' ? u.palaceBalance : 0), 0)
+      totalIgamesBalance: userList.reduce((sum, u) => sum + (typeof u.igamesBalance === 'number' ? u.igamesBalance : 0), 0)
     });
   } catch(e) { next(e); }
 }
 
-// Withdraw all Palace test user balances to main casino balance
-export async function withdrawPalaceTestUsers(req, res, next) {
+// Withdraw all Igames test user balances to main casino balance
+export async function withdrawIgamesTestUsers(req, res, next) {
   try {
-    const palace = await getPalace();
+    const igames = await getIgames();
 
     // Find users with palaceUserCode
     const users = await User.find({
@@ -776,28 +966,27 @@ export async function withdrawPalaceTestUsers(req, res, next) {
 
     for (const user of users) {
       try {
-        // Get current Palace balance
-        const infoResult = await palace.getUserInfo(user.palaceUserCode);
-        const palaceBalance = parseFloat(infoResult.data?.data?.balance || 0);
+        // Get current Igames balance
+        const infoResult = await igames.getUserInfo(user.palaceUserCode);
+        const igamesBalance = parseFloat(infoResult.data?.data?.balance || 0);
 
-        if (palaceBalance > 0) {
-          // Withdraw all from Palace
-          const withdrawResult = await palace.withdrawAllUser(user.palaceUserCode);
+        if (igamesBalance > 0) {
+          // Withdraw all from Igames
+          const withdrawResult = await igames.withdrawAllUser(user.palaceUserCode);
           
           if (withdrawResult.data?.code === 0) {
-            // Add to main casino balance
-            user.balance += palaceBalance;
-            await user.save();
+            // Add to main casino balance (atomic)
+            await User.findByIdAndUpdate(user._id, { $inc: { balance: igamesBalance } });
 
-            totalWithdrawn += palaceBalance;
+            totalWithdrawn += igamesBalance;
             successCount++;
             results.push({
               username: user.username,
               palaceUserCode: user.palaceUserCode,
-              withdrawn: palaceBalance,
+              withdrawn: igamesBalance,
               status: 'success'
             });
-            console.log(`✅ ${user.username} (${user.palaceUserCode}): ${palaceBalance} TL withdrawn`);
+            console.log(`✅ ${user.username} (${user.palaceUserCode}): ${igamesBalance} TL withdrawn`);
           } else {
             errorCount++;
             results.push({
@@ -842,16 +1031,16 @@ export async function withdrawPalaceTestUsers(req, res, next) {
   } catch(e) { next(e); }
 }
 
-// Palace özet bilgisi: agent bakiyesi, kullanıcı sayısı, aktif oturum, günlük istatistik
-export async function getPalaceSummary(req, res, next) {
+// Igames özet bilgisi: agent bakiyesi, kullanıcı sayısı, aktif oturum, günlük istatistik
+export async function getIgamesSummary(req, res, next) {
   try {
-    const palace = await getPalace();
+    const igames = await getIgames();
 
-    // Agent bilgisi (Palace API)
+    // Agent bilgisi (Igames API)
     let agent = null;
     let agentError = null;
     try {
-      const info = await palace.getAgentInfo();
+      const info = await igames.getAgentInfo();
       if (info?.code === 0 && info.data) {
         agent = info.data;
       } else {
@@ -862,17 +1051,17 @@ export async function getPalaceSummary(req, res, next) {
     }
 
     // Kullanıcı sayıları
-    const [palaceUserCount, activeSessionCount, stuckSessionCount] = await Promise.all([
+    const [igamesUserCount, activeSessionCount, stuckSessionCount] = await Promise.all([
       User.countDocuments({ palaceUserCode: { $exists: true, $ne: null } }),
       CasinoSession.countDocuments({ status: 'active' }),
       CasinoSession.countDocuments({ status: 'active', updatedAt: { $lt: new Date(Date.now() - 30 * 60 * 1000) } }),
     ]);
 
-    // Bugünkü Palace istatistikleri (rounds + GGR)
+    // Bugünkü Igames istatistikleri (rounds + GGR)
     const startOfDay = new Date();
     startOfDay.setHours(0, 0, 0, 0);
     const todayAgg = await CasinoRound.aggregate([
-      { $match: { provider: 'palace', createdAt: { $gte: startOfDay } } },
+      { $match: { provider: 'igames', createdAt: { $gte: startOfDay } } },
       {
         $group: {
           _id: null,
@@ -899,7 +1088,7 @@ export async function getPalaceSummary(req, res, next) {
     res.json({
       agent,
       agentError,
-      palaceUserCount,
+      igamesUserCount,
       activeSessionCount,
       stuckSessionCount,
       today,
@@ -910,8 +1099,14 @@ export async function getPalaceSummary(req, res, next) {
 // ─── Error log admin endpoints ─────────────────────────────────────
 export async function getRecentErrors(req, res, next) {
   try {
-    const limit = Math.min(parseInt(req.query.limit) || 100, 500);
-    const lines = errorLogger.readRecent(limit);
+    // Hata günlüğü bir dosya/log tamponundan okunuyor (DB sorgusu DEĞİL), bu
+    // yüzden sayfalama .skip() değil dizi dilimlemedir: `total` yaşam boyu
+    // toplam değil, okunabilen tamponun boyutudur (readRecent üst sınırı 500).
+    // `limit` = sayfa boyutu; okuma penceresi daima tam tampon (500) ki
+    // ?page=5 de tüm sayfaları kapsayacak kayıtla beslenebilsin.
+    const perPage = Math.max(1, Math.min(parseInt(req.query.limit) || 20, 200));
+    const page = Math.max(1, parseInt(req.query.page) || 1);
+    const lines = errorLogger.readRecent(500);
     // Parse each line into structured entry
     const entries = lines.map(line => {
       const match = line.match(/^(\S+) \[(\w+)\] (\S+?): (.*?) \| (\{.*\})$/);
@@ -929,7 +1124,16 @@ export async function getRecentErrors(req, res, next) {
       }
       return { timestamp: '', level: 'UNKNOWN', category: '', message: line, meta: null, raw: line };
     });
-    res.json({ count: entries.length, entries });
+    const total = entries.length;
+    const pages = Math.max(1, Math.ceil(total / perPage));
+    const current = Math.min(page, pages);
+    res.json({
+      entries: entries.slice((current - 1) * perPage, current * perPage),
+      count: entries.length,
+      total,
+      page: current,
+      pages,
+    });
   } catch(e) { next(e); }
 }
 
@@ -1175,7 +1379,20 @@ export async function assignUserRole(req, res, next) {
 export async function removeUserRole(req, res, next) {
   try {
     const user = await removeRoleFromUser(req.params.id, req.params.roleId);
-    res.json({ roles: user.roles });
+    res.json({ roles: user.roles, role: user.role });
+  } catch (e) { next(e); }
+}
+
+/**
+ * Oturumdaki admin'in kendi izinleri. UI'ın "buna yapabilir miyim?"
+ * kararını almak için gerekir (rol atama düğmesi yalnız admin:roles:write
+ * olanlarda görünmeli). Tek bir 'super_admin' kontrolüyle yetmez: roller
+ * farklı yetkiler veriyor.
+ */
+export async function getMyPermissions(req, res, next) {
+  try {
+    const permissions = await getUserPermissions(req.user.id);
+    res.json({ permissions: permissions.map(p => p.key) });
   } catch (e) { next(e); }
 }
 
@@ -1395,6 +1612,7 @@ export async function getKycSubmissionDetail(req, res, next) {
 export async function approveKycSubmission(req, res, next) {
   try {
     const user = await approveKyc(req.params.id, req.user.id, { notes: req.body.notes || '' });
+    broadcastAdminCounts();
     res.json({ user: user.toSafeObject() });
   } catch (e) { next(e); }
 }
@@ -1403,6 +1621,7 @@ export async function rejectKycSubmission(req, res, next) {
   try {
     if (!req.body.reason) throw createError(400, 'REASON_REQUIRED', 'Red sebebi gerekli');
     const user = await rejectKyc(req.params.id, req.user.id, req.body.reason);
+    broadcastAdminCounts();
     res.json({ user: user.toSafeObject() });
   } catch (e) { next(e); }
 }
@@ -1423,6 +1642,7 @@ export async function getKycStatsAdmin(req, res, next) {
 
 // ─── Crypto Ödeme Ağ Geçidi — admin işlemleri ───────────────────────────────
 import CryptoDeposit from '../models/CryptoDeposit.js';
+import BankDepositRequest from '../models/BankDepositRequest.js';
 import { CRYPTO_SETTINGS } from '../config/crypto.js';
 import { transferUSDT, getHotWalletBalance } from '../services/cryptoService.js';
 
@@ -1469,6 +1689,60 @@ export async function getAllCryptoWithdrawals(req, res, next) {
       Transaction.countDocuments(filter),
     ]);
     res.json({ transactions, total, page: +page, limit: +limit });
+  } catch (e) { next(e); }
+}
+
+/**
+ * GET /admin/crypto/stats — Wallet → Crypto özet kartları.
+ * Yatırma/çekim toplamı yalnız tamamlanmış kayıtlar; çekim iadesi (pozitif tutarlı
+ * crypto_withdraw kaydı) çekim sayılmaz. `count` iade kayıtları hariç tüm kayıtlar.
+ */
+export async function getCryptoStats(req, res, next) {
+  try {
+    const withdrawFilter = { type: 'crypto_withdraw', amount: { $lt: 0 } };
+    const [deposits, payouts, depositCount, payoutCount] = await Promise.all([
+      Transaction.aggregate([
+        { $match: { type: 'crypto_deposit', status: 'completed' } },
+        { $group: { _id: null, total: { $sum: '$amount' } } },
+      ]),
+      Transaction.aggregate([
+        { $match: { ...withdrawFilter, status: 'completed' } },
+        { $group: { _id: null, total: { $sum: { $abs: '$amount' } } } },
+      ]),
+      Transaction.countDocuments({ type: 'crypto_deposit' }),
+      Transaction.countDocuments(withdrawFilter),
+    ]);
+    const depositsTotal = deposits[0]?.total || 0;
+    const payoutsTotal = payouts[0]?.total || 0;
+    res.json({
+      deposits: { total: depositsTotal, count: depositCount },
+      payouts: { total: payoutsTotal, count: payoutCount },
+      net: depositsTotal - payoutsTotal,
+      count: depositCount + payoutCount,
+    });
+  } catch (e) { next(e); }
+}
+
+/**
+ * GET /admin/bank/stats — Wallet → Bank özet kartları.
+ * Toplamlar yalnız onaylanmış (approved) talepler; `count` tüm talepler.
+ */
+export async function getBankStats(req, res, next) {
+  try {
+    const groups = await BankDepositRequest.aggregate([
+      { $group: { _id: { type: '$type', status: '$status' }, count: { $sum: 1 }, total: { $sum: '$amount' } } },
+    ]);
+    const sum = (type, onlyApproved) => groups
+      .filter(g => g._id.type === type && (!onlyApproved || g._id.status === 'approved'))
+      .reduce((acc, g) => ({ total: acc.total + g.total, count: acc.count + g.count }), { total: 0, count: 0 });
+    const depositsApproved = sum('deposit', true);
+    const payoutsApproved = sum('withdraw', true);
+    res.json({
+      deposits: { total: depositsApproved.total, count: sum('deposit', false).count },
+      payouts: { total: payoutsApproved.total, count: sum('withdraw', false).count },
+      net: depositsApproved.total - payoutsApproved.total,
+      count: groups.reduce((acc, g) => acc + g.count, 0),
+    });
   } catch (e) { next(e); }
 }
 
@@ -1525,6 +1799,7 @@ export async function getCryptoTxDetail(req, res, next) {
       hotWallet,
       depositWallet,
     });
+    broadcastAdminCounts();
   } catch (e) { next(e); }
 }
 
@@ -1595,36 +1870,43 @@ export async function updateCryptoSettings(req, res, next) {
 
 export async function approveCryptoDeposit(req, res, next) {
   const session = await mongoose.startSession();
-  session.startTransaction();
   try {
-    const tx = await Transaction.findById(req.params.id).session(session);
-    if (!tx || tx.type !== 'crypto_deposit') return res.status(404).json({ error: 'Yatırma bulunamadı' });
-    if (tx.status !== 'pending') return res.status(400).json({ error: 'Bu yatırma zaten işlenmiş' });
+    const result = await withTransactionRetry(session, async () => {
+      const tx = await Transaction.findById(req.params.id).session(session);
+      if (!tx || tx.type !== 'crypto_deposit') return { status: 404, body: { error: 'Yatırma bulunamadı' } };
+      if (tx.status !== 'pending') return { status: 400, body: { error: 'Bu yatırma zaten işlenmiş' } };
 
-    const deposit = tx.cryptoDepositId
-      ? await CryptoDeposit.findById(tx.cryptoDepositId).session(session)
-      : await CryptoDeposit.findOne({ userId: tx.userId, status: 'pending_approval' }).sort({ createdAt: -1 }).session(session);
-    if (!deposit) return res.status(404).json({ error: 'Yatırma detayı bulunamadı' });
-    if (deposit.status !== 'pending_approval') return res.status(400).json({ error: 'Bu yatırma zaten işlenmiş' });
+      const deposit = tx.cryptoDepositId
+        ? await CryptoDeposit.findById(tx.cryptoDepositId).session(session)
+        : await CryptoDeposit.findOne({ userId: tx.userId, status: 'pending_approval' }).sort({ createdAt: -1 }).session(session);
+      if (!deposit) return { status: 404, body: { error: 'Yatırma detayı bulunamadı' } };
+      if (deposit.status !== 'pending_approval') return { status: 400, body: { error: 'Bu yatırma zaten işlenmiş' } };
 
-    const user = await User.findById(deposit.userId).session(session);
-    const balBefore = user.balance;
-    user.balance = +(user.balance + deposit.creditedTRY).toFixed(2);
-    await user.save({ session });
+      const user = await User.findById(deposit.userId).session(session);
+      const balBefore = user.balance;
+      user.balance = +(user.balance + deposit.creditedTRY).toFixed(2);
+      await user.save({ session });
 
-    tx.status = 'completed';
-    tx.balanceAfter = user.balance;
-    tx.note = `USDT TRC20 ${deposit.usdtAmount} USDT — Admin onayı ile eklendi`;
-    await tx.save({ session });
+      tx.status = 'completed';
+      tx.balanceAfter = user.balance;
+      tx.note = `USDT TRC20 ${deposit.usdtAmount} USDT — Admin onayı ile eklendi`;
+      await tx.save({ session });
 
-    deposit.status = 'credited';
-    deposit.creditedAt = new Date();
-    await deposit.save({ session });
+      deposit.status = 'credited';
+      deposit.creditedAt = new Date();
+      await deposit.save({ session });
 
-    await session.commitTransaction();
-    res.json({ ok: true, newBalance: user.balance });
+      return { status: 200, body: { ok: true, newBalance: user.balance }, _rg: { userId: deposit.userId, amount: deposit.creditedTRY } };
+    });
+    if (result.status === 200 && result._rg) {
+      await updateDailyStats(result._rg.userId, 'deposit', result._rg.amount).catch((e) => {
+        console.error('[RG] updateDailyStats (admin crypto deposit) failed:', e.message);
+      });
+    }
+    res.status(result.status).json(
+      result.status === 200 ? { ok: result.body.ok, newBalance: result.body.newBalance } : result.body
+    );
   } catch (e) {
-    await session.abortTransaction();
     next(e);
   } finally {
     session.endSession();
@@ -1646,9 +1928,10 @@ export async function rejectCryptoDeposit(req, res, next) {
     await deposit.save();
 
     tx.status = 'rejected';
-    tx.note = (tx.note || '') + ' — Reddedildi';
+    tx.note = (tx.note || '') + '— Reddedildi';
     await tx.save();
 
+    broadcastAdminCounts();
     res.json({ ok: true });
   } catch (e) { next(e); }
 }
@@ -1659,58 +1942,86 @@ export async function approveCryptoWithdrawal(req, res, next) {
     if (!tx) return res.status(404).json({ error: 'Çekim bulunamadı' });
     if (tx.status !== 'pending') return res.status(400).json({ error: 'Bu çekim zaten işlenmiş' });
 
-    // not'tan adres ve miktarı parse et
+    // Demo kaydı: zincire ASLA gitme (gerçek transferUSDT hot wallet'tan para gönderir).
+    if (tx.isSeed) {
+      tx.status = 'completed';
+      tx.note = `${tx.note} — demo kaydı, zincir transferi yapılmadı`;
+      await tx.save();
+      broadcastAdminCounts();
+      return res.json({ ok: true, txHash: null, demo: true });
+    }
+
+    // Adres/miktar metadata'dan; eski kayıtlar (metadata öncesi) için nottan.
+    const meta = tx.metadata || {};
     const addrMatch = tx.note?.match(/→ ([T][A-Za-z0-9]{33})/);
     const amtMatch = tx.note?.match(/([\d.]+) USDT/);
-    if (!addrMatch || !amtMatch) return res.status(400).json({ error: 'Çekim detayları parse edilemedi' });
-
-    const toAddress = addrMatch[1];
-    const usdtAmount = parseFloat(amtMatch[1]);
+    const toAddress = meta.toAddress || addrMatch?.[1];
+    const usdtAmount = Number(meta.usdtAmount ?? (amtMatch ? parseFloat(amtMatch[1]) : NaN));
+    if (!toAddress || !/^T[A-Za-z0-9]{33}$/.test(toAddress) || !Number.isFinite(usdtAmount) || usdtAmount <= 0) {
+      return res.status(400).json({ error: 'Çekim detayları okunamadı' });
+    }
 
     const result = await transferUSDT(toAddress, usdtAmount);
     if (!result.success) return res.status(500).json({ error: `Transfer başarısız: ${result.error}` });
 
     tx.status = 'completed';
     tx.note = `${tx.note} — txHash: ${result.txHash}`;
+    tx.metadata = { ...meta, toAddress, usdtAmount, txHash: result.txHash };
+    tx.markModified('metadata');
     await tx.save();
 
+    broadcastAdminCounts();
     res.json({ ok: true, txHash: result.txHash });
   } catch (e) { next(e); }
 }
 
 export async function rejectCryptoWithdrawal(req, res, next) {
   const session = await mongoose.startSession();
-  session.startTransaction();
   try {
-    const tx = await Transaction.findById(req.params.id).session(session);
-    if (!tx) return res.status(404).json({ error: 'Çekim bulunamadı' });
-    if (tx.status !== 'pending') return res.status(400).json({ error: 'Bu çekim zaten işlenmiş' });
+    const result = await withTransactionRetry(session, async () => {
+      const tx = await Transaction.findById(req.params.id).session(session);
+      if (!tx) return { status: 404, body: { error: 'Çekim bulunamadı' } };
+      if (tx.status !== 'pending') return { status: 400, body: { error: 'Bu çekim zaten işlenmiş' } };
 
-    // Bakiyeyi iade et
-    const user = await User.findById(tx.userId).session(session);
-    const refundAmount = Math.abs(tx.amount);
-    const balBefore = user.balance;
-    user.balance = +(user.balance + refundAmount).toFixed(2);
-    await user.save({ session });
+      // Bakiyeyi iade et
+      const user = await User.findById(tx.userId).session(session);
+      const refundAmount = Math.abs(tx.amount);
+      const balBefore = user.balance;
+      user.balance = +(user.balance + refundAmount).toFixed(2);
+      await user.save({ session });
 
-    await Transaction.create([{
-      userId: user._id,
-      type: 'crypto_withdraw',
-      amount: refundAmount,
-      balanceBefore: balBefore,
-      balanceAfter: user.balance,
-      note: 'Çekim reddedildi — bakiye iade edildi',
-      status: 'completed',
-    }], { session });
+      await Transaction.create([{
+        userId: user._id,
+        type: 'crypto_withdraw',
+        amount: refundAmount,
+        balanceBefore: balBefore,
+        balanceAfter: user.balance,
+        note: 'Çekim reddedildi — bakiye iade edildi',
+        status: 'completed',
+      }], { session });
 
-    tx.status = 'rejected';
-    tx.note = `${tx.note} — Reddedildi, bakiye iade edildi`;
-    await tx.save({ session });
+      await createTransaction({
+        userId: user._id,
+        type: 'crypto_withdraw',
+        amount: refundAmount,
+        balanceBefore: balBefore,
+        balanceAfter: user.balance,
+        note: 'Çekim reddedildi — bakiye iade edildi',
+        status: 'completed',
+        idempotencyKey: `crypto_withdraw_reject_${tx._id}`,
+        source: 'admin',
+      }, { session });
 
-    await session.commitTransaction();
-    res.json({ ok: true, newBalance: user.balance });
+      tx.status = 'rejected';
+      tx.note = `${tx.note} — Reddedildi, bakiye iade edildi`;
+      await tx.save({ session });
+
+      const result = { status: 200, body: { ok: true, newBalance: user.balance } };
+      broadcastAdminCounts();
+      return result;
+    });
+    res.status(result.status).json(result.body);
   } catch (e) {
-    await session.abortTransaction();
     next(e);
   } finally {
     session.endSession();
@@ -1741,5 +2052,97 @@ export function updateReferralSettings(req, res, next) {
     }
 
     res.json(REFERRAL_SETTINGS);
+  } catch (e) { next(e); }
+}
+
+// ─── Canlı aktivite akışı (admin dashboard ilk sayfa) ──────────────────────
+import ActivityEvent from '../models/ActivityEvent.js';
+
+export async function getAdminQueueCounts(req, res, next) {
+  try {
+    res.json(await getAdminCounts());
+  } catch (e) { next(e); }
+}
+
+export async function listActivity(req, res, next) {
+  try {
+    const { type, page = 1, limit = 20 } = req.query;
+    const filter = {};
+    if (type) filter.type = type;
+    const pageNum = Math.max(1, Math.floor(Number(page) || 1));
+    const limitNum = Math.min(100, Math.max(1, Math.floor(Number(limit) || 20)));
+    const skip = (pageNum - 1) * limitNum;
+
+    const [events, total] = await Promise.all([
+      ActivityEvent.find(filter).sort({ createdAt: -1 }).skip(skip).limit(limitNum).populate('userId', 'username'),
+      ActivityEvent.countDocuments(filter),
+    ]);
+
+    res.json({ events, total, page: pageNum, pages: Math.ceil(total / limitNum) });
+  } catch (e) { next(e); }
+}
+
+const DEMO_DATA_LIVE_CONFIG_KEY = 'demoData.live.config';
+
+export async function getDemoDataStatus(req, res, next) {
+  try {
+    const categories = await demoDataRegistry.getStatus();
+    const row = await Setting.findOne({ key: DEMO_DATA_LIVE_CONFIG_KEY }).lean();
+    const live = row?.value ? JSON.parse(row.value) : { enabled: false, tickIntervalMinutes: 2 };
+    res.json({ categories, live });
+  } catch (e) { next(e); }
+}
+
+export async function loadDemoDataCategory(req, res, next) {
+  try {
+    const { category } = req.params;
+    if (!demoDataRegistry.isValidCategory(category)) {
+      return res.status(400).json({ error: 'INVALID_CATEGORY' });
+    }
+    const count = Math.max(1, Math.min(10000, parseInt(req.body?.count, 10) || 0));
+    const result = await demoDataRegistry.loadCategory(category, count);
+    res.json(result);
+  } catch (e) { next(e); }
+}
+
+export async function clearDemoDataCategory(req, res, next) {
+  try {
+    const { category } = req.params;
+    if (!demoDataRegistry.isValidCategory(category)) {
+      return res.status(400).json({ error: 'INVALID_CATEGORY' });
+    }
+    const result = await demoDataRegistry.clearCategory(category);
+    res.json(result);
+  } catch (e) { next(e); }
+}
+
+export async function startDemoDataLive(req, res, next) {
+  try {
+    // Spec §Güvenlik: canlı simülasyon en az 1 seed kullanıcı varken başlayabilir.
+    if (await User.countDocuments({ isSeed: true }) === 0) {
+      return res.status(400).json({ error: 'NO_SEED_USERS' });
+    }
+    const tickIntervalMinutes = Math.max(1, Math.min(60, parseInt(req.body?.tickIntervalMinutes, 10) || 2));
+    await Setting.findOneAndUpdate(
+      { key: DEMO_DATA_LIVE_CONFIG_KEY },
+      { key: DEMO_DATA_LIVE_CONFIG_KEY, value: JSON.stringify({ enabled: true, tickIntervalMinutes }) },
+      { upsert: true },
+    );
+    const { startDemoDataLiveJob } = await import('../jobs/demoDataLiveSimulation.js');
+    startDemoDataLiveJob(tickIntervalMinutes * 60 * 1000);
+    res.json({ enabled: true, tickIntervalMinutes });
+  } catch (e) { next(e); }
+}
+
+export async function stopDemoDataLive(req, res, next) {
+  try {
+    await Setting.findOneAndUpdate(
+      { key: DEMO_DATA_LIVE_CONFIG_KEY },
+      { key: DEMO_DATA_LIVE_CONFIG_KEY, value: JSON.stringify({ enabled: false, tickIntervalMinutes: 2 }) },
+      { upsert: true },
+    );
+    const { stopDemoDataLiveJob } = await import('../jobs/demoDataLiveSimulation.js');
+    stopDemoDataLiveJob();
+    res.json({ enabled: false });
   } catch (e) { next(e); }
 }

@@ -11,43 +11,69 @@ function daysAgo(n) {
   return d;
 }
 
+// Not: seed/demo veri bilerek BU sorgulara dahildir (kullanıcı kararı).
+// Seed nesilleri gerçekçi house-edge ile üretilir (casino RTP≈%96,
+// sports marj≈%6 — bkz. demoData/casinoSeed.js, sportsSeed.js) ve
+// Transaction.amount işaretleri gerçek ledger ile aynıdır; bu yüzden
+// dashboard/analytics rakamları seed ile büyüdüğünde de pozitif/mantıklıdır.
+// Eski `NOT_SEED` (`isSeed:{$ne:true}`) filtresi 2026-09-23'te kaldırıldı.
+
 /* ── Genel Özet ────────────────────────────────────────────── */
 export async function getOverview(req, res, next) {
   try {
     const now = new Date();
     const todayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate());
 
+    // Opsiyonel `?days=N`: verileri son N güne daraltır. Dashboard'un 7D/30D/90D
+    // seçicisi bunu kullanır — parametre GELMEZSE davranış değişmez (tüm
+    // zamanlar), yani Analytics sayfasının kullandığı varsayılan korunur.
+    // Not: `newToday` her koşulda BUGÜN'ün sayısıdır (alt başlık metni
+    // "bugün" diyor); aralık yalnız ana sayıları kapsar.
+    const rawDays = Number(req.query.days);
+    const days = Number.isFinite(rawDays) && rawDays > 0 ? Math.floor(rawDays) : null;
+    const since = days ? daysAgo(days) : null;
+    const inRange = (field = 'createdAt') => (since ? { [field]: { $gte: since } } : {});
+
     const [
       userCount, newUsersToday, totalBets, pendingBets,
       depositTotal, withdrawTotal, casinoTotal, betTotal,
-      casinoRounds, pendingDeposits, pendingWithdraws,
+      pendingDeposits, pendingWithdraws,
     ] = await Promise.all([
-      User.countDocuments({ role: 'user', deletedAt: null }),
+      // Aralıklı modda "kullanıcı" = dönem içinde kayıt olan kullanıcı.
+      User.countDocuments({ role: 'user', deletedAt: null, ...inRange() }),
       User.countDocuments({ role: 'user', deletedAt: null, createdAt: { $gte: todayStart } }),
-      Bet.countDocuments(),
+      // pending her koşulda ANLIK durumdur — geçmişe gösterilemez.
+      Bet.countDocuments({ ...inRange() }),
       Bet.countDocuments({ status: 'pending' }),
 
       Transaction.aggregate([
-        { $match: { type: { $in: ['deposit', 'crypto_deposit'] }, status: 'completed' } },
+        { $match: { type: { $in: ['deposit', 'crypto_deposit'] }, status: 'completed', ...inRange() } },
         { $group: { _id: null, total: { $sum: '$amount' } } },
       ]),
       Transaction.aggregate([
-        { $match: { type: { $in: ['withdraw', 'crypto_withdraw'] }, status: 'completed' } },
+        { $match: { type: { $in: ['withdraw', 'crypto_withdraw'] }, status: 'completed', ...inRange() } },
         { $group: { _id: null, total: { $sum: { $abs: '$amount' } } } },
       ]),
       CasinoRound.aggregate([
+        { $match: inRange() },
         { $group: { _id: null, totalBet: { $sum: '$bet' }, totalPayout: { $sum: '$payout' }, ggr: { $sum: { $multiply: ['$net', -1] } }, rounds: { $sum: 1 } } },
       ]),
+      // Bahis hacmi = bahsin BİLECİĞİ gün içindeki hacim (createdAt),
+      // getSportsAnalytics'in dailyBets'i ile aynı alan — iki kartın sayısı
+      // bu yüzden birbiriyle tutarlı.
       Bet.aggregate([
+        { $match: inRange() },
         { $group: { _id: null, totalStake: { $sum: '$stake' }, totalWin: { $sum: '$potentialWin' }, count: { $sum: 1 } } },
       ]),
 
-      CasinoRound.countDocuments(),
       BankDepositRequest.countDocuments({ type: 'deposit', status: 'pending' }),
       BankDepositRequest.countDocuments({ type: 'withdraw', status: 'pending' }),
     ]);
 
     res.json({
+      // İstemci kartların hangi aralığı gösterdiğini bilmeli (kilit değil,
+      // bilgi amaçlı — ileride önbellek anahtarı olarak da kullanılabilir).
+      days,
       users: { total: userCount, newToday: newUsersToday },
       bets: { total: totalBets, pending: pendingBets, settled: totalBets - pendingBets },
       finance: {
@@ -236,7 +262,7 @@ export async function getFinanceAnalytics(req, res, next) {
     const days = parseInt(req.query.days) || 30;
     const since = daysAgo(days);
 
-    const [dailyFlow, typeBreakdown, pendingTotal] = await Promise.all([
+    const [dailyFlow, typeBreakdown, depositProviderBreakdown, pendingTotal] = await Promise.all([
       Transaction.aggregate([
         { $match: { createdAt: { $gte: since }, status: 'completed', type: { $in: ['deposit', 'withdraw', 'crypto_deposit', 'crypto_withdraw'] } } },
         { $group: {
@@ -253,13 +279,30 @@ export async function getFinanceAnalytics(req, res, next) {
         { $sort: { total: -1 } },
       ]),
 
+      // Slikair yatırımları type:'deposit' ile kaydediliyor (slikairController),
+      // metadata.payinId alanından banka depozitolarından ayrıştırılır.
+      Transaction.aggregate([
+        { $match: { status: 'completed', type: 'deposit' } },
+        { $group: {
+          _id: { $cond: [{ $ifNull: ['$metadata.payinId', false] }, 'slikair', 'bank'] },
+          total: { $sum: { $abs: '$amount' } },
+          count: { $sum: 1 },
+        }},
+      ]),
+
       BankDepositRequest.aggregate([
         { $match: { status: 'pending', type: 'withdraw' } },
         { $group: { _id: null, total: { $sum: '$amount' }, count: { $sum: 1 } } },
       ]),
     ]);
 
-    res.json({ dailyFlow, typeBreakdown, pendingWithdrawTotal: pendingTotal[0]?.total || 0, pendingWithdrawCount: pendingTotal[0]?.count || 0 });
+    res.json({
+      dailyFlow,
+      typeBreakdown,
+      depositProviderBreakdown,
+      pendingWithdrawTotal: pendingTotal[0]?.total || 0,
+      pendingWithdrawCount: pendingTotal[0]?.count || 0,
+    });
   } catch (e) { next(e); }
 }
 

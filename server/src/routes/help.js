@@ -1,5 +1,7 @@
 import { Router } from 'express';
 import { requireAuth } from '../middleware/auth.js';
+import { validate } from '../middleware/validate.js';
+import { chatSchema } from '../validators/help.js';
 import { answerQuestion, ESCALATION_MESSAGE } from '../services/chatbot.js';
 import { getKnowledgeChunks, getCurrentVersion } from '../services/chatbotIndex.js';
 import { getSiteName } from '../branding/index.js';
@@ -45,12 +47,9 @@ async function callLLM(systemPrompt, query) {
   return data.choices?.[0]?.message?.content?.trim() || ESCALATION_MESSAGE;
 }
 
-r.post('/chat', requireAuth, async (req, res, next) => {
+r.post('/chat', requireAuth, validate(chatSchema), async (req, res, next) => {
   try {
-    const { messages } = req.body;
-    if (!Array.isArray(messages) || !messages.length) {
-      return res.status(400).json({ error: 'messages gerekli' });
-    }
+    const { messages } = req.validated;
 
     // Son kullanıcı mesajı — köklenmiş arama bunun üzerinden yapılır.
     const lastUserMessage = [...messages].reverse().find(m => m.role === 'user' && typeof m.content === 'string');

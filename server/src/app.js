@@ -1,5 +1,4 @@
 import express from 'express';
-import helmet from 'helmet';
 import cors from 'cors';
 import cookieParser from 'cookie-parser';
 import compression from 'compression';
@@ -44,21 +43,27 @@ import chatRoutes from './routes/chat.js';
 import installRoutes from './routes/install.js';
 import brandingRoutes from './routes/branding.js';
 import pagesRoutes from './routes/pages.js';
+import slikairRoutes from './routes/slikair.js';
 import staticPagesRoutes from './routes/staticPages.js';
 import gamesRoutes from './routes/games.js';
 import adminModuleSettingsRoutes from './routes/adminModuleSettings.js';
+import responsibleGamingRoutes, { adminRouter as responsibleGamingAdminRoutes } from './routes/responsibleGaming.js';
+import riskRoutes from './routes/risk.js';
+import healthRoutes from './routes/health.js';
+import { createSeoPublicRouter, createSpaFallback, createSecurityHeaders } from './seo/http.js';
+import { getSiteName } from './branding/index.js';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const isProd = process.env.NODE_ENV === 'production';
 
-// Palace Casino entegrasyonu ayrı (ücretli) bir pakettir, bu kurulumda hiç
+// Igames Casino entegrasyonu ayrı (ücretli) bir pakettir, bu kurulumda hiç
 // bulunmayabilir — bu yüzden statik değil, opsiyonel dinamik import ile
-// yükleniyor. Paket yoksa /api/palace altında anlamlı bir 503 döner.
-let palaceRoutes = null;
+// yükleniyor. Paket yoksa /api/igames altında anlamlı bir 503 döner.
+let igamesRoutes = null;
 try {
-  ({ default: palaceRoutes } = await import('./premium/palace/palace.js'));
+  ({ default: igamesRoutes } = await import('./premium/igames/igames.js'));
 } catch {
-  // Palace entegrasyonu bu kurulumda mevcut değil.
+  // Igames entegrasyonu bu kurulumda mevcut değil.
 }
 
 // In-house oyun provider'ı (server/src/provider/) da ayrı (ücretli) bir
@@ -73,6 +78,16 @@ try {
   ({ default: providerRoutes } = await import('./premium/inhouse-provider/engine/routes/index.js'));
   ({ default: inhouseProviderProxyRoutes } = await import('./premium/inhouse-provider/inhouseProviderProxy.js'));
   ({ getAllOperatorOrigins } = await import('./premium/inhouse-provider/engine/services/operatorOriginCache.js'));
+
+  // Modül yüklendi ama zorunlu env değişkenleri eksikse oyunlar sessizce
+  // bozuk kalabilir (bkz. PROVIDER_SESSION_SECRET eksikliğinin 20 gün fark
+  // edilmeden production'da oturum değişimini 500'letmesi) — süreci
+  // durdurmadan yüksek sesle uyar.
+  for (const name of ['GAME_HOST_URL', 'GAME_HOST_SECRET', 'PROVIDER_SESSION_SECRET']) {
+    if (!process.env[name]) {
+      console.error(`[config] Eksik ortam değişkeni: ${name} (in-house oyun provider'ı bozuk çalışabilir)`);
+    }
+  }
 } catch {
   // In-house oyun provider'ı bu kurulumda mevcut değil.
 }
@@ -136,28 +151,9 @@ export function createApp() {
     });
   }
 
-  // Helmet + CSP (Phase B2)
-  app.use(helmet({
-    contentSecurityPolicy: isProd ? {
-      directives: {
-        defaultSrc: ["'self'"],
-        scriptSrc: ["'self'", "'unsafe-inline'", 'https://challenges.cloudflare.com'],
-        styleSrc: ["'self'", "'unsafe-inline'", 'https://fonts.googleapis.com'],
-        imgSrc: ["'self'", 'data:', 'https:'],
-        fontSrc: ["'self'", 'data:', 'https://fonts.gstatic.com'],
-        connectSrc: ["'self'", 'wss:'],
-        frameSrc: ["'self'", 'https://*'],
-        frameAncestors: ["'self'"],
-        objectSrc: ["'none'"],
-        baseUri: ["'self'"],
-        formAction: ["'self'"],
-      },
-    } : false, // Dev: CSP kapalı (HMR için)
-    crossOriginEmbedderPolicy: false,
-    hsts: isProd ? { maxAge: 31536000, includeSubDomains: true, preload: true } : false,
-    referrerPolicy: { policy: 'strict-origin-when-cross-origin' },
-    permittedCrossDomainPolicies: false,
-  }));
+  // Helmet + CSP (Phase B2) — CSP, SEO ayarındaki analytics kimliklerine göre
+  // dinamiktir (seo/http.js); dev'de kapalı (HMR için).
+  app.use(createSecurityHeaders({ isProd }));
 
   app.use(cors(corsOptions));
   app.use(compression({ level: 6, threshold: 1024 })); // Phase E2
@@ -199,6 +195,18 @@ export function createApp() {
         immutable: true,
         // index.html'i static olarak servis etme; SPA fallback bunu halleder
         index: false,
+        // sw.js/registerSW.js/workbox-*.js/manifest.webmanifest içerik-hash
+        // TAŞIMAZ (her deploy'da aynı URL, farklı içerik) — üstteki 1 yıllık
+        // immutable cache PWA'nın kendi güncelleme mekanizmasını (registerType:
+        // 'autoUpdate') kırar: tarayıcı asla yeni sw.js'i görmediği için yeni
+        // build'ler prod'a çıksa bile eski precache'ten servis etmeye devam
+        // eder (2026-09-17'de gözlemlendi: sw.js Cloudflare'de "HIT", 10+ gün
+        // önceki build'e ait, sert yenileme/sekme kapatma bile çözmedi).
+        setHeaders: (res, filePath) => {
+          if (/[/\\](sw\.js|registerSW\.js|workbox-[^/\\]+\.js|manifest\.webmanifest)$/.test(filePath)) {
+            res.setHeader('Cache-Control', 'no-cache');
+          }
+        },
       }));
     }
   }
@@ -213,10 +221,10 @@ export function createApp() {
   app.use('/api/transactions', transactionsRoutes);
   app.use('/api/promotions', promotionsRoutes);
   app.use('/api/admin', adminRoutes);
-  if (palaceRoutes) {
-    app.use('/api/palace', palaceRoutes);
+  if (igamesRoutes) {
+    app.use('/api/igames', igamesRoutes);
   } else {
-    app.use('/api/palace', (req, res) => res.status(503).json({ error: 'MODULE_NOT_INSTALLED', message: 'Palace Casino entegrasyonu bu kurulumda mevcut değil.' }));
+    app.use('/api/igames', (req, res) => res.status(503).json({ error: 'MODULE_NOT_INSTALLED', message: 'Igames Casino entegrasyonu bu kurulumda mevcut değil.' }));
   }
   app.use('/api/inhouse', inhouseRoutes);
   // Çok-kiracılı in-house game provider (bkz. server/src/provider/) — merkezi
@@ -234,11 +242,14 @@ export function createApp() {
   }
   app.use('/api/help', helpRoutes);
   app.use('/api/bank', bankRoutes);
+  app.use('/api/slikair', slikairRoutes);
   app.use('/api/admin/analytics', analyticsRoutes);
   app.use('/api/admin', adminModuleSettingsRoutes);
   app.use('/api/auth/2fa', admin2faRoutes);
   app.use('/api/theme', themeRoutes);
   app.use('/api/branding', brandingRoutes);
+  // SEO: /robots.txt, /sitemap.xml (SPA fallback'ten ÖNCE) ve /api/seo (herkese açık)
+  app.use(createSeoPublicRouter());
   app.use('/api/pages', pagesRoutes);
   app.use('/api/static-pages', staticPagesRoutes);
   app.use('/api/games', gamesRoutes);
@@ -272,6 +283,14 @@ export function createApp() {
   app.use('/api', sumsubWebhookRoute); // Sumsub webhook — module gate'den bağımsız
   app.use('/api/tickets', ticketRoutes);
   app.use('/api/chat', chatRoutes);
+  app.use('/api/responsible-gaming', responsibleGamingRoutes);
+  app.use('/api/admin/responsible-gaming', responsibleGamingAdminRoutes);
+  app.use('/api/admin/risk', riskRoutes);
+  // 2026-10-02: routes/health.js HİÇ MOUNT EDİLMEMİŞTİ — Health.jsx'in
+  // çağırdığı /admin/health, /admin/health/system, /admin/health/services ve
+  // /admin/health/metrics rotaları hiç var olmadığı için admin Health sayfası
+  // tamamen 404 veriyordu. Mount yolu client'ın zaten beklediği yol.
+  app.use('/api/admin/health', healthRoutes);
 
   // Health check — Render uptime monitoring için
   app.get('/api/health', (req, res) => res.json({ ok: true, env: process.env.NODE_ENV }));
@@ -281,7 +300,7 @@ export function createApp() {
   // bunu polling ETMİYOR, canlı güncellemeler socket üzerinden 'online:count'
   // event'iyle geliyor (bkz. services/onlineCount.js, socket/handler.js).
   app.get('/api/health/status', async (req, res) => {
-    const result = { api: 'up', db: 'unknown', palace: 'unknown', oddsSource: 'unknown', payment: 'up', onlineCount: getOnlineCount() };
+    const result = { api: 'up', db: 'unknown', igames: 'unknown', oddsSource: 'unknown', payment: 'up', onlineCount: getOnlineCount() };
     try {
       const mongoose = (await import('mongoose')).default;
       result.db = mongoose.connection.readyState === 1 ? 'up' : 'down';
@@ -294,10 +313,10 @@ export function createApp() {
         agg.healthCheck(),
         new Promise(resolve => setTimeout(() => resolve(false), 3000)),
       ]);
-      if (!ok) result.palace = 'down';
-      else if (Date.now() - start > 2000) result.palace = 'degraded';
-      else result.palace = 'up';
-    } catch { result.palace = 'unavailable'; }
+      if (!ok) result.igames = 'down';
+      else if (Date.now() - start > 2000) result.igames = 'degraded';
+      else result.igames = 'up';
+    } catch { result.igames = 'unavailable'; }
     // Kaynak sağlığı: eskiden sabit kodlanmış bir mirror'a HEAD atılıyordu. O
     // domain artık ölü ve zaten sync'in gerçek durumuyla hiçbir bağı yoktu —
     // endpoint "up" derken senkronizasyon 25 saattir kopuk olabiliyordu.
@@ -313,13 +332,38 @@ export function createApp() {
     res.json(result);
   });
 
+  // Risk observability — non-sensitive risk stats for ops monitoring
+  app.get('/api/health/risk', async (req, res) => {
+    try {
+      const { getRiskStats } = await import('./services/riskEngine.js');
+      const stats = await getRiskStats();
+      res.set('Cache-Control', 'no-store');
+      res.json(stats);
+    } catch {
+      res.json({ statusStats: [], levelStats: [], evaluationStats: [] });
+    }
+  });
+
   // Görsel proxy — hotlink korumalı CDN'lerden Origin header olmadan çeker
+  // SECURITY FIX (H2): SSRF protection — block internal IPs and cloud metadata
   app.get('/api/img', (req, res) => {
     const raw = req.query.url;
     if (!raw) return res.status(400).end();
     let url;
     try { url = new URL(decodeURIComponent(raw)); } catch { return res.status(400).end(); }
     if (!['http:', 'https:'].includes(url.protocol)) return res.status(400).end();
+
+    // Block internal/private IPs to prevent SSRF
+    const hostname = url.hostname;
+    const blockedPatterns = [
+      /^127\./, /^10\./, /^172\.(1[6-9]|2[0-9]|3[01])\./, /^192\.168\./,
+      /^0\./, /^localhost$/i, /^::1$/, /^\[::1\]$/,
+      /^169\.254\./, // cloud metadata
+      /^100\.(6[4-9]|[7-9][0-9]|1[01][0-9]|12[0-7])\./, // carrier-grade NAT
+    ];
+    if (blockedPatterns.some(p => p.test(hostname))) {
+      return res.status(403).json({ error: 'Internal URLs not allowed' });
+    }
 
     const mod = url.protocol === 'https:' ? https : http;
     const proxyReq = mod.request(
@@ -345,9 +389,7 @@ export function createApp() {
   if (isProd) {
     const clientDist = join(__dirname, '../../client/dist');
     if (existsSync(clientDist)) {
-      app.get('*', (req, res) => {
-        res.sendFile(join(clientDist, 'index.html'));
-      });
+      app.get('*', createSpaFallback({ indexPath: join(clientDist, 'index.html'), getSiteName }));
     }
   }
 

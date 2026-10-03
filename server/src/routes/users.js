@@ -5,7 +5,7 @@ import {
   changePasswordSchema, changeEmailSchema,
   dataExportRequestSchema, accountDeletionRequestSchema,
 } from '../validators/auth.js';
-import { gameActivitySchema } from '../validators/users.js';
+import { gameActivitySchema, updatePreferencesSchema, updateLimitsSchema } from '../validators/users.js';
 import * as ctrl from '../controllers/users.js';
 
 const r = Router();
@@ -15,7 +15,7 @@ r.get('/me', ctrl.getMe);
 r.get('/me/bets', ctrl.getMyBets);
 r.get('/me/transactions', ctrl.getMyTransactions);
 r.get('/me/preferences', ctrl.getPreferences);
-r.put('/me/preferences', ctrl.updatePreferences);
+r.put('/me/preferences', validate(updatePreferencesSchema), ctrl.updatePreferences);
 
 // Favoriler / Son Oynananlar
 r.get('/me/favorites', ctrl.getFavorites);
@@ -35,6 +35,6 @@ r.post('/me/cancel-deletion', ctrl.cancelAccountDeletion);
 
 // Responsible gambling limits (Phase D4)
 r.get('/me/limits', ctrl.getLimits);
-r.put('/me/limits', ctrl.updateLimits);
+r.put('/me/limits', validate(updateLimitsSchema), ctrl.updateLimits);
 
 export default r;

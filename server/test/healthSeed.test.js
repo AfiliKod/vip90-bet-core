@@ -60,7 +60,7 @@ describe('runHealthChecks', () => {
     assert.strictEqual(byName['env:JWT_SECRET'].status, 'fail'); // var ama kısa
     assert.strictEqual(byName['env:JWT_REFRESH_SECRET'].status, 'fail');
     assert.strictEqual(byName['env:CLIENT_URL'].status, 'fail');
-    assert.strictEqual(byName['service:palace'].status, 'warn');
+    assert.strictEqual(byName['service:igames'].status, 'warn');
     assert.strictEqual(byName['service:smtp'].status, 'warn');
     assert.strictEqual(r.ok, false);
   });

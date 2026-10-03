@@ -23,7 +23,7 @@ describe('Favoriler / Son Oynananlar', () => {
 
   it('toggleFavorite bir oyunu ekler, tekrar çağrılınca kaldırır', async () => {
     const user = await User.create({ username: 'favuser', email: 'fav@example.com', password: 'password123' });
-    const req = { user: { id: String(user._id) }, validated: { gameId: 'sweet-bonanza', kind: 'palace' } };
+    const req = { user: { id: String(user._id) }, validated: { gameId: 'sweet-bonanza', kind: 'igames' } };
 
     const res1 = mockRes();
     await toggleFavorite(req, res1, () => {});
@@ -49,12 +49,12 @@ describe('Favoriler / Son Oynananlar', () => {
 
   it('recordRecentlyPlayed en yeniyi başa ekler ve aynı oyunu tekrarlamaz (dedupe)', async () => {
     const user = await User.create({ username: 'recuser', email: 'rec@example.com', password: 'password123' });
-    const req = { user: { id: String(user._id) }, validated: { gameId: 'game-a', kind: 'palace' } };
+    const req = { user: { id: String(user._id) }, validated: { gameId: 'game-a', kind: 'igames' } };
 
     await recordRecentlyPlayed(req, mockRes(), () => {});
-    req.validated = { gameId: 'game-b', kind: 'palace' };
+    req.validated = { gameId: 'game-b', kind: 'igames' };
     await recordRecentlyPlayed(req, mockRes(), () => {});
-    req.validated = { gameId: 'game-a', kind: 'palace' };
+    req.validated = { gameId: 'game-a', kind: 'igames' };
     const res = mockRes();
     await recordRecentlyPlayed(req, res, () => {});
 
@@ -67,7 +67,7 @@ describe('Favoriler / Son Oynananlar', () => {
     const user = await User.create({ username: 'capuser', email: 'cap@example.com', password: 'password123' });
     const req = { user: { id: String(user._id) } };
     for (let i = 0; i < 25; i++) {
-      req.validated = { gameId: `game-${i}`, kind: 'palace' };
+      req.validated = { gameId: `game-${i}`, kind: 'igames' };
       await recordRecentlyPlayed(req, mockRes(), () => {});
     }
     const res = mockRes();
