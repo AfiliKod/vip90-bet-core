@@ -132,6 +132,8 @@ All of them can be entered from **Settings → Modules → SMS Gateway** (Auth T
 
 There is no separate env variable for Web3 wallet login (MetaMask, etc.) — signature verification is done server-side (`ethers`), no external identity information is required.
 
+Google login can also be configured **from the panel** (**Modules → Google Login**), which takes precedence over these variables (DB, with the secret encrypted, > env > derived default). Full setup, flows, account-linking rules and troubleshooting: [`docs/social-login.md`](../social-login.md).
+
 ### License (optional module control)
 
 | Variable | Required | What it does |

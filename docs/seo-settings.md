@@ -1,73 +1,78 @@
-# SEO ayarları
+# SEO Settings
 
-Admin: **Settings → SEO** (`/admin/platform?tab=seo`). Değerler `Setting`
-koleksiyonunda tek kayıt (`seo.config`, JSON) olarak durur.
+Admin: **Settings → SEO** (`/admin/platform?tab=seo`). The values live as a
+single record (`seo.config`, JSON) in the `Setting` collection.
 
-## Nerede ne var
+## Where things are
 
-| Parça | Dosya |
+| Piece | File |
 |---|---|
-| Alan tanımı, regex'ler, zod şeması | `server/src/seo/schema.js` |
-| Depo (30 sn cache, kayıtta geçersiz kılma) | `server/src/seo/store.js` |
-| Etiket üretimi + enjeksiyon, CSP ekleri, robots/sitemap metni | `server/src/seo/render.js` |
-| HTTP: `/robots.txt`, `/sitemap.xml`, `GET /api/seo`, SPA fallback, dinamik CSP | `server/src/seo/http.js` |
-| Rota eşleştirici (saf, sunucu + testler ortak) | `shared/route-matcher.js` |
-| Rota tablosu üretimi (`App.jsx` → `dist/routes.json`) + denetimi | `client/scripts/emit-route-manifest.mjs`, `check-route-manifest.mjs` |
-| Admin uçları `GET/PUT /api/admin/settings/seo` (`admin:settings:read/write`) | `server/src/routes/seoAdmin.js` |
-| Sekme arayüzü | `client/src/pages/admin/SeoSettings.jsx` |
-| `document.title` tek sahibi (şablon + sayfa adı) | `client/src/seo/SeoManager.jsx`, `titles.js` |
+| Field definitions, regexes, zod schema | `server/src/seo/schema.js` |
+| Store (30 s cache, invalidated on save) | `server/src/seo/store.js` |
+| Tag generation + injection, CSP extras, robots/sitemap text | `server/src/seo/render.js` |
+| HTTP: `/robots.txt`, `/sitemap.xml`, `GET /api/seo`, SPA fallback, dynamic CSP | `server/src/seo/http.js` |
+| Route matcher (pure, shared by server + tests) | `shared/route-matcher.js` |
+| Route manifest generation (`App.jsx` → `dist/routes.json`) + check | `client/scripts/emit-route-manifest.mjs`, `check-route-manifest.mjs` |
+| Admin endpoints `GET/PUT /api/admin/settings/seo` (`admin:settings:read/write`) | `server/src/routes/seoAdmin.js` |
+| Tab UI | `client/src/pages/admin/SeoSettings.jsx` |
+| Single owner of `document.title` (template + page name) | `client/src/seo/SeoManager.jsx`, `titles.js` |
 
-## Davranış
+## Behavior
 
-- Ayar kaydı **hiç yoksa** index.html aynen servis edilir (eski davranış).
-- Varsa `index.html` bellekte tutulur; `<title>`, description/keywords/robots,
-  canonical (istek yoluna göre), OG, Twitter, doğrulama meta'ları ve
-  GA4/GTM/Pixel snippet'leri `<head>`'e (noscript'ler `<body>` başına) eklenir.
-  Giriş/admin/profil gibi özel yollar `noindex` alır ve canonical üretmez.
-- Serbest HTML/script alanı yoktur. Script'e yalnız regex'le doğrulanmış kimlik
-  girer (`G-XXXX`, `GTM-XXXX`, rakamlı Pixel); render katmanı kimliği tekrar doğrular.
-- CSP (yalnız prod): temel liste + sadece girilen kimliğin alan adları
-  (`createSecurityHeaders`). Dev'de CSP kapalı kalır.
-- `robots.txt`: `noindex` iken `Disallow: /`; değilse admin/api yolları kapalı +
-  `Sitemap:`. `sitemap.xml`: `/`, açık modüllerin `/bahis` `/canli` `/casino`
-  rotaları ve etkin statik sayfalar; `noindex` iken 404. Taban URL: canonical
-  ayarı, yoksa isteğin (biçimi doğrulanmış) host'u.
+- If **no** settings record exists at all, `index.html` is served verbatim (the
+  previous behavior).
+- If it exists, `index.html` is held in memory and `<title>`,
+  description/keywords/robots, canonical (derived from the requested path), OG,
+  Twitter, verification metas and GA4/GTM/Pixel snippets are injected into
+  `<head>` (noscripts go at the top of `<body>`). Special paths such as
+  login/admin/profile get `noindex` and no canonical.
+- There is no free-form HTML/script field. Only regex-validated identifiers
+  enter the snippets (`G-XXXX`, `GTM-XXXX`, numeric Pixel); the render layer
+  validates the identifier a second time.
+- CSP (production only): the base list plus the domains of the entered
+  identifiers only (`createSecurityHeaders`). CSP stays off in development.
+- `robots.txt`: `Disallow: /` when `noindex`; otherwise admin/api paths are
+  blocked plus a `Sitemap:` line. `sitemap.xml`: `/`, the `/bahis`, `/canli`,
+  `/casino` routes of enabled modules and active static pages; `404` while
+  `noindex` is set. Base URL: the canonical setting, otherwise the (format
+  validated) host of the request.
 
-## Gerçek 404 (SPA)
+## Real 404 (SPA)
 
-Olmayan bir sayfa **200 + ana sayfa** dönmemeli. Rota tablosu TEK doğruluk
-kaynağı olan `App.jsx`'ten **build sırasında** türetilir:
-`npm run build --prefix client` → `vite build` sonrası
-`client/scripts/emit-route-manifest.mjs` `client/dist/routes.json` üretir
-(`{ generatedAt, count, patterns }`). Sunucu bu dosyayı bir kez okuyup
-`req.path`'i eşleştirir (`shared/route-matcher.js`):
+A page that does not exist must **not** answer `200` with the home page. The
+route table is derived **at build time** from `App.jsx`, the single source of
+truth: `npm run build --prefix client` → after `vite build`,
+`client/scripts/emit-route-manifest.mjs` writes `client/dist/routes.json`
+(`{ generatedAt, count, patterns }`). The server reads that file once and
+matches `req.path` against it (`shared/route-matcher.js`):
 
-| İstek | Yanıt |
+| Request | Response |
 |---|---|
-| Tablodaki bir rota | `200` + `index.html` (SEO enjeksiyonu eskisi gibi) |
-| Tabloda olmayan yol | `404` + `X-Robots-Tag: noindex` + `Cache-Control: no-cache` + `index.html`; kanonik/SEO etiketi **enjekte edilmez**, SPA kendi 404 sayfasını çizer (`client/src/pages/NotFound.jsx`) |
-| `routes.json` yoksa/bozuksa | **fail-open**: tüm yollar `200` (eski davranış), ilk istekte bir kez `console.warn` |
-| `ROUTE_404_REPORT_ONLY=1` | 404 yerine yalnız `[route-404] (rapor modu) manifest dışı: …` logu, yanıt `200` |
+| A route in the table | `200` + `index.html` (SEO injection as before) |
+| A path not in the table | `404` + `X-Robots-Tag: noindex` + `Cache-Control: no-cache` + `index.html`; canonical/SEO tags are **not injected**, the SPA renders its own 404 page (`client/src/pages/NotFound.jsx`) |
+| `routes.json` missing/broken | **fail-open**: every path `200` (previous behavior), one `console.warn` on the first request |
+| `ROUTE_404_REPORT_ONLY=1` | No 404; only the `[route-404] (rapor modu) manifest dışı: …` log, response `200` |
 
-Kurallar ve sınırlar:
+Rules and limits:
 
-- Tablo **elle tutulmaz**; yeni sayfa eklemek `App.jsx`'e `<Route>` eklemektir.
-  Bu yüzden CI "manifest senkron mu" diye kırılmaz — senkron denetimi
-  (`npm run routes:check --prefix client`) yalnız **uyarı** düzeyindedir ve
-  asla başarısız değildir. Doğruluk parser'ın birim testleriyle garanti edilir;
-  parser rota üretemezse **build fail eder** (sessizce boş tablo olmaz).
-- `/admin/*` için joker kullanılmaz; 40+ çocuk rotanın tamamı tabloda yazılıdır,
-  böylece `/admin/yok-boyle` gerçekten 404 verir. `<Navigate>` ile yönlenen
-  admin rotaları (`/admin/casino`, `/admin/bank`, …) çalışan URL'ler oldukları
-  için **tutulur**.
-- `express.static` fallback'ten önce çalışır: `/assets/*`, `/uploads/kyc/*`
-  (var olan dosyalar) ve `/api/*`, `/robots.txt`, `/sitemap.xml` etkilenmez.
-  `routes.json` sunucunun kendi verisidir ve dışarı servis edilmez (`/routes.json`
-  → `404`).
-- İki aşamalı dağıtım: önce `ROUTE_404_REPORT_ONLY=1` ile loglar gözden geçirilir,
-  sonra değişken kaldırılır (bkz. `docs/RUNBOOK.md`).
+- The table is **never maintained by hand**; adding a page means adding a
+  `<Route>` to `App.jsx`. That is why CI does not break on a "is the manifest in
+  sync?" check — the sync check (`npm run routes:check --prefix client`) is
+  **warning** level only and never fails. Correctness is guaranteed by the
+  parser's unit tests; if the parser cannot produce routes the **build fails**
+  (there is never a silently empty table).
+- No wildcard is used for `/admin/*`; the full list of 40+ child routes is
+  written out, so `/admin/yok-boyle` really returns 404. Admin routes that
+  redirect with `<Navigate>` (`/admin/casino`, `/admin/bank`, …) are working
+  URLs and are therefore **kept**.
+- `express.static` runs before the fallback: `/assets/*`, `/uploads/kyc/*`
+  (existing files) and `/api/*`, `/robots.txt`, `/sitemap.xml` are unaffected.
+  `routes.json` is the server's own data and is not served (`/routes.json` →
+  `404`).
+- Two-phase deployment: first review the logs with `ROUTE_404_REPORT_ONLY=1`,
+  then remove the variable (see `docs/RUNBOOK.md`).
 
-## Test
+## Tests
 
 ```
 cd server
@@ -79,13 +84,13 @@ cd .. && node --test shared/route-matcher.test.js client/scripts/__tests__/parse
 cd client && npx vite build && node --test src/i18n/*.test.js src/seo/*.test.js
 ```
 
-`seoInject.test.js`'in "rota tablosu ile gerçek 404" bölümü tabloyu **gerçek**
-`client/src/App.jsx`'ten üretir: parser eksik rota verirse veya sunucu
-eşleştirmeyi bozarsa test kırılır.
+The "rota tablosu ile gerçek 404" section of `seoInject.test.js` builds the
+table from the **real** `client/src/App.jsx`: the test breaks if the parser
+produces an incomplete table or if the server breaks the matching.
 
-Elle: prod modunda (`NODE_ENV=production`, `client/dist` hazır) `curl -s
-http://localhost:PORT/casino | head -40`, `curl /robots.txt`, `curl /sitemap.xml`;
-ayar kaydedikten sonra en geç 30 sn içinde (kayıtta anında) etiketler görünür.
-404 tarafı: `curl -i localhost:PORT/bahis` → `200`, `curl -i
-localhost:PORT/olmayansayfa` → `404` + `X-Robots-Tag: noindex`,
+Manual: in production mode (`NODE_ENV=production`, `client/dist` ready),
+`curl -s http://localhost:PORT/casino | head -40`, `curl /robots.txt`,
+`curl /sitemap.xml`; after saving a setting the tags appear within at most 30 s
+(immediately, on save). For the 404 side: `curl -i localhost:PORT/bahis` → `200`,
+`curl -i localhost:PORT/olmayansayfa` → `404` + `X-Robots-Tag: noindex`,
 `curl -i localhost:PORT/admin/yok-boyle` → `404`.

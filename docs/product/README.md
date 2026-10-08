@@ -12,7 +12,7 @@ This directory is written for operators who have purchased the product — not f
 - [10 — Bonus and Wagering](10-bonus-ve-cevrim.md) — locked-balance bonus model, wagering weights, withdrawal/forfeit flow, trial bonus script.
 - [11 — Admin Tools](11-admin-araclari.md) — live activity feed, demo data generator, casino rewards (bonus call + freeround).
 
-Related documents outside this directory: [`docs/seo-settings.md`](../seo-settings.md) (SEO settings), [`docs/mail-templates.md`](../mail-templates.md) and [`docs/sms-gateway/README.md`](../sms-gateway/README.md) (email and SMS), and the core payment/KYC integrations in `docs/providers/` ([crypto](../providers/crypto-trc20.md), [local KYC](../providers/local-kyc.md), [Sumsub](../providers/sumsub-kyc.md)). Game mathematics and the technical documentation of the paid add-ons ship with the add-ons.
+Related documents outside this directory: [`docs/seo-settings.md`](../seo-settings.md) (SEO settings), [`docs/mail-templates.md`](../mail-templates.md) and [`docs/sms-gateway/README.md`](../sms-gateway/README.md) (email and SMS), [`docs/social-login.md`](../social-login.md) (Google / Telegram / MetaMask sign-in, panel + `.env` setup), and the core payment/KYC integrations in `docs/providers/` ([crypto](../providers/crypto-trc20.md), [local KYC](../providers/local-kyc.md), [Sumsub](../providers/sumsub-kyc.md)). Game mathematics and the technical documentation of the paid add-ons ship with the add-ons.
 
 ## Status note (honesty)
 

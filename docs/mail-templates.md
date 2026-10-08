@@ -1,147 +1,152 @@
-# Sistem E-postaları (admin/mail-templates)
+# System Emails (admin/mail-templates)
 
-Sistem tarafından otomatik gönderilen e-postaların içeriği admin panelinden
-düzenlenir: **İletişim → E-posta → Şablonlar** (`/admin/communications?channel=email`).
-Eski `/admin/mail-templates` rotası bu adrese redirect edilir. Panel metinleri
-8 dilde (`tr/en/ko/th/es/ja/pt/de`) i18n anahtarıyla gelir.
+The content of the automatically sent system emails is edited from the admin
+panel: **Communication → Email → Templates** (`/admin/communications?channel=email`).
+The old `/admin/mail-templates` route redirects there. Panel texts come from the
+8 dictionaries (`tr/en/ko/th/es/ja/pt/de`) via i18n keys.
 
-## Ne yapar
+## What it does
 
-| Kategori | Ne zaman gönderilir | Panelden elle gönderim |
+| Category | When it is sent | Manual send from the panel |
 | --- | --- | --- |
-| `action` — aksiyona bağlı | Sistem olayı anında (kayıt, doğrulama, bahis sonuçlanma, casino oturum kapanışı, yatırım, çekim, KYC) | **Hayır** (`400 MAIL_ACTION_TRIGGER_ONLY`) |
-| `scheduled` — zamana duyarlı | Zamanlanmış iş + panelde "Şimdi gönder" | **Evet**, kitle seçilerek |
+| `action` — tied to an action | The instant a system event happens (registration, verification, bet settlement, casino session close, deposit, withdrawal, KYC) | **No** (`400 MAIL_ACTION_TRIGGER_ONLY`) |
+| `scheduled` — time sensitive | Scheduled job + "Send now" in the panel | **Yes**, with audience selection |
 
-Kitle tipleri: `all` (tüm kullanıcılar), `segments` (belirli segmentler),
-`users` (belirli kullanıcılar), `inactive` (belirli süredir online olmayanlar).
+Audience types: `all` (all users), `segments` (specific segments), `users`
+(specific users), `inactive` (users who have not been online for a while).
 
-Kitleye giren kullanıcılar: e-postası olan, **silinmemiş** (`deletedAt: null` —
-alan `null` olduğu için `$exists:false` kullanılamaz) ve bot olmayanlar.
-Segment kriterleri `buildQueryFromCriteria` ile çözülür; `vipLevel` kriteri
-seviye NUMARASI aralığıdır ve `VipLevel.level` üzerinden ObjectId'lere çevrilir
-(aksi halde `Cast to ObjectId` hatası fırlatır). Olay adları panelde
-`admin.mailTemplates.event.<olay>` anahtarından çevrilir.
+Users entering an audience: those with an e-mail address, **not deleted**
+(`deletedAt: null` — because the field is `null`, `$exists:false` cannot be used)
+and not bots. Segment criteria are resolved with `buildQueryFromCriteria`; the
+`vipLevel` criterion is a **numeric** level range and is converted to ObjectIds
+through `VipLevel.level` (otherwise it throws `Cast to ObjectId`). Event names are
+translated in the panel from the `admin.mailTemplates.event.<event>` key.
 
-## Kod haritası
+## Code map
 
 ```
-server/src/services/mailTemplates.js   MAIL_EVENTS kataloğu, DEFAULT_TEMPLATES (demo),
-                                       render, CRUD, 30sn önbellek, ensureDefaultMailTemplates
+server/src/services/mailTemplates.js   MAIL_EVENTS catalog, DEFAULT_TEMPLATES (demo),
+                                       render, CRUD, 30s cache, ensureDefaultMailTemplates
 server/src/services/systemMail.js      sendActionMail, resolveAudience, sendBulk,
                                        runDueScheduledMails, startScheduledMailJob
-server/src/models/SystemMailTemplate.js  şablon (event unique, audience/schedule/stats)
-server/src/models/SystemMailLog.js       gönderim logu
-server/src/routes/adminMailTemplates.js  /api/admin/mail-templates rotaları
+server/src/models/SystemMailTemplate.js  template (unique event, audience/schedule/stats)
+server/src/models/SystemMailLog.js       delivery log
+server/src/routes/adminMailTemplates.js  /api/admin/mail-templates routes
 server/src/controllers/adminMailTemplates.js
-server/src/validators/adminMailTemplates.js  zod şemaları
-client/src/pages/admin/MailTemplates.jsx    panel sayfası
+server/src/validators/adminMailTemplates.js  zod schemas
+client/src/pages/admin/MailTemplates.jsx    panel page
 ```
 
-Rotalar `routes/admin.js`'te `/mail-templates` altında mount edilir; sidebar
-öğesi 2026-10-06'da `admin.nav.communication` hub'ıyla birleşti
-(`adminNav.config.js` → engagement grubu), `App.jsx`'teki eski rota
-`?channel=email` redirect'ine düşer.
+The routes are mounted under `/mail-templates` in `routes/admin.js`; the sidebar
+item was merged into the `admin.nav.communication` hub on 2026-10-06
+(`adminNav.config.js` → engagement group), and the old route in `App.jsx`
+redirects to `?channel=email`.
 
-## SMTP ayarları — Modules → Email Gateway (2026-10-06)
+## SMTP settings — Modules → Email Gateway (2026-10-06)
 
-Sağlayıcı kimlik bilgileri şablon sayfasında DEĞİL, **Modüller → Email
-Gateway** kartında (`EmailProviderPanel`). İletişim → E-posta → Provider
-sekmesi bu tarihte kaldırıldı.
+Provider credentials are **not** on the template page; they live in the
+**Modules → Email Gateway** card (`EmailProviderPanel`). The Communication →
+Email → Provider tab was removed on that date.
 
-- **Gateway anahtarı (kart başlığındaki switch — Core rozetinin yerine,
-  kart listenin sonunda):**
-  - **Açık (varsayılan):** transport panel/DB ayarlarını kullanır
-    (`DB > env`, eski davranış — `emailConfig.getAll()`).
-  - **Kapalı:** transport **yalnızca sunucu `.env` SMTP'sine** kurulur
-    (`emailEnvView()`); paneldeki `smtp.*` DB değerleri bilerek girmez.
-    Panelde rozet "Sunucu SMTP (.env)" olur.
-- Sunucu anahtarı: `smtp.gatewayEnabled` (Setting) > `SMTP_GATEWAY_ENABLED`
-  env > default `'true'`. Alan `PUT /admin/settings/email` gövdesinde
-  boolean/`'true'|'false'|''` gelir; boş gönderim DB kaydını silip default'a
-  döner.
-- Mod, transport imzasının parçasıdır: anahtar değişince transport yeniden
-  kurulur (aynı host değeriyle bile). Gönderim/test yolları
-  (`sendActionMail`, `sendBulk`, `POST /admin/settings/email/test`) hepsi
-  `getTransporter()` üzerinden aynı seçimi uygular.
-- Gateway kapalı + `.env`'te `SMTP_HOST` yoksa gönderim `SMTP_NOT_CONFIGURED`
-  ile reddedilir (panel değeri olsa bile — kapı kasıtlıdır).
+- **Gateway switch (the switch in the card header — in place of the Core badge,
+  the card is last in the list):**
+  - **On (default):** transport uses the panel/DB settings (`DB > env`, previous
+    behavior — `emailConfig.getAll()`).
+  - **Off:** the transport is built **only from the server `.env` SMTP**
+    (`emailEnvView()`); the `smtp.*` DB values are deliberately ignored. The
+    badge reads "Sunucu SMTP (.env)".
+- Server switch: `smtp.gatewayEnabled` (Setting) > `SMTP_GATEWAY_ENABLED` env >
+  default `'true'`. The field arrives in the `PUT /admin/settings/email` body as
+  boolean/`'true'|'false'|''`; sending an empty value deletes the DB record and
+  falls back to the default.
+- The switch is part of the transport signature: when it changes the transport is
+  rebuilt (even with the same host value). All delivery/test paths
+  (`sendActionMail`, `sendBulk`, `POST /admin/settings/email/test`) apply the
+  same choice through `getTransporter()`.
+- Gateway off + no `SMTP_HOST` in `.env` → delivery is rejected with
+  `SMTP_NOT_CONFIGURED` (even if a panel value exists — the gate is deliberate).
 
-## Olay (`event`) kataloğu
+## Event (`event`) catalog
 
-`MAIL_EVENTS` tek doğruluk kaynağıdır: hangi olayın hangi kategoride olduğu ve
-o olay için kullanılabilir `{{değişken}}` havuzu. Paneldeki "değişkenler"
-çipleri de buradan gelir.
+`MAIL_EVENTS` is the single source of truth: which category an event belongs to
+and the `{{variable}}` pool available for that event. The "variables" chips in
+the panel come from here too.
 
-- **aksiyon (10):** `user.emailVerify`, `user.welcome`, `user.passwordReset`,
+- **action (10):** `user.emailVerify`, `user.welcome`, `user.passwordReset`,
   `user.passwordChanged`, `kyc.approved`, `kyc.rejected`, `bet.settled`,
   `casino.sessionClosed`, `wallet.depositCompleted`, `wallet.withdrawalCompleted`
-- **zamana duyarlı (3):** `campaign.broadcast`, `campaign.inactiveUsers`,
+- **time sensitive (3):** `campaign.broadcast`, `campaign.inactiveUsers`,
   `campaign.reactivation`
 
 > `COMMON_VARIABLES`: `siteName`, `username`, `currency`, `supportEmail`,
-> `currentYear`, `siteUrl` — her olaya otomatik eklenir.
+> `currentYear`, `siteUrl` — added automatically to every event.
 
-Olay başına **tek** şablon vardır (unique index). Yeni olay eklemek için
-`MAIL_EVENTS` + `DEFAULT_TEMPLATES` (isteğe bağlı) + tetikleyen koda
-`sendActionMail(...)` çağrısı gerekir.
+There is exactly **one** template per event (unique index). Adding a new event
+requires `MAIL_EVENTS` + `DEFAULT_TEMPLATES` (optional) + a
+`sendActionMail(...)` call in the triggering code.
 
-## Demo verisi
+## Demo data
 
-`DEFAULT_TEMPLATES` 7 hazır içerik tanımlar (aksiyon + zamana duyarlı örneği
-birden içerir). `ensureDefaultMailTemplates()` sunucu açılışında
-(`server/src/server.js`) **yalnızca eksik** kayıtları ekler; mevcut admin
-dokümanlarını asla ezmez.
+`DEFAULT_TEMPLATES` defines 7 ready-made contents (including both an action and
+a time-sensitive example). `ensureDefaultMailTemplates()` runs at server startup
+(`server/src/server.js`) and adds **only missing** records; it never overwrites
+documents an admin has edited.
 
-DemoData kategorisine satır **eklenmez** — `demoData-registry.test.js` tam
-olarak 8 kategori (`users,sports,casino,kyc,risk,tickets,agents,payments`)
-assert eder.
+Rows are **not** added to the DemoData category — `demoData-registry.test.js`
+asserts exactly 8 categories
+(`users,sports,casino,kyc,risk,tickets,agents,payments`).
 
-## Şablon sözdizimi
+## Template syntax
 
-- `{{değişken}}` — gövdede HTML kaçırılır (değerler `&lt;` olur), konu başlığında kaçırılmaz.
-- `{{#if x}}…{{/if}}` / `{{#unless x}}…{{/unless}}` — iç içe desteklenir (en-İÇTEKİ blok önce eşleşir).
-- `preheader` — gelen kutusu önizlemesi, gövdeye gizlenir.
-- `ctaLabel` + `ctaUrl` — render sonrası doluysa bulletproof buton + yedek bağlantı eklenir.
-- Tasarım yardımcıları: `email.js` içindeki `layout/button/H1/P/NOTE` ve `.m-h1/.m-p/.m-note` CSS.
+- `{{variable}}` — HTML-escaped in the body (values become `&lt;`), not escaped
+  in the subject line.
+- `{{#if x}}…{{/if}}` / `{{#unless x}}…{{/unless}}` — nesting supported (the
+  **innermost** block matches first).
+- `preheader` — inbox preview, hidden in the body.
+- `ctaLabel` + `ctaUrl` — when both are non-empty after rendering, a bulletproof
+  button + fallback link are appended.
+- Design helpers: `layout/button/H1/P/NOTE` in `email.js` and the
+  `.m-h1/.m-p/.m-note` CSS.
 
-Önizleme panelde `POST /api/admin/mail-templates/preview` ile örnek verilerle
-yapılır; gerçek alıcıya bir şey gönderilmez.
+Preview is done in the panel with `POST /api/admin/mail-templates/preview` using
+sample data; nothing is sent to a real recipient.
 
-## Zamanlanmış gönderim
+## Scheduled delivery
 
-- `startScheduledMailJob()` boot'ta başlar (30sn gecikme, 15dk aralık).
-- `schedule.nextSentAt` hiç hesaplanmamışsa iş **hemen göndermez**, yalnızca
-  vadeyi kurar — sunucu açılışında toplu patlama olmaz. İlk gönderim
-  paneldeki "Şimdi gönder" ile yapılır.
-- Toplu gönderim sınırı: `MAIL_SEND_BATCH_LIMIT` (varsayılan 500, max 5000),
-  eşzamanlılık 5. `matched > processed` ise sonuçta `truncated: true` döner.
-- **SMS aynı modeli kullanır:** `SmsTemplate.schedule`/`audience` alan adları
-  birebir aynı, 15 dk'lık `runDueScheduledSms` işi e-posta işiyle birlikte
-  boot'ta başlar. Kampanyalar sekmesindeki "otomatik" rozeti her iki kanalda
-  `schedule.enabled`'den okunur. Ayrıntı: `docs/sms-gateway/README.md` §12.
+- `startScheduledMailJob()` starts on boot (30 s delay, 15 min interval).
+- If `schedule.nextSentAt` has never been computed the job does **not** send
+  immediately, it only sets the due date — so there is no burst at startup. The
+  first delivery is done with "Send now" in the panel.
+- Bulk send limit: `MAIL_SEND_BATCH_LIMIT` (default 500, max 5000), concurrency
+  5. When `matched > processed` the result contains `truncated: true`.
+- **SMS uses the same model:** the `SmsTemplate.schedule`/`audience` field names
+  are identical, the 15-minute `runDueScheduledSms` job starts together with the
+  e-mail job on boot. The "automatic" badge in the Campaigns tab reads from
+  `schedule.enabled` on both channels. Details: `docs/sms-gateway/README.md` §12.
 
-## Ortam değişkenleri
+## Environment variables
 
-| Değişken | Etki |
+| Variable | Effect |
 | --- | --- |
-| `MAIL_SYSTEM_DISABLED=true` | Tüm gönderimi kapatır (`503 MAIL_SYSTEM_DISABLED` dahil) |
-| `MAIL_SEND_BATCH_LIMIT` | Tek seferde işlenecek alıcı üst sınırı |
-| `CLIENT_URL` | Şablonlardaki `{{siteUrl}}` |
-| `SMTP_URL` / SMTP_* | `sendEmail` gerçek gönderimi (yoksa mock) |
+| `MAIL_SYSTEM_DISABLED=true` | Disables all delivery (including `503 MAIL_SYSTEM_DISABLED`) |
+| `MAIL_SEND_BATCH_LIMIT` | Upper bound of recipients processed in one run |
+| `CLIENT_URL` | `{{siteUrl}}` in templates |
+| `SMTP_URL` / SMTP_* | Real delivery in `sendEmail` (mock when absent) |
 
-## Guard'lar
+## Guards
 
-`sendActionMail` hiçbir zaman çağıranı düşürmez — hata/log kaydeder ve
-`{ status }` döner:
+`sendActionMail` never throws to its caller — it logs the error and returns
+`{ status }`:
 
 `system_disabled` · `no_db` · `not_action_event` · `disabled` ·
 `no_template` · `no_recipient` · `bot_user` · `no_fallback` · `failed`
 
-Ek olarak `bet.isSeed` ve `metadata.isSeed` kayıt tohumu e-postaları tetiklemez.
+In addition, `bet.isSeed` and `metadata.isSeed` records never trigger seed
+e-mails.
 
 ## API
 
-| Metot | Yol | İzin |
+| Method | Path | Permission |
 | --- | --- | --- |
 | GET | `/api/admin/mail-templates?page&limit&search&category&enabled` | `admin:settings:read` |
 | GET | `/api/admin/mail-templates/stats` | `admin:settings:read` |
@@ -151,39 +156,40 @@ Ek olarak `bet.isSeed` ve `metadata.isSeed` kayıt tohumu e-postaları tetikleme
 | GET | `/api/admin/mail-templates/:id` | `admin:settings:read` |
 | POST | `/api/admin/mail-templates` | `admin:settings:write` |
 | PATCH | `/api/admin/mail-templates/:id` | `admin:settings:write` |
-| DELETE | `/api/admin/mail-templates/:id` | `admin:settings:write` (sistem şablonu `403`) |
+| DELETE | `/api/admin/mail-templates/:id` | `admin:settings:write` (system template `403`) |
 | POST | `/api/admin/mail-templates/:id/send` | `admin:settings:write` |
 
-Hata kodları: `MAIL_UNKNOWN_EVENT` 400 · `MAIL_EVENT_TAKEN` 409 ·
+Error codes: `MAIL_UNKNOWN_EVENT` 400 · `MAIL_EVENT_TAKEN` 409 ·
 `MAIL_ACTION_TRIGGER_ONLY` 400 · `MAIL_TEMPLATE_DISABLED` 400 ·
 `MAIL_SYSTEM_TEMPLATE` 403 · `MAIL_NOT_FOUND` 404 · `MAIL_SYSTEM_DISABLED` 503.
 
-Yeni izin tanımlanmadı — mevcut `admin:settings:read/write` kullanılır.
+No new permission was introduced — the existing `admin:settings:read/write` is
+used.
 
-## Tetikleyici noktaları (değişiklik yaparken dikkat)
+## Trigger points (be careful when changing)
 
-| Dosya | Olay |
+| File | Event |
 | --- | --- |
 | `controllers/auth.js` | `user.welcome`, `user.emailVerify`, `user.passwordReset`, `user.passwordChanged` (+ SMS: `userRegistered`, `emailVerified`) |
 | `controllers/users.js` | `user.passwordChanged` |
 | `models/Bet.js` (post save) | `bet.settled` (+ SMS: `betWon`/`betLost`) |
 | `models/CasinoSession.js` (pre/post save) | `casino.sessionClosed` (+ SMS: `casinoSessionProfit`/`casinoSessionLoss`) |
 | `services/ledger.js` | `wallet.depositCompleted`, `wallet.withdrawalCompleted` (+ SMS: `depositCompleted`/`withdrawalCompleted`) |
-| `routes/crypto.js` | (+ SMS: `withdrawalRequested` — çekim talebi/pending anı) |
+| `routes/crypto.js` | (+ SMS: `withdrawalRequested` — at the withdrawal request/pending moment) |
 | `services/kyc.js` | `kyc.approved`, `kyc.rejected` |
 | `routes/sumsubWebhook.js` | `kyc.approved`, `kyc.rejected` |
 
-SMS kancaları `dispatchSmsEvent` ile fire-and-forget çağrılır; mail akışını
-bekletmezler (`docs/sms-gateway/README.md` §5).
+SMS hooks are called fire-and-forget through `dispatchSmsEvent`; they never block
+the mail flow (`docs/sms-gateway/README.md` §5).
 
-## Testler
+## Tests
 
 ```bash
-node --test server/test/systemMail.test.js     # render, katalog, validatör, guard, CRUD
-node --test client/src/i18n/*.test.js          # i18n anahtar doğrulama
+node --test server/test/systemMail.test.js     # render, catalog, validator, guards, CRUD
+node --test client/src/i18n/*.test.js          # i18n key validation
 node --test server/test/demoData-registry.test.js
 ```
 
-`server/test/systemMail.test.js` lokal MongoDB'ye
-`mongodb://localhost:27017/betzone_test_systemmail` bağlanır ve test sonunda
-databeyi siler.
+`server/test/systemMail.test.js` connects to a local MongoDB at
+`mongodb://localhost:27017/betzone_test_systemmail` and drops the database when
+the test ends.

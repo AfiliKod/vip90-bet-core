@@ -1,77 +1,82 @@
-# Changelog ve Sürüm Notu Şablonu
+# Changelog and Release Note Template
 
-Bu depo `CHANGELOG.md`'yi [Keep a Changelog](https://keepachangelog.com/tr/1.1.0/)
-biçiminde tutar. Her kart/özellik commit'i, `[Yayınlanmadı]` bölümüne kendi
-maddesini ekler — sürüm numarası yalnızca bir faz kapandığında artırılır.
+This repository keeps `CHANGELOG.md` in [Keep a Changelog](https://keepachangelog.com/en/1.1.0/)
+format. Every feature/fix commit adds its own entry under the unreleased
+section — the version number only increases when a phase is closed.
 
-## Madde şablonu
+> **The unreleased heading is a literal string:** `## [Yayınlanmadı]`
+> ("unreleased" in Turkish). It is **not** translated. `scripts/check-changelog.mjs`
+> and `scripts/release.mjs` look for exactly this text, and the entries
+> themselves are written in Turkish to match the rest of `CHANGELOG.md`.
 
-Her madde şu şekle uyar:
+## Entry template
+
+Each entry follows this shape:
 
 ```
-- <Ne eklendi/değişti, tek cümle>. <Neden/nasıl çalıştığına dair 1-3 cümle,
-  gerekiyorsa>. (<Kart kodu, ör. T1, D6>)
+- <What was added/changed, one sentence>. <1-3 sentences on why/how it works,
+  if needed>. (<Card code, e.g. T1, D6>)
 ```
 
-Kategoriler (yalnızca ilgili olanlar kullanılır, boş kategori açılmaz):
+Categories (use only the relevant ones, never open an empty category):
 
-- **Eklendi** — yeni özellik/modül.
-- **Değişti** — mevcut davranışta değişiklik (geriye dönük uyumlu).
-- **Kırılan Değişiklikler** — mevcut bir entegrasyonu/kurulumu bozabilecek
-  değişiklik. **Her zaman ne kadar bozduğunu ve nasıl geçiş yapılacağını
-  yazın** — "X artık Y gerektiriyor, önceki kurulumlar Z yapmalı" gibi.
-- **Kaldırıldı** — silinen özellik/uç nokta/alan.
-- **Düzeltildi** — hata düzeltmesi.
-- **Güvenlik** — güvenlik açığı kapatma (CVE varsa referans verilir).
+- **Eklendi** (Added) — new feature/module.
+- **Değişti** (Changed) — change in existing behavior (backwards compatible).
+- **Kırılan Değişiklikler** (Breaking changes) — a change that can break an
+  existing integration/install. **Always state how much it breaks and how to
+  transition** — "X now requires Y, existing installs must do Z".
+- **Kaldırıldı** (Removed) — deleted feature/endpoint/field.
+- **Düzeltildi** (Fixed) — bug fix.
+- **Güvenlik** (Security) — a closed security vulnerability (reference the CVE
+  if there is one).
 
-## Girdinin denetlenmesi
+## How an entry is checked
 
-`node scripts/check-changelog.mjs [--base origin/main]` dalın tabana göre
-değiştirdiği dosyalara bakar. Sunucu, istemci, kurulum, Docker/env dosyaları,
-bağımlılıklar ya da eklenti işaretçileri değişip `[Yayınlanmadı]` bölümü
-değişmemişse hata verir; yalnız belge, test ya da bakım betiği değiştiyse
-geçer. `pre-push` hook'u bunu her push'ta çalıştırır
-(`sh scripts/install-hooks.sh` ile bir kez kurulur). Değişiklik gerçekten
-operatörü etkilemiyorsa (örneğin yalnız kod yorumu) commit mesajına ayrı bir
-satır olarak `Changelog: none` yazılır.
+`node scripts/check-changelog.mjs [--base origin/main]` looks at the files the
+branch changed relative to the base. It fails when server, client, installer,
+Docker/env files, dependencies or add-on pointers changed without the
+`## [Yayınlanmadı]` section changing; it passes when only documentation, tests
+or maintenance scripts changed. The `pre-push` hook runs it on every push
+(install it once per clone with `sh scripts/install-hooks.sh`). If a change
+really does not affect the operator (for example a code comment only), add a
+separate `Changelog: none` line to the commit message.
 
-## Sürüm kesmek
+## Cutting a release
 
-Her PR kendi girdisini `[Yayınlanmadı]` altına ekler. Sürüm kesmek için:
+Every PR adds its own entry under `## [Yayınlanmadı]`. To cut a release:
 
-1. `node scripts/release.mjs <X.Y.Z>` (önce `--dry-run` ile bakın). Betik
-   `[Yayınlanmadı]` başlığını `## [X.Y.Z] — YYYY-MM-DD` yapıp üstüne yeni boş
-   bir `[Yayınlanmadı]` açar, kök/server/client `package.json` ve lock
-   dosyalarını aynı numaraya çeker, README rozetlerini günceller. Bölüm boşsa
-   ya da numara son sürümden büyük değilse durur.
-2. Değişiklik PR ile `main`'e girer.
-3. Merge commit'ine `vX.Y.Z` etiketi atılır ve CHANGELOG'daki bölümle bir
-   GitHub Release oluşturulur.
+1. `node scripts/release.mjs <X.Y.Z>` (look at it with `--dry-run` first). The
+   script renames the `[Yayınlanmadı]` heading to `## [X.Y.Z] — YYYY-MM-DD`,
+   opens a new empty `[Yayınlanmadı]` above it, bumps the root/server/client
+   `package.json` and lock files to the same number, and updates the README
+   badges. It stops if the section is empty or the number is not greater than
+   the latest version.
+2. The change goes into `main` through a PR.
+3. The merge commit is tagged `vX.Y.Z` and a GitHub Release is created for the
+   section in `CHANGELOG.md`.
 
-Numara SemVer'e göre seçilir: kurulumu, API tüketicisini ya da şemayı bozan
-değişiklik → major, yeni özellik → minor, düzeltme → patch. Çalışan sürüm
-`GET /api/health` yanıtındaki `version` alanından okunur.
+Pick the number by SemVer: something that breaks the install, an API consumer
+or the schema → major, a new feature → minor, a fix → patch. The running version
+is read from the `version` field of the `GET /api/health` response.
 
-## "Neyi bozar" disiplini — zorunlu
+## The "what does this break" discipline — mandatory
 
-Bir değişiklik mevcut bir kurulumu, API tüketicisini veya veritabanı
-şemasını etkiliyorsa, bu **Kırılan Değişiklikler** altında, atlanmadan
-yazılır — "büyük ölçüde geriye dönük uyumlu" gibi ifadelerle
-yumuşatılmaz. Örnek:
+If a change affects an existing install, an API consumer or the database
+schema, it is written under **Kırılan Değişiklikler** without exception — it is
+not softened with phrases like "largely backwards compatible". Example:
 
 ```
 ### Kırılan Değişiklikler
-- `GET /api/theme` artık kimlik doğrulama gerektirmiyor (önceden yanlışlıkla
-  `requireAuth` arkasındaydı) — ters entegrasyon riski yok, yalnızca not.
-- `User.walletAddress` alanı eklendi, sparse unique index ile. Mevcut
-  kullanıcı belgelerini etkilemez, yeni bir migration gerekmez.
+- `GET /api/theme` no longer requires authentication (it was mistakenly behind
+  `requireAuth` before) — no risk to reverse integrations, note only.
+- `User.walletAddress` was added, with a sparse unique index. Existing user
+  documents are unaffected, no new migration is required.
 ```
 
-## Neden bu disiplin var
+## Why this discipline exists
 
-Platformu kendi sunucusunda işleten operatörler güncellemeleri kendi
-kurulumlarına elle uygular. "Ne değişti" belirsizse operatör ya güncellemeyi
-hiç yapmaz (güvenlik açığı kapanmamış kalır) ya da körlemesine yapıp
-production'ı kırar. Değişiklik günlüğü burada bir nezaket değil, imzalı
-güncelleme paketi akışının (`server/src/agent/updatePackage.js`) insan-okur
-tarafı.
+Operators who run the platform on their own server apply updates to their own
+install by hand. If "what changed" is unclear, an operator either never applies
+the update (a security fix stays unapplied) or applies it blindly and breaks
+production. The changelog is not a courtesy here; it is the human-readable half
+of the signed update-package flow (`server/src/agent/updatePackage.js`).

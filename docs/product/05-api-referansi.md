@@ -111,6 +111,8 @@ Additionally, `/auth/login` returns `429 TOO_MANY_ATTEMPTS` after 5 failed attem
 
 ### Social login — `/api/auth` (`routes/socialAuth.js`, Google/Telegram)
 
+Setup, flows, account-linking rules and troubleshooting: [`docs/social-login.md`](../social-login.md). Google login is configured from **Modules → Google Login** (DB, secret encrypted, > `.env` `GOOGLE_*`) or from `.env` alone.
+
 | Method + Path | Auth | Notes |
 |---|---|---|
 | `GET /google/state` | Public | `{ enabled }`: whether the login screen shows the Google button |

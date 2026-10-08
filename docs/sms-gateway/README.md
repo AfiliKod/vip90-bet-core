@@ -1,54 +1,56 @@
-# SMS Gateway — Twilio entegrasyonu ve mesaj şablonları
+# SMS Gateway — Twilio integration and message templates
 
-**Tarih:** 2026-10-03 · **Dal:** `feat/sms-gateway-twilio` · **Worktree:** `.worktrees/sms-gateway`
-**Kapsam:** SMS Gateway entegrasyonu ve kullanımı. E-posta bu işin parçası DEĞİLDİR.
+**Date:** 2026-10-03 · **Branch:** `feat/sms-gateway-twilio` · **Worktree:** `.worktrees/sms-gateway`
+**Scope:** the SMS Gateway integration and its usage. E-mail is **not** part of this work.
 
-> Bu doküman iki turda tamamlandı: (1) sağlayıcı ayarları + mesaj şablonları
-> CRUD'u + gönderim, (2) **gönderici kaydı ve ülke/mevzuat onayı** (§11).
+> This document was completed in two rounds: (1) provider settings + message
+> template CRUD + delivery, (2) **sender registration and country/compliance
+> approval** (§11).
 
 ---
 
-## 1. Ne eklendi
+## 1. What was added
 
-| Katman | Dosya | Ne yapar |
-|--------|-------|----------|
-| Modül kaydı | `server/src/modules/registry.js` | `sms-gateway` modülü (aç/kapa + lisans rozeti, `Modules.jsx` kartı) |
-| Ayar deposu | `server/src/services/smsSettings.js` | Twilio kimlik bilgileri: DB önce, `.env` yedeği; Auth Token AES-256-GCM şifreli |
-| Gönderim adaptörü | `server/src/services/smsGateway.js` | Twilio REST (native `fetch`), E.164 normalizasyonu, kuru bağlantı testi |
-| Olay kayıt defteri | `server/src/services/smsEvents.js` | 11 aksiyon + 6 zaman olayı ve değişken listeleri |
-| Şablon servisi | `server/src/services/smsTemplate.js` | CRUD, demo seed, alıcı çözümleme, gönderim, `dispatchSmsEvent` |
-| Modeller | `server/src/models/SmsTemplate.js`, `SmsLog.js` | Şablonlar ve alıcı bazında gönderim kaydı |
+| Layer | File | What it does |
+|--------|-------|--------------|
+| Module registry | `server/src/modules/registry.js` | The `sms-gateway` module (on/off + license badge, `Modules.jsx` card) |
+| Settings store | `server/src/services/smsSettings.js` | Twilio credentials: DB first, `.env` as fallback; Auth Token encrypted with AES-256-GCM |
+| Delivery adapter | `server/src/services/smsGateway.js` | Twilio REST (native `fetch`), E.164 normalization, dry connection test |
+| Event registry | `server/src/services/smsEvents.js` | 11 action + 6 scheduled events with variable lists |
+| Template service | `server/src/services/smsTemplate.js` | CRUD, demo seed, recipient resolution, delivery, `dispatchSmsEvent` |
+| Models | `server/src/models/SmsTemplate.js`, `SmsLog.js` | Templates and per-recipient delivery records |
 | HTTP | `server/src/routes/smsTemplate.js` → `admin.js` `/sms` | `/api/admin/sms/*` |
-| Doğrulama | `server/src/validators/smsTemplate.js` | zod şemaları |
-| Controller | `server/src/controllers/smsTemplate.js` | DI'lı fabrika (test edilebilir) |
-| Panel — ayar | `client/src/components/admin/SmsGatewayCard.jsx` | `Modules.jsx` içindeki `sms-gateway` kartının gövdesi |
-| Panel — CRUD | `client/src/pages/admin/SmsTemplates.jsx` | Şablon listesi/CRUD/gönderim + gönderim günlüğü |
-| Panel — saf mantık | `client/src/pages/admin/smsTemplateLogic.js` | Segment sayacı, placeholder çıkarımı (test edilebilir) |
-| Gönderici kaydı | `server/src/models/SmsSender.js` | Numara/Servis + onay durumu + hedef ülkeler |
-| Gönderici servisi | `server/src/services/smsSender.js` | CRUD + **gönderim kapısı** (`resolveSenderGate`) |
-| Ülke tahmini | `server/src/services/smsCountries.js` | E.164 → ISO-3166 (küratörlü liste) |
-| Panel — göndericiler | `client/src/pages/admin/SmsSenders.jsx` | Gönderici CRUD, hesap tipi, kapı durumu |
-| Panel — ortak mantık | `client/src/utils/smsSenderLogic.js` | `toKeySegment` (enum → i18n anahtarı) |
+| Validation | `server/src/validators/smsTemplate.js` | zod schemas |
+| Controller | `server/src/controllers/smsTemplate.js` | DI factory (testable) |
+| Panel — settings | `client/src/components/admin/SmsGatewayCard.jsx` | The body of the `sms-gateway` card inside `Modules.jsx` |
+| Panel — CRUD | `client/src/pages/admin/SmsTemplates.jsx` | Template list/CRUD/send + delivery log |
+| Panel — pure logic | `client/src/pages/admin/smsTemplateLogic.js` | Segment counter, placeholder extraction (testable) |
+| Sender registration | `server/src/models/SmsSender.js` | Number/service + approval status + destination countries |
+| Sender service | `server/src/services/smsSender.js` | CRUD + **delivery gate** (`resolveSenderGate`) |
+| Country inference | `server/src/services/smsCountries.js` | E.164 → ISO-3166 (curated list) |
+| Panel — senders | `client/src/pages/admin/SmsSenders.jsx` | Sender CRUD, account type, gate status |
+| Panel — shared logic | `client/src/utils/smsSenderLogic.js` | `toKeySegment` (enum → i18n key) |
 
 ---
 
-## 2. İki tür mesaj — neden ayrım var?
+## 2. Two kinds of message — why the split?
 
-| | `type='action'` (Sistem) | `type='scheduled'` (Zamana duyarlı) |
+| | `type='action'` (System) | `type='scheduled'` (Time sensitive) |
 |---|---|---|
-| Tetikleyen | Domain kodu (`dispatchSmsEvent`) | Operatör (panel) veya zamanlayıcı |
-| `eventKey` | **Zorunlu** | Opsiyonel |
-| Panelden gönderim | **Yapılamaz** (`SMS_ACTION_NOT_SENDABLE`) | Yapılabilir |
-| Örnek | Kayıt, bahis kazandı/kaybetti, casino oturum kar/zararı, yatırım/çekim onayı, "we miss you" | Bonus bitiş uyarısı, haftalık bonus, turnuva duyurusu, kampanya |
+| Trigger | Domain code (`dispatchSmsEvent`) | Operator (panel) or the scheduler |
+| `eventKey` | **Required** | Optional |
+| Send from the panel | **Not possible** (`SMS_ACTION_NOT_SENDABLE`) | Possible |
+| Examples | Registration, bet won/lost, casino session profit/loss, deposit/withdrawal confirmation, "we miss you" | Bonus expiry warning, weekly bonus, tournament announcement, campaign |
 
-Aksiyona bağlı mesajları panelden gönderilemez yapmak kasıtlıdır: bu mesajların
-tetikleyicisi oyuncunun davranışıdır, operatörün kararı değil. Yanlış zamanda
-veya yanlış kitleye elle gönderilmesi hem ürün hem mevzuat riskidir.
+Making action-tied messages unsendable from the panel is deliberate: their
+trigger is the player's behavior, not an operator decision. Sending them manually
+at the wrong time or to the wrong audience is both a product and a compliance
+risk.
 
-`type='scheduled'` şablonlarda `eventKey` verilirse aynı otomatik kancalar
-kullanılabilir (örn. `bonusExpiring`); verilmezse yalnızca panelden gönderilir.
+If a `type='scheduled'` template has an `eventKey`, the same automatic hooks can
+be used (e.g. `bonusExpiring`); without one it is only sent from the panel.
 
-### Olay kayıt defteri
+### Event registry
 
 `server/src/services/smsEvents.js`:
 
@@ -60,153 +62,159 @@ scheduled: bonusStarting, bonusExpiring, weeklyBonus, birthdayBonus,
            tournamentReminder, campaignAnnouncement
 ```
 
-Yeni olay eklemek: kayıt defterine bir satır + 8 sözlüğe
-`admin.smsTemplates.event.<key>` girdisi. Anahtarlar camelCase olmalıdır
-(`i18n/core.js` `KEY_RE` kuralı; tire ve alt çizgi yasak).
+To add a new event: one line in the registry + an
+`admin.smsTemplates.event.<key>` entry in the 8 dictionaries. Keys must be
+camelCase (the `KEY_RE` rule in `i18n/core.js`; dashes and underscores are
+rejected).
 
 ---
 
 ## 3. Panel
 
-### 3.1 Sağlayıcı ayarları — Modüller → SMS Gateway
+### 3.1 Provider settings — Modules → SMS Gateway
 
-Kimlik bilgileri **buraya** girilir, şablonlar oraya değil.
+Credentials go **here**, not to the templates page.
 
-> **2026-10-06 IA:** tek "Communication Providers" kartı kaldırıldı; sağlayıcı
-> + gönderici alanları `sms-gateway` modül kartının gövdesine (`SmsGatewayBody`,
-> tek parça) taşındı. İletişim → SMS altındaki **Sağlayıcı**/**Gönderici**
-> sekmeleri bu tarihte kaldırıldı; `?channel=sms&sub=provider|sender` gibi
-> eski yer imleri `normalizeSub` ile sessizce şablonlara düşer. E-posta için
-> karşılığı Modules → **Email Gateway** kartıdır
-> (`docs/mail-templates.md` → "SMTP ayarları").
+> **2026-10-06 IA:** the single "Communication Providers" card was removed; the
+> provider + sender fields moved into the body of the `sms-gateway` module card
+> (`SmsGatewayBody`, one piece). The **Provider**/**Senders** tabs under
+> Communication → SMS were removed on that date; old bookmarks such as
+> `?channel=sms&sub=provider|sender` silently fall back to the templates via
+> `normalizeSub`. The e-mail counterpart is the Modules → **Email Gateway** card
+> (`docs/mail-templates.md` → "SMTP settings").
 
-| Alan | DB anahtarı | `.env` karşılığı |
-|------|-------------|------------------|
-| Sağlayıcı | `sms.provider` | `SMS_PROVIDER` |
+| Field | DB key | `.env` counterpart |
+|-------|--------|--------------------|
+| Provider | `sms.provider` | `SMS_PROVIDER` |
 | Account SID | `sms.twilio.accountSid` | `TWILIO_ACCOUNT_SID` |
-| Auth Token | `sms.twilio.authToken` (**şifreli**) | `TWILIO_AUTH_TOKEN` |
-| Gönderici numara | `sms.twilio.fromNumber` | `TWILIO_FROM_NUMBER` |
+| Auth Token | `sms.twilio.authToken` (**encrypted**) | `TWILIO_AUTH_TOKEN` |
+| From number | `sms.twilio.fromNumber` | `TWILIO_FROM_NUMBER` |
 | Messaging Service SID | `sms.twilio.messagingServiceSid` | `TWILIO_MESSAGING_SERVICE_SID` |
-| Varsayılan ülke kodu | `sms.twilio.defaultCountryCode` | `TWILIO_DEFAULT_COUNTRY_CODE` |
+| Default country code | `sms.twilio.defaultCountryCode` | `TWILIO_DEFAULT_COUNTRY_CODE` |
 
-Kurallar:
+Rules:
 
-- **`configured` üç parçayı da ister:** Account SID + Auth Token + gönderici
-  (From numarası **veya** Messaging Service SID). Yalnız provider girilmişse
-  test/gönderim `SMS_NOT_CONFIGURED` ile döner. Eksik parçalar
-  `GET /admin/sms/settings` yanıtındaki `missing` alanında listelenir
-  (`accountSid|authToken|sender`); panelde "Eksik alanlar" kutusu olarak
-  görünür. Messaging Service SID **isteğe bağlıdır** (Twilio Console →
-  Messaging → Messaging Services → SID); yoksa From numarası tek başına
-  yeterlidir.
-- **DB önce, `.env` yedeği.** Panelde `db` / `env` / unset rozeti gösterilir.
-- **Boş bırakılan alan değiştirmez.** Kaynak `.env` ise alan boş gelir —
-  paneldeki bir kayıt, sunucu tarafı yapılandırmayı sessizce ezmez.
-- **Auth Token düz metne döner, geri dönmez.** Şifreleme anahtarı yoksa
-  (`OPERATOR_SECRET_ENCRYPTION_KEY`) token DB'ye **yazılmaz**; panelde uyarı
-  çıkar ve `SMS_ENCRYPTION_KEY_MISSING` hatası döner. Kayıtlı token panelde
-  yalnız maskeli önizleme (`abcd…wxyz`) + "Panel" rozetiyle görünür.
-- **"Bağlantıyı Test Et" mesaj GÖNDERMEZ.** Twilio `GET /Accounts/{Sid}.json`
-  ucunu okur; tek kuruş maliyeti yok, yanlış token canlı mesajla değil kuru
-  çalışmayla yakalanır.
-- **Hata metinleri istemcide çevrilir.** Sunucu Türkçe mesaj + `code`
-  döndürür; bilinen kodlar (`SMS_NOT_CONFIGURED`, `SMS_ENCRYPTION_KEY_MISSING`,
-  `SMS_CREDENTIALS_MISSING`, `SMS_SENDER_MISSING`, …) arayüzde
-  `admin.smsGateway.error.<code>` anahtarından çevrilir (kod camelCase: `SMS_NOT_CONFIGURED` → `smsNotConfigured`) — İngilizce panelde
-  Türkçe metin görünmez.
+- **`configured` requires all three parts:** Account SID + Auth Token + sender
+  (From number **or** Messaging Service SID). With only a provider set, the
+  test/delivery returns `SMS_NOT_CONFIGURED`. The missing parts are listed in
+  the `missing` field of the `GET /admin/sms/settings` response
+  (`accountSid|authToken|sender`); in the panel they appear as a "Missing
+  fields" box. The Messaging Service SID is **optional** (Twilio Console →
+  Messaging → Messaging Services → SID); without it the From number alone is
+  enough.
+- **DB first, `.env` as fallback.** The panel shows a `db` / `env` / unset badge.
+- **A field left empty does not change anything.** If the source is `.env` the
+  field arrives empty — a record in the panel never silently overrides the
+  server-side configuration.
+- **The Auth Token never returns in plain text.** Without an encryption key
+  (`OPERATOR_SECRET_ENCRYPTION_KEY`) the token is **not written** to the DB; the
+  panel shows a warning and returns `SMS_ENCRYPTION_KEY_MISSING`. A stored token
+  is visible in the panel only as a masked preview (`abcd…wxyz`) with a "Panel"
+  badge.
+- **"Test connection" does NOT send a message.** It reads Twilio's
+  `GET /Accounts/{Sid}.json` endpoint; no cost, and a wrong token is caught by a
+  dry run instead of a live message.
+- **Error texts are translated on the client.** The server returns a Turkish
+  message plus a `code`; known codes (`SMS_NOT_CONFIGURED`,
+  `SMS_ENCRYPTION_KEY_MISSING`, `SMS_CREDENTIALS_MISSING`, `SMS_SENDER_MISSING`,
+  …) are translated in the UI from the `admin.smsGateway.error.<code>` key (the
+  code is camelCased: `SMS_NOT_CONFIGURED` → `smsNotConfigured`) — an English
+  panel never shows Turkish text.
 
-### 3.2 Mesaj şablonları — İletişim → SMS → Şablonlar
+### 3.2 Message templates — Communication → SMS → Templates
 
-Ana yol `?channel=sms&sub=templates` (eski `/admin/sms-templates` rotası bu
-adrese redirect edilir). Modules → SMS Gateway kartında "Yönet →" linki
-yok (2026-10-06 IA — kartlardan licence/yönet etiketleri kaldırıldı);
-şablonlara erişim sidebar **Communication** hub'ından veya eski rota
-redirect'inden yapılır.
+The main path is `?channel=sms&sub=templates` (the old `/admin/sms-templates`
+route redirects here). The Modules → SMS Gateway card has no "Manage →" link
+(2026-10-06 IA — licence/manage labels were removed from the cards); templates
+are reached from the sidebar **Communication** hub or via the old route
+redirect.
 
-- **Şablonlar sekmesi:** KPI şeridi, arama (300 ms debounce), tür filtresi,
-  tablo (başlık/key, tür, olay+ kategori, içerik + segment sayacı, durum
-  anahtarı, gönderim sayacı, aksiyonlar). Satır aksiyonları: **Gönder**
-  (yalnız `scheduled`), **Düzenle**, **Sil**.
-- **Gönderim günlüğü sekmesi:** son 200 kayıt, durum sayaçları ve hata mesajı.
-- **Form:** başlık, tür, olay, kategori, mesaj metni, aktif/pasif. Olay
-  seçilince kullanılabilir değişkenler çip olarak listelenir; tıklanınca
-  `{{değişken}}` olarak eklenir. Olayda tanımsız değişken kullanılırsa uyarı
-  çıkar.
-- **Gönderim modalı:** hedef kitle (seçili kullanıcılar / tüm kullanıcılar /
-  bir segment) + olayın değişken alanları (`username` hariç — otomatik dolar).
+- **Templates tab:** KPI strip, search (300 ms debounce), type filter, table
+  (title/key, type, event + category, content + segment counter, status toggle,
+  sent counter, actions). Row actions: **Send** (`scheduled` only), **Edit**,
+  **Delete**.
+- **Delivery log tab:** the last 200 records, status counters and error message.
+- **Form:** title, type, event, category, message text, active/inactive. When an
+  event is selected, the available variables are listed as chips; clicking one
+  appends it as `{{variable}}`. Using a variable that the event does not define
+  raises a warning.
+- **Send modal:** target audience (selected users / all users / one segment) +
+  the event's variable fields (except `username` — filled automatically).
 
-### 3.3 Segment sayacı (70 mı 160 mı?)
+### 3.3 Segment counter (70 or 160?)
 
-`admin.smsTemplates.charInfo` satır başına segment sayısını gösterir. Türkçe
-`ğ Ğ ş Ş ı İ ç` GSM 03.38'de **yoktur**; bu karakterlerden biri varsa sınır
-160 değil **70** olur ve mesaj daha çabuk iki parçaya bölünür. Sayaç
-kod noktası bazlıdır (emoji tek karakter).
+`admin.smsTemplates.charInfo` shows the segment count per row. The Turkish
+characters `ğ Ğ ş Ş ı İ ç` do **not** exist in GSM 03.38; if any of them is
+present the limit is not 160 but **70**, and the message is split into two parts
+sooner. The counter is code-point based (an emoji is one character).
 
 ---
 
-## 4. Gönderim kuralları
+## 4. Delivery rules
 
-`sendTemplate()` sırayla şunları denetler ve **her birinde hiçbir mesaj
-göndermeden** reddeder:
+`sendTemplate()` checks the following in order and **rejects without sending
+anything** at each one:
 
-| Koşul | Hata kodu |
-|-------|-----------|
-| Şablon yok | `NOT_FOUND` |
-| Şablon `type='action'` | `SMS_ACTION_NOT_SENDABLE` |
-| Şablon pasif | `SMS_TEMPLATE_INACTIVE` |
-| Kimlik bilgileri eksik | `SMS_NOT_CONFIGURED` |
-| `sms-gateway` modülü kapalı | `SMS_MODULE_DISABLED` |
-| Hedef kitle geçersiz / segment yok / kullanıcı seçilmedi | `SMS_AUDIENCE_INVALID` / `SMS_SEGMENT_REQUIRED` / `SMS_USERS_REQUIRED` |
-| Segmentin **seçici kriteri yok** ("herkese açık") | `SMS_SEGMENT_TOO_BROAD` |
+| Condition | Error code |
+|-----------|-----------|
+| No template | `NOT_FOUND` |
+| Template is `type='action'` | `SMS_ACTION_NOT_SENDABLE` |
+| Template inactive | `SMS_TEMPLATE_INACTIVE` |
+| Credentials incomplete | `SMS_NOT_CONFIGURED` |
+| `sms-gateway` module off | `SMS_MODULE_DISABLED` |
+| Audience invalid / no segment / no users selected | `SMS_AUDIENCE_INVALID` / `SMS_SEGMENT_REQUIRED` / `SMS_USERS_REQUIRED` |
+| Segment has **no selection criteria** ("everyone") | `SMS_SEGMENT_TOO_BROAD` |
 
-Sonra:
+Then:
 
-1. Alıcılar çözülür — yalnız `isActive: true` **ve** telefonu boş olmayanlar.
-   Telefonu olmayan kullanıcı gönderim **denenmez** (sessiz `skipped` yerine
-   sayısal özette `withoutPhone` mantığı: hiç denenmemek daha dürüst).
-2. Gövde render edilir (`{{username}}` kullanıcı adı + `balance` otomatik).
-   Bulunamayan değişken boş kalır ve `missing[]` içinde **raporlanır** — yarım
-   mesaj sessizce gitmez.
-3. Gönderim 5 eşzamanlılıkla yapılır, her mesaj `SmsLog`'a yazılır.
-4. `sentCount`/`lastSentAt` yalnızca **başarılı** gönderimlerde artar.
+1. Recipients are resolved — only `isActive: true` users **with** a non-empty
+   phone number. A user without a phone is **not attempted** (instead of a silent
+   `skipped`, the numeric summary uses the `withoutPhone` logic: not trying at all
+   is more honest).
+2. The body is rendered (`{{username}}` with the username + `balance` are filled
+   automatically). A variable that cannot be found stays empty and is
+   **reported** in `missing[]` — a half-rendered message never goes out silently.
+3. Delivery runs with concurrency 5; every message is written to `SmsLog`.
+4. `sentCount`/`lastSentAt` only increase on **successful** deliveries.
 
-**Kriteri olmayan segment reddedilir.** `buildQueryFromCriteria({})` boş sorgu
-(= tüm kullanıcılar) üretir; toplu SMS'te bu "herkese gönder" olurdu. Bu
-yüzden segmentin en az bir gerçek kriteri olmalıdır — operatör ya segmenti
-tanımlar ya da bilinçli olarak **"tüm kullanıcılar"** seçer.
+**A segment without criteria is rejected.** `buildQueryFromCriteria({})` produces
+an empty query (= all users); in a bulk SMS that would mean "send to everyone".
+Therefore a segment must have at least one real criterion — the operator either
+defines the segment or deliberately picks **"all users"**.
 
-**Alıcı tavanı: `MAX_RECIPIENTS = 2000`.** Tek istekte daha fazlası kesilir ve
-`capped: true` döner. SMS maliyeti para ve oyuncunun telefonuna giden geri
-alınamaz bir iletişimdir; `all` seçilip yanlışlıkla milyonlarca kayda
-gidilmesi tek tıkla engellenir.
+**Recipient ceiling: `MAX_RECIPIENTS = 2000`.** More than that in one request is
+cut off and `capped: true` is returned. SMS costs money and is an irrevocable
+message to a player's phone; selecting `all` and accidentally hitting millions of
+records with one click is prevented.
 
-### Telefon numarası normalizasyonu
+### Phone number normalization
 
-Twilio E.164 ister:
+Twilio requires E.164:
 
 ```
 "+90 532 111 22 33"   → +905321112233
 "00905321112233"      → +905321112233
-"0532 111 22 33"      → +905321112233   (yalnız defaultCountryCode=90 ise)
-"0532 111 22 33"      → null            (ülke kodu bilinmiyor → tahmin EDİLMEZ)
+"0532 111 22 33"      → +905321112233   (only when defaultCountryCode=90)
+"0532 111 22 33"      → null            (country code unknown → NOT guessed)
 ```
 
-Son satır kasıtlıdır: ülke kodu olmadan `+0…` bir numarayı sessizce yanlış
-ülkeye atmak (ör. `+53` Kolombiya) mesajın sessizce kaybolmasına yol açar.
+The last line is deliberate: silently sending a `+0…` number to the wrong country
+without a country code (e.g. `+53` Colombia) makes the message disappear without
+a trace.
 
 ---
 
-## 5. Domain kodunu bağlamak (aksiyon mesajları)
+## 5. Wiring domain code (action messages)
 
-Tek giriş noktası (`server/src/services/smsTemplate.js`):
+Single entry point (`server/src/services/smsTemplate.js`):
 
 ```js
 import { dispatchSmsEvent } from '../services/smsTemplate.js';
 
-// kayıt (controllers/auth.js) — user dokümanı doğrudan
+// registration (controllers/auth.js) — pass the user document directly
 dispatchSmsEvent('userRegistered', user, { balance: user.balance }).catch(() => {});
 
-// bahis sonucu (models/Bet.js post-save) — yalnızca id varsa deps.userId
+// bet result (models/Bet.js post-save) — if only the id exists, pass deps.userId
 import('../services/smsTemplate.js')
   .then(({ dispatchSmsEvent }) => dispatchSmsEvent('betWon', null, {
     betId: String(this._id), amount: this.potentialWin, stake: this.stake,
@@ -215,54 +223,57 @@ import('../services/smsTemplate.js')
   .catch(() => {});
 ```
 
-Sözleşme:
+Contract:
 
-- **Asla throw etmez.** Hata yakalanır, konsola yazılır, `{ sent: 0, error }`
-  döner. SMS hatası bahis sonucunu/çekim onayını bozmaz.
-- Alıcı: `user` dokümanı VARSA o kullanılır; yalnız `deps.userId` verilmişse
-  kimlikten yüklenir (`{ username, phone, balance }` seçimi).
-- `{{username}}`, `{{balance}}` ve `{{currency}}` olay değişkeni verilmese de
-  doldurulur (e-postadaki `commonVars` ile aynı davranış).
-- Kullanılabilir şablon yoksa `NO_TEMPLATE`, kimlik yoksa `NOT_CONFIGURED`,
-  modül kapalıysa `MODULE_DISABLED`, telefonu yoksa `NO_PHONE`,
-  `userId` çözülemediyse `NO_USER` ile atlar.
-- Her deneme `SmsLog`'a yazılır.
+- **Never throws.** The error is caught, written to the console, and
+  `{ sent: 0, error }` is returned. An SMS error never breaks the bet result or
+  a withdrawal approval.
+- Recipient: the `user` document is used when it is **present**; if only
+  `deps.userId` is given it is loaded by id (`{ username, phone, balance }`
+  selection).
+- `{{username}}`, `{{balance}}` and `{{currency}}` are filled even when they are
+  not passed as event variables (same behavior as the e-mail `commonVars`).
+- Skips with `NO_TEMPLATE` (no usable template), `NOT_CONFIGURED` (no
+  credentials), `MODULE_DISABLED` (module off), `NO_PHONE` (no phone), `NO_USER`
+  (userId could not be resolved).
+- Every attempt is written to `SmsLog`.
 
-### Bağlı tetikleyiciler (2026-10-06)
+### Wired triggers (2026-10-06)
 
-| Olay | Tetikleyen yer | Alıcı |
-|------|----------------|--------|
-| `userRegistered` | `controllers/auth.js` — kayıt sonrası (mail `user.welcome` ile aynı an) | `user` dokümanı |
-| `emailVerified` | `controllers/auth.js` — `verifyEmail` sonrası | `user` dokümanı |
+| Event | Fired in | Recipient |
+|------|----------|-----------|
+| `userRegistered` | `controllers/auth.js` — after registration (same moment as the mail `user.welcome`) | `user` document |
+| `emailVerified` | `controllers/auth.js` — after `verifyEmail` | `user` document |
 | `depositCompleted` | `services/ledger.js` — `status: 'completed'` + `!metadata.isSeed` | `deps.userId` |
-| `withdrawalCompleted` | `services/ledger.js` — aynı blok (banka çekimi anında `completed`'dir) | `deps.userId` |
-| `withdrawalRequested` | `routes/crypto.js` — crypto çekim **talebi** (pending; admin onayı bekleyen tek akış) | `deps.userId` |
-| `betWon` / `betLost` | `models/Bet.js` post-save — status `won`/`lost` (`cancelled` olayı yok) | `deps.userId` |
+| `withdrawalCompleted` | `services/ledger.js` — same block (a bank withdrawal is already `completed` at that moment) | `deps.userId` |
+| `withdrawalRequested` | `routes/crypto.js` — crypto withdrawal **request** (pending; the only flow awaiting admin approval) | `deps.userId` |
+| `betWon` / `betLost` | `models/Bet.js` post-save — status `won`/`lost` (no `cancelled` event) | `deps.userId` |
 | `casinoSessionProfit` / `casinoSessionLoss` | `models/CasinoSession.js` post-save — `closed` + `netResult !== 0` | `deps.userId` |
 
-**Katalogda olan ama bağlı olmayan olaylar** (Automations panelinde "bağlı
-şablon" görünse de tetikleyen kod yok; bilgi amaçlıdır):
+**Events in the catalog but not wired** (they show up as "wired templates" in the
+Automations panel although no triggering code exists; informational only):
 
-- `phoneVerified` — `User.phoneVerified` alanı var, doğrulama akışı yok.
-- `inactiveReminder` — güvenli otomatik tetikleyici yok (günlük iş ile toplu
-  SMS maliyeti operatör kararıdır). Mail karşılığı `campaign.inactiveUsers`
-  kampanya kategorisidir; SMS kataloğunda `action` olarak durur.
+- `phoneVerified` — the `User.phoneVerified` field exists, there is no
+  verification flow.
+- `inactiveReminder` — no safe automatic trigger (a daily job plus bulk SMS cost
+  is an operator decision). Its mail counterpart is the `campaign.inactiveUsers`
+  campaign category; in the SMS catalog it lives as an `action`.
 
 ---
 
-## 6. Demo veri
+## 6. Demo data
 
-`initDefaultSmsTemplates()` her boot'ta çalışır (`server/src/server.js`) ve
-**15 demo şablon** ekler. Davranışı:
+`initDefaultSmsTemplates()` runs on every boot (`server/src/server.js`) and adds
+**15 demo templates**. Behavior:
 
-- `$setOnInsert` — operatörün düzenlemesi **asla ezilmez**.
-- Operatörün **sildiği** demo anahtarı `Setting: sms.templates.demoState`
-  içinde tombstone olarak tutulur, yeniden doğmaz.
-  (Tombstone olmadan upsert, silinen kaydı bir sonraki restart'ta geri
-  getirirdi.)
+- `$setOnInsert` — an operator's edit is **never overwritten**.
+- A demo key the operator **deleted** is kept as a tombstone in
+  `Setting: sms.templates.demoState` and does not come back.
+  (Without a tombstone the upsert would resurrect the deleted record on the next
+  restart.)
 
-| Tip | `key` | Olay |
-|-----|-------|------|
+| Type | `key` | Event |
+|-----|-------|-------|
 | action | `welcomeRegistered` | `userRegistered` |
 | action | `emailVerifiedNotice` | `emailVerified` |
 | action | `depositCompletedNotice` | `depositCompleted` |
@@ -279,15 +290,15 @@ Sözleşme:
 | scheduled | `tournamentReminder` | `tournamentReminder` |
 | scheduled | `campaignAnnouncement` | `campaignAnnouncement` |
 
-Hepsi panelde **düzenlenebilir** satırlar olarak görünür; demo rozeti yoktur,
-çünkü DB'de gerçek kayıttırlar.
+All of them appear in the panel as **editable** rows; there is no demo badge
+because they are real records in the DB.
 
 ---
 
 ## 7. API
 
-| Yöntem | Yol | Yetki |
-|--------|-----|-------|
+| Method | Path | Permission |
+|--------|------|-------|
 | `GET` | `/api/admin/sms/templates?search=&type=&isActive=` | `admin:settings:read` |
 | `POST` | `/api/admin/sms/templates` | `admin:settings:write` |
 | `PATCH` | `/api/admin/sms/templates/:id` | `admin:settings:write` |
@@ -299,322 +310,336 @@ Hepsi panelde **düzenlenebilir** satırlar olarak görünür; demo rozeti yoktu
 | `PATCH` | `/api/admin/sms/settings` | `admin:settings:write` |
 | `POST` | `/api/admin/sms/settings/test` | `admin:settings:write` |
 
-`POST /test-send` gövdesi `{ to, message }` — şablonsuz tek test mesajı
-(same kapılar: gateway + modül; sonuç `SmsLog`'a `templateId: null` düşer).
+The `POST /test-send` body is `{ to, message }` — a single test message without a
+template (same gates: gateway + module; the result lands in `SmsLog` with
+`templateId: null`).
 
-`POST`/`PATCH` şablon gövdeleri `type='scheduled'` iken `audience`
-(`{ type: 'all'|'segment'|'users', segmentId, userIds }`) ve `schedule`
-(`{ enabled, intervalHours }`) kabul eder — otomatik gönderim için (§12).
+`POST`/`PATCH` template bodies accept `audience`
+(`{ type: 'all'|'segment'|'users', segmentId, userIds }`) and `schedule`
+(`{ enabled, intervalHours }`) when `type='scheduled'` — for automatic delivery
+(§12).
 
-Hata gövdesi global `errorHandler` ile `{ error: { code, message } }`.
-`POST /settings/test` yapılandırılmamışsa `200` + `{ ok:false, code:'SMS_NOT_CONFIGURED', missing:[…] }`
-döner (ağ çağrılmaz). `GET /settings` yanıtına `missing: ['accountSid'|'authToken'|'sender']`
-eklenmiştir; `configured` bu listenin boşluğuyla eşanlamlıdır.
+Error bodies use the global `errorHandler`: `{ error: { code, message } }`.
+`POST /settings/test` returns `200` + `{ ok:false, code:'SMS_NOT_CONFIGURED', missing:[…] }`
+when it is not configured (no network call is made). A `missing:
+['accountSid'|'authToken'|'sender']` field was added to the `GET /settings`
+response; `configured` is exactly "this list is empty".
 
 ---
 
-## 8. Demo hesabı ile kurulum
+## 8. Setup with a demo account
 
-Kimlik bilgileri **koda yazılmaz** (AI-GITHUB-WORKFLOW-POLICY §8). İki yol:
+Credentials are **never written into code** (AI-GITHUB-WORKFLOW-POLICY §8). Two
+ways:
 
-**A) .env (yerel/demo — önerilen)**
+**A) .env (local/demo — recommended)**
 
 ```bash
 # .env  (gitignored)
-OPERATOR_SECRET_ENCRYPTION_KEY=<64 hex karakter>   # openssl rand -hex 32
+OPERATOR_SECRET_ENCRYPTION_KEY=<64 hex characters>   # openssl rand -hex 32
 TWILIO_ACCOUNT_SID=ACxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
 TWILIO_AUTH_TOKEN=xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
 TWILIO_FROM_NUMBER=+90XXXXXXXXXX
 TWILIO_DEFAULT_COUNTRY_CODE=90
 ```
 
-**B) Panelden** — Modüller → SMS Gateway, alanları doldurup Kaydet.
-Auth Token şifrelenerek DB'ye yazılır.
+**B) From the panel** — Modules → SMS Gateway, fill in the fields and save. The
+Auth Token is encrypted into the DB.
 
-Sonra: Modüller → SMS Gateway anahtarını **aç** (`sms-gateway` modülü kapalıyken
-gönderim `SMS_MODULE_DISABLED` ile reddedilir) ve SMS Mesajları sayfasından
-bir `scheduled` şablonu tek bir kullanıcıya göndererek uçtan uca doğrula.
-
----
-
-## 9. Testler
-
-| Dosya | Kapsam | DB |
-|------|--------|----|
-| `server/test/smsAdmin.test.js` | Saf yardımcılar, olay defteri, telefon normalizasyonu, Twilio adaptörü (enjekte `fetchImpl`), zod şemaları, controller DI fabrikası (testSend dahil) | yok |
-| `server/test/smsTemplateDb.test.js` | Seed idempotliği + tombstone, CRUD, alıcı çözümleme, gönderim kuralları, `dispatchSmsEvent` | `betzone_test_sms` |
-| `server/test/sendTestSms.test.js` | Test mesajı: kapılar (gateway/modül), SmsLog `templateId=null`, sağlayıcı hatası, log listeleme | `betzone_test_sms_testsend` |
-| `server/test/smsScheduledJob.test.js` | Kitle + vade CRUD kuralları (`SMS_*` hata kodları), `runDueScheduledSms`: arm-only ilk vade, segment kitleye gönderim + vade ilerletme, pasif/kapalı/aksiyon eleme, hata sonrası vade sabit, `deps.userId` ile alıcı | `betzone_test_sms_job` |
-| `client/src/pages/admin/smsTemplateLogic.test.js` | GSM-7/Unicode segment sayacı, placeholder çıkarımı | yok |
-| `client/src/pages/admin/communications/communicationsLogic.test.js` | KPI/satır normalizer'ları, olay kataloğu, kampanya satırları (SMS `schedule` dahil), audience etiketleri | yok |
-| `client/src/i18n/smsParity.test.js` | `admin.smsGateway.*` + `admin.smsTemplates.*` anahtarları × 8 dil: varlık, boş değer, anahtar biçimi, yer tutucu eşleşmesi, İngilizce kopya oranı | yok |
-| `client/src/i18n/communicationsParity.test.js` | `admin.communications.*` + `admin.communicationProviders.*` + `admin.emailSettings.*` paritesi | yok |
-| `server/test/moduleRegistry.test.js` | `sms-gateway` kaydı (güncellendi) | yok |
-| `server/test/routeWiring.test.js` | Yeni router + validator import (güncellendi) | yok |
-
-`npm test` kapsamına `client/src/pages/admin/*.test.js` glob'u eklendi
-(mantık testi `pages/admin/` altında yaşıyor).
+Then: turn the Modules → SMS Gateway switch **on** (with the `sms-gateway`
+module off, delivery is rejected with `SMS_MODULE_DISABLED`) and verify end to
+end by sending one `scheduled` template to a single user from the SMS Messages
+page.
 
 ---
 
-## 10. Bilinçli kapsam dışı
+## 9. Tests
 
-- **E-posta.** Bu iş yalnız SMS Gateway'i kapsar; mail şablonları/CRUD ayrı
-  iştedir (`docs/mail-templates.md`).
-- **OTP / doğrulama SMS'i.** `phoneVerified` olayı tanımlı, akışı yok.
-- **`inactiveReminder` tetikleyicisi.** Güvenli otomatik tetik yok (bkz. §5);
-  operatör isterse manuel kampanya olarak kullanır.
-- **Toplu gönderim kuyruğu.** Senkron gönderim; 2000 alıcı tavanı bunu
-  makul tutuyor. Daha büyük ölçek için iş kuyruğu (job) gerekir.
-- **Rate limit / opt-out (STOP) yönetimi.** Twilio tarafında `Advanced
-  Opt-Out` açılmalıdır; panel tarafında abonelik listesi yok.
-- **Segment üyeliği önbelleği.** Segment kriteri gönderim anında canlı
-  sorguya çevrilir (`buildSegmentQuery`).
-- **Opt-out listesi / abonelik tercihi** (panelde).
-- **Lisans muafiyeti kararı.** `slikair-payment` `licenseExempt: true` ile
-  lisans sunucusuna bağlı değil; `sms-gateway` için bu bayrak **bilinçli olarak
-  konulmadı** — ticari/lisans kararıdır. `LICENSE_SERVER_URL` tanımlı değilse
-  (varsayılan kurulum) tüm modüller yerinde geçerli sayılır, dolayısıyla
-  kurulumda sorun çıkmaz. Sunucu SMS'i engellemez: gönderim yalnız admin
-  anahtarını (`isEnabled`) denetler.
+| File | Scope | DB |
+|------|-------|----|
+| `server/test/smsAdmin.test.js` | Pure helpers, event registry, phone normalization, Twilio adapter (injected `fetchImpl`), zod schemas, controller DI factory (including testSend) | none |
+| `server/test/smsTemplateDb.test.js` | Seed idempotency + tombstone, CRUD, recipient resolution, delivery rules, `dispatchSmsEvent` | `betzone_test_sms` |
+| `server/test/sendTestSms.test.js` | Test message: gates (gateway/module), `SmsLog` with `templateId=null`, provider error, log listing | `betzone_test_sms_testsend` |
+| `server/test/smsScheduledJob.test.js` | Audience + schedule CRUD rules (`SMS_*` error codes), `runDueScheduledSms`: first due date only sets the schedule, segment-audience send + date advance, inactive/disabled/action filtering, date kept after an error, recipient via `deps.userId` | `betzone_test_sms_job` |
+| `client/src/pages/admin/smsTemplateLogic.test.js` | GSM-7/Unicode segment counter, placeholder extraction | none |
+| `client/src/pages/admin/communications/communicationsLogic.test.js` | KPI/row normalizers, event catalog, campaign rows (including SMS `schedule`), audience labels | none |
+| `client/src/i18n/smsParity.test.js` | `admin.smsGateway.*` + `admin.smsTemplates.*` keys × 8 languages: presence, empty value, key format, placeholder match, English-copy ratio | none |
+| `client/src/i18n/communicationsParity.test.js` | Parity of `admin.communications.*` + `admin.communicationProviders.*` + `admin.emailSettings.*` | none |
+| `server/test/moduleRegistry.test.js` | The `sms-gateway` registration (updated) | none |
+| `server/test/routeWiring.test.js` | New router + validator import (updated) | none |
 
-### Bu işte düzeltilen önceden var bir segment hatası
+The `client/src/pages/admin/*.test.js` glob was added to the `npm test` scope
+(the logic tests live under `pages/admin/`).
 
-`buildQueryFromCriteria()` sayısal aralıkları `!== null` ile denetliyordu;
-`undefined` de bu testi geçtiği için **kriteri tanımlanmamış** bir alan
-operatörsüz `{ vipLevel: {} }` üretiyordu — Mongo'da bu "boş dokümanla tam
-eşleşme" demek, yani segment sessizce **hiç kimseyi** bulmak demekti.
-`typeof === 'number'` denetimine çevrildi (`isActive`/`isBot` için de aynı).
-Bu değişiklik `playerSegment.test.js` dahil mevcut segment davranışını bozmuyor
-(aynı test dosyası baseline'da 7/7, değişiklikten sonra 7/7).
+---
+
+## 10. Deliberately out of scope
+
+- **E-mail.** This work covers only the SMS Gateway; mail templates/CRUD are a
+  separate task (`docs/mail-templates.md`).
+- **OTP / verification SMS.** The `phoneVerified` event is defined, the flow is
+  not.
+- **`inactiveReminder` trigger.** No safe automatic trigger (see §5); the
+  operator can use it as a manual campaign if they want.
+- **Bulk send queue.** Delivery is synchronous; the 2000-recipient ceiling keeps
+  that reasonable. Larger scale needs a job queue.
+- **Rate limit / opt-out (STOP) management.** `Advanced Opt-Out` must be enabled
+  on the Twilio side; there is no subscription list in the panel.
+- **Segment membership cache.** Segment criteria are turned into a live query at
+  delivery time (`buildSegmentQuery`).
+- **Opt-out list / subscription preference** (in the panel).
+- **License exemption decision.** `slikair-payment` is not bound to the license
+  server (`licenseExempt: true`); for `sms-gateway` this flag was
+  **deliberately not set** — that is a commercial/license decision. When
+  `LICENSE_SERVER_URL` is not defined (the default install) all modules count as
+  licensed locally, so installation is not affected. The license server does not
+  block SMS: delivery only checks the admin switch (`isEnabled`).
+
+### A pre-existing segment bug fixed in this work
+
+`buildQueryFromCriteria()` checked numeric ranges with `!== null`; `undefined` also
+passed that check, so a field **without a criterion** produced `{ vipLevel: {} }`
+without an operator — in Mongo that means "match an empty document", i.e. the
+segment silently **found nobody**. It was changed to a `typeof === 'number'` check
+(the same for `isActive`/`isBot`). This change does not break the existing segment
+behavior including `playerSegment.test.js` (same test file: 7/7 on the baseline,
+7/7 after the change).
 
 ---
 
 ---
 
-## 11. Gönderici kaydı ve ülke/mevzuat onayı
+## 11. Sender registration and country/compliance approval
 
-### 11.1 Neden ayrı bir ekran gerekiyor
+### 11.1 Why a separate screen is needed
 
-Twilio'da bir numaranın mesaj gönderebilmesi **tek bir kapı değil**, üst üste
-binen kapılara bağlıdır. Bu kurallar panelde görünmezse operatör, mesajın neden
-gitmediğini yalnız Twilio hata kodundan öğrenir:
+For a number to be able to send messages on Twilio there is not a single gate but
+several gates stacked on top of each other. When these rules are invisible in the
+panel, the operator learns why a message did not go out only from the Twilio
+error code:
 
-| Kural | Kaynak | Etkisi |
+| Rule | Source | Effect |
 |-------|--------|--------|
-| **Trial hesap: yalnız doğrulanmış alıcılara** | Trial kısıtı | Hesap başına en fazla 5 numara |
-| **Trial hesap: yalnız kayıt ülkesine** | Coğrafi kısıt | Farklı ülkeye gidemez |
-| **Trial hesap: Twilio kendi şablonunu ekler** | Trial kısıtı | Kendi mesaj metniniz teslim edilmez |
-| **Trial hesap: 30 gün sonra sona erer** | Trial kısıtı | Süre dolunca gönderim durur |
-| **A2P 10DLC (ABD/Kanada uzun numara)** | Mevzuat | Marka + kampanya kaydı zorunlu, **ücretli hesap şartı** |
-| **Toll-free doğrulaması** | Mevzuat | ABD/Kanada'ya gönderim için doğrulama gerekli |
-| **Yerel gönderici (sender ID) ön kaydı** | Ülkeye göre değişir | Kayıtsız gönderici reddedilir |
+| **Trial account: verified recipients only** | Trial limit | At most 5 numbers per account |
+| **Trial account: sign-up country only** | Geographic limit | Cannot go to another country |
+| **Trial account: Twilio prepends its own text** | Trial limit | Your own message text is not delivered |
+| **Trial account: expires after 30 days** | Trial limit | Delivery stops when the period is over |
+| **A2P 10DLC (US/Canada long numbers)** | Regulation | Brand + campaign registration mandatory, **paid account required** |
+| **Toll-free verification** | Regulation | Verification required to send to US/Canada |
+| **Local sender (sender ID) pre-registration** | Varies by country | An unregistered sender is rejected |
 
-Kaynak: Twilio Error & Warning Dictionary (`twilio.com/docs/api/errors`) ve
-"Get started with your Twilio free trial account" belgesi. Doğrulanan hata
-kodları `server/src/services/smsGateway.js` → `TWILIO_ERROR_MEANINGS` içinde
-**kod → anlam** eşlemesiyle durur; panel bunları i18n'li açıklamaya çevirip
-gönderim günlüğünde gösterir.
+Source: Twilio Error & Warning Dictionary (`twilio.com/docs/api/errors`) and
+"Get started with your Twilio free trial account". The verified error codes live
+in `server/src/services/smsGateway.js` → `TWILIO_ERROR_MEANINGS` as a
+**code → meaning** map; the panel turns them into an i18n'd explanation and shows
+them in the delivery log.
 
-Bu hesabın gerçek durumu (Twilio API'sinden, varsayım değil):
+The real state of this account (from the Twilio API, not an assumption):
 
 ```
 type        : Trial
-numara      : +1•••••••  (ABD trial numarası)
-son mesaj   : +90•••••••••55 → delivered
+number      : +1•••••••  (US trial number)
+last message: +90•••••••••55 → delivered
               body: "Sent from your Twilio trial account - ahoy 🫡"
 ```
 
-> Alıcı numarası bilinçli olarak **maskelendi**. Bu belge ve PR gövdeleri
-> repo ekibine görünür; bir kişinin cep telefonu burada yazmamalı. Maskeli
-> biçim bile yeterli: denilen şey gönderilen numara değil, hesabın davranışı.
+> The recipient number is deliberately **masked**. This document and PR bodies are
+> visible to the repo team; someone's mobile number must not be written here.
+> Even the masked form is enough: what matters is not the number the message went
+> to but the behavior of the account.
 
-Kısacası: **ücretsiz demo hesabı, yalnız panelde
-kayıtlı/doğrulanmış numaraya SMS gönderebiliyor.** Panel bunu artık
-"keşfedene kadar hata kodu okuyarak" değil, açık bir rozetle söylüyor.
+In short: **a free demo account can only send SMS to a number registered/verified
+in the panel.** The panel now states this with an explicit badge instead of "read
+the error code until you discover it".
 
-### 11.2 Ekran
+### 11.2 Screen
 
-**Göndericiler ekranı** (`pages/admin/SmsSenders.jsx`).
+The **Senders screen** (`pages/admin/SmsSenders.jsx`).
 
-Ekran **Modules → SMS Gateway** kartının içinde açılır ("Göndericileri
-yönet"; 2026-10-08'den beri). 2026-10-06 ile 2026-10-08 arasında hiçbir
-rotadan erişilemiyordu: `/admin/sms-templates` yönlendirmesi `?tab=senders`
-parametresini düşürüyordu ve İletişim sayfasında SMS için gönderici sekmesi
-yok (§8 kararı gereği gelmeyecek). Kart kapatıldığında gönderim durumu
-rozeti yenilenir. API: `GET/POST /api/admin/sms/senders`,
-`PATCH/DELETE /api/admin/sms/senders/:id`, `GET /api/admin/sms/senders/gate`.
+The screen opens **inside the Modules → SMS Gateway** card ("Manage senders";
+since 2026-10-08). Between 2026-10-06 and 2026-10-08 it was not reachable from any
+route: the `/admin/sms-templates` redirect dropped the `?tab=senders` parameter and
+the Communication page had no senders tab for SMS (per the §8 decision it is not
+coming back). When the card is closed the delivery status badge is refreshed. API:
+`GET/POST /api/admin/sms/senders`, `PATCH/DELETE /api/admin/sms/senders/:id`,
+`GET /api/admin/sms/senders/gate`.
 
-Ekranın içeriği:
+Screen content:
 
-- **Hesap Tipi** kartı: `Trial (ücretsiz demo)` / `Ücretli` / `Bilinmiyor`.
-  Gerçek değer **Twilio API'sinden** okunur (`GET /Accounts/{sid}.json` →
-  `type`) ve yalnız operatör elle bir değer girmediyse saklanır. Panelden
-  değiştirilebilir.
-- **Gönderim Durumu** kartı: `Hazır` / `Engelli — gönderim yapılamaz` + neden.
-- Trial ise dört kuralı gösteren uyarı bandı.
-- Tablo: gönderici, ülke, kayıt türü, **onay durumu**, hedef ülkeler, aktif.
+- **Account type** card: `Trial (free demo)` / `Paid` / `Unknown`. The real value
+  is read **from the Twilio API** (`GET /Accounts/{sid}.json` → `type`) and stored
+  only when the operator has not entered a value manually. It can be changed from
+  the panel.
+- **Delivery status** card: `Ready` / `Blocked — cannot deliver` + the reason.
+- If trial, a warning band showing the four rules.
+- Table: sender, country, registration type, **approval status**, destination
+  countries, active.
 
-**Modüller → SMS Gateway** kartına da özet düşer: hesap tipi rozeti, gönderim
-durumu ve "Göndericileri yönet" bağlantısı.
+A summary is also written to the **Modules → SMS Gateway** card: account type
+badge, delivery status and a "Manage senders" link.
 
-### 11.3 Kayıt alanları
+### 11.3 Registration fields
 
-| Alan | Anlamı |
-|------|--------|
-| `senderNumber` | E.164 uzun numara / sender ID |
-| `messagingServiceSid` | Varsa `From` gönderilmez (Twilio ikisini kabul etmez) |
-| `senderCountry` | Numarayı **veren** ülke (ISO-3166 alpha-2) |
+| Field | Meaning |
+|-------|---------|
+| `senderNumber` | E.164 long number / sender ID |
+| `messagingServiceSid` | When present, `From` is not sent (Twilio rejects both) |
+| `senderCountry` | The country that **issued** the number (ISO-3166 alpha-2) |
 | `capability` | long_code / short_code / toll_free / alphanumeric / sender_id / messaging_service |
 | `registrationType` | none / a2p_10dlc / toll_free / local_sender_id / alphanumeric |
 | `approvalStatus` | not_required / not_submitted / pending / approved / rejected / expired / suspended |
-| `destinationCountries` | Onaylı **hedef** ülkeler; boş = kısıt yok |
-| `trialVerifiedNumbers` | Trial'da gönderilebilecek numaralar (Twilio sınırı: 5) |
-| `isActive` | Aynı anda en fazla **bir** aktif gönderici |
+| `destinationCountries` | Approved **destination** countries; empty = no restriction |
+| `trialVerifiedNumbers` | Numbers that can be sent to on a trial (Twilio limit: 5) |
+| `isActive` | At most **one** active sender at a time |
 
-### 11.4 Gönderim kapısı
+### 11.4 Delivery gate
 
-`services/smsSender.js` → `resolveSenderGate()`, `sendTemplate()` içinde
-alıcı başına çalışır.
+`services/smsSender.js` → `resolveSenderGate()`, runs per recipient inside
+`sendTemplate()`.
 
-**Kayıt/hesap seviyesi → tüm gönderim durur:**
+**Registration/account level → all delivery stops:**
 
-| Koşul | Hata |
-|-------|------|
-| Ücretli hesap + aktif gönderici yok ya da `approved`/`not_required` değil | `SMS_SENDER_NOT_REGISTERED` |
-| Gateway `fromNumber`/`messagingServiceSid` ile kayıt eşleşmiyor | `SMS_SENDER_MISMATCH` |
+| Condition | Error |
+|-----------|-------|
+| Paid account + no active sender or one that is not `approved`/`not_required` | `SMS_SENDER_NOT_REGISTERED` |
+| The gateway's `fromNumber`/`messagingServiceSid` does not match the registration | `SMS_SENDER_MISMATCH` |
 
-**Alıcı seviyesi → yalnız o alıcı atlanır** (kampanya iptal edilmez):
+**Recipient level → only that recipient is skipped** (the campaign is not
+cancelled):
 
-| Koşul | Hata |
-|-------|------|
-| Trial + liste dolu + numara listede değil | `SMS_TRIAL_NUMBER_NOT_VERIFIED` |
-| Trial + `trialSignUpCountry` beyan edilmiş + alıcı ülkesi farklı | `SMS_TRIAL_COUNTRY_DENIED` |
-| `destinationCountries` dolu + alıcı ülkesi listede değil | `SMS_SENDER_COUNTRY_DENIED` |
-| Numara E.164'e çözümlenemedi | `SMS_INVALID_PHONE` |
+| Condition | Error |
+|-----------|-------|
+| Trial + list full + the number is not in the list | `SMS_TRIAL_NUMBER_NOT_VERIFIED` |
+| Trial + `trialSignUpCountry` declared + the recipient's country differs | `SMS_TRIAL_COUNTRY_DENIED` |
+| `destinationCountries` non-empty + the recipient's country is not listed | `SMS_SENDER_COUNTRY_DENIED` |
+| The number could not be resolved to E.164 | `SMS_INVALID_PHONE` |
 
-Gönderim özeti `skipReasons` ile neden kırılımı döner; her atlanan alıcı
-`SmsLog`'a `skipReason` ile yazılır; günlük ekranında insan diliyle görünür.
+The delivery summary returns a `skipReasons` breakdown; every skipped recipient is
+written to `SmsLog` with its `skipReason` and is visible in plain language in the
+log screen.
 
-### 11.5 Kasıtlı kararlar
+### 11.5 Deliberate decisions
 
-1. **Trial hesapta onay zorunluluğu UYGULANMAZ.** A2P 10DLC kaydı resmen
-   ücretli hesap şartı; trial hesapta "onay bekliyor" durumu hiçbir zaman
-   "approved" olmayacağı için kapı sonsuza kapalı kalırdı ve trial'da tek bir
-   test SMS bile gönderilemezdi. Trial'da asıl kısıt doğrulanmış numara +
-   kayıt ülkesidir.
-2. **Varsayılan hesap tipi `unknown`, `paid` DEĞİL.** `paid` varsaymak trial
-   hesapta yanlış olurdu (kısıtlar uygulanmaz, Twilio 14111 döner, mesajlar
-   boşa gider). `trial` varsaymak ise ücretli hesapta gönderimi gereksiz
-   engellerdi. Belirsizlikle engellemiyoruz, panel uyarıyor.
-3. **Kayıt ülkesi ≠ gönderici ülkesi.** ABD trial numarası Türkiye'ye de
-   gönderebilir; trial'in coğrafi kısıtı **kayıt ülkesine** aittir ve bu bir
-   hesap özelliğidir (`sms.trialSignUpCountry`).
-4. **Liste boşsa engellenmez.** `trialVerifiedNumbers` boşken operatörün
-   Twilio'da doğruladığı ama bize bildirmediği numaralara izin verilir (Twilio
-   zaten 14111 döner, bu kod log'a düşer ve panelde anlamı çevrilerek görünür).
-   Liste **doluysa** operatörün beyanı esas alınır.
-5. **E.164 → ülke tahmini küratörlü.** `User` şemasında `country` alanı yok
-   (segment kriterleri `query.country` kullanıyor ama strict mode'da düşüyor).
-   `services/smsCountries.js` 57 ülke için E.164 öneki eşlemesi yapar; listede
-   olmayan numarada ülke `null` döner ve **ülke kısıtı uygulanmaz** — karar
-   Twilio'nun 30041/30040 hata kodlarına bırakılır. Devasa bir telefon→ülke
-   tablosu küratörlü bir listeden daha dürüst.
+1. **The approval requirement is NOT enforced on a trial account.** A2P 10DLC
+   registration formally requires a paid account; on a trial the "waiting for
+   approval" status would never become "approved", so the gate would stay closed
+   forever and not even one test SMS could be sent. On a trial the real
+   restriction is the verified number + the sign-up country.
+2. **The default account type is `unknown`, not `paid`.** Assuming `paid` would be
+   wrong on a trial account (the restrictions would not be applied, Twilio would
+   return 14111 and the messages would be wasted); assuming `trial` would
+   unnecessarily block delivery on a paid account. We do not block on uncertainty;
+   the panel warns.
+3. **Sign-up country ≠ sender country.** A US trial number can also send to
+   Turkey; the trial's geographic limit belongs to the **sign-up country** and is
+   an account property (`sms.trialSignUpCountry`).
+4. **An empty list does not block.** While `trialVerifiedNumbers` is empty,
+   numbers the operator verified at Twilio but did not report to us are allowed
+   (Twilio returns 14111 anyway, that code lands in the log and the panel shows
+   its translated meaning). When the list is **non-empty** the operator's
+   declaration is authoritative.
+5. **E.164 → country inference is curated.** The `User` schema has no `country`
+   field (segment criteria use `query.country` but it drops out in strict mode).
+   `services/smsCountries.js` maps E.164 prefixes for 57 countries; for a number
+   that is not in the list the country is `null` and **no country restriction is
+   applied** — the decision is left to Twilio's 30041/30040 error codes. A huge
+   phone→country table would be less honest than a curated list.
 
-### 11.6 Yeni uçlar
+### 11.6 New endpoints
 
-| Yöntem | Yol | Yetki |
-|--------|-----|-------|
+| Method | Path | Permission |
+|--------|------|-------|
 | `GET` | `/api/admin/sms/senders` | `admin:settings:read` |
 | `GET` | `/api/admin/sms/senders/gate` | `admin:settings:read` |
 | `POST` | `/api/admin/sms/senders` | `admin:settings:write` |
 | `PATCH` | `/api/admin/sms/senders/:id` | `admin:settings:write` |
 | `DELETE` | `/api/admin/sms/senders/:id` | `admin:settings:write` |
 
-`POST`/`PATCH` yanıtı `rejectedTrialNumbers` döner: E.164'e çözümlenemeyen
-trial numaraları **sessizce atılmaz**, panelde hangisinin neden kaydedilmediği
-görünür (`admin.smsSenders.savedWithRejected`).
+`POST`/`PATCH` responses return `rejectedTrialNumbers`: trial numbers that could not
+be resolved to E.164 are **not dropped silently**; the panel shows which one was
+not stored and why (`admin.smsSenders.savedWithRejected`).
 
-### 11.7 Demo hesabıyla yapılandırma (`.env`)
+### 11.7 Configuration with a demo account (`.env`)
 
-`.env` **gitignored**'dır; kimlik bilgileri koda yazılmaz.
+`.env` is **gitignored**; credentials are never written into code.
 
 ```bash
 # worktree/server/.env
 SMS_PROVIDER=twilio
 TWILIO_ACCOUNT_SID=AC…
 TWILIO_AUTH_TOKEN=…
-TWILIO_FROM_NUMBER=+1…             # hesabın kendi numarası (Twilio panelinden)
+TWILIO_FROM_NUMBER=+1…             # the account's own number (from the Twilio panel)
 TWILIO_DEFAULT_COUNTRY_CODE=90
 ```
 
-Panelden de düzenlenebilir: DB değeri `.env` yedeğini **ezer** (rozet `db`
-olur). Kaynak `.env` ise alan bilerek boş bırakılır ve gerçek değer
-`.env değeri: …` olarak altında gösterilir — yoksa sahte bir placeholder
-operatörü yanıltırdı.
+They can also be edited from the panel: a DB value **overrides** the `.env`
+fallback (the badge becomes `db`). If the source is `.env` the field is
+deliberately left empty and the real value is shown underneath as `.env değeri: …`
+— otherwise a fake placeholder would mislead the operator.
 
-Denemek için: Modüller → SMS Gateway → **Bağlantıyı Test Et** (mesaj göndermez,
-hesap tipini algılar) → aynı kartta **Göndericileri yönet** → trial
-numaralarına doğrulanmış numarayı ekleyin. Liste boşken gönderim
-`SMS_TRIAL_NUMBER_NOT_VERIFIED` ile **atlanır** (Twilio'ya hiç gidilmez).
+To try it: Modules → SMS Gateway → **Test connection** (sends nothing, detects the
+account type) → **Manage senders** in the same card → add the verified number to
+the trial numbers. While the list is empty, delivery is **skipped** with
+`SMS_TRIAL_NUMBER_NOT_VERIFIED` (nothing ever reaches Twilio).
 
 ---
 
-## 12. Otomatik gönderim (zamanlanmış SMS + 15 dk iş)
+## 12. Automatic delivery (scheduled SMS + the 15-minute job)
 
-E-postadaki `runDueScheduledMails` modeliyle **aynı alan adları**: SMS
-`SmsTemplate` kaydı `type='scheduled'` iken
+Exactly the same field names as the e-mail `runDueScheduledMails` model: when the
+SMS `SmsTemplate` record has `type='scheduled'`
 
 - `audience` — `{ type: 'all'|'segment'|'users', segmentId, userIds }`.
-  **Otomatik gönderim all/segment ile sınırlıdır** (`users` yalnız elle
-  gönderimde; form bu seçeneği sunmaz, validator `SMS_AUTO_AUDIENCE_INVALID`
-  ile reddeder).
+  **Automatic delivery is limited to all/segment** (`users` is manual-only; the
+  form does not offer it and the validator rejects it with
+  `SMS_AUTO_AUDIENCE_INVALID`).
 - `schedule` — `{ enabled, intervalHours, lastSentAt, nextSentAt }`.
 
-İş: `runDueScheduledSms()` + `startScheduledSmsJob()` (`services/smsTemplate.js`),
-`server.js` boot'ta `startScheduledSmsJob()` çağrılır (30 sn gecikme, 15 dk
-aralık, `unref` — ana döngüyü kilitlemez).
+The job: `runDueScheduledSms()` + `startScheduledSmsJob()` (`services/smsTemplate.js`),
+`server.js` calls `startScheduledSmsJob()` on boot (30 s delay, 15 min interval,
+`unref` — it does not block the main loop).
 
-Davranış (e-posta ile birebir aynı):
+Behavior (identical to e-mail):
 
-- `schedule.nextSentAt` **hiç hesaplanmamışsa HEMEN göndermez**, yalnızca
-  vadeyi kurar — açılışta toplu SMS patlamasını önler. İlk gerçek gönderim
-  paneldeki "Şimdi gönder" ile yapılır veya vade bir sonraki döngüde dolar.
-- Vadesi gelmiş (`nextSentAt <= now`) + `isActive` + `schedule.enabled`
-  şablon `audience` kitleye `sendTemplate` ile gönderilir; vade `now +
-  intervalHours`'a ilerletilir.
-- Gönderim/gateway/modül hatasında vade **ilerletilmez** → 15 dk sonra
-  yeniden denenir.
-- Job sorgusu `type: 'scheduled'` filtresini de uygular; bayat
-  `schedule.enabled` değeri aksiyon şablonlarında asla göndermez.
+- If `schedule.nextSentAt` has **never been computed it does not send
+  immediately**, it only sets the due date — this prevents a burst of SMS at
+  startup. The first real delivery is done with "Send now" in the panel or the due
+  date fills on the next cycle.
+- A template that is due (`nextSentAt <= now`) + `isActive` + `schedule.enabled`
+  is sent to its `audience` with `sendTemplate`; the due date is advanced to
+  `now + intervalHours`.
+- On a delivery/gateway/module error the due date is **not advanced** → it is
+  retried in 15 minutes.
+- The job query also applies the `type: 'scheduled'` filter; a stale
+  `schedule.enabled` value never sends action templates.
 
-Form: **İletişim → SMS → şablon düzenle** → "Otomatik Gönderim" bloğu
-(yalnız scheduled): aç/kapa, aralık (saat), kitle (tüm kullanıcılar / bir
-segment + segment seçici). Elle gönderim penceresi ayrıdır ve kayıtlı
-`audience`'a **dokunmaz**.
+Form: **Communication → SMS → edit template** → "Automatic delivery" block
+(`scheduled` only): on/off, interval (hours), audience (all users / one segment +
+segment picker). The manual send window is separate and does **not** touch the
+stored `audience`.
 
-Validator + servis kapıları (create/update):
+Validator + service gates (create/update):
 
-| Kod | Koşul |
-|-----|-------|
+| Code | Condition |
+|------|-------|
 | `SMS_SCHEDULE_ON_ACTION` | `type: 'action'` + `schedule.enabled` |
 | `SMS_AUTO_AUDIENCE_INVALID` | `schedule.enabled` + `audience.type: 'users'` |
-| `SMS_SEGMENT_REQUIRED` | `audience.type: 'segment'` + `segmentId` yok |
-| `SMS_USERS_REQUIRED` | `audience.type: 'users'` + boş `userIds` |
-| `SMS_SCHEDULE_INTERVAL_INVALID` | `intervalHours` 1..8760 dışarıda |
+| `SMS_SEGMENT_REQUIRED` | `audience.type: 'segment'` + no `segmentId` |
+| `SMS_USERS_REQUIRED` | `audience.type: 'users'` + empty `userIds` |
+| `SMS_SCHEDULE_INTERVAL_INVALID` | `intervalHours` outside 1..8760 |
 
-**Maliyet uyarısı:** demo aksiyon şablonları `isActive: true` seed edilir ve
-bu işten sonra domain kancaları canlıdır. Gateway + `sms-gateway` modülü
-açıkken bahis/kampanya trafiği gerçek SMS üretir; operatör gönderimden önce
-gereksiz şablonları pasife almalıdır. Otomatik gönderim ise yalnız
-`schedule.enabled` açıksa ve vade dolduğunda çalışır — varsayılan güvenlidir.
+**Cost warning:** the demo action templates are seeded with `isActive: true` and
+the domain hooks are live after this work. With the gateway + `sms-gateway` module
+on, bet/campaign traffic produces real SMS; the operator should deactivate
+unnecessary templates before sending. Automatic delivery only runs when
+`schedule.enabled` is on and the due date has passed — the default is safe.
 
 ---
 
-## 13. İlgili kayıtlar
+## 13. Related records
 
-- `docs/admin-redesign/README.md` §6 (SMS gateway) ve §7 (iletişim merkezi + otomatik gönderim)
-- `docs/mail-templates.md` — e-postadaki aynı `schedule` modeli
-- `todo.md` #18 (SMS provider entegrasyonu) ve #19 (kampanya gönderimi)
+- `docs/admin-redesign/README.md` §6 (SMS gateway) and §7 (communication center + automatic delivery)
+- `docs/mail-templates.md` — the same `schedule` model on the e-mail side
+- `todo.md` #18 (SMS provider integration) and #19 (campaign delivery)
 - `CHANGELOG.md` → `[Yayınlanmadı]`
-- `docs/AI-GITHUB-WORKFLOW-POLICY.md` — commit/PR kuralları
+- `docs/AI-GITHUB-WORKFLOW-POLICY.md` — commit/PR rules
