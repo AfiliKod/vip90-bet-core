@@ -33,7 +33,7 @@
     "build:game-host": "node scripts/optional-run.mjs game-host sh -c \"npm install --prefix game-host && npm run build --prefix game-host\"",
     "start": "npm run build && node server/src/server.js",
     "collect-session": "node server/scripts/collect-session.js",
-    "test": "node --test server/test/*.test.js client/src/i18n/*.test.js client/src/pages/admin/dashboard/*.test.js client/src/pages/admin/*.test.js client/src/utils/*.test.js shared/*.test.js client/scripts/__tests__/*.test.mjs",
+    "test": "node --test server/test/*.test.js client/src/i18n/*.test.js client/src/pages/admin/dashboard/*.test.js client/src/pages/admin/*.test.js client/src/utils/*.test.js shared/*.test.js client/scripts/__tests__/*.test.mjs scripts/*.test.mjs",
     "test:network": "node --test server/test/network/*.test.js",
     "test:e2e": "playwright test --config=tests/e2e/playwright.config.js",
     "test:e2e:headed": "playwright test --config=tests/e2e/playwright.config.js --headed",

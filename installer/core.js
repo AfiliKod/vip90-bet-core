@@ -58,6 +58,10 @@ export function createInstaller({
   // Ayarlar yazıldıktan sonra süreç içi önbellekleri (branding/currency/modules,
   // 30 sn TTL) hemen geçersiz kılmak için; testlerde gerekmez.
   afterSettingsWritten = () => {},
+  // İlk yöneticiye tüm yetkileri veren rolü atar (sunucu: super_admin).
+  // Atanmazsa yönetici, sunucunun açılıştaki rol göçü çalışana kadar
+  // (yeniden başlatma) yatırma onayı gibi işlemlerde 403 alıyordu.
+  assignOwnerRole = async () => {},
 }) {
   async function status() {
     const dbConnected = dbState() === 1;
@@ -85,7 +89,7 @@ export function createInstaller({
     }
 
     // Gerçek User modelinde pre-save hook parolayı bcrypt ile hash'ler.
-    await userModel.create({
+    const admin = await userModel.create({
       username,
       email: String(input.adminEmail).trim().toLowerCase(),
       password: input.adminPassword,
@@ -97,6 +101,7 @@ export function createInstaller({
       // doğrulama ister).
       emailVerified: true,
     });
+    await assignOwnerRole(admin._id);
 
     const enabledModules = OPTIONAL_MODULES
       .filter(m => truthy(input[m.field]))

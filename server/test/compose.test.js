@@ -57,6 +57,14 @@ describe('K1 — docker-compose.yml yapısı', () => {
     assert.match(uri, /mongodb:\/\/mongo:27017\//);
   });
 
+  test('replica set üyesi compose servis adıyla kuruluyor (localhost değil)', () => {
+    // localhost ile kurulursa sürücü app konteynerinde kendine bağlanmaya
+    // çalışır ve Docker kurulumu hiç açılmaz (2026-10-08).
+    const hc = String(compose.services.mongo.healthcheck.test);
+    assert.match(hc, /host:'mongo:27017'/);
+    assert.doesNotMatch(hc, /host:'localhost:27017'/);
+  });
+
   test('mongo verisi kalıcı volume\'de', () => {
     const mongo = compose.services.mongo;
     const volumes = mongo.volumes ?? [];

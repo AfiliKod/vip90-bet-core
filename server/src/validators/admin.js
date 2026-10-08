@@ -370,6 +370,9 @@ export const updateIgamesCredentialsSchema = z.object({
 export const updateUserAdminSchema = z.object({
   isActive: z.boolean().optional(),
   kycVerified: z.boolean().optional(),
+  // Yalnız doğrulanmış işaretlenebilir (SMTP'siz kurulumda oyuncunun giriş
+  // yapabilmesi için); geri almak oyuncuyu hesabından kilitler.
+  emailVerified: z.literal(true).optional(),
   role: z.enum(['user', 'admin']).optional(),
 });
 
@@ -490,6 +493,15 @@ export const updateEmailSettingsSchema = z.object({
   // Email Gateway anahtarı: açıkken panel/DB ayarları, kapalıyken sunucu .env.
   gatewayEnabled: z.union([z.boolean(), z.enum(['true', 'false', ''])]).optional(),
   clear: z.array(z.enum(['pass'])).optional(),
+}).strict();
+
+/** PUT /admin/settings/google-auth — Modules → Google Login kartı. */
+export const updateGoogleAuthSettingsSchema = z.object({
+  enabled: z.union([z.boolean(), z.enum(['true', 'false', ''])]).optional(),
+  clientId: optStr(300),
+  clientSecret: optStr(300),
+  redirectUri: z.string().max(500).refine(v => v === '' || /^https?:\/\/\S+$/i.test(v), 'redirectUri http(s) olmalı').optional(),
+  clear: z.array(z.enum(['clientSecret'])).optional(),
 }).strict();
 
 /** POST /admin/settings/email/test — alıcı serbest (boşsa admin'in kendi adresi). */

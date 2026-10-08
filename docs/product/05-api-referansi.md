@@ -113,7 +113,8 @@ Additionally, `/auth/login` returns `429 TOO_MANY_ATTEMPTS` after 5 failed attem
 
 | Method + Path | Auth | Notes |
 |---|---|---|
-| `GET /google` | Guest + `authLimiter` | Redirects to Google OAuth URL |
+| `GET /google/state` | Public | `{ enabled }`: whether the login screen shows the Google button |
+| `GET /google` | Guest + `authLimiter` | Redirects to Google OAuth URL; to `/auth/callback?error=google_not_configured` when Google login is off or unconfigured |
 | `GET /google/callback` | Public | Query `linkGoogleSchema` (`code`,`state`); redirects to client with `?error=` on failure |
 | `POST /google/link` | User | Returns linking URL |
 | `GET /google/link/callback` | User | Links Google to account |
@@ -450,6 +451,7 @@ Destructive/financial endpoints additionally apply `blockDemoAdmin` (marked belo
 - System email templates — `/mail-templates`: `GET /`, `GET /stats`, `GET /events`, `GET /logs`, `POST /preview`, `GET /:id` (read); `POST /`, `PATCH /:id`, `DELETE /:id`, `POST /:id/send` (write; only `scheduled` templates can be sent from the panel, event templates are sent by the platform). Details: [`docs/mail-templates.md`](../mail-templates.md)
 - SMS Gateway — `/sms`: provider `GET /settings`, `PATCH /settings`, `POST /settings/test` (dry connection test, sends nothing), `POST /test-send` (`{ to, message }`, sends a real SMS); senders `GET /senders`, `GET /senders/gate`, `POST /senders`, `PATCH /senders/:id`, `DELETE /senders/:id`; `GET /logs`; templates `GET /templates`, `POST /templates`, `PATCH /templates/:id`, `DELETE /templates/:id`, `POST /templates/:id/send`. Details: [`docs/sms-gateway/README.md`](../sms-gateway/README.md)
 - Slikair credentials: `GET /slikair/settings`, `PUT /slikair/settings`
+- Google login (UI: Settings → Modules → Google Login): `GET /settings/google-auth`, `PUT /settings/google-auth` (`enabled`, `clientId`, `clientSecret` stored encrypted, `redirectUri`; the response adds `defaultRedirectUri` and `active`)
 - SEO: `GET /settings/seo`, `PUT /settings/seo` (`seoSettingsSchema`)
 - Timezone / default language: `GET`/`PUT /settings/timezone`, `GET`/`PUT /settings/default-locale`
 - Currency: `GET /currency`, `PUT /currency` **[demo blocked]** (`updateCurrencySchema`: `code` — only defined currencies)

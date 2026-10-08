@@ -78,6 +78,12 @@ export default defineConfig({
         // (uzun max-age) yeterli, precache manifest'i şişirmesin.
         globPatterns: ['**/*.{js,css,html,ico,png,svg,woff2}'],
         globIgnores: ['fonts/material-symbols-outlined.woff2'],
+        // Sunucunun yanıtladığı yollara yapılan sayfa geçişleri SPA'ya
+        // (index.html) düşmemeli: aksi halde "Google ile devam et"
+        // (/api/auth/google) gibi bağlantılar sunucuya hiç gitmeden React'in
+        // 404 sayfasını açıyordu (2026-10-08). Yalnız SW kurulu tarayıcıda
+        // görülür; curl ve ilk ziyaret etkilenmez.
+        navigateFallbackDenylist: [/^\/api\//, /^\/install(\/|$)/, /^\/uploads\//, /^\/robots\.txt$/, /^\/sitemap\.xml$/],
         // Fontlar artık self-hosted (bkz. client/public/fonts/) — Google Fonts'a
         // özel runtime-cache kuralları kaldırıldı, gerek kalmadı.
         runtimeCaching: [

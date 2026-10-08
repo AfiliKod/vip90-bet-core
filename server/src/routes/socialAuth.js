@@ -6,7 +6,7 @@ import { linkGoogleSchema, linkTelegramSchema } from '../validators/auth.js';
 import {
   getGoogleAuthUrl, handleGoogleCallback, linkGoogleAccount, unlinkGoogleAccount,
   getTelegramAuthUrl, handleTelegramCallback, linkTelegramAccount, unlinkTelegramAccount,
-  getUserSocialAccounts, setOAuthState,
+  getUserSocialAccounts, setOAuthState, isGoogleConfigured,
 } from '../services/socialAuth.js';
 import { setRefreshCookie } from '../controllers/auth.js';
 
@@ -25,8 +25,18 @@ const CLIENT_URL = (process.env.CLIENT_URL || 'http://localhost:5173').split(','
 // hesaplamaya gerek yok, yalnızca refresh cookie set edilir.
 
 // ── Google ──────────────────────────────────────────────────────────
-r.get('/google', guestOnly, conditionalAuthLimiter, (req, res) => {
-  res.redirect(getGoogleAuthUrl());
+// Giriş ekranı Google butonunu yalnız yapılandırılmışsa gösterir.
+r.get('/google/state', async (req, res, next) => {
+  try {
+    res.json({ enabled: await isGoogleConfigured() });
+  } catch (e) { next(e); }
+});
+
+r.get('/google', guestOnly, conditionalAuthLimiter, async (req, res, next) => {
+  try {
+    if (!(await isGoogleConfigured())) return res.redirect(`${CLIENT_URL}/auth/callback?error=google_not_configured`);
+    res.redirect(await getGoogleAuthUrl());
+  } catch (e) { next(e); }
 });
 
 r.get('/google/callback', async (req, res, next) => {
@@ -42,8 +52,13 @@ r.get('/google/callback', async (req, res, next) => {
   }
 });
 
-r.post('/google/link', requireAuth, (req, res) => {
-  res.json({ url: getGoogleAuthUrl(req.user.id) });
+r.post('/google/link', requireAuth, async (req, res, next) => {
+  try {
+    if (!(await isGoogleConfigured())) {
+      return res.status(400).json({ error: { code: 'GOOGLE_NOT_CONFIGURED', message: 'Google ile giriş yapılandırılmamış' } });
+    }
+    res.json({ url: await getGoogleAuthUrl(req.user.id) });
+  } catch (e) { next(e); }
 });
 
 r.get('/google/link/callback', requireAuth, async (req, res, next) => {

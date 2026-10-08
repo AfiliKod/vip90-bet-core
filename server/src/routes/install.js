@@ -18,13 +18,16 @@ import { invalidateBranding } from '../branding/index.js';
 import { invalidateCurrency } from '../currency/index.js';
 import { invalidateModules } from '../modules/index.js';
 import { INSTALL_PAGE_HTML } from '../../../installer/page.js';
+import Role from '../models/Role.js';
+import { assignRoleToUser } from '../services/permissions.js';
 
 export function createInstallHandlers({
   userModel, settingModel, dbState,
   currencyCodes = CURRENCY_DEFINITIONS.map(c => c.code),
   afterSettingsWritten,
+  assignOwnerRole,
 }) {
-  const installer = createInstaller({ userModel, settingModel, dbState, currencyCodes, afterSettingsWritten });
+  const installer = createInstaller({ userModel, settingModel, dbState, currencyCodes, afterSettingsWritten, assignOwnerRole });
 
   async function pageHandler(req, res) {
     res.set('Cache-Control', 'no-store');
@@ -69,6 +72,12 @@ function createInstallRouter() {
       invalidateBranding();
       invalidateCurrency();
       invalidateModules();
+    },
+    // Varsayılan roller sunucu açılışında oluşturulur; rol yoksa açılıştaki
+    // migrateOrphanedAdminRoles() yöneticiyi yine super_admin yapar.
+    assignOwnerRole: async (userId) => {
+      const role = await Role.findOne({ name: 'super_admin' });
+      if (role) await assignRoleToUser(userId, role._id, null);
     },
   });
 

@@ -2,13 +2,7 @@ import crypto from 'crypto';
 import User from '../models/User.js';
 import { createError } from '../middleware/error.js';
 import { signAccess, signRefresh } from '../controllers/auth.js';
-
-/**
- * Google OAuth configuration
- */
-const GOOGLE_CLIENT_ID = process.env.GOOGLE_CLIENT_ID;
-const GOOGLE_CLIENT_SECRET = process.env.GOOGLE_CLIENT_SECRET;
-const GOOGLE_REDIRECT_URI = process.env.GOOGLE_REDIRECT_URI || 'http://localhost:3001/api/auth/google/callback';
+import { getGoogleAuthSettings } from '../config/googleAuthConfig.js';
 
 /**
  * Telegram OAuth configuration — DÜZELTME: önceden aynı TELEGRAM_BOT_TOKEN
@@ -18,6 +12,16 @@ const GOOGLE_REDIRECT_URI = process.env.GOOGLE_REDIRECT_URI || 'http://localhost
  */
 const TELEGRAM_LOGIN_BOT_TOKEN = process.env.TELEGRAM_LOGIN_BOT_TOKEN;
 const TELEGRAM_BOT_USERNAME = process.env.TELEGRAM_BOT_USERNAME;
+
+/**
+ * Google girişi, Modules → Google Login kartındaki anahtar açık ve istemci
+ * kimliği + sırrı (panel ya da .env) tanımlıysa kullanılabilir. Giriş ekranı
+ * butonu buna göre gösterir; tanımsızken Google "OAuth client was not found"
+ * hatası veriyordu.
+ */
+export async function isGoogleConfigured() {
+  return (await getGoogleAuthSettings()).active;
+}
 
 /**
  * Generate state parameter for OAuth
@@ -60,11 +64,12 @@ export function consumeOAuthState(state) {
 /**
  * Google OAuth: Get authorization URL
  */
-export function getGoogleAuthUrl(userId = null) {
+export async function getGoogleAuthUrl(userId = null) {
+  const { clientId, redirectUri } = await getGoogleAuthSettings();
   const state = setOAuthState('google', userId);
   const params = new URLSearchParams({
-    client_id: GOOGLE_CLIENT_ID,
-    redirect_uri: GOOGLE_REDIRECT_URI,
+    client_id: clientId,
+    redirect_uri: redirectUri,
     response_type: 'code',
     scope: 'openid email profile',
     access_type: 'offline',
@@ -78,12 +83,13 @@ export function getGoogleAuthUrl(userId = null) {
  * Google OAuth: Exchange code for tokens
  */
 export async function exchangeGoogleCode(code) {
+  const { clientId, clientSecret, redirectUri } = await getGoogleAuthSettings();
   const params = new URLSearchParams({
-    client_id: GOOGLE_CLIENT_ID,
-    client_secret: GOOGLE_CLIENT_SECRET,
+    client_id: clientId,
+    client_secret: clientSecret,
     code,
     grant_type: 'authorization_code',
-    redirect_uri: GOOGLE_REDIRECT_URI,
+    redirect_uri: redirectUri,
   });
 
   const response = await fetch('https://oauth2.googleapis.com/token', {

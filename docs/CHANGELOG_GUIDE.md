@@ -24,6 +24,17 @@ Kategoriler (yalnızca ilgili olanlar kullanılır, boş kategori açılmaz):
 - **Düzeltildi** — hata düzeltmesi.
 - **Güvenlik** — güvenlik açığı kapatma (CVE varsa referans verilir).
 
+## Girdinin denetlenmesi
+
+`node scripts/check-changelog.mjs [--base origin/main]` dalın tabana göre
+değiştirdiği dosyalara bakar. Sunucu, istemci, kurulum, Docker/env dosyaları,
+bağımlılıklar ya da eklenti işaretçileri değişip `[Yayınlanmadı]` bölümü
+değişmemişse hata verir; yalnız belge, test ya da bakım betiği değiştiyse
+geçer. `pre-push` hook'u bunu her push'ta çalıştırır
+(`sh scripts/install-hooks.sh` ile bir kez kurulur). Değişiklik gerçekten
+operatörü etkilemiyorsa (örneğin yalnız kod yorumu) commit mesajına ayrı bir
+satır olarak `Changelog: none` yazılır.
+
 ## Sürüm kesmek
 
 Her PR kendi girdisini `[Yayınlanmadı]` altına ekler. Sürüm kesmek için:

@@ -54,6 +54,34 @@ const validInput = {
   adminPassword: 'GucluParola123',
 };
 
+describe('createInstaller — ilk yöneticinin rolü', () => {
+  test('oluşturulan yöneticiye tam yetki rolünü bir kez atar', async () => {
+    const assigned = [];
+    const users = fakeUserModel();
+    const inst = createInstaller({
+      userModel: users,
+      settingModel: fakeSettingModel(),
+      dbState: () => 1,
+      assignOwnerRole: async (id) => { assigned.push(id); },
+    });
+    await inst.run(validInput);
+    const admin = users.users.find(u => u.username === 'kurucu');
+    assert.deepStrictEqual(assigned, [admin._id]);
+  });
+
+  test('kurulum reddedilirse (zaten kurulu) rol atanmaz', async () => {
+    const assigned = [];
+    const inst = createInstaller({
+      userModel: fakeUserModel({ existing: [{ _id: 'u-0', username: 'eski', role: 'admin' }] }),
+      settingModel: fakeSettingModel(),
+      dbState: () => 1,
+      assignOwnerRole: async (id) => { assigned.push(id); },
+    });
+    await assert.rejects(inst.run(validInput), e => e.code === 'ALREADY_INSTALLED');
+    assert.deepStrictEqual(assigned, []);
+  });
+});
+
 describe('createInstaller — status()', () => {
   test('DB bağlı değilse dbConnected false, kurulum gerekli der', async () => {
     const inst = createInstaller({

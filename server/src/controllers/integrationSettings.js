@@ -1,26 +1,29 @@
 /**
- * Entegrasyon ayar uçları: Slikair kimlik bilgileri ve SMTP.
+ * Entegrasyon ayar uçları: Slikair kimlik bilgileri, SMTP ve Google ile giriş.
  * Handler fabrikaları — store/gönderici enjekte edilir (testte mock).
  * Gizli alanlar yanıtta hiçbir zaman düz dönmez (maskeli).
  */
 import { createError } from '../middleware/error.js';
 import { slikairConfig } from '../config/slikairConfig.js';
 import { emailConfig } from '../config/emailConfig.js';
+import { googleAuthConfig, defaultRedirectUri, getGoogleAuthSettings } from '../config/googleAuthConfig.js';
 import { sendTestEmail } from '../services/email.js';
 import User from '../models/User.js';
 
-function settingsHandlers(store, afterUpdate = () => {}) {
+function settingsHandlers(store, { afterUpdate = () => {}, view = async () => ({ settings: await store.getAdminView() }) } = {}) {
   return {
     async get(req, res, next) {
       try {
-        res.json({ settings: await store.getAdminView() });
+        res.json(await view());
       } catch (e) { next(e); }
     },
     async update(req, res, next) {
       try {
         const { clear = [], ...patch } = req.validated ?? req.body ?? {};
         if ('secure' in patch) patch.secure = patch.secure === true ? 'true' : patch.secure === false ? 'false' : patch.secure;
-        if ('gatewayEnabled' in patch) patch.gatewayEnabled = patch.gatewayEnabled === true ? 'true' : patch.gatewayEnabled === false ? 'false' : patch.gatewayEnabled;
+        for (const flag of ['gatewayEnabled', 'enabled']) {
+          if (flag in patch) patch[flag] = patch[flag] === true ? 'true' : patch[flag] === false ? 'false' : patch[flag];
+        }
         if ('port' in patch) patch.port = String(patch.port);
         try {
           await store.update(patch, { clear, adminId: req.user?.id });
@@ -32,7 +35,7 @@ function settingsHandlers(store, afterUpdate = () => {}) {
           throw e;
         }
         await afterUpdate();
-        res.json({ settings: await store.getAdminView() });
+        res.json(await view());
       } catch (e) { next(e); }
     },
   };
@@ -40,6 +43,18 @@ function settingsHandlers(store, afterUpdate = () => {}) {
 
 export function createSlikairSettingsHandlers({ store = slikairConfig } = {}) {
   return settingsHandlers(store);
+}
+
+export function createGoogleAuthSettingsHandlers({ store = googleAuthConfig, env = process.env } = {}) {
+  // Kart, redirect URI boşken kullanılacak adresi ve girişin şu an
+  // kullanılabilir olup olmadığını (anahtar + kimlik + sır) gösterir.
+  return settingsHandlers(store, {
+    view: async () => ({
+      settings: await store.getAdminView(),
+      defaultRedirectUri: defaultRedirectUri(env),
+      active: (await getGoogleAuthSettings(store, env)).active,
+    }),
+  });
 }
 
 export function createEmailSettingsHandlers({

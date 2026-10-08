@@ -19,13 +19,16 @@ services:
     volumes:
       - mongodata:/data/db
     healthcheck:
-      # rs.status() başarısızsa (henüz initiate edilmemiş) tek düğümlü
-      # replica set'i bir kerelik kurar; sonraki her healthcheck çağrısı
-      # artık sadece ping'e düşer. mongod container her restart'ta bu imajı
-      # aynı volume ile yeniden kullandığından initiate idempotent olmalı.
+      # Tek düğümlü replica set'i bir kerelik kurar (initiate idempotent).
+      # Üye adresi compose servis adı OLMALI (mongo:27017): sürücü bağlandıktan
+      # sonra replica set yapılandırmasındaki adrese geçer; 'localhost' app
+      # konteynerinde app'in kendisidir ve bağlantı ECONNREFUSED ile düşer
+      # (2026-10-08, temiz Docker kurulumunda bulundu). Eski kurulumlarda
+      # 'localhost' ile başlatılmış volume bir kez mongo:27017'ye çevrilir.
       test: >
         mongosh --quiet --eval "
-        try { rs.status() } catch (e) { rs.initiate({_id:'rs0',members:[{_id:0,host:'localhost:27017'}]}) }
+        try { const c = rs.conf(); if (c.members[0].host !== 'mongo:27017') { c.members[0].host = 'mongo:27017'; rs.reconfig(c, {force: true}) } }
+        catch (e) { rs.initiate({_id:'rs0',members:[{_id:0,host:'mongo:27017'}]}) }
         db.adminCommand('ping').ok
         "
       interval: 10s

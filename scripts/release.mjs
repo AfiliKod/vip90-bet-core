@@ -9,8 +9,7 @@
  * 3. README.md / README.tr.md sürüm rozetini günceller.
  *
  * Etiketi ATMAZ: değişiklik PR ile main'e girdikten sonra merge commit'ine
- * `vX.Y.Z` etiketi ve GitHub Release oluşturulur (bkz. AGENTS.md
- * "Changelog and versions"). Sürüm numarası SemVer'e göre seçilir.
+ * `vX.Y.Z` etiketi ve GitHub Release oluşturulur (bkz. docs/CHANGELOG_GUIDE.md). Sürüm numarası SemVer'e göre seçilir.
  */
 import { readFileSync, writeFileSync, existsSync } from 'node:fs';
 import { join, dirname } from 'node:path';

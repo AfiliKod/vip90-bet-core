@@ -318,6 +318,18 @@ export default function UserSlideOver({ user, onClose, onUpdated }) {
                     {user.isActive ? t('admin.userSlideOver.suspend') : t('admin.userSlideOver.activate')}
                   </button>
                 </div>
+                <div className="flex items-center justify-between p-3 bg-bg-hover rounded-xl">
+                  <span className="text-sm text-text-2">{t('admin.userSlideOver.emailVerification')}</span>
+                  {user.emailVerified ? (
+                    <span className="px-3 py-1 rounded-lg text-xs font-medium bg-success/20 text-success">{t('admin.userSlideOver.emailVerified')}</span>
+                  ) : (
+                    <button
+                      onClick={() => patch({ emailVerified: true })}
+                      className="px-3 py-1 rounded-lg text-xs font-medium transition bg-primary/20 text-primary hover:bg-primary/30">
+                      {t('admin.userSlideOver.markEmailVerified')}
+                    </button>
+                  )}
+                </div>
               </div>
 
               {!user.deletedAt && (

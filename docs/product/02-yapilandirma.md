@@ -127,7 +127,7 @@ All of them can be entered from **Settings → Modules → SMS Gateway** (Auth T
 
 | Variable | Required | What it does |
 |---|---|---|
-| `GOOGLE_CLIENT_ID` / `GOOGLE_CLIENT_SECRET` / `GOOGLE_REDIRECT_URI` | If Google login will be used | OAuth 2.0 client created in Google Cloud Console |
+| `GOOGLE_CLIENT_ID` / `GOOGLE_CLIENT_SECRET` / `GOOGLE_REDIRECT_URI` / `GOOGLE_LOGIN_ENABLED` | Optional | Fallback for Google login. Normally set in **Settings → Modules → Google Login** (panel values win; the secret is stored encrypted, needs `OPERATOR_SECRET_ENCRYPTION_KEY`). The "Continue with Google" button appears only when the card's switch is on (`GOOGLE_LOGIN_ENABLED`, default on) and the client ID and secret are set. The redirect URI defaults to the first `CLIENT_URL` origin + `/api/auth/google/callback`; register it in Google Cloud Console as an authorized redirect URI |
 | `TELEGRAM_LOGIN_BOT_TOKEN` / `TELEGRAM_BOT_USERNAME` | If Telegram login will be used | Bot for the Login Widget — must be **different** from the admin notification bot (configured in the panel), must be registered with the production domain via `/setdomain` in BotFather |
 
 There is no separate env variable for Web3 wallet login (MetaMask, etc.) — signature verification is done server-side (`ethers`), no external identity information is required.

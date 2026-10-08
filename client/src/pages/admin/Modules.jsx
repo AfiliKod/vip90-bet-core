@@ -5,6 +5,7 @@ import { useToastStore } from '../../store/toastStore';
 import ModuleCard, { CardSwitch } from '../../components/admin/ModuleCard';
 import SmsGatewayBody from '../../components/admin/SmsGatewayCard.jsx';
 import EmailProviderPanel from '../../components/admin/EmailProviderPanel.jsx';
+import GoogleLoginPanel from '../../components/admin/GoogleLoginPanel.jsx';
 import { Chip, MultiCheck } from './components/AdminChoice.jsx';
 import { getActiveCurrency } from '../../utils/money.js';
 
@@ -908,6 +909,8 @@ export default function AdminModules() {
   // anında kaydeder (modül switch'leriyle aynı davranış); panel bunu prop
   // olarak alıp mod rozetinde gösterir.
   const [gatewayOn, setGatewayOn] = useState(null);
+  // Google Login anahtarı da kart başlığında, anında kaydeder.
+  const [googleOn, setGoogleOn] = useState(null);
 
   const load = useCallback(async () => {
     setError('');
@@ -934,6 +937,29 @@ export default function AdminModules() {
       })
       .catch(() => {});
   }, []);
+
+  useEffect(() => {
+    api.get('/admin/settings/google-auth')
+      .then(r => {
+        const e = (r.data.settings ?? []).find(s => s.key === 'enabled');
+        setGoogleOn(e ? e.value !== 'false' : true);
+      })
+      .catch(() => {});
+  }, []);
+
+  async function toggleGoogle() {
+    const next = !googleOn;
+    setBusyId('google');
+    setError('');
+    try {
+      await api.put('/admin/settings/google-auth', { enabled: next });
+      setGoogleOn(next);
+    } catch {
+      setError(t('admin.googleLogin.saveFailed'));
+    } finally {
+      setBusyId(null);
+    }
+  }
 
   async function toggleGateway() {
     const next = !gatewayOn;
@@ -1030,6 +1056,27 @@ export default function AdminModules() {
           })}
         </>
       )}
+
+      {/* Google ile giriş: çekirdek kart (lisans gerektirmez). Sağ üstteki
+          switch girişi açar/kapatır, anında kaydedilir; kimlik bilgileri
+          panelde (DB, sır şifreli) ya da sunucu .env'inde. Email Gateway
+          listenin SONunda kalır (§8), bu kart onun üstünde. */}
+      <ModuleCard
+        icon="login"
+        title={t('admin.googleLogin.title')}
+        description={t('admin.googleLogin.desc')}
+        alwaysOn
+        headerSwitch={googleOn == null ? null : (
+          <CardSwitch
+            checked={googleOn}
+            busy={busyId === 'google'}
+            onToggle={toggleGoogle}
+            ariaLabel={t('admin.googleLogin.enabled')}
+          />
+        )}
+      >
+        <GoogleLoginPanel enabled={googleOn} />
+      </ModuleCard>
 
       {/* E-posta sağlayıcısı: modüllerden bağımsız (çekirdek) tek kart —
           listenin SONunda, licence/yönet linki olmadan. Sağ üstteki switch

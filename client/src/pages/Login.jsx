@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import { useForm, Controller } from 'react-hook-form';
 import BirthDatePicker from '../components/form/BirthDatePicker.jsx';
@@ -24,6 +24,15 @@ export default function Login() {
   const [acceptedKvkk, setAcceptedKvkk] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
   const [unverifiedEmail, setUnverifiedEmail] = useState(null);
+  // Google girişi sunucuda yapılandırılmamışsa buton gösterilmez.
+  const [googleEnabled, setGoogleEnabled] = useState(false);
+  useEffect(() => {
+    let cancelled = false;
+    api.get('/auth/google/state')
+      .then(r => { if (!cancelled) setGoogleEnabled(Boolean(r.data?.enabled)); })
+      .catch(() => {});
+    return () => { cancelled = true; };
+  }, []);
   const [resendStatus, setResendStatus] = useState('idle'); // idle | sending | sent
   const [devVerifyUrl, setDevVerifyUrl] = useState(null); // sadece dev: local'de SMTP yokken mail linkini göster
   const { login, register: registerFn, loginWithWallet } = useAuthStore();
@@ -324,6 +333,7 @@ export default function Login() {
                             🦊 {walletLoading ? t('common.wait') : t('auth.connectWallet')}
                           </button>
 
+                          {googleEnabled && (
                           <a
                             href="/api/auth/google"
                             className="w-full mt-2 flex items-center justify-center gap-2 border border-white/10 rounded-lg py-3 text-sm font-medium text-text-1 hover:border-primary/40 transition"
@@ -331,6 +341,7 @@ export default function Login() {
                             <svg width="16" height="16" viewBox="0 0 48 48"><path fill="#FFC107" d="M43.6 20.5H42V20H24v8h11.3c-1.6 4.7-6.1 8-11.3 8-6.6 0-12-5.4-12-12s5.4-12 12-12c3.1 0 5.8 1.1 8 3l6-6C33.9 5.5 29.2 3.5 24 3.5 12.7 3.5 3.5 12.7 3.5 24S12.7 44.5 24 44.5 44.5 35.3 44.5 24c0-1.2-.1-2.4-.3-3.5z"/><path fill="#FF3D00" d="M6.3 14.7l6.6 4.8C14.5 15.9 18.9 13 24 13c3.1 0 5.8 1.1 8 3l6-6C33.9 5.5 29.2 3.5 24 3.5c-7.5 0-14 4.2-17.3 10.3z"/><path fill="#4CAF50" d="M24 44.5c5.1 0 9.8-1.9 13.3-5.1l-6.2-5.2C29.2 35.9 26.7 37 24 37c-5.2 0-9.6-3.3-11.3-7.9l-6.5 5C9.9 40.2 16.4 44.5 24 44.5z"/><path fill="#1976D2" d="M43.6 20.5H42V20H24v8h11.3c-.8 2.3-2.2 4.2-4.1 5.6l6.2 5.2C40.9 36 44.5 30.5 44.5 24c0-1.2-.1-2.4-.3-3.5z"/></svg>
                             {t('auth.continueWithGoogle')}
                           </a>
+                          )}
 
                           <div className="mt-3">
                             <TelegramLoginWidget />

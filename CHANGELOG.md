@@ -12,6 +12,39 @@ Madde formatı ve kategoriler için `docs/CHANGELOG_GUIDE.md`'ye bakın —
 
 ## [Yayınlanmadı]
 
+### Giriş: "Google ile devam et" 404 veriyordu (2026-10-08)
+- **Düzeltme:** Siteyi daha önce ziyaret etmiş tarayıcılarda service worker,
+  `/api/...`, `/install` ve `/uploads/...` adreslerine yapılan sayfa
+  geçişlerini uygulamaya yönlendiriyor, sunucuya hiç gitmeden 404 sayfası
+  açılıyordu. Bu yollar artık doğrudan sunucuya gider.
+- **Yeni:** Admin → Settings → Modules → **Google Login** kartı. Google ile
+  girişi açıp kapatan anahtar ile Client ID, Client Secret (şifreli saklanır,
+  `OPERATOR_SECRET_ENCRYPTION_KEY` gerekir) ve Redirect URI artık panelden
+  girilir; panel değeri `.env`'dekinden önceliklidir. Uçlar:
+  `GET/PUT /api/admin/settings/google-auth`.
+- **Değişti:** "Google ile devam et" butonu yalnız kart anahtarı açık ve
+  Client ID + Secret tanımlıysa görünür (yeni uç:
+  `GET /api/auth/google/state` → `{ enabled }`). Tanımsızken Google'a
+  `client_id=undefined` ile gidip hata sayfası gösteriyordu. Yalnız `.env`
+  ile yapılandırılmış kurulumlarda bir şey değişmez (anahtar varsayılan açık).
+- **Değişti:** `GOOGLE_REDIRECT_URI` boşsa `http://localhost:3001/...` yerine
+  `CLIENT_URL`'deki ilk adres + `/api/auth/google/callback` kullanılır.
+
+### Docker kurulumu: temiz kurulumda üç engel giderildi (2026-10-08)
+- **Düzeltme:** Docker kurulumunda uygulama MongoDB'ye bağlanamıyor, site
+  502 dönüyordu. Replica set üyesi artık `mongo:27017`. Mevcut kurulumlarda
+  mongo konteyneri yeniden oluşturulunca (`docker compose up -d`) bir kez
+  yeniden yapılandırılır, veri korunur.
+- **Düzeltme:** Kurulum sihirbazının oluşturduğu ilk yönetici, sunucu
+  yeniden başlayana kadar yatırma onayı gibi işlemlerde "Yetki yok" alıyordu.
+  `super_admin` rolü artık kurulum anında atanır.
+- **Yeni:** Admin → Kullanıcılar → kullanıcı penceresinde "E-posta
+  doğrulaması → Doğrulanmış işaretle". E-posta yapılandırılmamış kurulumlarda
+  oyuncunun giriş yapabilmesi için. Geri alınamaz.
+- **Değişti:** `.env.docker.example` İngilizce; SMTP ve casino sağlayıcısı
+  alanları sahte değer yerine boş geliyor, `OPERATOR_SECRET_ENCRYPTION_KEY`
+  "önerilen" bölümünde.
+
 ## [0.4.0] — 2026-10-08
 
 ### Sürümleme: sürüm betiği, çalışan sürüm görünür, paket bilgileri (2026-10-08)

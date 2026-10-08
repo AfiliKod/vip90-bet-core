@@ -224,8 +224,8 @@ export async function deleteUser(req, res, next) {
 
 export async function updateUser(req, res, next) {
   try {
-    const allowed = ['isActive', 'kycVerified'];
-    const update = Object.fromEntries(Object.entries(req.body).filter(([k]) => allowed.includes(k)));
+    const allowed = ['isActive', 'kycVerified', 'emailVerified'];
+    const update = Object.fromEntries(Object.entries(req.validated ?? req.body).filter(([k]) => allowed.includes(k)));
     const user = await User.findByIdAndUpdate(req.params.id, update, { new:true }).select('-password');
     if (!user) throw createError(404,'NOT_FOUND','Kullanıcı bulunamadı');
     res.json({ user });

@@ -2,7 +2,7 @@ import { Router } from 'express';
 import { requireAuth, requireAdmin } from '../middleware/auth.js';
 import { auditLog } from '../middleware/audit.js';
 import { validate } from '../middleware/validate.js';
-import { createEventSchema, settleEventSchema, createUserSchema, updateBalanceSchema, updateThemeSchema, updateBrandingSchema, updateHomeContentSchema, updateFeaturedGamesSchema, applyThemePresetSchema, updateGameSettingsSchema, simulateRtpSchema, updateCurrencySchema, updateTimezoneSchema, updateDefaultLocaleSchema, createRoleSchema, updateRoleSchema, assignRoleSchema, upsertVipLevelSchema, upsertPromotionSchema, createBotSchema, updateBotSchema, upsertStaticPageSchema, toggleStaticPageSchema, updateFakeWinnersSchema, updateUserAdminSchema, updateTaskSchema, createIgamesUserSchema, launchIgamesGameSchema, setIgamesRtpSchema, startIgamesBonusCallSchema, cancelIgamesBonusCallSchema, createFreeRoundSchema, cancelFreeRoundSchema, updateAlertSettingsSchema, updateKycSettingsSchema, approveKycSubmissionSchema, rejectKycSubmissionSchema, updateCryptoSettingsSchema, updateReferralSettingsSchema, updateSlikairSettingsSchema, updateEmailSettingsSchema, testEmailSchema } from '../validators/admin.js';
+import { createEventSchema, settleEventSchema, createUserSchema, updateBalanceSchema, updateThemeSchema, updateBrandingSchema, updateHomeContentSchema, updateFeaturedGamesSchema, applyThemePresetSchema, updateGameSettingsSchema, simulateRtpSchema, updateCurrencySchema, updateTimezoneSchema, updateDefaultLocaleSchema, createRoleSchema, updateRoleSchema, assignRoleSchema, upsertVipLevelSchema, upsertPromotionSchema, createBotSchema, updateBotSchema, upsertStaticPageSchema, toggleStaticPageSchema, updateFakeWinnersSchema, updateUserAdminSchema, updateTaskSchema, createIgamesUserSchema, launchIgamesGameSchema, setIgamesRtpSchema, startIgamesBonusCallSchema, cancelIgamesBonusCallSchema, createFreeRoundSchema, cancelFreeRoundSchema, updateAlertSettingsSchema, updateKycSettingsSchema, approveKycSubmissionSchema, rejectKycSubmissionSchema, updateCryptoSettingsSchema, updateReferralSettingsSchema, updateSlikairSettingsSchema, updateEmailSettingsSchema, updateGoogleAuthSettingsSchema, testEmailSchema } from '../validators/admin.js';
 import * as ctrl from '../controllers/admin.js';
 import modulesAdminRouter from '../controllers/modules.js';
 import reconciliationRouter from './reconciliation.js';
@@ -15,7 +15,7 @@ import { SUPPORTED_LOCALES } from '../services/locale.js';
 import { createDemoAdminBlock } from '../middleware/demoAdmin.js';
 import { requirePermission } from '../services/permissions.js';
 import User from '../models/User.js';
-import { createSlikairSettingsHandlers, createEmailSettingsHandlers } from '../controllers/integrationSettings.js';
+import { createSlikairSettingsHandlers, createEmailSettingsHandlers, createGoogleAuthSettingsHandlers } from '../controllers/integrationSettings.js';
 import { createModuleGate } from '../middleware/moduleGate.js';
 import { isModuleUsable } from '../services/licensing/index.js';
 import { emailTestLimiter } from '../middleware/rateLimit.js';
@@ -159,6 +159,12 @@ r.post('/settings/alerts/test', requirePermission('admin:settings:write'), ctrl.
 const slikairSettings = createSlikairSettingsHandlers();
 r.get('/slikair/settings', requirePermission('admin:settings:read'), slikairSettings.get);
 r.put('/slikair/settings', requirePermission('admin:settings:write'), validate(updateSlikairSettingsSchema), slikairSettings.update);
+
+// Google ile giriş (anahtar + istemci kimliği/sırrı/redirect; DB şifreli > env)
+// — Modules sayfasındaki Google Login kartı
+const googleAuthSettings = createGoogleAuthSettingsHandlers();
+r.get('/settings/google-auth', requirePermission('admin:settings:read'), googleAuthSettings.get);
+r.put('/settings/google-auth', requirePermission('admin:settings:write'), validate(updateGoogleAuthSettingsSchema), googleAuthSettings.update);
 
 // E-posta (SMTP) ayarları (şifre DB'de şifreli, boş alanlar env'den) + test e-postası
 const emailSettings = createEmailSettingsHandlers();
