@@ -5,8 +5,7 @@
  * durum çekilir ({ "<modülId>": { valid, expiresAt } } biçiminde JSON).
  *
  * Tanımlı DEĞİLSE ürün "yönetimsiz" modda çalışır: tüm tanımlı modüller
- * geçerli sayılır. Gerekçe: pazarda satılan ürün kutudan çıktığı gibi
- * çalışmalıdır; merkezi zorunluluk yalnızca operatör bir lisans sunucusuna
+ * geçerli sayılır. Gerekçe: kurulan ürün kutudan çıktığı gibi çalışmalıdır; merkezi zorunluluk yalnızca operatör bir lisans sunucusuna
  * bağlanmak isterse devreye girer. Bu karar çekirdekte değil buradadır —
  * çekirdek yalnızca kendisine verilen durum haritasını değerlendirir.
  */

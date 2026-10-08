@@ -7,17 +7,19 @@ import { createError } from './error.js';
 const _tokenVersionCache = new Map();
 const TOKEN_VERSION_CACHE_TTL = 30_000;
 
-async function getTokenVersion(userId) {
+async function getAuthState(userId) {
   const cached = _tokenVersionCache.get(userId);
   if (cached && Date.now() - cached.ts < TOKEN_VERSION_CACHE_TTL) {
-    return cached.version;
+    return cached;
   }
   // Lazy import to avoid circular dependency at module load time
   const { default: User } = await import('../models/User.js');
-  const user = await User.findById(userId).select('tokenVersion').lean();
-  const version = user?.tokenVersion ?? 0;
-  _tokenVersionCache.set(userId, { version, ts: Date.now() });
-  return version;
+  const user = await User.findById(userId).select('tokenVersion isSeed').lean();
+  // isSeed: admin demo-veri üreticisinin hesapları — kimlik doğrulaması asla
+  // geçmez (login'de de reddedilir). Önceden alınmış token'ları da keser.
+  const state = { version: user?.tokenVersion ?? 0, isSeed: user?.isSeed === true, ts: Date.now() };
+  _tokenVersionCache.set(userId, state);
+  return state;
 }
 
 /**
@@ -35,7 +37,7 @@ export async function invalidateUserTokens(userId) {
  * her /auth/refresh çağrısında tokenVersion'ı KENDİSİ artırıp DB'ye yazıyor
  * (rotasyon — refresh token reuse tespiti), ama bu cache'i hiç haberdar
  * etmiyordu. Sonuç: yeni basılan (geçerli!) access token'ın gömülü
- * tokenVersion'ı, getTokenVersion()'ın hâlâ döndürdüğü 30 saniyelik eski
+ * tokenVersion'ı, getAuthState()'in hâlâ döndürdüğü 30 saniyelik eski
  * önbellek değerinden yüksek kalıyor — her istek "tokenVersion uyuşmazlığı"
  * ile 401 alıyordu, üstelik istemcinin otomatik retry'ı her denemede YENİ
  * bir refresh (yeni bir rotasyon artışı) tetikleyip DB değerini önbellekten
@@ -66,7 +68,11 @@ export async function requireAuth(req, res, next) {
     const payload = jwt.verify(token, process.env.JWT_SECRET);
 
     // Token version check — rejects JWTs issued before last password/email/role change
-    const dbVersion = await getTokenVersion(payload.id);
+    const { version: dbVersion, isSeed } = await getAuthState(payload.id);
+    if (isSeed) {
+      console.warn(`[requireAuth] demo/seed hesabı reddedildi — ${req.method} ${req.originalUrl}, userId=${payload.id}`);
+      return next(createError(401, 'INVALID_TOKEN', 'Token geçersiz'));
+    }
     if ((payload.tokenVersion ?? 0) !== dbVersion) {
       console.warn(`[requireAuth] tokenVersion uyuşmazlığı — ${req.method} ${req.originalUrl}, userId=${payload.id}, token.tokenVersion=${payload.tokenVersion ?? 0}, db.tokenVersion=${dbVersion}, token=${tokenFingerprint(token)}`);
       return next(createError(401, 'INVALID_TOKEN', 'Token geçersiz'));

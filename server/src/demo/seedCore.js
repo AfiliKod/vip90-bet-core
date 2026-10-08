@@ -1,7 +1,7 @@
 /**
  * V1 — Demo verisi tohumlama çekirdeği.
  *
- * Kurulumu yapan operatörün satın alma sonrası ilk açtığı canlı demo ortamını
+ * Yeni kurulan bir sitenin ilk açılışta gösterebileceği canlı demo ortamını
  * kurar: sınırlı yetkili demo yöneticisi, örnek oyuncular, örnek bahis ve
  * casino round geçmişi. Tüm veri GERÇEKÇİ AMA AÇIKÇA SAHTE'dir — kullanıcı
  * adları `demo_` önekli, e-postalar `@demo.local`, lig "DEMOLIG".

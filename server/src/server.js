@@ -16,6 +16,7 @@ import { connectDB } from './db.js';
 import { initSocket } from './socket/handler.js';
 import { startMonitor } from './services/syncHealth.js';
 import { startCleanupJob } from './jobs/cleanup.js';
+import { startBonusExpiryJob } from './jobs/bonusExpiry.js';
 import { startCloseStaleGameSessionsJob } from './jobs/closeStaleGameSessions.js';
 import { startKycExpiryJob } from './jobs/kycExpiry.js';
 import Setting from './models/Setting.js';
@@ -199,6 +200,7 @@ connectDB()
     initCrashGameNamespace(io);
     initRouletteGameNamespace(io);
     startCleanupJob();
+    startBonusExpiryJob();
     startCloseStaleGameSessionsJob();
     startKycExpiryJob();
     // Demo veri canlı simülasyonu — sunucu restart sonrası önceki durumu geri yükler
@@ -210,6 +212,21 @@ connectDB()
         startDemoDataLiveJob((config.tickIntervalMinutes || 2) * 60 * 1000);
       }
     }
+    // Sistem e-postaları: eksik varsayılan (demo) şablonları ekle + zamanlanmış
+    // gönderim işini başlat — panel "Sistem E-postaları" sayfası açılışta dolu gelsin.
+    import('./services/mailTemplates.js')
+      .then((m) => m.ensureDefaultMailTemplates())
+      .then((r) => { if (r?.inserted) console.log(`[systemMail] ${r.inserted} varsayılan şablon eklendi`); })
+      .catch((err) => console.error('ensureDefaultMailTemplates error:', err.message));
+    import('./services/systemMail.js')
+      .then((m) => m.startScheduledMailJob())
+      .catch((err) => console.error('startScheduledMailJob error:', err.message));
+    // SMS zamanlanmış gönderim işi — e-posta işiyle aynı model: 15 dk'da bir
+    // `schedule.enabled` olan şablonların vadesini kontrol eder (ilk run
+    // 30 sn sonra; DB bağlanmadan sorgu atmaz).
+    import('./services/smsTemplate.js')
+      .then((m) => m.startScheduledSmsJob())
+      .catch((err) => console.error('startScheduledSmsJob error:', err.message));
     startWalletCallbackRetryWorker();
     startStatusTransition(io);
     startOddsSourceLiveSync(io);

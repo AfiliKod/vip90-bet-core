@@ -43,6 +43,11 @@ export async function runDemoDataLiveTick() {
   return results;
 }
 
+// Son tick'in promise'i: start() ilk tick'i beklemeden başlatır; testler bir
+// sonraki teste geçmeden arka plandaki tick'in bitmesini `_waitForIdle()` ile
+// bekler (aksi halde önceki testin tick'i sonraki testin verisine yazıyordu).
+let _lastRun = Promise.resolve();
+
 export function startDemoDataLiveJob(intervalMs) {
   if (_intervalHandle) clearInterval(_intervalHandle);
   async function run() {
@@ -52,8 +57,12 @@ export function startDemoDataLiveJob(intervalMs) {
       console.error('[demoDataLiveSimulation] error:', e.message);
     }
   }
-  run();
-  _intervalHandle = setInterval(run, intervalMs);
+  _lastRun = run();
+  _intervalHandle = setInterval(() => { _lastRun = run(); }, intervalMs);
+}
+
+export function _waitForIdle() {
+  return _lastRun;
 }
 
 export function stopDemoDataLiveJob() {

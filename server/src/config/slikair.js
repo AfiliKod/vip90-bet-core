@@ -12,7 +12,10 @@ export const SLIKAIR_SETTINGS = {
   webhookSecret: process.env.SLIKAIR_WEBHOOK_SECRET || '',
 
   // Uygulama URL'leri (kullanıcı yönlendirmeleri için)
-  appBaseUrl: process.env.CLIENT_URL || 'https://vip90.bet',
+  // CLIENT_URL virgülle ayrılmış çoklu origin taşıyabilir (CORS allowlist'i);
+  // webhook/redirect üretimi kanonik (ilk) origin'i kullanır — aksi halde
+  // "https://a.com,https://b.com/api/..." gibi geçersiz URL'ler gider.
+  appBaseUrl: (process.env.CLIENT_URL || 'https://vip90.bet').split(',')[0].trim(),
 
   // Desteklenen ödeme yöntemleri
   paymentMethods: [

@@ -337,6 +337,25 @@ export async function getUserPermissions(userId) {
  * izinlerine bakar, super_admin değilse fazlasını vermez. Yani burada
  * yükseltme "panel girişi" açar, "her şeyi yapabilir" değil.
  */
+/**
+ * role='admin' olup hiç Role'ü olmayan kullanıcıya sistemdeki 'admin' rolünü
+ * (roller yönetimi hariç tüm izinler) atar.
+ *
+ * userHasPermission() role==='admin'i tek başına yeterli saymaz; panelden
+ * açılan bir admin `roles: []` ile kalınca /api/admin/activity dahil tüm
+ * ayrıntılı izinlerde 403 alıyordu — ta ki sunucu yeniden başlayıp
+ * migrateOrphanedAdminRoles() ona (üstelik super_admin) atayana dek.
+ * Bilerek super_admin değil: kullanıcı açma yetkisi olan biri, rol yönetimi
+ * yetkisi olmadan süper admin üretememeli.
+ */
+export async function assignDefaultAdminRole(userId, actorId = null) {
+  const adminRole = await Role.findOne({ name: 'admin' });
+  if (!adminRole) return null;
+  const user = await User.findById(userId).select('role roles');
+  if (!user || user.role !== 'admin' || (user.roles || []).length > 0) return null;
+  return assignRoleToUser(userId, adminRole._id, actorId);
+}
+
 export async function assignRoleToUser(userId, roleId, adminId) {
   const user = await User.findById(userId);
   if (!user) throw new Error('User not found');

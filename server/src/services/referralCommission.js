@@ -1,19 +1,20 @@
 import User from '../models/User.js';
 import { getIO } from './socketEmitter.js';
-import { REFERRAL_SETTINGS } from '../config/referral.js';
+import { getReferralSettings } from './referralSettings.js';
 import { createTransaction } from './ledger.js';
 import Transaction from '../models/Transaction.js';
 
 export async function payReferralCommission(userId, houseProfit, options = {}) {
   const { session = null, sourceId = null } = options;
 
-  if (!REFERRAL_SETTINGS.enabled) return null;
+  const settings = await getReferralSettings();
+  if (!settings.enabled) return null;
   if (!houseProfit || houseProfit <= 0) return null;
 
   const bettor = await User.findById(userId).select('referredBy').session(session);
   if (!bettor?.referredBy) return null;
 
-  const commission = parseFloat((houseProfit * REFERRAL_SETTINGS.commissionRate / 100).toFixed(2));
+  const commission = parseFloat((houseProfit * settings.commissionRate / 100).toFixed(2));
   if (commission <= 0) return null;
 
   // Tekrar koruması: anahtar ödemeyi doğuran olaydan (sourceId) türetilir ve

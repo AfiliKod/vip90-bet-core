@@ -1,15 +1,20 @@
 # VIP90.bet — Satış Sitesi
 
 VIP90.bet ürününü (frontend+backend çekirdeği açık kaynak/ücretsiz, in-house
-oyunlar + canlı bahis verisi + Palace casino bağlayıcısı ayrı ücretli
-eklentiler) tanıtan bağımsız pazarlama/satış sitesi. Ana platform kod
-tabanıyla (`client/`, `server/`) ilgisi yoktur.
+oyunlar + canlı bahis verisi + casino içerik sağlayıcısı bağlayıcısı ayrı
+ücretli eklentiler) tanıtan pazarlama/satış sitesinin **taslağı**. Ana
+platform kod tabanıyla (`client/`, `server/`) ilgisi yoktur.
 
-**2026-09-10 güncellemesi:** Site, kullanıcının birden fazla tasarım
+> **Durum (2026-10-08):** Bu klasör canlı satış sitesi değildir ve hiçbir
+> yere deploy edilmez. `https://vip90.bet`'teki canlı satış sitesi ayrı bir
+> depoda tutulur. Buradaki v5 tasarımı ve `v2`–`v5` alt klasörlerindeki
+> denemeler tarihli taslaklar olarak duruyor.
+
+**2026-09-10 güncellemesi:** Kökteki site, kullanıcının birden fazla tasarım
 denemesinden (v1 React/Vite uygulaması, v2-v4 statik taslaklar) sonra
-seçtiği **v5** tasarımına indirgendi — diğerleri silindi. Artık **build
-adımı olmayan saf HTML/CSS/JS + GSAP** (cdnjs üzerinden yüklenen
-animasyon kütüphanesi). npm/Vite/React yok.
+seçtiği **v5** tasarımına indirgendi; önceki denemeler `v2`–`v5`
+klasörlerinde kalıyor. **Build adımı olmayan saf HTML/CSS/JS + GSAP**
+(cdnjs üzerinden yüklenen animasyon kütüphanesi). npm/Vite/React yok.
 
 ## Çalıştırma
 
@@ -23,16 +28,16 @@ npx serve sales-site/
 
 ## Deploy
 
-Statik 3 dosya (`index.html`, `main.js`, `style.css`) — herhangi bir statik
-host'a (Cloudflare Pages, Netlify, GitHub Pages, ya da mevcut sunucudan bir
-static klasör olarak) doğrudan yüklenebilir. Sunucu çalışma zamanı gerekmez.
+Bu taslak deploy edilmiyor (yukarıdaki durum notuna bakın). Yayınlanmak
+istenirse statik 3 dosya (`index.html`, `main.js`, `style.css`) herhangi bir
+statik host'a doğrudan yüklenebilir; sunucu çalışma zamanı gerekmez.
 
 ## Tasarım araştırması (v1'den korunmuştur, hâlâ geçerli)
 
 TALİMAT gereği koddan ÖNCE yapıldı. Kaynaklar: büyük crypto casino
 markalarının arayüz dilleri (Stake/Roobet tarayışı üzerine vaka
-çalışmaları), pazarda aynı kategorideki doğrudan rakip ürün
-sayfaları (ör. 1Stake) ve casino web tasarım trend analizleri.
+çalışmaları), aynı kategorideki doğrudan rakip ürün sayfaları (ör. 1Stake)
+ve casino web tasarım trend analizleri.
 
 ### Gözlemlenen ortak dil (kategorinin beklentisi)
 
@@ -70,6 +75,6 @@ kullanılmadı, CSS/kod kopyalanmadı. Yalnızca tasarım DİLİ öğrenildi.
 Önceki tasarım denemelerinden biri (v5'in ilk hali) uydurma bir aylık SaaS
 fiyatı ($299/ay) içeriyordu — bu KALDIRILDI. Şu an sayfa gerçek iş modelini
 yansıtıyor: **Çekirdek platform (frontend+backend) ücretsiz/açık kaynak**,
-**in-house oyunlar + canlı bahis verisi + Palace bağlayıcısı** ayrı,
+**in-house oyunlar + canlı bahis verisi + casino içerik sağlayıcısı bağlayıcısı** ayrı,
 kesin rakamı olmayan ("Get a Quote" CTA'lı) ücretli eklentiler. Hiçbir
 gerçek satış fiyatı henüz belirlenmemiştir — sayfada uydurma rakam YOK.

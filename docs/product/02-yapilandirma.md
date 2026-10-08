@@ -21,9 +21,12 @@ Description of the keys in `server/.env.example`, checked against the code that 
 |---|---|---|
 | `PORT` | No (default 3001) | Port the API server listens on |
 | `NODE_ENV` | Yes (`production`) | Development/production behavior difference (rate limit, cookie security, etc.) |
-| `CLIENT_URL` | Yes | Your own domain — used in CORS and email links. A comma-separated list is accepted for CORS |
+| `CLIENT_URL` | Yes | Your own domain — used in CORS and in links/webhook targets. A comma-separated list is accepted for CORS; the **first** entry is the canonical origin used for email links, the Slikair webhook/redirect URLs and the support-assistant `HTTP-Referer`, so put the address players use first |
 | `JWT_SECRET` / `JWT_REFRESH_SECRET` | Yes | Session token signing keys — must be changed before going to production (`openssl rand -base64 64`; `healthcheck.js` requires at least 32 characters) |
-| `EMAIL_VERIFICATION_CUTOFF` | No (not in `server/.env.example`, only in the root `.env.example`) | ISO 8601 date — users who registered before this date are exempt from email verification (grandfathering). If empty, the code default `2026-07-14T00:00:00Z` applies |
+| `E2E_TEST` | No | `true` relaxes rate limits and login throttling the same way `NODE_ENV=test` does; only for end-to-end test runs, never in production |
+| `ROUTE_404_REPORT_ONLY` | No (default: unset = enforcement on) | Set to `1` to make the SPA route 404 a **report-only** mode: unknown URLs are logged instead of answered with `404`, and everything keeps returning `200` (previous behavior). Used for the first deployment phase; see [SEO settings — Gerçek 404](../seo-settings.md). Unknown routes are only logged when the client build wrote `client/dist/routes.json` |
+| `RAILWAY_PUBLIC_DOMAIN` | No | Set automatically by Railway; when present, `https://<value>` is added to the allowed origins |
+| `EMAIL_VERIFICATION_CUTOFF` | No (not in `server/.env.example`, only in the root `.env.example`) | ISO 8601 date — users who registered before this date are exempt from email verification (grandfathering). If empty, the code default `2026-07-14T00:00:00Z` applies. Demo-data (`isSeed`) accounts can never log in regardless of this date |
 
 ### Rate limiting
 
@@ -47,6 +50,7 @@ The code lives in the paid add-on `server/src/premium/igames`; without it the va
 | `INHOUSE_PROVIDER_API_BASE` / `INHOUSE_PROVIDER_API_KEY_ID` / `INHOUSE_PROVIDER_API_SECRET` | If the add-on is installed | Output of `node src/scripts/migrations/create-operator-one.mjs`; after a key rotation from the panel the encrypted value in the database is used instead |
 | `OPERATOR_SECRET_ENCRYPTION_KEY` | Yes for any secret saved from the panel | AES-256-GCM key, 64 hex characters (`node -e "console.log(require('crypto').randomBytes(32).toString('hex'))"`) |
 | `OPERATOR_ORIGIN_CACHE_TTL_MS` / `WALLET_CALLBACK_MAX_RETRY_ATTEMPTS` / `WALLET_CALLBACK_RETRY_BASE_MS` | No | Tuning values in `server/.env.example` (defaults 30000 / 10 / 5000) |
+| `OPERATOR_ONE_WALLET_CALLBACK_URL` / `OPERATOR_ONE_ALLOWED_IPS` / `OPERATOR_ONE_API_BASE` | No | Override the defaults that `create-operator-one.mjs` writes (single-machine `localhost` callback and `127.0.0.1,::1`); needed for Docker or a remote game-host. Same as the script's `--callback-url`, `--allowed-ips`, `--api-base` flags |
 
 If the add-on is installed and one of `GAME_HOST_URL`, `GAME_HOST_SECRET`, `PROVIDER_SESSION_SECRET` is missing, the server logs `[config] Eksik ortam değişkeni: ...` at start and the games may fail at runtime.
 
@@ -83,7 +87,26 @@ This trio powers a real document-based chatbot that reads and parses `docs/produ
 
 | Variable | Required | What it does |
 |---|---|---|
-| `SMTP_HOST` / `SMTP_PORT` (default 587) / `SMTP_SECURE` (default false) / `SMTP_USER` / `SMTP_PASS` / `SMTP_FROM` | Yes (here or in the panel) | For email verification and password reset emails. Can be entered from **Settings → General → Email (SMTP)** (password stored encrypted, empty panel fields fall back to these variables; the card has a test-mail button) |
+| `SMTP_HOST` / `SMTP_PORT` (default 587) / `SMTP_SECURE` (default false) / `SMTP_USER` / `SMTP_PASS` / `SMTP_FROM` (default `noreply@vip90.bet`) | Yes (here or in the panel) | Outgoing mail server for verification, password reset and the system emails. Can be entered from **Settings → Modules → Email Gateway** (password stored encrypted, empty panel fields fall back to these variables; the card has a test-mail button) |
+| `SMTP_FROM_NAME` | No | Display name in the `From` header; empty means the site name |
+| `SMTP_PROVIDER` | No | `mailgun`, `ses`, `postmark` or `custom` — only labels which service is used and pre-fills the panel form; it does not change the transport |
+| `SMTP_GATEWAY_ENABLED` | No (default `true`) | The Email Gateway switch. `true`: the transport uses the panel values (panel wins, empty fields fall back to `.env`). `false`: the transport uses **only** the `.env` values and ignores the panel. The switch in the card header writes the same setting, which wins over this variable |
+| `MAIL_SEND_BATCH_LIMIT` | No (default 500, max 5000) | Maximum recipients of one bulk system-email send |
+| `MAIL_SYSTEM_DISABLED` | No | `true` stops every system email (event-triggered and bulk); for tests or maintenance |
+
+Email templates, sender identities, the delivery log and test sends are on the **Communication** page (`/admin/communications?channel=email`); see [`docs/mail-templates.md`](../mail-templates.md).
+
+### SMS (SMS Gateway module)
+
+| Variable | Required | What it does |
+|---|---|---|
+| `SMS_PROVIDER` | No | Only `twilio` is supported |
+| `TWILIO_ACCOUNT_SID` / `TWILIO_AUTH_TOKEN` | If SMS will be used | Twilio credentials |
+| `TWILIO_FROM_NUMBER` / `TWILIO_MESSAGING_SERVICE_SID` | One of them, if SMS will be used | Sender: an E.164 number or a Messaging Service SID |
+| `TWILIO_DEFAULT_COUNTRY_CODE` | No | Country code applied to numbers written without `+`/`00`; without it such numbers are rejected rather than guessed |
+| `SMS_ACCOUNT_TYPE` / `SMS_TRIAL_SIGNUP_COUNTRY` | No | `unknown`, `trial` or `paid`, and the trial account's sign-up country. The real account type is read from the Twilio API; these are fallbacks |
+
+All of them can be entered from **Settings → Modules → SMS Gateway** (Auth Token stored encrypted, requires `OPERATOR_SECRET_ENCRYPTION_KEY`; panel wins over `.env`). The module must also be switched on. Templates, campaigns, automations and the delivery log are on the **Communication** page (`/admin/communications?channel=sms`); see [`docs/sms-gateway/README.md`](../sms-gateway/README.md).
 
 ### Monitoring / alerts
 
@@ -133,11 +156,11 @@ The odds feed's data source settings are read by the **odds-provider app from it
 
 ## Panel-managed settings
 
-These settings are **not** in `.env` but stored in the database (`Setting` collection, `key`/`value` pairs) and can be changed instantly from the admin panel — no server restart needed (most values propagate with a 30-second cache delay, instantly when `invalidate*()` functions are called). Where each lives in the menu (as of 2026-10-02):
+These settings are **not** in `.env` but stored in the database (`Setting` collection, `key`/`value` pairs) and can be changed instantly from the admin panel — no server restart needed (most values propagate with a 30-second cache delay, instantly when `invalidate*()` functions are called). Where each lives in the menu (as of 2026-10-08):
 
 - **Settings** (`/admin/platform`, tabs **General · Modules · Currencies · Jurisdictions · Brands · SEO**)
-  - *General*: **Region & Currency** (display currency, operator timezone, default visitor language), **Email (SMTP)**, **Panel Language**, **Alert Channels** (Telegram bot token/chat id, webhook URL, alert email — `GET/PUT /admin/settings/alerts`).
-  - *Modules*: on/off switch, licence badge and **connection settings** of every module (see below).
+  - *General*: **Region & Currency** (display currency, operator timezone, default visitor language), **Panel Language**, **Alert Channels** (Telegram bot token/chat id, webhook URL, alert email — `GET/PUT /admin/settings/alerts`).
+  - *Modules*: on/off switch and **connection settings** of every module (see below), plus the always-on **Email Gateway** card at the end of the list (SMTP/Mailgun settings and the gateway switch in its header).
   - *Currencies*, *Jurisdictions*, *Brands*: managers for the multi-currency, multi-jurisdiction and multi-brand subsystems (see [09](09-bilinen-kisitlar.md) for the brand isolation limit).
   - *SEO*: titles, meta tags, canonical, verification codes, GA4/GTM/Pixel ids; also serves `/robots.txt` and `/sitemap.xml`. Details: [`docs/seo-settings.md`](../seo-settings.md).
 - **Personalization** (`/admin/personalization`, tabs Theme · Branding · Homepage Slider · Static Pages)
@@ -149,7 +172,8 @@ These settings are **not** in `.env` but stored in the database (`Setting` colle
   - **In-house Games** (`/admin/game-settings`) — per-game house edge/payout factor, min/max bet, timing, active switch, and the *allowed games* list. Each change is logged to the `changeLog` field with who/when/old-new value. Source: `server/src/models/GameSettings.js`, `server/src/services/gameSettings.js`. The 13 games themselves come with the In-house Games add-on.
   - **Sportsbook** (`/admin/events`; tabs Active · Archived · **Categories**) — events, settlement, and which sport categories are enabled.
 - **Wallet** (`/admin/wallet`, top-level menu entry; tabs Bank · Crypto · Slikair) — approvals and payment records.
-- **Module status** (`module.<id>.enabled` keys) — enable/disable from **Settings → Modules** (`client/src/pages/admin/Modules.jsx`); `PATCH /admin/modules/:id` applies instantly. A disabled module's pages are gracefully hidden from visitors with the `ModuleGate` component, the core platform is unaffected. A module must also be licensed — if `LICENSE_SERVER_URL`/`LICENSE_KEY` is not defined, all are automatically considered licensed. Module list (`server/src/modules/registry.js`): `betting`, `casino-content`, `inhouse-games`, `crypto-payment`, `kyc-verification`, `slikair-payment`. See [03 — Module System](03-modul-sistemi.md).
+- **Communication** (`/admin/communications`, menu group *Engagement*) — email and SMS templates, campaigns, automations, segments, delivery logs and test sends. The old `/admin/mail-templates` and `/admin/sms-templates` routes redirect here. Provider credentials are not on this page; they are in **Settings → Modules** (Email Gateway, SMS Gateway).
+- **Module status** (`module.<id>.enabled` keys) — enable/disable from **Settings → Modules** (`client/src/pages/admin/Modules.jsx`); `PATCH /admin/modules/:id` applies instantly. A disabled module's pages are gracefully hidden from visitors with the `ModuleGate` component, the core platform is unaffected. A module must also be licensed — if `LICENSE_SERVER_URL`/`LICENSE_KEY` is not defined, all are automatically considered licensed. Module list (`server/src/modules/registry.js`): `betting`, `casino-content`, `inhouse-games`, `crypto-payment`, `slikair-payment`, `kyc-verification`, `sms-gateway`. See [03 — Module System](03-modul-sistemi.md).
 - **VIP levels** — level threshold (XP), cashback percentage, one-time reward, color/icon (`/admin/vip`, `/admin/vip-levels` endpoints). Source: `server/src/models/VipLevel.js`.
 - **Fake winners pool** ("Last Winners" simulation) — pool size range, win amount range, trigger frequency range, whether casino wins are included, configurable via `/admin/fake-winners` endpoints. This contains **no real users, bets, or balance changes** — it only publishes the same `winners:new` socket event as real winners. Casino wins are only shown when the relevant module (`casino-content`) is enabled. Source: `server/src/services/fakeWinners.js`. The settings live on the **Bots** page (menu group *Demo & Simulation*).
 
@@ -161,9 +185,9 @@ There is a **single active display currency** across the site (not a per-user mu
 
 ## Multi-language support (i18n)
 
-Eight dictionary files under `client/src/i18n/dictionaries/`: `tr` (default language, `DEFAULT_LOCALE = 'tr'`, also the fallback — a key not in `tr` can't be found in any language), `en`, `ko`, `th`, `es`, `ja`, `pt`, `de`. Each has the same 3000 keys. To add a new language: add a file under `dictionaries/` + register in the `dictionaries` object in `client/src/i18n/index.js`.
+Eight dictionary files under `client/src/i18n/dictionaries/`: `tr` (default language, `DEFAULT_LOCALE = 'tr'`, also the fallback — a key not in `tr` can't be found in any language), `en`, `ko`, `th`, `es`, `ja`, `pt`, `de`. Each has the same ~2,790 keys (as of 2026-10-08; only the SMS and Communication keys have a dedicated parity test). To add a new language: add a file under `dictionaries/` + register in the `dictionaries` object in `client/src/i18n/index.js`.
 
-The language switcher (`LanguageSwitcher`) is in the global navigation bar, so it is accessible from everywhere on the site; the default language for new visitors is set in **Settings → General → Region & Currency**. `tr` and `en` are complete. The other six languages are translated except for **3 blocks per file that are still English text** (marked `// TODO: bu bloğu … çevir`: admin dashboard payment/KPI cards, casino statistics labels, the In-house Games module card) — they show English text in those places. Pages that do not use the dictionary: the static company/legal pages (`pages/company/*`, `pages/legal/*`), whose content comes from the static-page editor.
+The language switcher (`LanguageSwitcher`) is in the global navigation bar, so it is accessible from everywhere on the site; the default language for new visitors is set in **Settings → General → Region & Currency**. `tr` and `en` are complete. In the other six languages the player-facing screens are translated; in the admin panel roughly 470–560 strings per language (largest groups: Reconciliation, Demo Data, KYC review, Agents) are still English (as of 2026-10-08). Pages that do not use the dictionary: the static company/legal pages (`pages/company/*`, `pages/legal/*`), whose content comes from the static-page editor.
 
 ## Casino provider
 

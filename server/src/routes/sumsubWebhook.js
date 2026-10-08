@@ -3,7 +3,7 @@ import crypto from 'crypto';
 import User from '../models/User.js';
 import { kycConfig } from '../config/kyc.js';
 import { getIO } from '../services/socketEmitter.js';
-import { sendEmail } from '../services/email.js';
+import { sendActionMail } from '../services/systemMail.js';
 import { errorLogger } from '../services/errorLogger.js';
 
 const router = Router();
@@ -65,15 +65,18 @@ router.post('/webhook/sumsub', expressRawBody(), async (req, res) => {
         user.kycRejectionReason = '';
         await user.save();
 
-        await sendEmail({
-          to: user.email,
-          subject: 'KYC Onaylandi',
-          html: `
+        await sendActionMail('kyc.approved', {
+          user,
+          vars: { note: '' },
+          fallback: async () => ({
+            subject: 'KYC Onaylandi',
+            html: `
             <h2>KYC Basvurunuz Onaylandi</h2>
             <p>Sayin ${user.username},</p>
             <p>Kimlik dogrulama isleminiz basariyla tamamlandi. Artik tum ozellikleri sinirsiz kullanabilirsiniz.</p>
             <p>Iyi eglenceler,<br>VIP90.bet Ekibi</p>
           `,
+          }),
         });
 
         const io = getIO();
@@ -85,10 +88,12 @@ router.post('/webhook/sumsub', expressRawBody(), async (req, res) => {
         user.kycRejectionReason = reviewResult?.moderComment || 'Sumsub tarafindan reddedildi';
         await user.save();
 
-        await sendEmail({
-          to: user.email,
-          subject: 'KYC Reddedildi',
-          html: `
+        await sendActionMail('kyc.rejected', {
+          user,
+          vars: { note: user.kycRejectionReason || '' },
+          fallback: async () => ({
+            subject: 'KYC Reddedildi',
+            html: `
             <h2>KYC Basvurunuz Reddedildi</h2>
             <p>Sayin ${user.username},</p>
             <p>Kimlik dogrulama isleminiz basarisiz oldu.</p>
@@ -96,6 +101,7 @@ router.post('/webhook/sumsub', expressRawBody(), async (req, res) => {
             <p>Lutfen dogru belgeleri yeniden yukleyin.</p>
             <p>Iyi eglenceler,<br>VIP90.bet Ekibi</p>
           `,
+          }),
         });
 
         const io = getIO();

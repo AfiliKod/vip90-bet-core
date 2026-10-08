@@ -21,6 +21,7 @@ import {
   createSmsTemplateSchema,
   updateSmsTemplateSchema,
   sendSmsSchema,
+  testSendSmsSchema,
   updateSmsSettingsSchema,
   createSmsSenderSchema,
   updateSmsSenderSchema,
@@ -35,6 +36,7 @@ const write = [requireAuth, requireAdmin, requirePermission('admin:settings:writ
 r.get('/settings', ...read, handlers.settingsStatus);
 r.patch('/settings', ...write, validate(updateSmsSettingsSchema), handlers.settingsUpdate);
 r.post('/settings/test', ...write, handlers.settingsTest);
+r.post('/test-send', ...write, validate(testSendSmsSchema), handlers.testSend);
 
 // ── Gönderici kaydı (numara + ülke/mevzuat onayı) ──
 // `/senders/gate` LITERAL yol olduğu için `/senders/:id`'den önce bildirilir.

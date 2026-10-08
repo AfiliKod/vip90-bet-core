@@ -7,6 +7,7 @@
  * MAX_RECIPIENTS) için kasıtlı bir sadelik tercihi. Her mesaj SmsLog'a yazılır,
  * yani "kim ne aldı" sorusu gönderimden sonra da cevaplanabilir.
  */
+import mongoose from 'mongoose';
 import escapeStringRegexp from 'escape-string-regexp';
 import SmsTemplate, { SMS_TEMPLATE_TYPES, SMS_TEMPLATE_CATEGORIES } from '../models/SmsTemplate.js';
 import SmsLog from '../models/SmsLog.js';
@@ -100,6 +101,38 @@ function assertTypeAndEvent(type, eventKey) {
   }
 }
 
+/**
+ * Otomatik gönderim kitle + vade denetimi — validator'daki
+ * `refineAudienceAndSchedule` ile aynı kurallar; update'te `type` opsiyonel
+ * olabildiği için asıl garanti burası (validator tam nesne bilmeden geçemez,
+ * servis güncel kayıtla birlikte değerlendirir).
+ */
+function assertAudienceAndSchedule(type, audience = {}, schedule = {}) {
+  if (type !== 'scheduled') return;
+  if (schedule.enabled && audience.type === 'users') {
+    throw new SmsError('Otomatik gönderim yalnız tüm kullanıcılar veya segment ile yapılabilir.', 'SMS_AUTO_AUDIENCE_INVALID');
+  }
+  if (audience.type === 'segment' && !audience.segmentId) {
+    throw new SmsError('Segment seçilmedi', 'SMS_SEGMENT_REQUIRED');
+  }
+  if (audience.type === 'users' && !(Array.isArray(audience.userIds) && audience.userIds.length)) {
+    throw new SmsError('En az bir kullanıcı seçilmeli', 'SMS_USERS_REQUIRED');
+  }
+  if (schedule.enabled && schedule.intervalHours != null) {
+    const hours = Number(schedule.intervalHours);
+    if (!Number.isFinite(hours) || hours < 1 || hours > 24 * 365) {
+      throw new SmsError('Aralık 1 saat ile 365 gün arasında olmalı', 'SMS_SCHEDULE_INTERVAL_INVALID');
+    }
+  }
+}
+
+/** Aksiyon şablonuna zamanlanmış gönderim bağlanamaz (create/update ortak). */
+function assertNoScheduleOnAction(type, schedule) {
+  if (type === 'action' && schedule?.enabled) {
+    throw new SmsError('Aksiyon şablonlarına zamanlanmış gönderim bağlanamaz.', 'SMS_SCHEDULE_ON_ACTION');
+  }
+}
+
 // ─── CRUD ─────────────────────────────────────────────────────────────────
 
 export async function listTemplates({ type = null, isActive = null, search = '' } = {}) {
@@ -134,6 +167,8 @@ export async function listTemplates({ type = null, isActive = null, search = '' 
 
 export async function createTemplate(data, adminId = null) {
   assertTypeAndEvent(data.type, data.eventKey);
+  assertNoScheduleOnAction(data.type, data.schedule);
+  assertAudienceAndSchedule(data.type, data.audience || {}, data.schedule || {});
   const existing = await SmsTemplate.find({}).select('key').lean();
   const key = data.key || templateKeyFromTitle(data.title, existing.map(e => e.key));
 
@@ -146,6 +181,16 @@ export async function createTemplate(data, adminId = null) {
     content: data.content,
     isActive: data.isActive,
     variables: extractPlaceholders(data.content),
+    // Kitle + vade yalnız zamanlanmış şablonlarda anlamlı; aksiyon
+    // şablonlarına asla yazılmaz (gönderimi domain akışı yapar). Eksik
+    // parçalar TAM olarak doldurulur — job eski/eksik kayıtlarda
+    // `schedule` altında hiç `enabled` bulamazsa sessizce pasif kalır.
+    ...(data.type === 'scheduled'
+      ? {
+        audience: { type: 'all', segmentId: null, userIds: [], ...(data.audience || {}) },
+        schedule: { enabled: false, intervalHours: 168, lastSentAt: null, nextSentAt: null, ...(data.schedule || {}) },
+      }
+      : {}),
     createdBy: adminId,
     updatedBy: adminId,
   });
@@ -156,10 +201,29 @@ export async function updateTemplate(id, data, adminId = null) {
   const current = await SmsTemplate.findById(id);
   if (!current) throw new SmsError('Şablon bulunamadı', 'NOT_FOUND', 404);
 
-  // Tip değişiyorsa olay geçerliliği YENİDEN denetlenir; aksi hâlde geçersiz
-  // bir action/scheduled eşleşmesi yazılabilirdi.
+  // Denetimler payload'un İLGİLİ alanlarına dokunduğu zaman çalışır:
+  //  - type/eventKey payload'daysa (form kaydı her yollar) olay eşleşmesi
+  //    yeniden denetlenir — geçersiz bir action/scheduled eşleşmesi yazılamaz.
+  //  - audience/schedule payload'daysa kitle/vade kuralları uygulanır
+  //    (validator tam nesne bilmeden geçemez, servis güncel kayıtla birleşir).
+  //  - Yalnız `isActive` (aç/kapa) gönderilen istek bu denetimlerin HİÇBİRİNİ
+  //    beklemez: kaydın bozuk/bayat kitle veya olay verisi şablonu açıp
+  //    kapamayı engellemez. Kitle bozuksa zaten gönderim anında
+  //    `resolveRecipients` ayrı bir kapı olarak reddeder.
+  // Aksiyon + zamanlanmış bağlama denetimi de yalnız payload'ın schedule
+  // dokunmasıyla; eski tip taşınan bayat `schedule.enabled` kayıtları
+  // şablonun diğer alanlarını düzenlemeyi engellemez (job zaten
+  // `type: 'scheduled'` filtresiyle bayat değeri asla göndermez).
   const nextType = data.type ?? current.type;
-  assertTypeAndEvent(nextType, data.eventKey !== undefined ? data.eventKey : current.eventKey);
+  if (data.type !== undefined || data.eventKey !== undefined) {
+    assertTypeAndEvent(nextType, data.eventKey !== undefined ? data.eventKey : current.eventKey);
+  }
+  if (data.audience !== undefined || data.schedule !== undefined) {
+    const nextAudience = data.audience !== undefined ? data.audience : (current.audience?.toObject() || {});
+    const nextSchedule = data.schedule !== undefined ? data.schedule : (current.schedule?.toObject() || {});
+    assertNoScheduleOnAction(nextType, data.schedule);
+    assertAudienceAndSchedule(nextType, nextAudience, nextSchedule);
+  }
 
   const patch = { updatedBy: adminId };
   if (data.title !== undefined) patch.title = data.title;
@@ -175,6 +239,25 @@ export async function updateTemplate(id, data, adminId = null) {
   if (data.content !== undefined) {
     patch.content = data.content;
     patch.variables = extractPlaceholders(data.content);
+  }
+  // Otomatik gönderim kitle + vadesi (yalnız zamanlanmış tip). Mevcut değer
+  // üzerinde birleşir: form yalnızca değişen parçayı gönderse bile kayıttaki
+  // `lastSentAt`/`nextSentAt` gibi vade durumu SİLİNMEZ.
+  if (nextType === 'scheduled') {
+    if (data.audience !== undefined) {
+      patch.audience = {
+        type: 'all', segmentId: null, userIds: [],
+        ...(current.audience?.toObject() || {}),
+        ...data.audience,
+      };
+    }
+    if (data.schedule !== undefined) {
+      patch.schedule = {
+        enabled: false, intervalHours: 168, lastSentAt: null, nextSentAt: null,
+        ...(current.schedule?.toObject() || {}),
+        ...data.schedule,
+      };
+    }
   }
 
   return SmsTemplate.findByIdAndUpdate(id, patch, { new: true, runValidators: true }).lean();
@@ -214,7 +297,7 @@ export async function resolveRecipients({ audienceType, segmentId, userIds }) {
     if (!segmentId) throw new SmsError('Segment seçilmedi', 'SMS_SEGMENT_REQUIRED');
     const segment = await PlayerSegment.findById(segmentId).lean();
     if (!segment) throw new SmsError('Segment bulunamadı', 'NOT_FOUND', 404);
-    const segmentQuery = buildSegmentQuery(segment.criteria || {});
+    const segmentQuery = await buildSegmentQuery(segment.criteria || {});
     // Kriteri OLMAYAN (veya tamamı null olan) bir segment boş sorguya çevrilir
     // ve "herkes" anlamına gelir. Toplu SMS'te bu kaza sonucu tüm oyuncuya
     // mesaj göndermek olurdu — bu yüzden bilinçli olarak reddedilir: operatör
@@ -294,7 +377,7 @@ export async function sendTemplate({
 
   const cfg = config || await getSmsConfig();
   if (!cfg.configured) {
-    throw new SmsError('SMS Gateway kimlik bilgileri eksik. Modüller → SMS Gateway ayarını tamamlayın.', 'SMS_NOT_CONFIGURED');
+    throw new SmsError('SMS Gateway yapılandırması eksik (Account SID / Auth Token / gönderici). Modüller → SMS Gateway ayarını tamamlayın.', 'SMS_NOT_CONFIGURED');
   }
 
   const enabled = await moduleStore.isEnabled('sms-gateway');
@@ -409,11 +492,135 @@ export async function sendTemplate({
 }
 
 /**
+ * Tek seferlik test mesajı (İletişim → SMS → Test / send).
+ *
+ * Şablon DEĞİL serbest metin gider; aynı kapılar (gateway yapılandırması +
+ * modül açık) geçilir ve sonuç `SmsLog`'a düşer — Gönderim Günlüğü'nde
+ * görünür, denetlenebilir ve "gönderim gerçekten çalışıyor mu" sorusunun
+ * cevabı olur.
+ */
+export async function sendTestSms({ to, message, adminId = null, config = null, sendImpl = null }) {
+  const cfg = config || await getSmsConfig();
+  if (!cfg.configured) {
+    throw new SmsError('SMS Gateway yapılandırması eksik (Account SID / Auth Token / gönderici). Modüller → SMS Gateway ayarını tamamlayın.', 'SMS_NOT_CONFIGURED');
+  }
+  if (!(await moduleStore.isEnabled('sms-gateway'))) {
+    throw new SmsError('SMS Gateway modülü kapalı. Modüller sayfasından açın.', 'SMS_MODULE_DISABLED');
+  }
+  const sender = sendImpl || createSender(cfg.provider);
+  const res = await sender({
+    to,
+    body: message,
+    from: cfg.fromNumber,
+    messagingServiceSid: cfg.messagingServiceSid,
+    accountSid: cfg.accountSid,
+    authToken: cfg.authToken,
+    defaultCountryCode: cfg.defaultCountryCode,
+  });
+  await SmsLog.create({
+    templateId: null,
+    templateKey: null,
+    userId: null,
+    username: null,
+    phone: to,
+    body: message,
+    status: res?.ok ? 'sent' : 'failed',
+    provider: cfg.provider || 'twilio',
+    providerSid: res?.sid ?? null,
+    error: res?.ok ? '' : (res?.error || res?.code || 'Bilinmeyen hata'),
+    audienceType: null,
+    triggeredBy: adminId,
+  });
+  return res;
+}
+
+// ─── Zamanlanmış gönderim işi ─────────────────────────────────────────────
+
+/**
+ * Vadesi gelen zamanlanmış şablonları `audience` kitleye gönderir
+ * (e-postadaki `runDueScheduledMails` ile aynı model).
+ *
+ * `schedule.nextSentAt` hiç hesaplanmamışsa HEMEN göndermez, yalnızca vadeyi
+ * kurar — sunucu açılışında toplu SMS patlamasını önler. İlk gerçek gönderim
+ * paneldeki "Şimdi gönder" ile yapılır veya vade bir sonraki iş döngüsünde
+ * dolar.
+ *
+ * Gönderim/gateway hatasında vade İLERLETİLMEZ → bir sonraki 15 dk döngüsünde
+ * yeniden denenir.
+ *
+ * @param deps.config / deps.sendImpl  test enjeksiyonu (bkz. sendTemplate)
+ * @returns {Promise<number>} gönderilen şablon sayısı
+ */
+export async function runDueScheduledSms(now = new Date(), deps = {}) {
+  if (mongoose.connection?.readyState !== 1) return 0;
+
+  const due = await SmsTemplate.find({
+    type: 'scheduled',
+    isActive: true,
+    'schedule.enabled': true,
+    $or: [
+      { 'schedule.nextSentAt': null },
+      { 'schedule.nextSentAt': { $lte: now } },
+    ],
+  });
+
+  let sent = 0;
+  for (const tpl of due) {
+    const intervalHours = Math.max(1, Number(tpl.schedule?.intervalHours) || 168);
+    const alreadyDue = tpl.schedule?.nextSentAt instanceof Date && tpl.schedule.nextSentAt <= now;
+    try {
+      if (alreadyDue) {
+        const aud = tpl.audience || {};
+        await sendTemplate({
+          templateId: tpl._id,
+          audienceType: aud.type || 'all',
+          segmentId: aud.segmentId || null,
+          userIds: aud.userIds || [],
+          variables: {},
+          ...(deps.config ? { config: deps.config } : {}),
+          ...(deps.sendImpl ? { sendImpl: deps.sendImpl } : {}),
+        });
+        sent += 1;
+      }
+      tpl.schedule.lastSentAt = alreadyDue ? now : tpl.schedule.lastSentAt;
+      tpl.schedule.nextSentAt = new Date(now.getTime() + intervalHours * 60 * 60 * 1000);
+      await tpl.save();
+    } catch (e) {
+      console.error(`[sms] zamanlanmış gönderim hatası (${tpl.key}):`, e.message);
+    }
+  }
+  return sent;
+}
+
+const _timers = new Set();
+
+/** 15 dakikada bir vadesi gelen zamanlanmış şablonları gönderir. */
+export function startScheduledSmsJob(intervalMs = 15 * 60 * 1000) {
+  if (_timers.size > 0) return;
+  const run = () => {
+    runDueScheduledSms().catch((e) => console.error('[smsTemplate] job hatası:', e.message));
+  };
+  // İlk çalıştırmayı boot'tan sonraya bırak — DB bağlanmadan sorgu atmasın.
+  const bootDelay = setTimeout(run, 30 * 1000);
+  const interval = setInterval(run, intervalMs);
+  for (const timer of [bootDelay, interval]) {
+    if (typeof timer.unref === 'function') timer.unref();
+    _timers.add(timer);
+  }
+}
+
+/**
  * Domain kodunun çağırdığı giriş noktası: `dispatchSmsEvent('betWon', user, {...})`.
  * Bulunan aktif aksiyon şablonlarını render edip gönderir. HİÇBİR ZAMAN throw
  * etmez — SMS hatası domain akışını (bahis sonucu, çekim onayı) bozmamalı.
+ *
+ * Alıcı: `user` dokümanı VARSA o kullanılır; yalnız `deps.userId` verilmişse
+ * kimlikten yüklenir (Bet/CasinoSession post-save gibi yalnızca id'nin
+ * tutulduğu yerler). `{{username}}`, `{{balance}}` ve `{{currency}}` olay
+ * değişkeni olarak verilmese de doldurulur (e-postadaki `commonVars` ile
+ * aynı davranış).
  */
-export async function dispatchSmsEvent(eventKey, user, variables = {}, deps = {}) {
+export async function dispatchSmsEvent(eventKey, user = null, variables = {}, deps = {}) {
   try {
     const template = await SmsTemplate.findOne({ type: 'action', eventKey, isActive: true }).lean();
     if (!template) return { sent: 0, skipped: 'NO_TEMPLATE' };
@@ -422,10 +629,28 @@ export async function dispatchSmsEvent(eventKey, user, variables = {}, deps = {}
     if (!cfg.configured) return { sent: 0, skipped: 'NOT_CONFIGURED' };
     if (!(await moduleStore.isEnabled('sms-gateway'))) return { sent: 0, skipped: 'MODULE_DISABLED' };
 
-    const phone = normalizePhone(user?.phone, cfg.defaultCountryCode);
+    let target = user;
+    if (!target && deps.userId) {
+      target = await User.findById(deps.userId).select('username phone balance').lean();
+      if (!target) return { sent: 0, skipped: 'NO_USER' };
+    }
+
+    const phone = normalizePhone(target?.phone, cfg.defaultCountryCode);
     if (!phone) return { sent: 0, skipped: 'NO_PHONE' };
 
-    const { text } = renderTemplate(template.content, { username: user?.username, ...variables });
+    const vars = {
+      username: target?.username ?? '',
+      balance: target?.balance ?? '',
+      currency: '',
+      ...variables,
+    };
+    if (!vars.currency) {
+      try {
+        const { getActiveCurrency } = await import('../currency/index.js');
+        vars.currency = (await getActiveCurrency())?.code || '';
+      } catch { /* para birimi okunamadıysa boş kalır */ }
+    }
+    const { text } = renderTemplate(template.content, vars);
     const sender = deps.sendImpl || createSender(cfg.provider);
     const res = await sender({
       to: phone,
@@ -440,8 +665,8 @@ export async function dispatchSmsEvent(eventKey, user, variables = {}, deps = {}
     await SmsLog.create({
       templateId: template._id,
       templateKey: template.key,
-      userId: user?._id ?? null,
-      username: user?.username ?? null,
+      userId: target?._id ?? null,
+      username: target?.username ?? null,
       phone,
       body: text,
       status: res?.ok ? 'sent' : 'failed',

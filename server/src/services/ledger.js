@@ -85,6 +85,41 @@ export async function createTransaction(data, options = {}) {
     } catch (e) {
       console.error('ledger activity log failed:', e);
     }
+
+    // Yatırım/çekim bildirimi — bakiye hareketi TAMAMLANDIĞINDA tetiklenir.
+    // Fire-and-forget: ledger çağrısını e-posta bekletmez; şablon pasif/yoksa
+    // sendActionMail ilk sorguda atlar.
+    if (status === 'completed' && !metadata?.isSeed) {
+      import('./systemMail.js')
+        .then(({ sendActionMail }) => sendActionMail(
+          type === 'deposit' ? 'wallet.depositCompleted' : 'wallet.withdrawalCompleted',
+          {
+            userId,
+            vars: {
+              amount: Math.abs(amount).toFixed(2),
+              balance: balanceAfter,
+              method: metadata?.method || source,
+              reference: referenceId || metadata?.reference || String(transaction[0]._id),
+              completedAt: (transaction[0].createdAt || new Date()).toISOString(),
+            },
+          },
+        ))
+        .catch(() => {});
+      // SMS — e-posta ile aynı kapılar, aynı an (fire-and-forget). Alıcı
+      // `userId` ile çözülür; `{{currency}}` dispatch içinde otomatik dolar.
+      import('./smsTemplate.js')
+        .then(({ dispatchSmsEvent }) => dispatchSmsEvent(
+          type === 'deposit' ? 'depositCompleted' : 'withdrawalCompleted',
+          null,
+          {
+            amount: Math.abs(amount).toFixed(2),
+            balance: balanceAfter,
+            method: metadata?.method || source,
+          },
+          { userId },
+        ))
+        .catch(() => {});
+    }
   }
 
   return { transaction: transaction[0], idempotent: false };

@@ -1,9 +1,10 @@
-import { useCallback, useEffect, useState } from 'react';
-import { Link } from 'react-router-dom';
+import { useEffect, useState } from 'react';
 import api from '../../services/api';
 import { useTranslation } from '../../i18n';
 import { useToastStore } from '../../store/toastStore';
 import { toKeySegment } from '../../utils/smsSenderLogic.js';
+import { smsGatewayErrorText, deriveSmsMissing } from '../../pages/admin/smsTemplateLogic.js';
+import AdminSmsSenders from '../../pages/admin/SmsSenders.jsx';
 
 /**
  * SMS Gateway sağlayıcı kartı gövdesi — `Modules.jsx` içindeki
@@ -11,9 +12,12 @@ import { toKeySegment } from '../../utils/smsSenderLogic.js';
  *
  * Neden ayrı dosya: `Modules.jsx` zaten altı sağlayıcı gövdesi taşıyor;
  * yeni bir gövde eklemek yerine modül başına bir dosya (`components/admin/`
- * deseni) tutmak sayfayı okunur bırakıyor. Şablonlara giden "Yönet" linki
- * kart başlığındaki standart `manageTo` alanıyla verilir, burada tekrar
- * yapılmaz.
+ * deseni) tutmak sayfayı okunur bırakıyor. Şablonlara erişim Communication
+ * hub'ından (2026-10-06 IA: kartlardaki "Yönet →" linkleri kaldırıldı).
+ *
+ * 2026-10-06: `section` mekanizması (provider/sender sekmeleri) kaldırıldı —
+ * İletişim → SMS alt sekmeleri Modules kartıyla birleşti, gövde artık HER ZAMAN
+ * tüm alanları (kimlik + gönderici) gösterir ve kaydeder.
  *
  * Kimlik bilgileri sunucuda AES-256-GCM ile şifrelenerek saklanır; bu yüzden
  * panel geriye DOĞRU değer göstermez, yalnızca "var/yok" + "db/env" rozeti ve
@@ -31,7 +35,7 @@ const SOURCE_CLS = {
   unset: 'bg-white/5 text-text-3 border-white/10',
 };
 
-function Field({ label, badgeValue, placeholder, value, onChange, type = 'text', mono = true, activeValue = null }) {
+function Field({ label, badgeValue, placeholder, value, onChange, type = 'text', mono = true, activeValue = null, hint = null }) {
   const { t } = useTranslation();
   return (
     <div>
@@ -58,6 +62,9 @@ function Field({ label, badgeValue, placeholder, value, onChange, type = 'text',
           {t('admin.smsGateway.currentEnvValue', { value: activeValue })}
         </div>
       )}
+      {hint && (
+        <div className="mt-1 text-[11px] text-text-3">{hint}</div>
+      )}
     </div>
   );
 }
@@ -70,40 +77,46 @@ export default function SmsGatewayBody() {
   const [saving, setSaving] = useState(false);
   const [testing, setTesting] = useState(false);
   const [gate, setGate] = useState(null);
+  // Gönderici kaydı bu kartın içinde açılır (admin-redesign §8: SMS
+  // sağlayıcı ayarları tek gövdede; İletişim'e gönderici sekmesi dönmez).
+  const [showSenders, setShowSenders] = useState(false);
 
-  const load = useCallback(async () => {
-    try {
-      const { data } = await api.get('/admin/sms/settings');
-      setStatus(data);
-      // Gönderim kapısı ayrı uçtan: kimlik bilgisi yoksa da engel görünsün.
-      api.get('/admin/sms/senders/gate')
-        .then(({ data: g }) => setGate(g))
-        .catch(() => {});
-      // Kaynak .env ise alan boş bırakılır — .env değerini üstüne yazmak
-      // operatörün sunucu tarafı yapılandırmasını sessizce ezmek olurdu.
-      setForm(f => ({
-        ...f,
-        accountSid: data.accountSidSource === 'db' ? data.accountSid ?? '' : '',
-        fromNumber: data.fromNumberSource === 'db' ? data.fromNumber ?? '' : '',
-        messagingServiceSid: data.messagingServiceSidSource === 'db' ? data.messagingServiceSid ?? '' : '',
-        defaultCountryCode: data.defaultCountryCodeSource === 'db' ? data.defaultCountryCode ?? '' : '',
-      }));
-    } catch {
-      addToast(t('admin.smsGateway.loadFailed'), 'error');
-    }
+  // Fetch effect: setState yalnız await sonrası (async) çağrılır —
+  // effect gövdesinde senkron setState bu repoda eslint hatası üretir.
+  useEffect(() => {
+    let alive = true;
+    (async () => {
+      try {
+        const { data } = await api.get('/admin/sms/settings');
+        if (!alive) return;
+        setStatus(data);
+        // Gönderim kapısı ayrı uçtan: kimlik bilgisi yoksa da engel görünsün.
+        api.get('/admin/sms/senders/gate')
+          .then(({ data: g }) => { if (alive) setGate(g); })
+          .catch(() => {});
+        // Kaynak .env ise alan boş bırakılır — .env değerini üstüne yazmak
+        // operatörün sunucu tarafı yapılandırmasını sessizce ezmek olurdu.
+        setForm(f => ({
+          ...f,
+          accountSid: data.accountSidSource === 'db' ? data.accountSid ?? '' : '',
+          fromNumber: data.fromNumberSource === 'db' ? data.fromNumber ?? '' : '',
+          messagingServiceSid: data.messagingServiceSidSource === 'db' ? data.messagingServiceSid ?? '' : '',
+          defaultCountryCode: data.defaultCountryCodeSource === 'db' ? data.defaultCountryCode ?? '' : '',
+        }));
+      } catch {
+        if (alive) addToast(t('admin.smsGateway.loadFailed'), 'error');
+      }
+    })();
+    return () => { alive = false; };
   }, [addToast, t]);
-
-  useEffect(() => { load(); }, [load]);
 
   async function save() {
     setSaving(true);
     try {
       const patch = {};
-      if (form.accountSid) patch.accountSid = form.accountSid;
-      if (form.authToken) patch.authToken = form.authToken;
-      if (form.fromNumber) patch.fromNumber = form.fromNumber;
-      if (form.messagingServiceSid) patch.messagingServiceSid = form.messagingServiceSid;
-      if (form.defaultCountryCode) patch.defaultCountryCode = form.defaultCountryCode;
+      for (const [key, value] of Object.entries(form)) {
+        if (value) patch[key] = value;
+      }
       if (!Object.keys(patch).length) {
         addToast(t('admin.smsGateway.nothingToSave'), 'error');
         return;
@@ -113,7 +126,8 @@ export default function SmsGatewayBody() {
       setForm(f => ({ ...f, accountSid: '', authToken: '', fromNumber: '', messagingServiceSid: '', defaultCountryCode: '' }));
       addToast(t('admin.smsGateway.saved'), 'success');
     } catch (e) {
-      addToast(e.response?.data?.error?.message || t('admin.smsGateway.saveFailed'), 'error');
+      const err = e.response?.data?.error;
+      addToast(smsGatewayErrorText(t, err?.code, err?.message) || t('admin.smsGateway.saveFailed'), 'error');
     } finally {
       setSaving(false);
     }
@@ -123,15 +137,23 @@ export default function SmsGatewayBody() {
     setTesting(true);
     try {
       const { data } = await api.post('/admin/sms/settings/test');
-      addToast(data.ok ? t('admin.smsGateway.testOk', { name: data.friendlyName || '' }) : (data.error || t('admin.smsGateway.testFailed')), data.ok ? 'success' : 'error');
+      if (data.ok) {
+        addToast(t('admin.smsGateway.testOk', { name: data.friendlyName || '' }), 'success');
+      } else {
+        addToast(smsGatewayErrorText(t, data.code, data.error), 'error');
+      }
     } catch (e) {
-      addToast(e.response?.data?.error?.message || t('admin.smsGateway.testFailed'), 'error');
+      const err = e.response?.data?.error;
+      addToast(smsGatewayErrorText(t, err?.code, err?.message) || t('admin.smsGateway.testFailed'), 'error');
     } finally {
       setTesting(false);
     }
   }
 
   if (!status) return <div className="text-text-3 text-sm">{t('common.loading')}</div>;
+
+  const missingList = deriveSmsMissing(status);
+  const authTokenSaved = Boolean(status.authTokenConfigured) && !form.authToken;
 
   return (
     <>
@@ -157,6 +179,20 @@ export default function SmsGatewayBody() {
         </div>
       )}
 
+      {/* Yapılandırma eksikse "Test" neden çalışmıyor sorusunun cevabı:
+          hangi parçaların olmadığı liste halinde görünür. */}
+      {missingList.length > 0 && (
+        <div className="mb-4 p-3 rounded-lg bg-warning/10 border border-warning/30 text-xs text-warning">
+          <div className="font-semibold mb-1">{t('admin.smsGateway.missingTitle')}</div>
+          <ul className="list-disc list-inside space-y-0.5">
+            {missingList.map(key => (
+              <li key={key}>{t(`admin.smsGateway.missing.${key}`)}</li>
+            ))}
+          </ul>
+          <p className="mt-1.5 text-warning/80">{t('admin.smsGateway.senderRequiredHint')}</p>
+        </div>
+      )}
+
       <div className="space-y-3">
         <Field
           label={t('admin.smsGateway.accountSid')}
@@ -173,6 +209,9 @@ export default function SmsGatewayBody() {
           placeholder={status.authTokenConfigured ? status.authTokenMasked : t('admin.smsGateway.enterNewValue')}
           value={form.authToken}
           onChange={v => setForm(f => ({ ...f, authToken: v }))}
+          hint={authTokenSaved
+            ? t('admin.smsGateway.authTokenSavedHint', { value: status.authTokenMasked || '' })
+            : t('admin.smsGateway.authTokenHint')}
         />
         <Field
           label={t('admin.smsGateway.fromNumber')}
@@ -181,6 +220,7 @@ export default function SmsGatewayBody() {
           activeValue={status.fromNumber}
           value={form.fromNumber}
           onChange={v => setForm(f => ({ ...f, fromNumber: v }))}
+          hint={t('admin.smsGateway.fromNumberHint')}
         />
         <Field
           label={t('admin.smsGateway.messagingServiceSid')}
@@ -189,6 +229,7 @@ export default function SmsGatewayBody() {
           activeValue={status.messagingServiceSid}
           value={form.messagingServiceSid}
           onChange={v => setForm(f => ({ ...f, messagingServiceSid: v }))}
+          hint={t('admin.smsGateway.messagingServiceSidHint')}
         />
         <Field
           label={t('admin.smsGateway.defaultCountryCode')}
@@ -223,7 +264,7 @@ export default function SmsGatewayBody() {
 
       {/* Gönderim hazır mı? En sık sorulan soru: "neden gönderemiyorum?".
           Hesap tipi gerçek Twilio API'sinden gelir (kuru test yapar), gönderici
-          onayı Göndericiler sekmesinden yönetilir. */}
+          onayı aşağıdaki Göndericiler bölümünden yönetilir. */}
       <div className="mt-5 pt-4 border-t border-white/8">
         <div className="flex items-center gap-2 mb-2">
           <span className="text-[10px] uppercase tracking-wide text-text-3">{t('admin.smsSenders.gateTitle')}</span>
@@ -248,13 +289,27 @@ export default function SmsGatewayBody() {
         {status?.accountType === 'unknown' && (
           <p className="mt-1.5 text-xs text-warning">{t('admin.smsSenders.accountTypeUnknownHint')}</p>
         )}
-        <Link
-          to="/admin/sms-templates?tab=senders"
+        <button
+          type="button"
+          aria-expanded={showSenders}
+          onClick={() => {
+            // Kapanırken gönderim durumunu yenile: göndericide yapılan
+            // değişiklik özetteki "Hazır/Engelli" rozetine yansısın.
+            if (showSenders) {
+              api.get('/admin/sms/senders/gate').then(({ data: g }) => setGate(g)).catch(() => {});
+            }
+            setShowSenders(v => !v);
+          }}
           className="mt-2 inline-flex items-center gap-1.5 text-xs font-semibold text-primary hover:brightness-110 transition"
         >
           {t('admin.smsSenders.manageSenders')}
-          <span className="material-symbols-outlined !text-[14px]" aria-hidden="true">arrow_forward</span>
-        </Link>
+          <span className="material-symbols-outlined !text-[14px]" aria-hidden="true">{showSenders ? 'expand_less' : 'expand_more'}</span>
+        </button>
+        {showSenders && (
+          <div className="mt-4">
+            <AdminSmsSenders embedded />
+          </div>
+        )}
       </div>
 
       <p className="text-xs text-text-3 mt-4">{t('admin.smsGateway.templatesHint')}</p>

@@ -4,13 +4,292 @@ VIP90.bet iGaming Platform — değişiklik günlüğü.
 
 Biçim [Keep a Changelog](https://keepachangelog.com/tr/1.1.0/) esasına,
 sürümleme [Semantic Versioning](https://semver.org/lang/tr/) kuralına dayanır.
-Bu günlük yalnızca `feat/integration` dalındaki ürün
-geliştirmelerini kapsar; canlı işletilen sitenin bakımı `dev` dalında sürer.
+Bu günlük `main` dalına giren ve kurulumu işleten operatörü etkileyen
+değişiklikleri kapsar.
 
 Madde formatı ve kategoriler için `docs/CHANGELOG_GUIDE.md`'ye bakın —
 özellikle **Kırılan Değişiklikler** kategorisi zorunludur, atlanmaz.
 
 ## [Yayınlanmadı]
+
+## [0.4.0] — 2026-10-08
+
+### Sürümleme: sürüm betiği, çalışan sürüm görünür, paket bilgileri (2026-10-08)
+- `node scripts/release.mjs <X.Y.Z>` sürümü hazırlar: bu bölümü sürüm
+  başlığına çevirir, kök/server/client `package.json` ve lock dosyalarını aynı
+  numaraya çeker, README rozetlerini günceller. Etiket ve GitHub Release,
+  değişiklik `main`'e girdikten sonra merge commit'ine atılır.
+- `GET /api/health` yanıtında `version` alanı var: canlıdaki sürüm okunabilir.
+- `package.json`'larda açıklama, depo, ana sayfa ve `engines.node >= 22`.
+- Admin e-posta sağlayıcı formundaki yer tutucular genel örnek adreslere
+  çevrildi.
+
+### Public çekirdek: eksik belgeler ve kırık bağlantılar (2026-10-08)
+`docs/product/10` (bonus ve çevrim), `11` (admin araçları), SEO, sistem
+e-postaları ve SMS Gateway belgeleri artık çekirdekle birlikte geliyor. Ürün
+belgelerinin çekirdekte bulunmayan belgelere verdiği bağlantılar kaldırıldı;
+eklentilere ait ayrıntılar için eklentilerin kendi belgelerine yönlendiriliyor.
+
+### 0.3.0 sonrası, ayrı kaydı tutulmamış değişiklikler (2026-08-21 – 2026-10-02)
+Bu dönemde `main`'e giren ve yukarıda kendi girdisi olmayan PR'ların özeti:
+
+- **Slikair ödeme ağ geçidi** (#77, #80–#82, #84, #87–#90): kart ve
+  alternatif yöntemlerle yatırma, admin için çekim başlatma ekranı. Her
+  "succeeded" webhook'u Slikair'in durum API'siyle çapraz doğrulanıyor
+  (imzasız webhook'la bakiye sahteciliği kapatıldı); yönlendirme adresleri,
+  durum eşlemesi ve mükerrer kayıt düzeltildi. Sunucu artık yakalanmamış
+  promise hatasında çökmüyor.
+- **PAM / risk ve dolandırıcılık tamamlama** (#76): sorumlu oyun
+  günlük/haftalık/aylık limitleri ve oyuncu ekranı, risk motoru kuralları
+  finansal uçlara bağlandı, mutabakat ve ajan ekranları.
+- **Mutabakat** (#85): kripto yatırmalar için gerçek dış kaynak (TronGrid).
+- **Admin paneli** (#83, #91, #98–#101, #109, #118, #120, #124, #125):
+  gruplu kenar çubuğu ve bilgi mimarisi, Products menüsü ve Settings
+  sekmeleri, ortak tablo bileşeni ve ⋮ aksiyon menüsü, canlı sayaçlar, sağlık
+  kartı ve gösterge paneli düzeltmeleri, mevcut admin hesaplarının rollere
+  atanması, admin sayfalarının çok dilli hâle gelmesi.
+- **SEO** (#126): Settings → SEO sekmesi, sunucu tarafı meta etiketleri,
+  `robots.txt` ve `sitemap.xml`.
+- **Kimlik doğrulama** (#60, #97, #106): açık oturumun misafir akışlarından
+  çıkarılması, `tokenVersion` önbellek gecikmesi, kayıtta yanlış "Çok fazla
+  deneme" hatası.
+- **Casino ve oyunlar** (#58, #69, #104, #105, #107): casino oyunlarının
+  Türkçe açılması, rulette house edge/maks. ödeme ayarlarının gerçekten
+  uygulanması, sektör standardı kasa avantajları ve 8 dilde oyun hataları,
+  sıfır bakiye ekranı, oyun içi sohbet, Bonus Call'un açık oyun oturumu
+  üzerinden çalışması.
+- **Spor bahsi** (#65, #66, #122, #123): odds-provider bağlantı/oturum
+  düzeltmeleri, outright market desteği, yaklaşan maç oranlarının sessizce
+  donması ve kısmi feed'in diğer sporları bitirmesi düzeltildi.
+- **PWA** (#86, #119): service worker'ın eski build'de takılı kalması.
+- **Eklentilerin ayrılması** (#70, #73, #75): üç ücretli eklenti ayrı özel
+  depolara taşındı (alt modül), casino eklentisi `igames` adını aldı.
+- **Diğer** (#59, #63, #67): banka IBAN maskeleme, yazı tiplerinin
+  sunucudan servis edilmesi.
+
+### İngilizce README, iki dilli kurulum sihirbazı, oyuncu ekranlarının çevirisi (2026-10-08)
+- `README.md` artık İngilizce; Türkçesi `README.tr.md`. İkisi de yalnız
+  public çekirdekte bulunan belgelere bağlantı veriyor (eskiden
+  çekirdeğe gitmeyen iç belgelere verilen bağlantılar orada kırıktı).
+- Kurulum sihirbazı (`/install`) İngilizce ve Türkçe: tarayıcı dili Türkçeyse
+  Türkçe, değilse İngilizce açılır; sağ üstteki düğme ya da `?lang=en|tr`
+  dili değiştirir. Sihirbazın ürettiği `.env` çıktısındaki yorumlar
+  İngilizce.
+- Sorumlu Oyun sayfası ve KYC akışı (77 metin) ile kalan genel arayüz
+  metinleri `de`, `es`, `pt`, `ja`, `ko`, `th`'ye çevrildi; oyuncu ekranları
+  artık 8 dilde çevrili. Admin panelinin bir kısmı bu altı dilde hâlâ
+  İngilizce.
+
+**Kırılan Değişiklikler:**
+- Sihirbazın ürettiği `.env` yorum satırları Türkçeden İngilizceye döndü;
+  değişkenler ve değerler aynı.
+
+### Admin: SMS gönderici ekranı yeniden erişilebilir (2026-10-08)
+Gönderici kaydı (hesap tipi, doğrulanmış trial numaraları, onaylı ülkeler)
+2026-10-06'dan beri hiçbir rotadan açılmıyordu; kayıt olmadan gönderim
+`SMS_SENDER_NOT_REGISTERED` ile engellendiği için SMS panelden kurulamıyordu.
+Ekran artık **Modules → SMS Gateway** kartında **Göndericileri yönet** ile
+açılıyor; kapatınca kartın gönderim durumu yenileniyor.
+
+### Referans komisyonu ayarı kalıcı (2026-10-08)
+`PUT /api/admin/referral/settings` yalnız bellekteki değeri değiştiriyordu;
+her restart/deploy oranı ve aç/kapa durumunu varsayılana döndürüyor, birden
+fazla süreçte her süreç farklı oran kullanıyordu. Değerler artık `Setting`
+koleksiyonunda (`referral.enabled`, `referral.commissionRate`) saklanıyor;
+`config/referral.js` yalnız kayıt yokken geçerli varsayılanları tutuyor.
+
+**Kırılan Değişiklikler:**
+- Önceden panelden değiştirilip restart'la kaybolmuş oranlar geri gelmez;
+  güncellemeden sonra oranı panelden bir kez yeniden kaydedin. `config/referral.js`'i
+  çalışma anında değiştiren özel kod artık etkisizdir.
+
+### Komisyon ve cashback tekrar koruması eklentilerde de etkin (2026-10-08)
+Spor bahsi sonuçlandırması ve casino oturumu kapanışı, referans komisyonu ve
+cashback ödemelerine kaynak kimliğini (`sourceId`) geçiriyor; aynı olay ikinci
+kez işlense de ödeme bir kez yapılıyor. Düzeltme 2026-10-03'te eklenti
+depolarında yapılmıştı ama bu depodaki alt modül işaretçileri güncellenmediği
+için kurulumlara gitmemişti.
+
+### Demo veri: temizlenen veri canlı simülasyonla geri gelmiyor (2026-10-08)
+Canlı simülasyonun risk adımı, havuz boşken 20 yeni demo kullanıcı açıyordu:
+"Tümünü Temizle" sonrası demo veri kendiliğinden geri geliyor ve simülasyon
+kendini hiç durdurmuyordu. Canlı adım artık havuzu doldurmuyor; havuz boşsa
+simülasyon durur.
+
+### Testler: `npm test` tamamlanıyor, ağ testleri ayrı (2026-10-08)
+Casino Content eklentisindeki bir temizlik zamanlayıcısı süreci açık
+tuttuğu için `app.js`'i içe aktaran test hiç sonlanmıyor ve paket bitmiyordu
+(eklentide `unref`). Gerçek Slikair sandbox'ına giden testler
+`server/test/network/` altına taşındı ve `npm run test:network` ile ayrı
+çalışıyor. Rastgele kategori seçimi yüzünden ara ara düşen demo simülasyon
+testi deterministik hâle getirildi.
+
+**Kırılan Değişiklikler:**
+- `server/test/slikair-sandbox.test.js` → `server/test/network/slikair-sandbox.test.js`;
+  bu dosyayı doğrudan çağıran betikler yolu güncellemeli.
+
+### Güvenlik: üretim bağımlılıklarındaki açıklar kapatıldı (2026-10-08)
+`npm audit --omit=dev` üç pakette de temiz. Sunucu: `proxy-addr` 2.0.8
+(kritik — IPv4-mapped IPv6 adresle `trust proxy` atlatılıp IP sahteciliği;
+admin IP kısıtını ve rate limit'i etkiliyordu), `engine.io` 6.6.11 ve
+`socket.io-parser` 4.2.7 (DoS), `nodemailer` 10.0.16, `compression` 1.8.2,
+`undici` 8.11.2, `brace-expansion`; `tronweb`'in sabitlediği `axios`
+`overrides` ile 1.20.0'a çekildi. Client: `@capacitor/ios` 8.5.3 (kritik),
+`react-router` 7.18.4 (açık yönlendirme), `axios` 1.20.0, `tar`,
+`@xmldom/xmldom`, `socket.io-parser`.
+
+**Kırılan Değişiklikler:**
+- `nodemailer` 10 Node.js 20 veya üstünü ister. Desteklenen sürüm zaten
+  Node.js 22; daha eski Node ile çalışan kurulumlar önce Node'u yükseltmeli.
+
+### Güvenlik: `server/src/seed.js` kaldırıldı (2026-10-08)
+Bu geliştirme betiği çalıştırıldığında önce **tüm kullanıcıları siliyor**,
+sonra `admin` / `Admin1234!` ve parolası kaynakta yazılı demo hesaplar
+açıyordu. Belgelerdeki `server/scripts/seed.js` ile adı neredeyse aynıydı.
+
+**Kırılan Değişiklikler:**
+- `node server/src/seed.js` artık yok. Site ayarlarını ve ilk yöneticiyi
+  tohumlamak için `node server/scripts/seed.js [--admin]` kullanın.
+
+### Admin: bakiye düzeltmesi çift tıklamada iki kez uygulanmıyor (2026-10-08)
+`PATCH /api/admin/users/:id/balance` her çağrıda yeni bir idempotency anahtarı
+üretiyordu; çift tıklama ya da yeniden deneme bakiyeyi iki kez değiştiriyordu.
+Panel artık işlem başına bir `requestId` gönderiyor; aynı kimlikle gelen istek
+bakiyeye dokunmadan ilk kaydı döndürür (`duplicate: true`). Bakiye, defter
+kaydı ve bonus çevrim kaydı tek veritabanı transaction'ında yazılıyor; borçta
+bakiye kontrolü güncellemeyle aynı koşulda yapıldığı için eşzamanlı düşümler
+bakiyeyi eksiye indiremiyor.
+
+**Kırılan Değişiklikler:**
+- Bu ucu kendi aracından çağıranlar tekilleştirme için gövdeye
+  `requestId` (UUID) eklemeli; göndermeyen istekler eskisi gibi her seferinde
+  ayrı işlem sayılır. Yanıta `duplicate` alanı eklendi.
+
+### SPA'da gerçek HTTP 404: olmayan sayfa artık 404 + kendi 404 sayfası (2026-10-08)
+Olmayan her sayfa `200` + ana sayfa dönüyordu: sunucu `app.get('*')` ile
+`index.html` servis ediyor, istemci de eşleşmeyen yolu sessizce ana sayfaya
+yönlendiriyordu. Artık geçerli rotalar `200` + `index.html` (derin linklerde
+yenileme çalışmaya devam eder), **geçersiz rotalar `404`** +
+`X-Robots-Tag: noindex` + `index.html` döner; 404 görselini uygulamanın kendi
+sayfası (`client/src/pages/NotFound.jsx`, 8 dil) çizer, canonical/SEO etiketi
+enjekte edilmez.
+- Rota tablosu **elle tutulmaz**: `npm run build --prefix client` sırasında
+  `App.jsx` taranıp `client/dist/routes.json` üretilir, sunucu bunu okuyup
+  `req.path`'i eşleştirir (`shared/route-matcher.js`). Yeni `<Route>` eklemek
+  yeterlidir — CI kırılmaz, senkron denetimi (`npm run routes:check`) yalnız
+  uyarır.
+- **Fail-open:** tablo yoksa/bozuksa sunucu eski davranışı sürdürür (tüm yollar
+  200) ve ilk istekte bir kez uyarır. `ROUTE_404_REPORT_ONLY=1` ile 404 yerine
+  yalnız log üretilebilir (yayına geçişin 1. fazı; 2. fazda değişken kaldırılır).
+- Statik dosyalar, `/api/*` (JSON 404), `/robots.txt`, `/sitemap.xml` ve
+  PWA dosyaları etkilenmez.
+
+**Kırılan Değişiklikler:**
+- Var olmayan bir sayfa URL'si artık `200` değil `404` döner. Buna bağlı üçüncü
+  taraf testler (Playwright, izleme, "her URL 200" varsayan betikler) bu
+  davranışı görecek. Geçici olarak eski davranışa dönmek için sunucuya
+  `ROUTE_404_REPORT_ONLY=1` ekleyip servisi restart edin. `client/dist`
+  elle dağıtılan (build'siz) kurulumlarda tablo üretilmediği için sunucu zaten
+  fail-open davranışındadır.
+- `Dockerfile` artık `shared/` dizinini kopyalar (sunucu bu dizinden import
+  ediyor). Elle kurulumlarda `shared/` klasörü silinmemeli.
+
+### Kayıt formu: doğum tarihi seçimi görünüyor, telefon numarası benzersiz (2026-10-08, PR #151)
+- Kayıt formunda gün/ay/yıl seçimi ekranda kalmıyordu: üçü birden seçilene
+  kadar forma boş değer gidiyor, tam tarihte de `'06'` ile `6` seçeneği
+  eşleşmiyordu. Seçimler artık bileşenin içinde tutuluyor.
+- Telefon kaydedilmeden önce E.164'e çevriliyor (`0555…` → `+90555…`) ve başka
+  bir hesapta kullanılıyorsa kayıt `409 PHONE_EXISTS`, geçersizse
+  `400 INVALID_PHONE` döner. Kayıt ve admin panelinden kullanıcı oluşturma
+  aynı kuralı kullanır; kayıt formu iki hata için 8 dilde mesaj gösterir.
+
+**Kırılan Değişiklikler:**
+- `User.phone` alanına benzersiz kısmi index eklendi (yalnız dolu telefonlar;
+  telefonsuz hesaplar etkilenmez). Aynı telefonu taşıyan birden fazla hesap
+  varsa index kurulamaz: sunucu açılır ve yeni kayıtlarda kontrol çalışır, ama
+  eşzamanlı kayıtlara karşı veritabanı güvencesi olmaz. Güncellemeden önce
+  `db.users.aggregate([{ $match: { phone: { $type: 'string' } } }, { $group:
+  { _id: '$phone', n: { $sum: 1 } } }, { $match: { n: { $gt: 1 } } }])` ile
+  tekrarları bulup fazlalıkların telefonunu temizleyin.
+
+### `CLIENT_URL` virgüllü listede ilk origin kanonik (2026-10-07, PR #148)
+`CLIENT_URL` CORS için virgüllü birden fazla origin taşıyabiliyordu, ama
+Slikair webhook/redirect adresleri, sistem e-postalarındaki bağlantılar ve
+destek asistanının `HTTP-Referer` başlığı değerin tamamını kullanıyordu
+(`https://a,https://b/api/...` gibi geçersiz URL'ler). Artık bu yerler listenin
+**ilk** değerini kullanır.
+
+**Kırılan Değişiklikler:**
+- `CLIENT_URL`'de birden fazla origin varsa oyuncuların kullandığı adres ilk
+  sırada olmalı; Slikair panelindeki URL'ler de bu adrese göre güncellenmeli.
+
+### Admin: Modules'ta Email Gateway ve SMS Gateway kartları (2026-10-07, PR #143, #147)
+- Tek "Communication Providers" kartı kaldırıldı. E-posta sağlayıcısı
+  (SMTP/Mailgun) **Modules → Email Gateway** kartında (listenin sonunda,
+  çekirdeğe ait). Kart başlığındaki anahtar açıkken panel değerleri, kapalıyken
+  yalnız sunucu `.env` SMTP değerleri kullanılır (`SMTP_GATEWAY_ENABLED`,
+  varsayılan `true`). SMS sağlayıcısı ve gönderici alanları **Modules → SMS
+  Gateway** kartında tek gövdede.
+- İletişim sayfasındaki sağlayıcı/gönderici sekmeleri kaldırıldı: e-posta
+  `templates · identities · logs · test`, SMS `templates · logs · test`.
+- Modül kartlarındaki lisans durum rozetleri ve "Yönet →" bağlantıları
+  kaldırıldı; lisansı olmayan açık modül için uyarı kalıyor.
+- SMS şablonunu yalnızca aç/kapatmak, kitlesi bozuk bir şablonda "Şablon
+  kaydedilemedi" hatası veriyordu; denetimler artık yalnız gönderilen alanlara
+  uygulanıyor. Hata mesajları sunucunun nedenini, HTTP durumunu ya da bağlantı
+  hatasını gösteriyor.
+
+**Kırılan Değişiklikler:**
+- `?sub=provider` / `?sub=sender` içeren İletişim yer imleri şablon listesine
+  düşer.
+- Bilinen sorun: SMS gönderici kayıt ekranına panelden ulaşılamıyor (bkz.
+  `docs/product/09-bilinen-kisitlar.md`); göndericiler şimdilik
+  `/api/admin/sms/senders` ile yönetilir.
+
+### Modeller: tekrar eden index tanımları kaldırıldı (2026-10-07, PR #144)
+`Agent.userId`, `Brand.slug`, `ChatRoom.slug`, `Currency.code`,
+`Jurisdiction.code` hem alan düzeyinde `unique: true` hem de ayrıca
+`schema.index()` ile tanımlıydı; her açılışta Mongoose uyarısı basılıyordu.
+Fazla tanımlar silindi; veritabanındaki index'ler ve benzersizlik değişmez,
+migration gerekmez.
+
+### Admin: SMS sağlayıcı panelinde eksik alan listesi (2026-10-06, PR #142)
+Kimlik bilgileri girildiği hâlde test/gönderim "kimlik bilgileri eksik"
+diyordu; eksik olan aslında göndericiydi (From numarası ya da Messaging Service
+SID). `GET /api/admin/sms/settings` ve `POST /settings/test` artık eksik
+parçaları (`accountSid`, `authToken`, `sender`) listeliyor; panel kayıtlı Auth
+Token'ı maskeli gösteriyor ve hata kodlarını 8 dilde çeviriyor.
+
+### İletişim merkezi ve SMS otomatik gönderim (2026-10-06, PR #141)
+- Yeni **İletişim** sayfası (`/admin/communications`, menüde Engagement
+  altında): e-posta ve SMS şablonları, kampanyalar, otomasyonlar, segmentler,
+  gönderim günlükleri ve test gönderimi tek yerde. `/admin/mail-templates` ve
+  `/admin/sms-templates` buraya yönlenir.
+- SMS şablonlarına kitle (`all` / `segment` / `users`) ve zamanlama
+  (`schedule.intervalHours`) eklendi; zamanlanmış şablonlar 15 dakikalık işle
+  gönderilir.
+- Olay SMS'leri artık gerçekten gönderiliyor: kayıt/e-posta doğrulama,
+  yatırım tamamlanması, çekim talebi ve tamamlanması, bahis kazanç/kayıp,
+  casino oturumu kâr/zarar.
+- `POST /api/admin/sms/test-send` (`{ to, message }`) ve
+  `POST /api/admin/settings/email/test` için isteğe bağlı `to`.
+
+**Kırılan Değişiklikler:**
+- `sms-gateway` modülü açık ve sağlayıcı yapılandırılmışsa, ilgili olaya bağlı
+  aktif bir SMS şablonu olan her olay gerçek (ücretli) SMS üretir. Açmadan önce
+  aktif şablonları gözden geçirin; maliyet notu `docs/sms-gateway/README.md`
+  §12'de.
+
+### Sistem e-postaları şablon paneli (2026-10-03, PR #138)
+Sistemin gönderdiği e-postalar panelden düzenlenebilir. Olaya bağlı
+şablonlar (doğrulama, hoş geldin, şifre, KYC, bahis, casino, yatırım/çekim)
+olay anında gider ve panelden elle gönderilemez; zamana bağlı şablonlar
+(duyuru, hareketsiz kullanıcılar, yeniden etkinleştirme) kitle seçilerek
+"Şimdi gönder" ile ya da 15 dakikalık işle gönderilir. Önizleme, gönderim
+geçmişi ve 8 dilde panel metinleri dahil. Yeni ortam değişkenleri:
+`MAIL_SEND_BATCH_LIMIT` (toplu gönderim tavanı, varsayılan 500, en çok 5000)
+ve `MAIL_SYSTEM_DISABLED` (`true` tüm sistem e-postalarını durdurur).
+Ayrıntı: `docs/mail-templates.md`.
 
 ### Gönderici kaydı ve ülke/mevzuat onayı — trial hesabın kısıtları artık panelde
 SMS Gateway'in ikinci bölümü: **Modüller → SMS Gateway** ve **SMS Mesaj
@@ -28,6 +307,36 @@ yazılır. 24 ilgili Twilio hata kodu (`30034` A2P kayıtsız, `30041` ülkede
 kısıtlı gönderici, `21610` opt-out, `30461` toll-free'de kumar içeriği reddi
 vb.) sözlüğe girip günlükte insan diliyle gösteriliyor. Kaynak:
 `docs/sms-gateway/README.md` §11.
+### Ledger: geçmiş çift kayıtlar için elle çalıştırılan temizlik betiği (2026-10-03)
+2026-09-17 ledger geçişinin geçmişte yazdığı ham kopya `Transaction` satırlarını bulan `server/scripts/ledger-dedupe.mjs` eklendi. Varsayılan **kuru çalıştırmadır** (rapor, veri yazmaz); `--commit` ile kopyalar önce `transactions_dedupe_archive`'a yedeklenip silinir, referanslar korunan satıra çevrilir. Yalnız `idempotencyKey`'siz ham satır + aynı alanlı anahtarlı eşi hedeflenir; tekil anahtarlı kayıtlara dokunulmaz. Onay bekleyen kripto çekimlerde admin kopyalardan birini işlemişse bekleyen kopya kaldırılır (çift USDT gönderimi/iadesi olmasın diye). Hiçbir açılış veya deploy adımı bunu otomatik çalıştırmaz.
+
+### Güvenlik: Socket.IO admin/kişisel odaları token ile korunuyor (2026-10-03)
+`subscribe:admin` ve `subscribe:user` istemcinin gönderdiği `userId`'ye güveniyordu. Ana kanalda kimlik doğrulaması olmadığı için bir admin'in id'sini bilen herkes `role:admin` odasındaki tüm yatırma/çekme, KYC ve kuyruk olaylarını dinleyebiliyordu; herhangi bir oyuncunun id'siyle de onun bakiye olayları dinlenebiliyordu. İki olay da artık access token istiyor ve sunucu yalnızca token sahibinin odasına katıyor.
+
+**Kırılan Değişiklikler:**
+- `subscribe:user` / `subscribe:admin` olaylarını kendi istemcisinden gönderen entegrasyonlar artık `{ token: <accessToken> }` göndermeli; yalnızca `userId` gönderen abonelik sessizce yok sayılır.
+
+
+### Bonus: süresi dolan bonus artık çekilebilir olmuyor (2026-10-03)
+Süresi dolan çevrim, bonusun kilidini tamamen açıyordu (100 gerçek + 100 bonus → 200 çekilebilir). Artık oyuncunun bonusu iptal etmesiyle aynı kural uygulanıyor: çevrilmemiş pay geri alınıyor, bakiye negatife inmiyor. İşlem tek DB transaction'ında ve idempotent `bonus_forfeit` kaydıyla yapılıyor; çekim kapısından önce ve saatte bir (`jobs/bonusExpiry.js`) çalışıyor.
+
+### Güvenlik: demo veri hesapları oturum açamaz (2026-10-03)
+`isSeed` hesaplar login, `/auth/refresh` ve tüm kimlik doğrulamalı isteklerde reddediliyor. Üretici artık sabit parola yerine her yüklemede saklanmayan rastgele bir parola yazıyor. Migration `0003` (elle: `node server/scripts/migrate.js`) mevcut seed parolalarını değiştiriyor ve oturumlarını düşürüyor.
+
+### Admin: "Bekleyen finans" tablosu, panelden açılan admin yetkisi, kurulum admin'i (2026-10-03)
+- Dashboard'daki "Bekleyen finans" tablosu oyuncu adı ve tutar yerine "—", risk sütununda her satırda "Orta" gösteriyordu. Tablo artık yeni `GET /api/admin/queues/pending-finance` ucundan besleniyor: kripto ve banka talepleri, en uzun bekleyen önce, gerçek oyuncu adı, tutar ve risk.
+- Panelden rol seçilmeden açılan admin, sunucu yeniden başlayana dek tüm ayrıntılı izinlerde (`/api/admin/activity` dahil) 403 alıyordu. Artık oluşturulurken `admin` sistem rolünü alıyor.
+- `seed.js --admin` ve `/install` sihirbazıyla açılan admin, e-postası doğrulanmadığı için giriş yapamıyordu. Artık e-posta doğrulanmış olarak oluşturuluyor.
+
+### Demo veri: "Tümünü Temizle" artık aktivite akışını da temizliyor (2026-10-03)
+Canlı simülasyonun seed kullanıcılar için ürettiği `ActivityEvent` kayıtları (modelde `isSeed` yok, 30 gün TTL) temizlemede silinmiyordu; Dashboard'daki Canlı Aktivite, silinmiş kullanıcılara ait sahipsiz satırları 30 gün boyunca göstermeye devam ediyordu. `userSeed.clear()` artık bu olayları da siliyor ve yanıtında `activityEventsDeleted` döndürüyor. Demo-data planının tarayıcı kontrol listesi `server/scripts/verify-demo-data-checklist.mjs` ile otomatikleştirildi (yalnızca yerel DB).
+
+### Admin: agent ve reconciliation listelerine `limit` sınırı (2026-10-03)
+`GET /api/admin/agents` ve `GET /api/admin/reconciliation/jobs` / `jobs/:id/items` `page >= 1`, `limit` 1-100 (varsayılan 20) uyguluyor; `?limit=1000000` artık tüm koleksiyonu yüklemiyor.
+
+**Kırılan Değişiklikler:**
+- `?limit` 100'ün üzerindeki değerlerle bu uçları çağıran araçlar artık en fazla 100 kayıt alır; sayfalamak için `page` kullanın.
+
 
 ### SMS Gateway (Twilio) + sistem/kampanya mesaj şablonları CRUD'u
 `todo.md` #18/#19'un SMS tarafı kapandı. **Modüller** sayfasına altıncı sağlayıcı
@@ -60,6 +369,20 @@ akışlarına bağlanmadı: canlı SMS trafiği operatör kararıdır.
 Ayrıntı: `docs/sms-gateway/README.md`. Demo Twilio kimlik bilgileri koda
 yazılmadı (policy §8) — `.env` (`TWILIO_ACCOUNT_SID` / `TWILIO_AUTH_TOKEN` /
 `TWILIO_FROM_NUMBER`) veya panel üzerinden verilir.
+### Casino ödülleri: kayıtlı Bonus Call + Freeround (2026-10-02, PR #121)
+Casino Yönetimi'ndeki bonus sekmesi "Bonus & Freeround" olarak yeniden kuruldu: admin açık oturumlara bonus call, herhangi bir oyuncuya freeround (tur sayısı × tur başı bahis, bitiş tarihi) verebiliyor, iptal edebiliyor; her işlem `CasinoPromoGrant` kaydı + ham sağlayıcı yanıtıyla saklanıyor, geçmiş tablosu 15 sn'de bir yenileniyor, iki adımlı onay düğmesi var. Sağlayıcının HTTP 200 + `code ≠ 0` yanıtı artık başarı sayılmıyor; çift tıklamada ikinci bonus call sağlayıcıya gitmiyor (`409 PROMO_CALL_DUPLICATE`). Sunucu sınırları: set point ≤ 100.000, ≤ 500 tur, bahis×tur ≤ 100.000, ≤ 90 gün. Yeni izin: `admin:casino:bonus`. Oyuncu detayında "Casino ödülü ver" kısayolu. Belge: `docs/product/11-admin-araclari.md`, `docs/providers/igames-casino.md`.
+
+**Kırılan Değişiklikler:**
+- `POST /api/admin/igames/bonus/cancel` artık `{ grant_id }` (kayıtlı ödülün `_id`'si) bekliyor; sağlayıcının `call_id`'si ile gelen eski gövde `400` döner. Bu uca doğrudan istek atan entegrasyonlar önce `GET /api/admin/igames/promo/grants` ile kaydı bulup `grant_id` göndermeli.
+
+### Provably-fair: oyuncu tarafından doğrulanabilir seed çiftleri (2026-09-24)
+11 tek-oyunculu in-house oyun ad-hoc `randomBytes` yerine oyuncunun önceden taahhüt edilmiş (`serverSeedHash` yayınlanmış) seed çiftini + artan `nonce`'u kullanıyor (`roundSeed = HMAC(serverSeed, nonce)`); oyunların kendi matematiği ve RTP değişmedi. Oyun üzerindeki Fairness paneli client seed'i değiştirip seed'i yeniliyor (eski seed açıklanıyor) ve geçmiş turları Web Crypto ile tarayıcıda yeniden hesaplıyor. Ham `serverSeed` artık hiçbir tur yanıtında dönmüyor (Mines/Hi-Lo/Video Poker'daki sızıntı kapandı). Yeni uçlar: `/api/provider/v1/fairness/{active,rotate,round/:id,rounds}`. Özellikten önceki turlar "doğrulanamaz" olarak işaretlenir. Belge: `docs/product/04-oyun-matematigi.md`, `docs/providers/inhouse-games.md`.
+
+### Admin: demo veri üreticisi + canlı simülasyon (2026-09-23)
+`/admin/demo-data` sayfası 8 kategoride (`users`, `sports`, `casino`, `kyc`, `risk`, `tickets`, `agents`, `payments`) son 90 güne yayılmış, `isSeed: true` işaretli veri yüklüyor/temizliyor; canlı simülasyon açıkken gerçek giriş noktaları üzerinden periyodik kayıt üretip aktivite akışını besliyor. Yeni izin: `admin:demo-data:manage`. Seed verisi Dashboard/Analytics sayılarına dahildir. Belge: `docs/product/11-admin-araclari.md`.
+
+### Admin: canlı aktivite akışı (2026-09-22)
+Dashboard'daki AuditLog tabanlı "Son Aktivite" widget'ı, oyuncu aktivitesini (yatırma/çekme, kupon, in-house oyun oturumu, KYC, risk bayrağı, giriş kilidi) Socket.IO ile anlık gösteren `ActivityFeed` ile değiştirildi; kayıtlar 30 gün sonra TTL ile silinir. Yeni uç `GET /api/admin/activity`, yeni izin `admin:activity:read`. Belge: `docs/product/11-admin-araclari.md`.
 
 ### Sağ ray tüm sayfalara yayıldı, Canlı Yardım artık yalnızca footer'dan
 Kampanyalar/Bahis/Canlı'da zaten var olan sağ ray (Son Kazananlar paneli) artık Hakkımızda/Kariyer/Basın/İletişim, Yardım Merkezi ve Profil (Para Yatır/Çek) sayfalarında da var — site genelinde tutarlı 3-sütun düzen. Sağ-alttaki sabit "Canlı Yardım" (💬) ikonu kaldırıldı; özelliğin kendisi (`LiveHelp.jsx`) ve footer'daki "Canlı Yardım" linki duruyor — yalnızca kalıcı floating giriş noktası kaldırıldı, panel hâlâ footer'dan açılabiliyor.
@@ -581,13 +904,13 @@ kapsamı dışında bırakıldı (bkz. `server/.env.example` ve
 Faz 1'in dört paralel akışı (K, M, U, ve büyük ölçüde V) bu sürümde
 toplandı: `feat/akis-k`, `feat/akis-m`, `feat/akis-bc`, `feat/akis-a`,
 `feat/akis-u`, `feat/akis-u4`, `feat/akis-u5`, `feat/akis-v` dallarının
-tümü `feat/integration`'a merge edildi. 52 karttan 48'i `done` —
+tümü o dönemin entegrasyon dalına merge edildi. 52 karttan 48'i `done` —
 kalan üçü (V2 tanıtım görselleri/video, V5 lisanslı aggregator görüşmesi,
 V6 tüzel kişilik/hukuki kurulum) kod dışı iş/hukuk kararları, bu oturumun
-kapsamı dışında; V3 (ürün sayfası metni) kullanıcı onayı bekliyor.
+kapsamı dışında.
 
-**Bu hâlâ satışa hazır sürüm değildir.** 1.0.0 etiketi, kalan üç kart
-kapanıp ürün fiilen yayına gönderilmeye hazır olduğunda verilecek.
+**Bu hâlâ yayına hazır sürüm değildir.** 1.0.0 etiketi ürün yayına hazır
+olduğunda verilecek.
 
 ### T4/T5 — Tamamlama: OddsSource/BGaming demo oyun vitrini tamamen kaldırıldı
 Aşağıdaki T4 (kısmi) ve T5 kritik bulgu maddelerini kapatır. Palace
@@ -783,11 +1106,6 @@ TDD: 9 yeni test, tamamı önce kırmızı. Suite 288/288. (T2)
   "[FİYAT — insan onayı bekliyor]" gösterir, sepet null fiyatta toplam
   üretmez.
 
-### V3 — ürün sayfası taslağı
-- `docs/marketing/product-page.md`: gerçek pazar
-  listelemeleri (casino/oyun scriptleri kategorisi) okunarak ortak
-  dil/format kavrandıktan sonra yazılan ürün sayfası taslağı.
-
 ### D2 — Video kütüphanesi storyboard'ları (kısmi)
 - `docs/product/07-video-storyboardlari.md`: 18 video için sahne-sahne
   storyboard (ekran + anlatım + süre), D2'nin istediği 15-20 aralığında.
@@ -829,8 +1147,7 @@ kartı. Toplam 29/52 kart.
 
 **Bu hâlâ bir geliştirme sürümüdür, satışa hazır sürüm değildir.**
 1.0.0 etiketi, Faz 2 (entegrasyon ve sertleştirme) ile Faz 3 (vitrin ve
-yayına çıkış) tamamlanıp ürün yayına gönderilmeye hazır olduğunda
-verilecek.
+yayına çıkış) tamamlandığında verilecek.
 
 ### D5 — Oyuncu yardım masası / ticket sistemi
 - `models/Ticket.js`: konu + mesaj dizisi (gönderen, rol, metin),

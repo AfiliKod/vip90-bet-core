@@ -7,7 +7,7 @@ import https from 'https';
 import http from 'http';
 import { fileURLToPath } from 'url';
 import { dirname, join } from 'path';
-import { existsSync } from 'fs';
+import { existsSync, readFileSync } from 'fs';
 import { expandOrigins, canonicalHostRedirect } from './utils/origins.js';
 import { getOnlineCount } from './services/onlineCount.js';
 import { errorHandler, notFound } from './middleware/error.js';
@@ -190,6 +190,10 @@ export function createApp() {
   if (isProd) {
     const clientDist = join(__dirname, '../../client/dist');
     if (existsSync(clientDist)) {
+      // Rota tablosu sunucunun KENDİ içindir (SPA 404 kararı); dışarı servis
+      // edilmez — aksi hâlde 1 yıllık immutable cache'li statik dosya olarak
+      // herkese açık hâle gelirdi.
+      app.get('/routes.json', (req, res) => res.status(404).type('text/plain').send('Not found'));
       app.use(express.static(clientDist, {
         // Vite build çıktısı content-hash içerdiğinden uzun cache güvenlidir
         maxAge: '1y',
@@ -296,7 +300,13 @@ export function createApp() {
   app.use('/api/admin/health', healthRoutes);
 
   // Health check — Render uptime monitoring için
-  app.get('/api/health', (req, res) => res.json({ ok: true, env: process.env.NODE_ENV }));
+  // version: çalışan sürüm (server/package.json; scripts/release.mjs üçünü
+  // aynı numaraya çeker) — "canlıda hangi sürüm var" sorusunun cevabı.
+  const APP_VERSION = (() => {
+    try { return JSON.parse(readFileSync(join(__dirname, '../package.json'), 'utf8')).version || null; }
+    catch { return null; }
+  })();
+  app.get('/api/health', (req, res) => res.json({ ok: true, env: process.env.NODE_ENV, version: APP_VERSION }));
 
   // Derin health/status — Status Page için (public, cache-friendly).
   // onlineCount: tek seferlik/guest kullanım için — bağlı client'lar artık
@@ -388,11 +398,17 @@ export function createApp() {
   // API 404 — tanımsız /api/* route'ları için
   app.use('/api', notFound);
 
-  // SPA fallback — tüm non-API isteklerini index.html'e yönlendir
+  // SPA fallback — non-API isteklerini index.html'e yönlendir. Rota tablosu
+  // (client/dist/routes.json) varsa tabloda olmayan yol gerçek 404 + noindex
+  // alır; tablo yoksa fail-open (tüm yollar 200, eski davranış).
   if (isProd) {
     const clientDist = join(__dirname, '../../client/dist');
     if (existsSync(clientDist)) {
-      app.get('*', createSpaFallback({ indexPath: join(clientDist, 'index.html'), getSiteName }));
+      app.get('*', createSpaFallback({
+        indexPath: join(clientDist, 'index.html'),
+        routesPath: join(clientDist, 'routes.json'),
+        getSiteName,
+      }));
     }
   }
 

@@ -1,4 +1,5 @@
 import mongoose from 'mongoose';
+import { SMS_AUDIENCE_TYPES } from './SmsLog.js';
 
 /**
  * SMS mesaj şablonu — iki farklı tetiklenme tipi bir arada:
@@ -10,10 +11,12 @@ import mongoose from 'mongoose';
  *                      bulunmalıdır. Bu şablonlar panelden ELLE gönderilemez —
  *                      tetikleyen kodu domain akışıdır, operatör değil.
  *
- *   type='scheduled' → Zamana duyarlı / kampanya mesajı. `eventKey` opsiyoneldir
- *                      (verilirse aynı kancalardan otomatik de tetiklenebilir),
- *                      ama asıl kullanımı panelden "şimdi gönder": tek kullanıcı,
- *                      tüm kullanıcılar veya bir segment.
+ *   type='scheduled' → Zamana duyarlı / kampanya mesajı. `eventKey` opsiyoneldir.
+ *                      Panelden "şimdi gönder" ile anında gönderilebilir VEYA
+ *                      `schedule.enabled` açıksa 15 dakikalık iş
+ *                      (`runDueScheduledSms`) vadesi gelince `audience`
+ *                      kitleye otomatik gönderir — e-postadaki zamanlanmış
+ *                      şablonlarla aynı model.
  *
  * `content` gövdesinde değişkenler `{{degisken}}` çift süslü parantezle yazılır
  * (SMS'te `{}` tek başına kırılır; ayrıca i18n sözlüklerinin `{param}`
@@ -25,6 +28,25 @@ import mongoose from 'mongoose';
 export const SMS_TEMPLATE_TYPES = ['action', 'scheduled'];
 
 export const SMS_TEMPLATE_CATEGORIES = ['system', 'betting', 'casino', 'wallet', 'promotion'];
+
+/**
+ * Otomatik (zamanlanmış) gönderimin hedef kitlesi — yalnız `type='scheduled'`
+ * şablonlarda anlamlıdır. Elle gönderimde kitle gönderim penceresinde seçilir
+ * ve buraya YAZILMAZ; kalıcı olan, vadesi gelince kime gideceğidir.
+ */
+const audienceSchema = new mongoose.Schema({
+  type: { type: String, enum: SMS_AUDIENCE_TYPES, default: 'all' },
+  segmentId: { type: mongoose.Schema.Types.ObjectId, ref: 'PlayerSegment', default: null },
+  userIds: [{ type: mongoose.Schema.Types.ObjectId, ref: 'User' }],
+}, { _id: false });
+
+/** E-postadaki `schedule` ile aynı alan adları (tek iş, iki kanal). */
+const scheduleSchema = new mongoose.Schema({
+  enabled: { type: Boolean, default: false },
+  intervalHours: { type: Number, default: 168, min: 1, max: 24 * 365 },
+  lastSentAt: { type: Date, default: null },
+  nextSentAt: { type: Date, default: null },
+}, { _id: false });
 
 const schema = new mongoose.Schema({
   // `lowercase` YOK: anahtar sözleşmesi camelCase (aynı i18n anahtar kuralı ve
@@ -48,6 +70,12 @@ const schema = new mongoose.Schema({
 
   isActive: { type: Boolean, default: true },
 
+  // Otomatik gönderim (yalnız type='scheduled'): kitle + vade + aralık.
+  // Elle gönderimde seçilen kitle bu alanlara yazılmaz; buradaki değer
+  // yalnızca 15 dakikalık işin vadesi gelince kime gideceğini belirler.
+  audience: { type: audienceSchema, default: () => ({}) },
+  schedule: { type: scheduleSchema, default: () => ({}) },
+
   // Operasyonel sayaçlar — son gönderim zamanı panelde "düzenlenebilir halde"
   // görüntülenir.
   sentCount: { type: Number, default: 0, min: 0 },
@@ -59,5 +87,6 @@ const schema = new mongoose.Schema({
 
 schema.index({ type: 1, isActive: 1 });
 schema.index({ createdAt: -1 });
+schema.index({ 'schedule.enabled': 1, 'schedule.nextSentAt': 1 });
 
 export default mongoose.model('SmsTemplate', schema);

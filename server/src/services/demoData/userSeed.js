@@ -3,15 +3,17 @@ import bcrypt from 'bcryptjs';
 import crypto from 'crypto';
 import User from '../../models/User.js';
 import Transaction from '../../models/Transaction.js';
+import ActivityEvent from '../../models/ActivityEvent.js';
 import { randomInt, randomFloat, pick, randomPastDate } from './randomUtils.js';
 
 const SEED_DOMAIN = 'seed.local';
-const SEED_PASSWORD = 'SeedUser1234!';
-let cachedHash = null;
-
-async function getSeedPasswordHash() {
-  if (!cachedHash) cachedHash = await bcrypt.hash(SEED_PASSWORD, 12);
-  return cachedHash;
+// Güvenlik (2026-10-03): seed kullanıcılar eskiden kaynakta açık duran tek bir
+// sabit parolayı paylaşıyordu ve pozitif bakiyeleri vardı. Artık her yüklemede
+// hiçbir yerde saklanmayan rastgele bir parola hash'lenir; ayrıca isSeed
+// hesapları login/refresh/requireAuth'ta reddedilir (controllers/auth.js,
+// middleware/auth.js) — parola bilinse bile oturum açılamaz.
+export async function makeUnusablePasswordHash() {
+  return bcrypt.hash(crypto.randomBytes(32).toString('hex'), 12);
 }
 
 // Kullanıcı adı/e-posta artık seed_player_000001 yerine gerçekçi görünen
@@ -86,7 +88,7 @@ export async function status() {
 }
 
 export async function load(count) {
-  const passwordHash = await getSeedPasswordHash();
+  const passwordHash = await makeUnusablePasswordHash();
   const usedSlugs = new Set();
 
   const userDocs = [];
@@ -151,8 +153,12 @@ export async function load(count) {
 export async function clear() {
   const userIds = await User.find({ isSeed: true }).distinct('_id');
   const txResult = await Transaction.deleteMany({ userId: { $in: userIds } });
+  // Canlı simülasyonun ürettiği aktivite akışı kayıtları (ActivityEvent'te
+  // isSeed yok, 30 gün TTL) seed kullanıcıya bağlı — silinmezse "Tümünü
+  // Temizle" sonrası Dashboard akışında sahipsiz satırlar olarak kalıyordu.
+  const evResult = await ActivityEvent.deleteMany({ userId: { $in: userIds } });
   const userResult = await User.deleteMany({ isSeed: true });
-  return { deleted: userResult.deletedCount, transactionsDeleted: txResult.deletedCount };
+  return { deleted: userResult.deletedCount, transactionsDeleted: txResult.deletedCount, activityEventsDeleted: evResult.deletedCount };
 }
 
 export async function liveTick() {

@@ -1,6 +1,6 @@
 # Known Limitations
 
-_Last verified: 2026-10-03 (documentation audit, then updated after the code fixes of PR #132; earlier verification 2026-09-17 after the PAM/Risk-Fraud Completion plan). Items below marked RESOLVED 2026-10-03 were checked in the core code; where a fix lives in an add-on submodule (`server/src/premium/*`, not checked out in the documentation worktree) it is stated from the fix reports and was not re-read here._
+_Last verified: 2026-10-08 (i18n coverage and deploy notes re-measured; SMS sender screen, referral settings and add-on `sourceId` resolved); before that 2026-10-03 (documentation audit, then updated after the code fixes of PR #132; earlier verification 2026-09-17 after the PAM/Risk-Fraud Completion plan). Items below marked RESOLVED 2026-10-03 were checked in the core code; where a fix lives in an add-on submodule (`server/src/premium/*`, not checked out in the documentation worktree) it is stated from the fix reports and was not re-read here._
 
 This document lists features that are **defined but not end-to-end connected** or **partially functional** in the codebase. The goal is for the operator to be aware of this before encountering a situation where "I see a field/service in the panel but the behavior isn't what I expected." Each item has been verified by reading the relevant code.
 
@@ -8,7 +8,11 @@ This document lists features that are **defined but not end-to-end connected** o
 
 ## Commercial scope: what is core and what is a paid add-on
 
-The core platform (accounts, wallet, bonus/wagering, KYC, risk, admin) is the base product. **In-house Games (13 games), Sports Betting and Casino Content are separate paid add-ons** (private submodules under `server/src/premium/`); the core starts without them (`503 MODULE_NOT_INSTALLED` on their routes). Installation steps: [01 — Installation § Add-on modules](01-kurulum.md#add-on-modules-in-house-games-sports-betting-casino-content). The game front end (`game-host`) and the odds service (`odds-provider`) are separate Node apps, not in Docker Compose and still outside the deploy workflow. The add-on submodules themselves now ship with the deploy (`SUBMODULE_PAT` is set; its Contents: Read access also covers the `bet` repo and may be narrowed later — see [RUNBOOK § Deployment](../RUNBOOK.md#deployment-production)).
+The core platform (accounts, wallet, bonus/wagering, KYC, risk, admin) is the base product. **In-house Games (13 games), Sports Betting and Casino Content are separate paid add-ons** (private submodules under `server/src/premium/`); the core starts without them (`503 MODULE_NOT_INSTALLED` on their routes). Installation steps: [01 — Installation § Add-on modules](01-kurulum.md#add-on-modules-in-house-games-sports-betting-casino-content). The game front end (`game-host`) and the odds service (`odds-provider`) are separate Node apps, not in Docker Compose; they are built, deployed and restarted on their own, independently of the main application.
+
+## SMS sender screen — RESOLVED 2026-10-08
+
+The SMS sender registry (`client/src/pages/admin/SmsSenders.jsx`: account type, verified trial numbers, approved countries) had no route between 2026-10-06 and 2026-10-08, so SMS could not be set up from the panel. It now opens inside **Settings → Modules → SMS Gateway** ("Manage senders" expands it in the card); closing it refreshes the card's send-gate status.
 
 ## Live Casino — planned, not in this release
 
@@ -39,9 +43,12 @@ With the `kyc-verification` module enabled, every player withdrawal (bank, trans
 
 `/api/igames/*` now also accepts a token saved from **Settings → Modules → Casino Content** (and the health check sees panel-saved SMTP/Igames credentials). The setup wizard writes the real keys the site reads (`branding.siteName`, `currency.code`, selected modules); the currency is limited to the registered TRY/USD/EUR. (The Igames fix is add-on code, taken from the fix report.)
 
-## i18n — 6 languages have 3 untranslated blocks each
+## i18n — admin panel partly English in 6 languages
 
-`client/src/i18n/dictionaries/` has 8 languages with 3000 keys each; `tr` and `en` are complete. In `ko`, `th`, `es`, `ja`, `pt` and `de` three blocks are still English text, each marked `// TODO: bu bloğu <dil>'e çevir`: the admin dashboard payment/KPI cards, the casino-statistics labels, and the In-house Games module card. Everything else in those files is translated (roughly one fifth of the strings equal the English text, mostly brand names and numbers).
+`client/src/i18n/dictionaries/` has 8 languages with the same ~2,790 keys each; `tr` and `en` are complete.
+
+- **Player screens — RESOLVED 2026-10-08:** the Responsible Gaming page and the KYC flow (77 strings) and the remaining general interface strings (pagination, ordering buttons, legal page dates, payment states) are translated in `ko`, `th`, `es`, `ja`, `pt` and `de`. What still equals the English text there is the same in that language too: game and brand names, payment method names, "Casino", "Bonus", "Live" and similar.
+- **Admin panel:** about 470–560 strings per language are still English in those six languages, largest groups Reconciliation, Demo Data, KYC review, Agents and the navigation (measured 2026-10-08).
 
 ## Deployment gaps — RESOLVED 2026-10-03
 
@@ -71,10 +78,10 @@ The system supports:
 
 ## Affiliate/referral system is single-tier
 
-`server/src/services/referralCommission.js` contains `payReferralCommission(userId, houseProfit)`. When a user plays bets/games and generates house profit, a percentage of the house profit — `REFERRAL_SETTINGS.commissionRate` in `server/src/config/referral.js`, **default 10%**, adjustable from the admin panel via `GET/PUT /admin/referral/settings` (permission `admin:referral:rates`), with an `enabled` switch — is paid **only to the person who directly invited that user**:
+`server/src/services/referralCommission.js` contains `payReferralCommission(userId, houseProfit)`. When a user plays bets/games and generates house profit, a percentage of the house profit — the stored commission rate, **default 10%** (`server/src/config/referral.js`), adjustable from the admin panel via `GET/PUT /admin/referral/settings` (permission `admin:referral:rates`), with an `enabled` switch — is paid **only to the person who directly invited that user**:
 
 ```js
-const commission = parseFloat((houseProfit * REFERRAL_SETTINGS.commissionRate / 100).toFixed(2));
+const commission = parseFloat((houseProfit * settings.commissionRate / 100).toFixed(2));
 ...
 const referrer = await User.findByIdAndUpdate(
   bettor.referredBy,
@@ -83,15 +90,19 @@ const referrer = await User.findByIdAndUpdate(
 );
 ```
 
+**Rate/enable switch persisted — RESOLVED 2026-10-08.** `PUT /api/admin/referral/settings` used to change only an in-memory object (reset on every restart/deploy, different per process). The values are now stored in the `Setting` collection (`referral.enabled`, `referral.commissionRate`; `server/src/services/referralSettings.js`) and read with a 30-second cache; `config/referral.js` holds only the defaults used when nothing is stored. Tests: `server/test/referralSettings.test.js`.
+
 There's no mechanism to walk up the `bettor.referredBy` chain and also pay 2nd or 3rd tier referrers — the system is a flat single-tier "you brought them, you earn" model (`GET /admin/users/:id/referral-tree` returns a read-only 3-level tree for viewing; it pays nothing). If you're looking for a multi-tier affiliate/MLM structure, this requires additional development.
 
 ## Financial ledger — double writes RESOLVED 2026-10-03
 
 `server/src/services/ledger.js` (`createTransaction`) provides idempotency protection and currency stamping. A 2026-09-16 audit counted 18 raw `Transaction.create()` sites; the 2026-09-17 migrations covered the admin balance, bank approve, bet win settlement, promotion claim and the crypto/vip/referral/agent/in-house/Igames sites listed in the changelog. A 2026-10-03 re-check found that several of those still wrote a raw `Transaction.create()` row **and** a `createTransaction()` row for the same event (crypto withdrawal reject, VIP cashback/level-up, referral and agent commissions, Igames session close). PR #132 removed the raw writes: each event now produces one idempotent ledger row (`server/test/ledger-singleWrite.test.js`, `igamesSessionLedger.test.js`). `routes/crypto.js` was already single-write (only comments mention the old call). `vip.js` also lacked a `getIO` import, which made `payCashback` throw; fixed.
 
-Duplicate protection for commissions/cashback now derives its key from the source event: `payReferralCommission`, `payCashback` and `payAgentCommission` accept `sourceId`, build the idempotency key from it and check for an existing transaction **before** touching the balance. **Remaining limit:** the core passes `sourceId` only from the in-house `CasinoRound` post-save hook. The sports settlement and Igames session callers (add-on code) were not seen passing it in the main checkout (settlement calls `payReferralCommission(..., { session })` / `payCashback(...)` without it), and without `sourceId` the old behaviour applies (every call counts as a separate payout, key contains `Date.now()`). Passing `sourceId` from those add-on callers is open work.
+Duplicate protection for commissions/cashback now derives its key from the source event: `payReferralCommission`, `payCashback` and `payAgentCommission` accept `sourceId`, build the idempotency key from it and check for an existing transaction **before** touching the balance. All callers now pass it: the in-house `CasinoRound` post-save hook (core), sports settlement (`sourceId: bet._id`) and Igames session close (`sourceId: session._id`). The add-on fixes were written on 2026-10-03 but reached `bet` (and the deploy) only on 2026-10-08, when the submodule pointers were updated. Callers that omit `sourceId` still get one payout per call.
 
-Other items kept from the earlier pass: `admin.js updateBalance` uses a per-call unique key, so a double-click still double-credits; a client-generated request id would be needed for real dedup there.
+**Historic duplicates (rows written twice before the fix) are not removed automatically.** `node server/scripts/ledger-dedupe.mjs` previews them (default, writes nothing); `--commit` archives each removed row in `transactions_dedupe_archive` and re-points `ReferralCommission.transactionId`, `relatedTransactionId` and ChatRain references to the kept row. A pair is a key-less raw row plus an idempotency-keyed row with identical `userId`, `type`, `amount`, `balanceBefore`, `balanceAfter` created within 5 s of each other (the same balance transition cannot occur in two real operations); single keyed rows are never touched. For a pending crypto withdrawal where an admin already processed one copy, the processed row is kept and the stale pending one removed, so it cannot be approved (second USDT send) or rejected (second refund) again. Tests: `server/test/ledgerDedupe.test.js`.
+
+Admin balance adjustment — RESOLVED 2026-10-08: `PATCH /api/admin/users/:id/balance` accepts a client-generated `requestId`; a repeated request with the same id returns the first result without touching the balance, and the balance, ledger row and bonus wagering record are written in one DB transaction (`server/test/admin-update-balance.test.js`). Callers that omit `requestId` still get a separate operation per call.
 
 ## RG daily/weekly/monthly limit tracking — RESOLVED 2026-09-17
 
@@ -110,6 +121,30 @@ Other items kept from the earlier pass: `admin.js updateBalance` uses a per-call
 ## RG audit log — RESOLVED 2026-09-17
 
 `getResponsibleGamingAudit` now queries the real `AuditLog` service with `category: 'responsible_gaming'`. The `restrictAccount` and `liftRestriction` functions now write `AuditLog` entries with `action: 'RESPONSIBLE_GAMING_RESTRICT'` and `'RESPONSIBLE_GAMING_LIFT'` respectively, and the `actorUsername` field is populated with the admin's ID. Audit log entries are written with `.catch()` to avoid breaking the main operation on audit failure.
+
+## Bonus expiry — RESOLVED 2026-10-03
+
+Expiry used to set the `BonusWagering` record to `expired` (lazily, on the next settled stake) without touching `balance`; because the lock counts only `active` records, the whole bonus became withdrawable without the wagering requirement (reproduced on the old code: 100 real + 100 bonus → 200 withdrawable). A player who never bet again stayed locked forever. Now `expireWagering()` (`server/src/services/wagering.js`) applies the same rule as a player's forfeit — the unwagered share is taken back, never below a zero balance — inside one DB transaction with an idempotent `bonus_forfeit` ledger row (`bonus_expire_<wageringId>`). Expiry is processed before every lock/withdrawable calculation and hourly by `server/src/jobs/bonusExpiry.js`. Details: [10 — Bonus and Wagering](10-bonus-ve-cevrim.md#when-a-bonus-expires). Tests: `server/test/bonusExpiry.test.js`.
+
+## Demo data seed users — RESOLVED 2026-10-03
+
+Seed users used to share one password published in the source (`SeedUser1234!`) while holding positive balances, and the ones back-dated before `EMAIL_VERIFICATION_CUTOFF` could log in — with automatic crypto withdrawals below `requireApprovalAbove`, real hot-wallet funds were at risk. Now: login rejects `isSeed` accounts with the same response as a wrong password (`LoginAttempt.failReason: 'seed_account'`), `requireAuth` and `/auth/refresh` reject them too (existing tokens stop working), the generator writes a random, never-stored password hash per load, and migration `0003_rotate_seed_passwords` (run with `node server/scripts/migrate.js`; not applied automatically) replaces existing seed passwords and bumps their `tokenVersion`. Tests: `server/test/demoSeedSecurity.test.js`. Seed data is still counted in Dashboard/Analytics — clear it before reporting real numbers.
+
+## Panel-created admins without a role — RESOLVED 2026-10-03
+
+An admin created from **Admin → Users** without picking a role was stored with `roles: []`. `userHasPermission()` does not treat `role: 'admin'` alone as sufficient, so that admin got `403 Yetki yok` on every granular permission (e.g. `GET /api/admin/activity` behind the Dashboard feed) until the next server restart, when `migrateOrphanedAdminRoles()` promoted them to `super_admin`. `createUser` now assigns the built-in `admin` role (all permissions except role management) at creation time. Test: `server/test/adminDefaultRole.test.js`.
+
+## Admin list endpoints `limit` cap — RESOLVED
+
+`GET /api/admin/agents` and `GET /api/admin/reconciliation/jobs` / `jobs/:id/items` now clamp `page >= 1` and `limit` to 1-100 (default 20); `?limit=1000000` returns at most 100 rows. The activity feed and casino-reward grants were already capped at 100.
+
+## Casino rewards — provider behaviour not yet confirmed
+
+Freeround/bonus-call grants (2026-10-02) rely on four undocumented provider points: `expirationDate` unit (assumed seconds), the meaning of the required `win` field (sent as 0), whether `freeround/create` returns an id (without it the freeround cannot be cancelled from the panel), and freeround winnings not being attributable (`winTotal` stays empty). Each is isolated in one constant/helper; verify against the stored `providerResponse` after the first live grant. Details are in the Casino Content add-on's own documentation.
+
+## Socket rooms trusted the client's user id — RESOLVED 2026-10-03
+
+The main Socket.IO namespace has no handshake authentication (it also serves anonymous visitors: online counter, odds). `subscribe:user` and `subscribe:admin` used to join rooms based on the `userId` **the client sent**: anyone knowing an admin's id could join `role:admin` and receive every `activity:new`/`activity:update` (usernames and deposit/withdrawal amounts), KYC and queue-counter events; any player's id gave access to that player's `user:<id>` events (balance updates). Both events now require the access token in the payload (`{ token }`, sent by `client/src/store/authStore.js`); the server joins only the room of the token's user, and `role:admin` only if that user is an admin in the DB (and not a demo-data account). Test: `server/test/socketRoomAuth.test.js` (the old code fails 3 of 4).
 
 ## Multi-brand data isolation — not enforced
 

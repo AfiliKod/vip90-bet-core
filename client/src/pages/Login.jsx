@@ -102,7 +102,9 @@ export default function Login() {
         Swal.fire({
           icon: 'error',
           title: t('auth.registerFailed'),
-          text: msg || t('auth.unknownError'),
+          text: errData?.code === 'PHONE_EXISTS' ? t('auth.phoneExists')
+            : errData?.code === 'INVALID_PHONE' ? t('auth.invalidPhone')
+            : (msg || t('auth.unknownError')),
           confirmButtonText: t('common.ok'),
           confirmButtonColor: '#00d4ff',
           background: '#0c1220',

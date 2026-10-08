@@ -81,12 +81,20 @@ export async function fetchCryptoExternalRecords(job) {
   return records;
 }
 
+// Sayfalama sınırı (admin.js'teki desen) — ?limit=1000000 tüm koleksiyonu yüklemesin.
+export function parsePagination(query = {}) {
+  const page = Math.max(1, parseInt(query.page, 10) || 1);
+  const limit = Math.min(Math.max(1, parseInt(query.limit, 10) || 20), 100);
+  return { page, limit };
+}
+
 /**
  * List reconciliation jobs
  */
 export async function listJobs(req, res, next) {
   try {
-    const { page, limit, status, type } = req.query;
+    const { status, type } = req.query;
+    const { page, limit } = parsePagination(req.query);
     const result = await reconciliationService.listReconciliationJobs({
       page, limit, status, type,
     });
@@ -148,7 +156,8 @@ export async function startJob(req, res, next) {
  */
 export async function getJobItems(req, res, next) {
   try {
-    const { page, limit, status } = req.query;
+    const { status } = req.query;
+    const { page, limit } = parsePagination(req.query);
     const result = await reconciliationService.getReconciliationItems(req.params.id, {
       page, limit, status,
     });

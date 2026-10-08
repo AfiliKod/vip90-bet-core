@@ -46,6 +46,8 @@ RUN groupadd --system appgroup && useradd --system --gid appgroup --no-create-ho
 COPY --from=build /app/server/node_modules ./server/node_modules
 COPY --from=build /app/server/package*.json ./server/
 COPY --from=build /app/server/src ./server/src
+# shared/ — server/src/seo/http.js rota eşleştiriciyi (404) buradan import eder
+COPY shared ./shared
 COPY --from=build /app/client/dist ./client/dist
 COPY --from=build /app/package.json ./
 COPY --from=build /app/installer ./installer
@@ -78,6 +80,8 @@ COPY server/package*.json ./server/
 RUN npm install --prefix server
 COPY server/ ./server/
 COPY client/src ./client/src
+# shared/ — server testleri seo/http.js üzerinden rota eşleştiriciyi import eder
+COPY shared ./shared
 COPY installer ./installer
 COPY docs/product ./docs/product
 COPY CHANGELOG.md ./CHANGELOG.md

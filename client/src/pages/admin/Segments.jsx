@@ -5,7 +5,7 @@ import AdminPageHeader, { AdminTabs, ADMIN_BTN, ADMIN_BTN_PRIMARY } from '../../
 import { AdminTable, AdminTableRow, AdminTableCell, AdminExpandRow, AdminTableActionsCell } from '../../components/admin/AdminTable.jsx';
 import RowActions from '../../components/admin/RowActions.jsx';
 
-export default function Segments() {
+export default function Segments({ embedded = false }) {
   const { t, locale } = useTranslation();
   const [segments, setSegments] = useState([]);
   const [total, setTotal]           = useState(0);
@@ -144,8 +144,9 @@ export default function Segments() {
   ];
 
   return (
-    <div className="mx-auto w-full max-w-[1400px] px-4 py-5 sm:px-6">
+    <div className={embedded ? '' : 'mx-auto w-full max-w-[1400px] px-4 py-5 sm:px-6'}>
       <AdminPageHeader
+        embedded={embedded}
         crumbs={[{ label: t('admin.nav.groupCustomers') }, { label: t('admin.segments.title') }]}
         title={t('admin.segments.title')}
         sub={t('admin.segments.countLine', { count: total.toLocaleString(locale), page, pages })}

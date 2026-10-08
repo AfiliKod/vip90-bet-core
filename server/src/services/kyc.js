@@ -1,7 +1,7 @@
 import KycDocument from '../models/KycDocument.js';
 import User from '../models/User.js';
 import { getIO } from './socketEmitter.js';
-import { sendEmail } from './email.js';
+import { sendActionMail } from './systemMail.js';
 import { getSiteName } from '../branding/index.js';
 
 /**
@@ -119,18 +119,21 @@ export async function approveKyc(userId, adminId, options = {}) {
   user.kycRejectionReason = '';
   await user.save({ session });
 
-  // Send email notification
+  // Bildirim — panelde şablon tanımlanmışsa o kullanılır, yoksa eski içerik.
   const approvedSiteName = await getSiteName();
-  await sendEmail({
-    to: user.email,
-    subject: 'KYC Onaylandı',
-    html: `
+  await sendActionMail('kyc.approved', {
+    user,
+    vars: { note: notes || '' },
+    fallback: async () => ({
+      subject: 'KYC Onaylandı',
+      html: `
       <h2>KYC Başvurunuz Onaylandı</h2>
       <p>Sayın ${user.username},</p>
       <p>Kimlik doğrulama belgeleriniz incelendi ve onaylandı. Artık tüm özellikleri sınırsız kullanabilirsiniz.</p>
       ${notes ? `<p><strong>Admin notu:</strong> ${notes}</p>` : ''}
       <p>İyi eğlenceler,<br>${approvedSiteName} Ekibi</p>
     `,
+    }),
   });
 
   // Real-time update
@@ -168,12 +171,14 @@ export async function rejectKyc(userId, adminId, reason, options = {}) {
   user.kycRejectionReason = reason;
   await user.save({ session });
 
-  // Send email notification
+  // Bildirim — panelde şablon tanımlanmışsa o kullanılır, yoksa eski içerik.
   const rejectedSiteName = await getSiteName();
-  await sendEmail({
-    to: user.email,
-    subject: 'KYC Reddedildi',
-    html: `
+  await sendActionMail('kyc.rejected', {
+    user,
+    vars: { note: reason || '' },
+    fallback: async () => ({
+      subject: 'KYC Reddedildi',
+      html: `
       <h2>KYC Başvurunuz Reddedildi</h2>
       <p>Sayın ${user.username},</p>
       <p>Kimlik doğrulama belgeleriniz incelendi ancak reddedildi.</p>
@@ -181,6 +186,7 @@ export async function rejectKyc(userId, adminId, reason, options = {}) {
       <p>Lütfen doğru belgeleri yeniden yükleyin.</p>
       <p>İyi eğlenceler,<br>${rejectedSiteName} Ekibi</p>
     `,
+    }),
   });
 
   // Real-time update

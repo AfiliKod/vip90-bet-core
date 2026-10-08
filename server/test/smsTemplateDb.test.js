@@ -155,6 +155,22 @@ describe('SMS şablon servisi (canlı DB)', () => {
       );
     });
 
+    it('yalnız isActive gönderilen aç/kapa, bozuk kitleyi beklemez; kitle payload\'daysa denetim sürer', async () => {
+      const tpl = await createTemplate({ title: 'Bozuk kitle', type: 'scheduled', content: 'x' });
+      // Segment silinmiş gibi bozuk kayıt: kitle segment ama segmentId yok.
+      await SmsTemplate.updateOne({ _id: tpl._id }, { $set: { 'audience.type': 'segment', 'audience.segmentId': null } });
+
+      // Şablonu kapatmak bu bozuk veriyi beklemez (eski davranışta SMS_SEGMENT_REQUIRED).
+      const toggled = await updateTemplate(tpl._id, { isActive: false });
+      assert.equal(toggled.isActive, false);
+
+      // Aynı bozuk kitle payload'a yazılırsa denetim hâlâ çalışır.
+      await assert.rejects(
+        () => updateTemplate(tpl._id, { audience: { type: 'segment', segmentId: null } }),
+        err => err.code === 'SMS_SEGMENT_REQUIRED',
+      );
+    });
+
     it('silme bulunmayan kayıtta 404 döner', async () => {
       await assert.rejects(
         () => deleteTemplate(new mongoose.Types.ObjectId()),

@@ -6,7 +6,7 @@ const schema = new mongoose.Schema({
   ip:        { type: String, default: null },
   userAgent: { type: String, default: null },
   success:   { type: Boolean, required: true },
-  failReason: { type: String, default: null }, // wrong_password, user_not_found, banned
+  failReason: { type: String, default: null }, // wrong_password, user_not_found, banned, seed_account
 }, { timestamps: { createdAt: true, updatedAt: false } });
 
 schema.index({ userId: 1, createdAt: -1 });

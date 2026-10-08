@@ -124,6 +124,7 @@ describe('createInstaller — run() kurulum', () => {
     assert.strictEqual(admin.username, 'kurucu');
     assert.strictEqual(admin.email, 'admin@example.com');
     assert.strictEqual(admin.password, 'GucluParola123'); // hash pre-save hook'ta (gerçek modelde)
+    assert.strictEqual(admin.emailVerified, true); // SMTP'siz kurulumda da giriş yapabilsin
   });
 
   test('site ayarlarını Setting koleksiyonuna yazar', async () => {

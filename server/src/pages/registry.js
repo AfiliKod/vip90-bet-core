@@ -1,7 +1,7 @@
 /**
  * Ana sayfa "sayfa ve blok düzenleyici" içerik modeli (A4).
  *
- * TALIMAT.md'nin önerdiği gibi burası yeni bir Mongoose şeması AÇMIYOR;
+ * docs/archive/reports/TALIMAT.md'nin önerdiği gibi burası yeni bir Mongoose şeması AÇMIYOR;
  * tek bir `Setting` satırında (`page.home`) JSON gövde tutuyor. theme/registry.js
  * ve modules/registry.js'teki atomik id→değer deseninden farklı olarak
  * (sectionOrder + banners) tek bir yapılı içerik dokümanı — çünkü bölüm

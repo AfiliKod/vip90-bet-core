@@ -2,8 +2,7 @@
 
 Bu depo `CHANGELOG.md`'yi [Keep a Changelog](https://keepachangelog.com/tr/1.1.0/)
 biçiminde tutar. Her kart/özellik commit'i, `[Yayınlanmadı]` bölümüne kendi
-maddesini ekler — sürüm numarası yalnızca bir faz kapandığında artırılır
-(bkz. Phantom `goals` tablosundaki `bet-fazN` kilometre taşları).
+maddesini ekler — sürüm numarası yalnızca bir faz kapandığında artırılır.
 
 ## Madde şablonu
 
@@ -25,13 +24,22 @@ Kategoriler (yalnızca ilgili olanlar kullanılır, boş kategori açılmaz):
 - **Düzeltildi** — hata düzeltmesi.
 - **Güvenlik** — güvenlik açığı kapatma (CVE varsa referans verilir).
 
-## Sürüm kapanışında (faz tamamlandığında)
+## Sürüm kesmek
 
-1. `[Yayınlanmadı]` başlığını `## [X.Y.Z] — YYYY-MM-DD` olarak değiştir.
-2. `package.json`'daki `version` alanını güncelle.
-3. Yeni boş bir `## [Yayınlanmadı]` bölümü aç.
-4. Hangi fazın kapandığını ve bir sonraki fazda neyin beklendiğini
-   kısa bir üst not olarak ekle.
+Her PR kendi girdisini `[Yayınlanmadı]` altına ekler. Sürüm kesmek için:
+
+1. `node scripts/release.mjs <X.Y.Z>` (önce `--dry-run` ile bakın). Betik
+   `[Yayınlanmadı]` başlığını `## [X.Y.Z] — YYYY-MM-DD` yapıp üstüne yeni boş
+   bir `[Yayınlanmadı]` açar, kök/server/client `package.json` ve lock
+   dosyalarını aynı numaraya çeker, README rozetlerini günceller. Bölüm boşsa
+   ya da numara son sürümden büyük değilse durur.
+2. Değişiklik PR ile `main`'e girer.
+3. Merge commit'ine `vX.Y.Z` etiketi atılır ve CHANGELOG'daki bölümle bir
+   GitHub Release oluşturulur.
+
+Numara SemVer'e göre seçilir: kurulumu, API tüketicisini ya da şemayı bozan
+değişiklik → major, yeni özellik → minor, düzeltme → patch. Çalışan sürüm
+`GET /api/health` yanıtındaki `version` alanından okunur.
 
 ## "Neyi bozar" disiplini — zorunlu
 
@@ -50,8 +58,9 @@ yumuşatılmaz. Örnek:
 
 ## Neden bu disiplin var
 
-Platformu işleten operatörler güncellemeleri kendi kurulumlarına elle uygularlar.
-"Ne değişti" belirsizse, alıcı ya güncellemeyi hiç yapmaz (güvenlik açığı
-kapanmamış kalır) ya da körlemesine yapıp production'ı kırar. Değişiklik
-günlüğü burada bir nezaket değil, D9'daki imzalı güncelleme akışının
-insan-okur tarafı.
+Platformu kendi sunucusunda işleten operatörler güncellemeleri kendi
+kurulumlarına elle uygular. "Ne değişti" belirsizse operatör ya güncellemeyi
+hiç yapmaz (güvenlik açığı kapanmamış kalır) ya da körlemesine yapıp
+production'ı kırar. Değişiklik günlüğü burada bir nezaket değil, imzalı
+güncelleme paketi akışının (`server/src/agent/updatePackage.js`) insan-okur
+tarafı.

@@ -129,6 +129,14 @@ function relativeTime(createdAt, locale, t) {
 
 // Bekleyen kaydın yaşı — kaydın kendi createdAt'ından hesaplanır.
 // (Eskiden sıraya göre sabit saat/gün fixture'ı basılıyordu.)
+// Sunucu `kind` → i18n anahtar segmenti (admin.dashboard.pendingFinance.kind.*).
+const PENDING_KIND_KEY = {
+  crypto_deposit: 'cryptoDeposit',
+  crypto_withdraw: 'cryptoWithdraw',
+  bank_deposit: 'bankDeposit',
+  bank_withdraw: 'bankWithdraw',
+};
+
 function pendingAge(createdAt) {
   const ms = Date.now() - new Date(createdAt).getTime();
   if (!Number.isFinite(ms) || ms < 0) return null;
@@ -234,20 +242,17 @@ export default function AdminDashboard() {
 
   useEffect(() => {
     // Bekleyen finans tablosu (liste satırları) — kuyruk SAYISI artık
-    // /admin/queues/counts'tan gelir, aşağıdaki liste yalnız tabloyu besler.
-    Promise.all([
-      api.get('/admin/crypto/pending-deposits').catch(() => ({ data: [] })),
-      api.get('/admin/crypto/pending-withdrawals').catch(() => ({ data: [] })),
-    ]).then(([d, w]) => {
-      const rows = [...(d.data || []), ...(w.data || [])];
-      // Bekleyen finans tablosu — satır alanlarının TAMAMI gerçek kayıttan.
-      setPendingFinance(rows.slice(0, 5).map((r) => ({
-        ref: r._id,
-        player: r.username || r.user?.username || '—',
-        amount: r.amount != null ? formatCurrency(Math.abs(r.amount)) : '—',
-        method: r.currency || r.type || '—',
-        // risk tier: kullanıcının KYC/risk seviyesi; yoksa bilinmiyor
-        risk: r.user?.kycStatus === 'approved' ? 'low' : (r.user?.riskLevel || 'medium'),
+    // /admin/queues/counts'tan gelir. Satırlar sunucuda normalize edilir
+    // (kripto + banka, en uzun bekleyen önce, oyuncu adı/tutar/risk gerçek
+    // kayıttan) — bkz. server/src/services/pendingFinance.js.
+    api.get('/admin/queues/pending-finance', { params: { limit: 5 } }).then(({ data }) => {
+      setPendingFinance((data?.items || []).map((r) => ({
+        ref: r.ref,
+        player: r.username || '—',
+        amount: r.amount != null ? formatCurrency(r.amount) : '—',
+        kind: r.kind,
+        usdt: r.usdtAmount,
+        risk: r.risk || 'medium',
         status: r.status || 'pending',
         age: pendingAge(r.createdAt),
       })));
@@ -354,7 +359,7 @@ export default function AdminDashboard() {
     {
       id: 'casinoRounds', icon: 'casino', labelKey: 'admin.analytics.casinoRounds',
       raw: casino.totalRounds, text: formatSignedCount(casino.totalRounds, locale),
-      sub: overview ? `GGR ${formatCurrency(casino.ggr)}` : null,
+      sub: overview ? t('admin.dashboard.kpi.ggrWithAmount', { value: formatCurrency(casino.ggr) }) : null,
     },
     {
       id: 'sportsVolume', icon: 'sports_soccer', labelKey: 'admin.analytics.sportsVolume',
@@ -390,8 +395,8 @@ export default function AdminDashboard() {
     medium: 'bg-gold/15 text-gold',
   };
 
-  // Bekleyen finans segment filtresi (VIP / yüksek riskli). Gerçek veri
-  // /admin/crypto/pending-* kaynaklı; risk/age alanları fixture (F5 notu).
+  // Bekleyen finans segment filtresi (VIP / yüksek riskli). Risk etiketi
+  // sunucuda risk profili + VIP seviyesi + KYC'den türetilir.
   const visibleFinance = pendingFinance.filter(r => {
     if (finFilter === 'vip') return r.risk === 'vip';
     if (finFilter === 'high') return r.risk === 'high';
@@ -721,7 +726,7 @@ export default function AdminDashboard() {
             <div className="inline-flex gap-0.5 rounded-lg border border-white/10 bg-bg-deep p-0.5 text-[11.5px] font-extrabold">
               {[
                 { key: 'all', label: t('common.all') },
-                { key: 'vip', label: 'VIP' },
+                { key: 'vip', label: t('admin.risk.levelVip') },
                 { key: 'high', label: t('admin.dashboard.pendingFinance.filterHigh') },
               ].map(f => (
                 <button
@@ -763,7 +768,10 @@ export default function AdminDashboard() {
                       <div className="mt-0.5 font-mono text-xs text-text-3">{row.ref}</div>
                     </td>
                     <td className="px-3 py-3 text-right font-mono font-semibold tabular-nums text-text-1">{row.amount}</td>
-                    <td className="px-3 py-3 text-text-2">{row.method}</td>
+                    <td className="px-3 py-3 text-text-2">
+                      {t(`admin.dashboard.pendingFinance.kind.${PENDING_KIND_KEY[row.kind] || 'other'}`)}
+                      {row.usdt != null && <div className="mt-0.5 font-mono text-xs text-text-3">{row.usdt} USDT</div>}
+                    </td>
                     <td className="px-3 py-3">
                       <span className={`rounded-full px-2 py-[3px] text-[10.5px] font-extrabold uppercase ${
                         row.risk === 'vip' ? 'bg-info/20 text-info'
@@ -771,7 +779,7 @@ export default function AdminDashboard() {
                             : row.risk === 'medium' ? 'bg-warning/20 text-warning'
                               : 'bg-success/15 text-success'
                       }`}>
-                        {row.risk === 'vip' ? 'VIP'
+                        {row.risk === 'vip' ? t('admin.risk.levelVip')
                           : row.risk === 'high' ? t('admin.risk.levelHigh')
                             : row.risk === 'medium' ? t('admin.risk.levelMedium')
                               : t('admin.risk.levelLow')}

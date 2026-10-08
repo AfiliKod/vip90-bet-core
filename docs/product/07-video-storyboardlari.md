@@ -4,7 +4,7 @@
 >
 > Menu names changed on 2026-10-02 (Settings with General · Modules · Currencies · Jurisdictions · Brands · SEO tabs, a Products group, Wallet as a top-level entry) and In-house Games, Sports Betting and Casino Content are now separate paid add-ons; re-check each storyboard's menu references against [02 — Configuration](02-yapilandirma.md) and [03 — Module System](03-modul-sistemi.md) before filming.
 >
-> Some storyboards describe screens from cards not yet merged into `feat/integration` but belonging to code on the relevant `feat/akis-*` branch (K2, M3, O6 — all completed on their respective branches). This doesn't mean the storyboard is incomplete — when those branches are merged, the screens will be there as described, the storyboard is ready from today.
+> Some storyboards describe screens from cards not yet merged into the integration branch at the time but belonging to code on the relevant `feat/akis-*` branch (K2, M3, O6 — all completed on their respective branches). This doesn't mean the storyboard is incomplete — when those branches are merged, the screens will be there as described, the storyboard is ready from today.
 
 ## Format rule
 
@@ -98,7 +98,7 @@ Editing the banner, campaign block, and section order from the panel.
 
 | Scene | Narration |
 |---|---|
-| 0-15s: Simple diagram of the modules from [03 — Module System](03-modul-sistemi.md) (Core / Betting / Casino Content / In-house Games) | "In VIP90.bet, the core platform is always enabled — Betting, Casino Content and In-house Games are sold/licensed separately." |
+| 0-15s: Simple diagram of the three modules from [03 — Module System](03-modul-sistemi.md) (Core / Betting / Casino Content / Live Casino) | "In VIP90.bet, the core platform is always enabled — three additional modules are sold/licensed separately." |
 | 15-40s: Admin panel → Modules screen opens, three module cards listed (with status badges) | "You can see which module is on and which is off from a single screen." |
 | 40-65s: Navigates to a page affected by a disabled module (e.g., `/casino`), menu item is gone / graceful message shown | "When a module is disabled, the rest of the site is completely unaffected — that section just gracefully disappears." |
 | 65-90s: Closing, summary benefit of the module system | "As an operator, you only keep enabled what you've licensed." |
@@ -136,7 +136,7 @@ Editing the banner, campaign block, and section order from the panel.
 | Scene | Narration |
 |---|---|
 | 0-20s: A Crash round being played | "Each round is calculated with a server seed that cannot be predetermined." |
-| 20-60s: HMAC formula on screen, simplified explanation (source: licensed In-house Games module) | "This seed, hashed with HMAC-SHA256, determines the result — no one can know it in advance." |
+| 20-60s: HMAC formula from the In-house Games add-on documentation on screen, simplified explanation | "This seed, hashed with HMAC-SHA256, determines the result — no one can know it in advance." |
 | 60-100s: House edge table shown | "Each game's house edge value is clearly documented." |
 
 ---
@@ -183,7 +183,7 @@ Admin side: ticket list, replying, changing status.
 
 | Group | Video count | Storyboard status | Waiting for filming |
 |---|---|---|---|
-| Installation | 3 | 3/3 fully written | K2's merge into `feat/integration` |
+| Installation | 3 | 3/3 fully written | K2's merge into the integration branch |
 | Initial Configuration | 3 | 3/3 fully written | — (ready to film today) |
 | Theme Editor | 3 | 3/3 fully written | — (ready to film today) |
 | Module Activation | 2 | 2/2 fully written | M2/M3 merge |
@@ -192,4 +192,4 @@ Admin side: ticket list, replying, changing status.
 | Support Tools | 3 | 3/3 fully written | V7.2: player-side ticket screen addition |
 | **Total** | **18** | **18/18 fully written** | |
 
-All **18 storyboards** requested by D2 in the 15-20 range are written scene by scene — none were left incomplete/conceptual. 13 are ready to film as of today; 4 (those dependent on K2/M2/M3/O6) when the relevant branches are merged into `feat/integration`, and 1 (V7.2) when the player-side ticket screen is added. Which tool will be used for filming (a tool producing screen recording + voice-over, or a model generating video from text) was left to the end of the development flow per the user's decision — this document is a completed foundation independent of that decision.
+All **18 storyboards** requested by D2 in the 15-20 range are written scene by scene — none were left incomplete/conceptual. 13 are ready to film as of today; 4 (those dependent on K2/M2/M3/O6) when the relevant branches are merged into the integration branch, and 1 (V7.2) when the player-side ticket screen is added. Which tool will be used for filming (a tool producing screen recording + voice-over, or a model generating video from text) was left to the end of the development flow per the user's decision — this document is a completed foundation independent of that decision.

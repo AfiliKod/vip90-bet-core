@@ -2,7 +2,7 @@ import { Router } from 'express';
 import { requireAuth, requireAdmin } from '../middleware/auth.js';
 import { auditLog } from '../middleware/audit.js';
 import { validate } from '../middleware/validate.js';
-import { createEventSchema, settleEventSchema, createUserSchema, updateBalanceSchema, updateThemeSchema, updateBrandingSchema, updateHomeContentSchema, updateFeaturedGamesSchema, applyThemePresetSchema, updateGameSettingsSchema, simulateRtpSchema, updateCurrencySchema, updateTimezoneSchema, updateDefaultLocaleSchema, createRoleSchema, updateRoleSchema, assignRoleSchema, upsertVipLevelSchema, upsertPromotionSchema, createBotSchema, updateBotSchema, upsertStaticPageSchema, toggleStaticPageSchema, updateFakeWinnersSchema, updateUserAdminSchema, updateTaskSchema, createIgamesUserSchema, launchIgamesGameSchema, setIgamesRtpSchema, startIgamesBonusCallSchema, cancelIgamesBonusCallSchema, createFreeRoundSchema, cancelFreeRoundSchema, updateAlertSettingsSchema, updateKycSettingsSchema, approveKycSubmissionSchema, rejectKycSubmissionSchema, updateCryptoSettingsSchema, updateReferralSettingsSchema, updateSlikairSettingsSchema, updateEmailSettingsSchema } from '../validators/admin.js';
+import { createEventSchema, settleEventSchema, createUserSchema, updateBalanceSchema, updateThemeSchema, updateBrandingSchema, updateHomeContentSchema, updateFeaturedGamesSchema, applyThemePresetSchema, updateGameSettingsSchema, simulateRtpSchema, updateCurrencySchema, updateTimezoneSchema, updateDefaultLocaleSchema, createRoleSchema, updateRoleSchema, assignRoleSchema, upsertVipLevelSchema, upsertPromotionSchema, createBotSchema, updateBotSchema, upsertStaticPageSchema, toggleStaticPageSchema, updateFakeWinnersSchema, updateUserAdminSchema, updateTaskSchema, createIgamesUserSchema, launchIgamesGameSchema, setIgamesRtpSchema, startIgamesBonusCallSchema, cancelIgamesBonusCallSchema, createFreeRoundSchema, cancelFreeRoundSchema, updateAlertSettingsSchema, updateKycSettingsSchema, approveKycSubmissionSchema, rejectKycSubmissionSchema, updateCryptoSettingsSchema, updateReferralSettingsSchema, updateSlikairSettingsSchema, updateEmailSettingsSchema, testEmailSchema } from '../validators/admin.js';
 import * as ctrl from '../controllers/admin.js';
 import modulesAdminRouter from '../controllers/modules.js';
 import reconciliationRouter from './reconciliation.js';
@@ -64,6 +64,10 @@ r.use('/brands', multiBrandRouter);
 import multiJurisdictionRouter from './multiJurisdiction.js';
 r.use('/jurisdictions', multiJurisdictionRouter);
 
+// Sistem e-postaları (şablon CRUD + gönderim)
+import mailTemplatesRouter from './adminMailTemplates.js';
+r.use('/mail-templates', mailTemplatesRouter);
+
 r.get('/users',                  requirePermission('admin:users:read'), ctrl.getUsers);
 r.get('/users/facets',           requirePermission('admin:users:read'), ctrl.getUsersFacets);
 r.get('/users/kpis',             requirePermission('admin:users:read'), ctrl.getUsersKpis);
@@ -84,6 +88,7 @@ r.get('/stats',       requirePermission('admin:reports:read'), ctrl.getStats);
 r.get('/activity',    requirePermission('admin:activity:read'), ctrl.listActivity);
 // F2 — sidebar rozetleri + dashboard kuyruk kartları bu tek sayıyı okur.
 r.get('/queues/counts', requirePermission('admin:activity:read'), ctrl.getAdminQueueCounts);
+r.get('/queues/pending-finance', requirePermission('admin:transactions:read'), ctrl.getPendingFinance);
 r.get('/demo-data/status',           requirePermission('admin:demo-data:manage'), ctrl.getDemoDataStatus);
 r.post('/demo-data/:category/load',  requirePermission('admin:demo-data:manage'), ctrl.loadDemoDataCategory);
 r.post('/demo-data/:category/clear', requirePermission('admin:demo-data:manage'), ctrl.clearDemoDataCategory);
@@ -161,7 +166,7 @@ r.get('/settings/email',      requirePermission('admin:settings:read'), emailSet
 r.put('/settings/email',      requirePermission('admin:settings:write'), validate(updateEmailSettingsSchema), emailSettings.update);
 // SEO ayarları (başlık/meta/OG/doğrulama/analytics) — site <head>'ine enjekte edilir
 r.use('/settings/seo', seoAdminRouter);
-r.post('/settings/email/test', requirePermission('admin:settings:write'), emailTestLimiter, emailSettings.test);
+r.post('/settings/email/test', requirePermission('admin:settings:write'), emailTestLimiter, validate(testEmailSchema), emailSettings.test);
 
 // U5 — operatör saat dilimi ayarı (panelden)
 r.get('/settings/timezone',      requirePermission('admin:settings:read'), async (req,res,next) => { try { res.json({ timezone: await timezoneStore.get() }); } catch(e){ next(e); } });

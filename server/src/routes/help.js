@@ -22,7 +22,7 @@ async function callLLM(systemPrompt, query) {
     headers: {
       'Content-Type': 'application/json',
       'Authorization': `Bearer ${API_KEY}`,
-      'HTTP-Referer': process.env.CLIENT_URL || 'http://localhost',
+      'HTTP-Referer': (process.env.CLIENT_URL || 'http://localhost').split(',')[0].trim(),
       'X-Title': `${await getSiteName()} Destek Asistanı`,
     },
     body: JSON.stringify({

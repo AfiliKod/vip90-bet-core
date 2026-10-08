@@ -62,6 +62,37 @@ describe('Admin — createUser', () => {
     assert.equal(fresh.dateOfBirth.toISOString().slice(0, 10), '1995-06-15');
   });
 
+  it('aynı telefon farklı biçimde yazılsa bile ikinci hesaba verilmez', async () => {
+    await User.syncIndexes();
+    const caller = await User.create({ username: 'caller3', email: 'caller3@test.com', password: 'x', role: 'admin' });
+
+    const first = await callCreateUser({
+      username: 'phone1', email: 'phone1@test.com', password: 'password1', role: 'user',
+      phone: '+90 555 123 45 67',
+    }, caller._id.toString());
+    assert.equal(first.nextErr, null, first.nextErr?.message);
+    assert.equal((await User.findById(first.res.body.user._id)).phone, '+905551234567');
+
+    const dup = await callCreateUser({
+      username: 'phone2', email: 'phone2@test.com', password: 'password1', role: 'user',
+      phone: '0555 123 45 67',
+    }, caller._id.toString());
+    assert.equal(dup.nextErr?.status ?? dup.nextErr?.statusCode, 409);
+    assert.equal(dup.nextErr?.code, 'PHONE_EXISTS');
+
+    // Telefonsuz hesaplar (null) benzersizlik kuralına takılmaz
+    for (const n of ['nophone1', 'nophone2']) {
+      const r = await callCreateUser({ username: n, email: `${n}@test.com`, password: 'password1', role: 'user' }, caller._id.toString());
+      assert.equal(r.nextErr, null, r.nextErr?.message);
+    }
+
+    // Kontrolü atlayan eşzamanlı yazım index'e takılır
+    await assert.rejects(
+      User.create({ username: 'race', email: 'race@test.com', password: 'x', phone: '+905551234567' }),
+      (e) => e.code === 11000,
+    );
+  });
+
   it('role=user iken roles verilse bile (izin var olsa da) reddedilir', async () => {
     await initDefaultPermissions();
     await initDefaultRoles();

@@ -1,6 +1,27 @@
 {
   "name": "vip90-bet",
-  "version": "0.3.0",
+  "version": "0.4.0",
+  "description": "Self-hosted betting and casino platform: sportsbook, casino, wallet, bonuses, KYC, risk and admin panel.",
+  "keywords": [
+    "igaming",
+    "casino",
+    "sportsbook",
+    "betting",
+    "pam",
+    "self-hosted",
+    "provably-fair"
+  ],
+  "homepage": "https://vip90.bet",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/AfiliKod/vip90-bet-core.git"
+  },
+  "bugs": {
+    "url": "https://github.com/AfiliKod/vip90-bet-core/issues"
+  },
+  "engines": {
+    "node": ">=22"
+  },
   "license": "AGPL-3.0-only",
   "private": true,
   "type": "module",
@@ -12,7 +33,8 @@
     "build:game-host": "node scripts/optional-run.mjs game-host sh -c \"npm install --prefix game-host && npm run build --prefix game-host\"",
     "start": "npm run build && node server/src/server.js",
     "collect-session": "node server/scripts/collect-session.js",
-    "test": "node --test server/test/*.test.js client/src/i18n/*.test.js client/src/pages/admin/dashboard/*.test.js client/src/pages/admin/*.test.js client/src/utils/*.test.js",
+    "test": "node --test server/test/*.test.js client/src/i18n/*.test.js client/src/pages/admin/dashboard/*.test.js client/src/pages/admin/*.test.js client/src/utils/*.test.js shared/*.test.js client/scripts/__tests__/*.test.mjs",
+    "test:network": "node --test server/test/network/*.test.js",
     "test:e2e": "playwright test --config=tests/e2e/playwright.config.js",
     "test:e2e:headed": "playwright test --config=tests/e2e/playwright.config.js --headed",
     "test:e2e:debug": "playwright test --config=tests/e2e/playwright.config.js --debug",

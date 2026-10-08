@@ -42,10 +42,10 @@ const AdminGameSettings = lazy(() => import('./pages/admin/GameSettings'));
 const AdminRoles = lazy(() => import('./pages/admin/Roles'));
 const AdminVip = lazy(() => import('./pages/admin/Vip'));
 const AdminPromotions = lazy(() => import('./pages/admin/Promotions'));
+const AdminCommunications = lazy(() => import('./pages/admin/Communications'));
 const AdminBots = lazy(() => import('./pages/admin/Bots'));
 const AdminTickets = lazy(() => import('./pages/admin/Tickets'));
 const AdminSegments = lazy(() => import('./pages/admin/Segments'));
-const AdminSmsTemplates = lazy(() => import('./pages/admin/SmsTemplates'));
 const AdminAgents = lazy(() => import('./pages/admin/Agents'));
 const AdminAuditTrail = lazy(() => import('./pages/admin/AuditTrail'));
 const AdminHealth = lazy(() => import('./pages/admin/Health'));
@@ -76,6 +76,7 @@ const Contact = lazy(() => import('./pages/company/Contact'));
 const ForgotPassword = lazy(() => import('./pages/ForgotPassword'));
 const ResetPassword = lazy(() => import('./pages/ResetPassword'));
 const VerifyEmail = lazy(() => import('./pages/VerifyEmail'));
+const NotFound = lazy(() => import('./pages/NotFound'));
 
 function PageLoader() {
   return (
@@ -212,7 +213,10 @@ export default function App() {
           <Route path="roles" element={<Suspense fallback={<PageLoader />}><AdminRoles /></Suspense>} />
           <Route path="vip" element={<Suspense fallback={<PageLoader />}><AdminVip /></Suspense>} />
           <Route path="promotions" element={<Suspense fallback={<PageLoader />}><AdminPromotions /></Suspense>} />
-          <Route path="sms-templates" element={<Suspense fallback={<PageLoader />}><AdminSmsTemplates /></Suspense>} />
+          <Route path="communications" element={<Suspense fallback={<PageLoader />}><AdminCommunications /></Suspense>} />
+          {/* Eski yer imleri — tek iletişim sayfasına taşındı (2026-10-03). */}
+          <Route path="sms-templates" element={<Navigate to="/admin/communications?channel=sms" replace />} />
+          <Route path="mail-templates" element={<Navigate to="/admin/communications?channel=email" replace />} />
           <Route path="bots" element={<Suspense fallback={<PageLoader />}><AdminBots /></Suspense>} />
           <Route path="tickets" element={<Suspense fallback={<PageLoader />}><AdminTickets /></Suspense>} />
           <Route path="compliance" element={<Suspense fallback={<PageLoader />}><AdminCompliance /></Suspense>} />
@@ -252,7 +256,10 @@ export default function App() {
         <Route path="/forgot-password" element={<GuestRoute><Suspense fallback={<PageLoader />}><ForgotPassword /></Suspense></GuestRoute>} />
         <Route path="/reset-password" element={<GuestRoute endSession><Suspense fallback={<PageLoader />}><ResetPassword /></Suspense></GuestRoute>} />
         <Route path="/verify-email" element={<GuestRoute endSession><Suspense fallback={<PageLoader />}><VerifyEmail /></Suspense></GuestRoute>} />
-        <Route path="*" element={<Navigate to="/" replace />} />
+        {/* Eşleşmeyen yol: ana sayfaya sessizce yönlendirmek yerine 404 sayfası.
+            HTTP durumunu SUNUCU verir (server/src/seo/http.js + client/dist/routes.json,
+            build'de bu dosyadan türetilir); burada yalnız o yanıt gösterilir. */}
+        <Route path="*" element={<Layout noSidebar><Suspense fallback={<PageLoader />}><NotFound /></Suspense></Layout>} />
       </Routes>
     </BrowserRouter>
     </>

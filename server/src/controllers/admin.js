@@ -14,6 +14,7 @@ import Promotion from '../models/Promotion.js';
 import VipLevel from '../models/VipLevel.js';
 import RiskProfile from '../models/RiskProfile.js';
 import { createError } from '../middleware/error.js';
+import { resolveUniquePhone, isDuplicatePhoneError, phoneExistsError } from '../services/userPhone.js';
 import { getAdminCounts, broadcastAdminCounts } from '../services/adminCounts.js';
 import { errorLogger } from '../services/errorLogger.js';
 import Setting from '../models/Setting.js';
@@ -33,7 +34,7 @@ import * as promoGrants from '../services/casinoPromo/grants.js';
 import { listPromoGrantsQuerySchema } from '../validators/admin.js';
 import {
   getAllRoles, getAllPermissions, createRole, updateRole, deleteRole,
-  assignRoleToUser, removeRoleFromUser, userHasPermission, getUserPermissions,
+  assignRoleToUser, assignDefaultAdminRole, removeRoleFromUser, userHasPermission, getUserPermissions,
 } from '../services/permissions.js';
 import { getAllVipLevels, upsertVipLevel, deleteVipLevel } from '../services/vip.js';
 import { getReferralTreeView } from '../services/referralTreeView.js';
@@ -178,6 +179,8 @@ export async function createUser(req, res, next) {
     if (await User.findOne({ $or: [{ username }, { email }] }))
       throw createError(409, 'USER_EXISTS', 'Kullanıcı adı veya email zaten kullanımda');
 
+    const normalizedPhone = await resolveUniquePhone(phone);
+
     let referredById = null;
     if (referredBy) {
       const referrer = await User.findOne({ username: referredBy, deletedAt: null });
@@ -192,16 +195,21 @@ export async function createUser(req, res, next) {
       throw createError(403, 'FORBIDDEN', 'Yetki yok: admin:roles:write');
     }
 
-    const user = await User.create({ username, email, password, role, referredBy: referredById, phone: phone || null, dateOfBirth: dateOfBirth || null });
+    const user = await User.create({ username, email, password, role, referredBy: referredById, phone: normalizedPhone, dateOfBirth: dateOfBirth || null });
 
     if (roles?.length) {
       for (const roleId of roles) {
         await assignRoleToUser(user._id, roleId, req.user.id);
       }
+    } else if (role === 'admin') {
+      // Rol seçilmeden açılan admin: varsayılan 'admin' sistem rolü — aksi
+      // halde tüm ayrıntılı izinlerde (ör. admin:activity:read) 403 alır.
+      await assignDefaultAdminRole(user._id, req.user.id);
     }
 
-    res.status(201).json({ user: user.toSafeObject() });
-  } catch(e) { next(e); }
+    const fresh = await User.findById(user._id);
+    res.status(201).json({ user: (fresh || user).toSafeObject() });
+  } catch(e) { next(isDuplicatePhoneError(e) ? phoneExistsError() : e); }
 }
 
 export async function deleteUser(req, res, next) {
@@ -225,88 +233,86 @@ export async function updateUser(req, res, next) {
 }
 
 export async function updateBalance(req, res, next) {
+  // requestId: istemci her bakiye düzeltme işlemi için bir kez üretir. Aynı
+  // istek (çift tıklama, ağ hatası sonrası yeniden deneme) ikinci kez gelirse
+  // ilk kayıt döner, bakiye ikinci kez değişmez. Bakiye artırımı, defter
+  // kaydı ve bonus çevrim kaydı tek transaction'da yazılır; aynı anahtarla
+  // eşzamanlı iki istekten biri unique index'e takılıp geri alınır.
+  const { amount, type, note, requestId } = req.validated;
+  const userId = req.params.id;
+  const idempotencyKey = `admin_balance_${userId}_${requestId || crypto.randomUUID()}`;
+
+  const findDuplicate = async (session = null) => {
+    const existing = await Transaction.findOne({ idempotencyKey }).session(session);
+    if (!existing) return null;
+    const user = await User.findById(userId).session(session);
+    return { user, transaction: existing, duplicate: true };
+  };
+
+  const session = await mongoose.startSession();
   try {
-    const { amount, type, note } = req.validated;
+    const result = await withTransactionRetry(session, async () => {
+      const duplicate = await findDuplicate(session);
+      if (duplicate) return duplicate;
 
-    if (type === 'bonus') {
-      // SECURITY FIX (H10): Use atomic $inc for balance update
-      const balanceBeforeUser = await User.findById(req.params.id);
-      if (!balanceBeforeUser) throw createError(404, 'NOT_FOUND', 'Kullanıcı bulunamadı');
-      const balanceBefore = balanceBeforeUser.balance;
+      const before = await User.findById(userId).session(session);
+      if (!before) throw createError(404, 'NOT_FOUND', 'Kullanıcı bulunamadı');
 
-      const user = await User.findByIdAndUpdate(
-        req.params.id,
-        { $inc: { balance: amount } },
-        { new: true }
-      );
+      const incAmount = type === 'debit' ? -amount : amount;
+      // Borçta bakiye kontrolü güncellemeyle aynı koşulda: arada başka bir
+      // düşüm olsa bile bakiye eksiye inmez.
+      const filter = type === 'debit' ? { _id: userId, balance: { $gte: amount } } : { _id: userId };
+      const user = await User.findOneAndUpdate(filter, { $inc: { balance: incAmount } }, { new: true, session });
+      if (!user) throw createError(400, 'INSUFFICIENT_BALANCE', 'Yetersiz bakiye');
 
-      const wageringMultiplier = 35;
-      const wageringRequired = parseFloat((amount * wageringMultiplier).toFixed(2));
-      const deadline = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000);
+      if (type === 'bonus') {
+        const wageringMultiplier = 35;
+        await BonusWagering.create([{
+          userId: user._id,
+          source: 'admin_adjustment',
+          description: note || 'Admin tarafından verilen bonus',
+          bonusAmount: amount,
+          wageringRequired: parseFloat((amount * wageringMultiplier).toFixed(2)),
+          wageringProgress: 0,
+          multiplier: wageringMultiplier,
+          deadline: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000),
+          status: 'active',
+        }], { session });
+      }
 
-      await BonusWagering.create({
-        userId: user._id,
-        source: 'admin_adjustment',
-        description: note || 'Admin tarafından verilen bonus',
-        bonusAmount: amount,
-        wageringRequired,
-        wageringProgress: 0,
-        multiplier: wageringMultiplier,
-        deadline,
-        status: 'active',
-      });
-
-      const idempotencyKey = `admin_balance_${req.params.id}_${crypto.randomUUID()}`;
       const { transaction } = await createTransaction({
         userId: user._id,
-        type: 'bonus',
-        amount,
-        balanceBefore,
+        type: type === 'bonus' ? 'bonus' : 'admin_adjustment',
+        amount: incAmount,
+        balanceBefore: user.balance - incAmount,
         balanceAfter: user.balance,
         note: note || '',
         createdBy: req.user.id,
         idempotencyKey,
         source: 'admin',
-      });
+      }, { session });
 
-      // bonusBalance artık kilitli/çevrim bekleyen tutarın göstergesi (mirror).
-      const { getLockedAmount } = await import('../services/wagering.js');
-      await User.findByIdAndUpdate(user._id, { bonusBalance: await getLockedAmount(user._id) });
-
-      return res.json({ user: user.toSafeObject(), transaction });
-    }
-
-    // SECURITY FIX (H10): Use atomic $inc for balance update
-    const balanceBeforeUser = await User.findById(req.params.id);
-    if (!balanceBeforeUser) throw createError(404, 'NOT_FOUND', 'Kullanıcı bulunamadı');
-    const balanceBefore = balanceBeforeUser.balance;
-
-    if (type === 'debit') {
-      if (balanceBefore < amount) throw createError(400, 'INSUFFICIENT_BALANCE', 'Yetersiz bakiye');
-    }
-
-    const incAmount = type === 'credit' ? amount : -amount;
-    const user = await User.findByIdAndUpdate(
-      req.params.id,
-      { $inc: { balance: incAmount } },
-      { new: true }
-    );
-
-    const idempotencyKey = `admin_balance_${req.params.id}_${crypto.randomUUID()}`;
-    const { transaction } = await createTransaction({
-      userId: user._id,
-      type: 'admin_adjustment',
-      amount: type === 'debit' ? -amount : amount,
-      balanceBefore,
-      balanceAfter: user.balance,
-      note: note || '',
-      createdBy: req.user.id,
-      idempotencyKey,
-      source: 'admin',
+      return { user, transaction, duplicate: false };
     });
 
-    res.json({ user: user.toSafeObject(), transaction });
-  } catch(e) { next(e); }
+    if (type === 'bonus' && !result.duplicate) {
+      // bonusBalance artık kilitli/çevrim bekleyen tutarın göstergesi (mirror).
+      const { getLockedAmount } = await import('../services/wagering.js');
+      await User.findByIdAndUpdate(userId, { bonusBalance: await getLockedAmount(userId) });
+    }
+
+    res.json({ user: result.user.toSafeObject(), transaction: result.transaction, duplicate: result.duplicate });
+  } catch (e) {
+    // Aynı requestId ile eşzamanlı gelen ikinci istek: ilki commit edildi,
+    // bu transaction unique index'e takılıp geri alındı — ilk sonucu döndür.
+    if (e?.code === 11000 && e?.keyPattern?.idempotencyKey) {
+      const duplicate = await findDuplicate().catch(() => null);
+      if (duplicate) return res.json({ user: duplicate.user.toSafeObject(), transaction: duplicate.transaction, duplicate: true });
+    }
+    next(e);
+  } finally {
+    await session.endSession();
+  }
 }
 
 export async function getReferrals(req, res, next) {
@@ -2019,29 +2025,20 @@ export async function rejectCryptoWithdrawal(req, res, next) {
 }
 
 // ─── Referans Komisyonu Ayarları — admin işlemleri ────────────────────────────
-import { REFERRAL_SETTINGS } from '../config/referral.js';
+import { referralSettings } from '../services/referralSettings.js';
 
-export function getReferralSettings(_req, res) {
-  res.json(REFERRAL_SETTINGS);
+export async function getReferralSettings(_req, res, next) {
+  try {
+    res.json(await referralSettings.get());
+  } catch (e) { next(e); }
 }
 
-export function updateReferralSettings(req, res, next) {
+// Değer DB'ye yazılır (`Setting`): restart/deploy sonrası korunur. Gövde
+// `updateReferralSettingsSchema` ile doğrulanmış gelir (oran 0-100).
+export async function updateReferralSettings(req, res, next) {
   try {
-    const { enabled, commissionRate } = req.body ?? {};
-
-    if (typeof enabled === 'boolean') {
-      REFERRAL_SETTINGS.enabled = enabled;
-    }
-
-    if (commissionRate !== undefined) {
-      const rate = Number(commissionRate);
-      if (Number.isNaN(rate) || rate < 0 || rate > 100) {
-        return res.status(400).json({ error: 'Komisyon oranı 0-100 arasında olmalı' });
-      }
-      REFERRAL_SETTINGS.commissionRate = rate;
-    }
-
-    res.json(REFERRAL_SETTINGS);
+    const { enabled, commissionRate } = req.validated ?? req.body ?? {};
+    res.json(await referralSettings.update({ enabled, commissionRate }, req.user?.id ?? null));
   } catch (e) { next(e); }
 }
 
@@ -2051,6 +2048,14 @@ import ActivityEvent from '../models/ActivityEvent.js';
 export async function getAdminQueueCounts(req, res, next) {
   try {
     res.json(await getAdminCounts());
+  } catch (e) { next(e); }
+}
+
+// Dashboard "Bekleyen finans" tablosu — normalize satırlar (bkz. services/pendingFinance.js).
+export async function getPendingFinance(req, res, next) {
+  try {
+    const { listPendingFinance } = await import('../services/pendingFinance.js');
+    res.json(await listPendingFinance({ limit: req.query.limit }));
   } catch (e) { next(e); }
 }
 

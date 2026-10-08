@@ -138,8 +138,18 @@ export const invalidateSmsSettings = () => smsSettings.invalidate();
 
 /**
  * Gönderim yolunun kullandığı birleşik yapılandırma.
- * `configured` = gönderim denemesi için asgari kimlik bilgisi var mı.
+ * `configured` = gönderim denemesi için asgari kimlik bilgileri var mı
+ * (Account SID + Auth Token + gönderici: From numarası VEYA Messaging
+ * Service SID). Eksik olanlar panelin "eksik alanlar" listesinde gösterilir.
  */
+export function configMissing(cfg = {}) {
+  const missing = [];
+  if (!cfg.accountSid) missing.push('accountSid');
+  if (!cfg.authToken) missing.push('authToken');
+  if (!cfg.fromNumber && !cfg.messagingServiceSid) missing.push('sender');
+  return missing;
+}
+
 export async function getSmsConfig() {
   const provider = (await smsSettings.plain('sms.provider')) || 'twilio';
   const accountSid = await smsSettings.plain('sms.twilio.accountSid');
@@ -159,6 +169,7 @@ export async function getSmsConfig() {
   const accountType = ['trial', 'paid'].includes(rawAccountType) ? rawAccountType : 'unknown';
   const trialSignUpCountry = await smsSettings.plain('sms.trialSignUpCountry');
 
+  const missing = configMissing({ accountSid, authToken, fromNumber, messagingServiceSid });
   return {
     defaultCountryCode,
     accountType,
@@ -168,7 +179,8 @@ export async function getSmsConfig() {
     authToken,
     fromNumber,
     messagingServiceSid,
-    configured: Boolean(accountSid && authToken && (fromNumber || messagingServiceSid)),
+    missing,
+    configured: missing.length === 0,
   };
 }
 
@@ -197,6 +209,7 @@ export async function getSmsSettingsStatus() {
     trialSignUpCountry: cfg.trialSignUpCountry,
     trialSignUpCountrySource: sources['sms.trialSignUpCountry'],
     configured: cfg.configured,
+    missing: cfg.missing ?? configMissing(cfg),
     encryptionKeyAvailable: Boolean(process.env.OPERATOR_SECRET_ENCRYPTION_KEY),
   };
 }

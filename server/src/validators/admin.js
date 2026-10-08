@@ -42,6 +42,9 @@ export const updateBalanceSchema = z.object({
   amount: z.number().positive(),
   type:   z.enum(['credit', 'debit', 'bonus']),
   note:   z.string().max(200).optional(),
+  // İstemcinin işlem başına ürettiği kimlik; aynı kimlikle tekrar gelen
+  // istek bakiyeyi ikinci kez değiştirmez.
+  requestId: z.string().uuid().optional(),
 });
 
 const THEME_TOKEN_IDS = THEME_TOKEN_DEFINITIONS.map(t => t.id);
@@ -482,7 +485,16 @@ export const updateEmailSettingsSchema = z.object({
   user: optStr(255),
   pass: optStr(500),
   from: z.string().max(255).refine(v => v === '' || /^[^\s<>"]+@[^\s<>"]+\.[^\s<>"]+$/.test(v), 'from geçerli e-posta olmalı').optional(),
+  fromName: optStr(100),
+  provider: z.enum(['', 'mailgun', 'ses', 'postmark', 'custom']).optional(),
+  // Email Gateway anahtarı: açıkken panel/DB ayarları, kapalıyken sunucu .env.
+  gatewayEnabled: z.union([z.boolean(), z.enum(['true', 'false', ''])]).optional(),
   clear: z.array(z.enum(['pass'])).optional(),
+}).strict();
+
+/** POST /admin/settings/email/test — alıcı serbest (boşsa admin'in kendi adresi). */
+export const testEmailSchema = z.object({
+  to: z.string().max(255).refine(v => v === '' || /^[^\s<>"]+@[^\s<>"]+\.[^\s<>"]+$/.test(v), 'to geçerli e-posta olmalı').optional(),
 }).strict();
 
 export { seoSettingsSchema as updateSeoSettingsSchema } from '../seo/schema.js';

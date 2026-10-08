@@ -52,6 +52,11 @@ export async function seedFirstRun({ settingModel, userModel, admin }) {
         password: admin.password,
         role: 'admin',
         isActive: true,
+        // Kurulumu yapan operatörün e-postası doğrulanmış sayılır: SMTP henüz
+        // yapılandırılmamış olabilir ve doğrulanmamış admin EMAIL_NOT_VERIFIED ile
+        // giriş yapamıyordu (login, EMAIL_VERIFICATION_CUTOFF sonrası hesaplarda
+        // doğrulama ister).
+        emailVerified: true,
       });
       seeded.push('admin');
     }

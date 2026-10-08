@@ -24,6 +24,7 @@ import {
 import { normalizePhone, createTwilioSender, createTwilioChecker, isSupportedProvider } from '../src/services/smsGateway.js';
 import { listEventsForType, isValidEvent, variablesForEvent, SMS_ACTION_EVENTS, SMS_SCHEDULED_EVENTS } from '../src/services/smsEvents.js';
 import { createSmsHandlers } from '../src/controllers/smsTemplate.js';
+import { configMissing } from '../src/services/smsSettings.js';
 import {
   createSmsTemplateSchema,
   updateSmsTemplateSchema,
@@ -63,6 +64,24 @@ describe('SMS şablon yardımcıları', () => {
     );
     assert.strictEqual(templateKeyFromTitle('   '), 'sablon');
     assert.strictEqual(templateKeyFromTitle('2026 Kampanyası'), 't2026Kampanyasi');
+  });
+});
+
+// ─── Yapılandırma eksik parçaları ─────────────────────────────────────
+
+describe('configMissing', () => {
+  test('hiçbir şey yoksa üç parça da eksik', () => {
+    assert.deepStrictEqual(configMissing({}), ['accountSid', 'authToken', 'sender']);
+  });
+  test('yalnız provider girilmişse yalnız sender eksik kalır', () => {
+    assert.deepStrictEqual(
+      configMissing({ accountSid: 'ACx', authToken: 'tok', fromNumber: null, messagingServiceSid: null }),
+      ['sender'],
+    );
+  });
+  test('From numarası VEYA Messaging Service SID gönderici sayılır', () => {
+    assert.deepStrictEqual(configMissing({ accountSid: 'ACx', authToken: 'tok', fromNumber: '+1555', messagingServiceSid: null }), []);
+    assert.deepStrictEqual(configMissing({ accountSid: 'ACx', authToken: 'tok', fromNumber: null, messagingServiceSid: 'MGx' }), []);
   });
 });
 
@@ -416,6 +435,7 @@ describe('SMS controller handler\'ları', () => {
       updateTemplate: async () => { throw boom; },
       deleteTemplate: async () => { throw boom; },
       sendTemplate: async () => { throw boom; },
+      sendTestSms: async () => { throw boom; },
       listLogs: async () => { throw boom; },
     };
     const h = createSmsHandlers({
@@ -436,8 +456,8 @@ describe('SMS controller handler\'ları', () => {
 
     assert.deepStrictEqual(Object.keys(h).sort(), [
       'create', 'list', 'logs', 'remove', 'send', 'senderCreate', 'senderGate',
-      'senderList', 'senderRemove', 'senderUpdate',
-      'settingsStatus', 'settingsTest', 'settingsUpdate', 'update',
+      'senderList', 'senderRemove', 'senderUpdate', 'settingsStatus', 'settingsTest',
+      'settingsUpdate', 'testSend', 'update',
     ]);
 
     for (const name of Object.keys(h)) {
@@ -460,7 +480,7 @@ describe('SMS controller handler\'ları', () => {
     }
   });
 
-  test('settingsTest: kimlik bilgisi eksikse ağa gitmeden döner', async () => {
+  test('settingsTest: kimlik bilgisi eksikse ağa gitmeden döner + eksik parçaları listeler', async () => {
     let called = false;
     const h = createSmsHandlers({
       getConfig: async () => ({ configured: false }),
@@ -470,7 +490,19 @@ describe('SMS controller handler\'ları', () => {
     await h.settingsTest({}, res);
     assert.strictEqual(res.body.ok, false);
     assert.strictEqual(res.body.code, 'SMS_NOT_CONFIGURED');
+    assert.deepStrictEqual(res.body.missing, ['accountSid', 'authToken', 'sender']);
     assert.strictEqual(called, false);
+  });
+
+  test('settingsTest: yalnız provider girilmişse eksik alan "sender" olarak döner', async () => {
+    const h = createSmsHandlers({
+      getConfig: async () => ({ configured: false, accountSid: 'ACx', authToken: 'tok', fromNumber: null, messagingServiceSid: null }),
+      createProviderChecker: () => async () => ({ ok: true }),
+    });
+    const res = mockRes();
+    await h.settingsTest({}, res);
+    assert.strictEqual(res.body.ok, false);
+    assert.deepStrictEqual(res.body.missing, ['sender']);
   });
 
   test('settingsTest: yapılandırılmışsa sağlayıcı denetleyicisine gider', async () => {

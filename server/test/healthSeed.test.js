@@ -111,6 +111,8 @@ describe('seedFirstRun', () => {
     });
     assert.strictEqual(deps.userModel.users.length, 1);
     assert.strictEqual(deps.userModel.users[0].role, 'admin');
+    // SMTP'siz kurulumda da giriş yapabilsin diye e-posta doğrulanmış oluşur.
+    assert.strictEqual(deps.userModel.users[0].emailVerified, true);
   });
 
   test('admin zaten varsa oluşturmaz ve raporlar', async () => {

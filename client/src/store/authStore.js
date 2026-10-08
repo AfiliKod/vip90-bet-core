@@ -4,8 +4,11 @@ import { socket } from '../services/socket';
 
 function connectUserSocket(userId, role) {
   if (!socket.connected) socket.connect();
-  socket.emit('subscribe:user', { userId });
-  if (role === 'admin') socket.emit('subscribe:admin', { userId });
+  // Sunucu odaya yalnızca token'daki kimlikle katar (istemcinin beyan ettiği
+  // userId'ye güvenmez) — bkz. server/src/socket/handler.js.
+  const token = localStorage.getItem('accessToken');
+  socket.emit('subscribe:user', { userId, token });
+  if (role === 'admin') socket.emit('subscribe:admin', { userId, token });
 }
 
 function disconnectUserSocket(userId) {

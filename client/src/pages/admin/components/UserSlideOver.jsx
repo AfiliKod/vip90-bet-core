@@ -1,4 +1,5 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
+import { newRequestId } from '../../../utils/requestId.js';
 import { useFormatters } from '../../../i18n/useFormatters.jsx';
 import { useForm } from 'react-hook-form';
 import { useNavigate } from 'react-router-dom';
@@ -92,13 +93,19 @@ export default function UserSlideOver({ user, onClose, onUpdated }) {
     } catch { addToast(t('common.error'), 'error'); }
   };
 
+  // Bir bakiye işlemi başarıyla kaydedilene kadar aynı kimlik gönderilir:
+  // çift tıklama ya da hata sonrası yeniden deneme bakiyeyi iki kez değiştirmez.
+  const balanceRequestId = useRef(newRequestId());
+
   const onBalanceSubmit = async (data) => {
     try {
       await api.patch(`/admin/users/${user._id}/balance`, {
         amount: Number(data.amount),
         type: data.type,
         note: data.note || '',
+        requestId: balanceRequestId.current,
       });
+      balanceRequestId.current = newRequestId();
       addToast(t('admin.userSlideOver.balanceUpdated'), 'success');
       reset();
       onUpdated();

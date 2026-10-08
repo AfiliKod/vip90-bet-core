@@ -90,6 +90,22 @@ describe('demoData/userSeed', () => {
     assert.equal(await Transaction.countDocuments({}), 0);
   });
 
+  it('clear() seed kullanıcılarının ActivityEvent kayıtlarını da siler, gerçek kullanıcınınkine dokunmaz', async () => {
+    await userSeed.load(2);
+    const seedUser = await User.findOne({ isSeed: true });
+    const realUser = await User.create({ username: 'real_feed_user', email: 'real_feed_user@test.com', password: 'Pass1234' });
+    await ActivityEvent.create([
+      { type: 'game_session', userId: seedUser._id, status: 'active', summary: 'seed oturumu' },
+      { type: 'deposit', userId: realUser._id, status: 'completed', summary: 'gerçek yatırma' },
+    ]);
+    const result = await userSeed.clear();
+    assert.equal(result.activityEventsDeleted, 1);
+    assert.equal(await ActivityEvent.countDocuments({ userId: seedUser._id }), 0);
+    assert.equal(await ActivityEvent.countDocuments({ userId: realUser._id }), 1);
+    await User.deleteOne({ _id: realUser._id });
+    await ActivityEvent.deleteMany({});
+  });
+
   it('liveTick() havuz boşken null döner', async () => {
     const result = await userSeed.liveTick();
     assert.equal(result, null);

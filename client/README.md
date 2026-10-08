@@ -1,19 +1,25 @@
-# React + Vite
+# Client
 
-This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
+Oyuncu sitesi ve admin paneli: React 19 + Vite 8 + Tailwind + Zustand, PWA
+(`vite-plugin-pwa`) ve iOS Capacitor kabuğu. Metinler
+`src/i18n/dictionaries/` altındaki 8 dil sözlüğünden gelir.
 
-Currently, two official plugins are available:
+| Komut | Ne yapar |
+|---|---|
+| `npm run dev` | Vite dev sunucusu (5173); `/api` ve `/socket.io` istekleri `localhost:3001`'deki API sunucusuna aktarılır |
+| `npm run build` | Üretim derlemesi `dist/`'e; ardından rota tablosu `dist/routes.json` üretilir (sunucu olmayan sayfalara gerçek 404 verir) |
+| `npm run routes:check` | `App.jsx` ile `dist/routes.json`'u karşılaştırır — **yalnız uyarır**, asla başarısız olmaz (CI gate'i değildir) |
+| `npm run lint` | ESLint |
+| `npm run preview` | Derlenmiş `dist/`'i yerelde sunar |
+| `npm run cap:sync` / `cap:sync:dev` | iOS kabuğunu günceller (aşağıya bakın) |
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Oxc](https://oxc.rs)
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/)
+Rota tablosu elle tutulmaz: `build`, `src/App.jsx` içindeki `<Route>`
+tanımlarını tarayıp `dist/routes.json` üretir. Yeni bir sayfa eklemek için
+`<Route>` eklemek yeterlidir; tablo elle güncellenmez. Ayrıntı:
+[`../docs/seo-settings.md`](../docs/seo-settings.md) — "Gerçek 404 (SPA)".
 
-## React Compiler
-
-The React Compiler is not enabled on this template because of its impact on dev & build performances. To add it, see [this documentation](https://react.dev/learn/react-compiler/installation).
-
-## Expanding the ESLint configuration
-
-If you are developing a production application, we recommend using TypeScript with type-aware lint rules enabled. Check out the [TS template](https://github.com/vitejs/vite/tree/main/packages/create-vite/template-react-ts) for information on how to integrate TypeScript and [`typescript-eslint`](https://typescript-eslint.io) in your project.
+Kökten `npm run dev` client'ı API sunucusuyla birlikte başlatır; testler kökteki
+`npm test` ile çalışır.
 
 ## Capacitor (iOS)
 

@@ -294,6 +294,17 @@ r.post('/withdraw-request', requireKycForWithdrawal(), enforceRiskCheck('withdra
           autoProcessed: false,
           message: `${usdtAmount} USDT çekim talebiniz alındı — Admin onayı bekliyor`,
         });
+        // Çekim talebi SMS'i — "admin onayı bekliyor" anı tetikleyicisidir
+        // (banka çekimi aynı istekte tamamlanır; onay bekleyen tek akış budur).
+        // Fire-and-forget; şablon/gateway/modül kapalıysa dispatch atlar.
+        import('../services/smsTemplate.js')
+          .then(({ dispatchSmsEvent }) => dispatchSmsEvent(
+            'withdrawalRequested',
+            null,
+            { amount: usdtAmount, currency: 'USDT', method: 'crypto' },
+            { userId: user._id },
+          ))
+          .catch(() => {});
       }
     } catch (e) {
       await session.abortTransaction();

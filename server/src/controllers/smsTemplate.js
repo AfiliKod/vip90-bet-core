@@ -22,6 +22,7 @@ import {
   getSmsSettingsStatus,
   saveSmsSettings,
   persistDetectedAccountType,
+  configMissing,
 } from '../services/smsSettings.js';
 import { createChecker } from '../services/smsGateway.js';
 import { listEventsForType } from '../services/smsEvents.js';
@@ -120,7 +121,8 @@ export function createSmsHandlers({
       return res.json({
         ok: false,
         code: 'SMS_NOT_CONFIGURED',
-        error: 'SMS Gateway kimlik bilgileri eksik',
+        error: 'SMS Gateway yapılandırması eksik (Account SID / Auth Token / gönderici).',
+        missing: configMissing(cfg),
       });
     }
     const check = createProviderChecker(cfg.provider);
@@ -166,6 +168,15 @@ export function createSmsHandlers({
     });
   }
 
+  /**
+   * Serbest metin test mesajı (İletişim → SMS → Test / send) — şablon
+   * gerektirmez, gerçek maliyeti vardır; sonuç hem yanıtta hem SmsLog'da.
+   */
+  async function testSend(req, res) {
+    const { to, message } = req.validated;
+    return res.json(await service.sendTestSms({ to, message, adminId: req.user?.id }));
+  }
+
   return {
     senderList: asyncHandler(senderList),
     senderCreate: asyncHandler(senderCreate),
@@ -181,6 +192,7 @@ export function createSmsHandlers({
     settingsStatus: asyncHandler(settingsStatus),
     settingsUpdate: asyncHandler(settingsUpdate),
     settingsTest: asyncHandler(settingsTest),
+    testSend: asyncHandler(testSend),
   };
 }
 

@@ -5,8 +5,10 @@ import LoginAttempt from '../models/LoginAttempt.js';
 import CasinoSession from '../models/CasinoSession.js';
 import CasinoRound from '../models/CasinoRound.js';
 import { createError } from '../middleware/error.js';
+import { resolveUniquePhone, isDuplicatePhoneError, phoneExistsError } from '../services/userPhone.js';
 import { invalidateTokenVersionCache } from '../middleware/auth.js';
-import { sendEmail } from '../services/email.js';
+import { renderBuiltinTemplate } from '../services/email.js';
+import { sendActionMail } from '../services/systemMail.js';
 
 async function enrichWithIgamesBalance(user, obj) {
   try {
@@ -80,6 +82,8 @@ export async function register(req, res, next) {
     if (await User.findOne({ $or: [{ username }, { email }] }))
       return next(createError(409, 'USER_EXISTS', 'Kullanıcı adı veya email zaten kullanımda'));
 
+    const normalizedPhone = await resolveUniquePhone(phone);
+
     let referredById = null;
     if (referredBy) {
       const referrer = await User.findOne({ username: referredBy, deletedAt: null });
@@ -94,7 +98,7 @@ export async function register(req, res, next) {
     const user = await User.create({
       username, email, password, referredBy: referredById,
       // Slikair payment için opsiyonel alanlar
-      phone: phone || null,
+      phone: normalizedPhone,
       dateOfBirth: dateOfBirth ? new Date(dateOfBirth) : null,
       // KVKK + Terms consent (Phase A4)
       acceptedTermsAt:  acceptedTerms ? now : null,
@@ -106,20 +110,28 @@ export async function register(req, res, next) {
       emailVerificationExpires,
     });
 
-    // Email doğrulama maili gönder (best-effort)
+    // Email doğrulama maili gönder (best-effort). İçerik admin panelindeki
+    // "Sistem E-postaları" sayfasından düzenlenir; şablon pasif/yoksa gömülü
+    // şablonla aynı içerik gönderilir (davranış değişmez).
+    const verifyUrl = `${getBaseUrl(req)}/verify-email?token=${emailVerificationToken}`;
     let emailResult;
     try {
-      emailResult = await sendEmail({
+      emailResult = await sendActionMail('user.emailVerify', {
+        user,
         to: email,
-        template: 'verify-email',
-        data: {
-          username,
-          verifyUrl: `${getBaseUrl(req)}/verify-email?token=${emailVerificationToken}`,
-        },
+        vars: { verifyUrl, expiresHours: EMAIL_VERIFY_TTL_HOURS },
+        fallback: () => renderBuiltinTemplate('verify-email', { username, verifyUrl }),
       });
     } catch (e) {
       console.error('verify email send failed:', e.message);
     }
+    // Karşılama maili isteğe bağlıdır: panelde yalnızca bir şablon tanımlanırsa gönderilir.
+    sendActionMail('user.welcome', { user }).catch(() => {});
+    // Karşılama SMS'i — aynı kapılar: şablon aktif + gateway + modül açık olmalı,
+    // yoksa dispatchSmsEvent ilk sorguda atlar. Fire-and-forget.
+    import('../services/smsTemplate.js')
+      .then(({ dispatchSmsEvent }) => dispatchSmsEvent('userRegistered', user, { balance: user.balance }))
+      .catch(() => {});
 
     const obj = user.toSafeObject();
     obj.emailVerified = false;
@@ -130,10 +142,10 @@ export async function register(req, res, next) {
     // SMTP yapılandırılmamışsa (local/dev): linki response'a da ekle, aksi halde
     // gerçek mail gelmediği için doğrulama akışı test edilemez.
     if (process.env.NODE_ENV !== 'production' && emailResult?.mock) {
-      response.devVerifyUrl = emailResult.verifyUrl;
+      response.devVerifyUrl = verifyUrl;
     }
     res.status(201).json(response);
-  } catch (e) { next(e); }
+  } catch (e) { next(isDuplicatePhoneError(e) ? phoneExistsError() : e); }
 }
 
 export async function login(req, res, next) {
@@ -182,6 +194,13 @@ export async function login(req, res, next) {
       await LoginAttempt.create({ username, ip, userAgent, success: false, failReason: 'user_not_found' });
       return next(createError(401, 'INVALID_CREDENTIALS', 'Kullanıcı adı veya şifre hatalı'));
     }
+    // Admin demo-veri üreticisinin (isSeed) hesapları gerçek oturum açamaz —
+    // gerçek bakiyeleri var ve eskiden koddaki sabit parolayı paylaşıyorlardı.
+    // Hesabın varlığını sızdırmamak için "yanlış şifre" ile aynı yanıt.
+    if (user.isSeed) {
+      await LoginAttempt.create({ userId: user._id, username, ip, userAgent, success: false, failReason: 'seed_account' });
+      return next(createError(401, 'INVALID_CREDENTIALS', 'Kullanıcı adı veya şifre hatalı'));
+    }
     if (!user.isActive) {
       await LoginAttempt.create({ userId: user._id, username, ip, userAgent, success: false, failReason: 'banned' });
       return next(createError(403, 'ACCOUNT_BANNED', 'Hesabınız askıya alınmıştır'));
@@ -219,6 +238,8 @@ export async function refresh(req, res, next) {
     const payload = jwt.verify(token, process.env.JWT_REFRESH_SECRET);
     const user = await User.findById(payload.id);
     if (!user) return next(createError(401, 'USER_NOT_FOUND', 'Kullanıcı bulunamadı'));
+    // Demo/seed hesapları oturum yenileyemez (login ve requireAuth ile aynı kural).
+    if (user.isSeed) return next(createError(401, 'TOKEN_REVOKED', 'Token iptal edilmiş. Lütfen tekrar giriş yapın.'));
     // JWT rotation: tokenVersion uyuşmazsa geçersiz
     if (payload.family !== undefined && user.tokenVersion !== payload.family) {
       return next(createError(401, 'TOKEN_REVOKED', 'Token iptal edilmiş. Lütfen tekrar giriş yapın.'));
@@ -258,6 +279,10 @@ export async function verifyEmail(req, res, next) {
     user.emailVerificationToken = null;
     user.emailVerificationExpires = null;
     await user.save();
+    // Doğrulama SMS'i — fire-and-forget, şablon yok/pasif/gateway kapalıysa atlar.
+    import('../services/smsTemplate.js')
+      .then(({ dispatchSmsEvent }) => dispatchSmsEvent('emailVerified', user))
+      .catch(() => {});
     res.json({ message: 'Email adresiniz doğrulandı', emailVerified: true });
   } catch (e) { next(e); }
 }
@@ -267,19 +292,21 @@ export async function resendVerification(req, res, next) {
     const { email } = req.validated;
     const user = await User.findOne({ email });
     let emailResult;
+    // Dışarıdaki `devVerifyUrl` dalı da bu bağlamdan okur — blok içine
+    // `const` ile tanımlanırsa ReferenceError fırlatırdı.
+    let verifyUrl = '';
     if (user && !user.emailVerified) {
       const token = crypto.randomBytes(32).toString('hex');
       user.emailVerificationToken = token;
       user.emailVerificationExpires = new Date(Date.now() + EMAIL_VERIFY_TTL_HOURS * 3600 * 1000);
       await user.save();
+      verifyUrl = `${getBaseUrl(req)}/verify-email?token=${token}`;
       try {
-        emailResult = await sendEmail({
+        emailResult = await sendActionMail('user.emailVerify', {
+          user,
           to: email,
-          template: 'verify-email',
-          data: {
-            username: user.username,
-            verifyUrl: `${getBaseUrl(req)}/verify-email?token=${token}`,
-          },
+          vars: { verifyUrl, expiresHours: EMAIL_VERIFY_TTL_HOURS },
+          fallback: () => renderBuiltinTemplate('verify-email', { username: user.username, verifyUrl }),
         });
       } catch (e) {
         console.error('resend verify email send failed:', e.message);
@@ -288,7 +315,7 @@ export async function resendVerification(req, res, next) {
     // Güvenlik: kullanıcı yoksa/zaten doğrulanmışsa da aynı generic mesaj (email enumeration prevention)
     const response = { message: 'Doğrulanmamış bir hesap bulunursa, doğrulama maili gönderildi.' };
     if (process.env.NODE_ENV !== 'production' && emailResult?.mock) {
-      response.devVerifyUrl = emailResult.verifyUrl;
+      response.devVerifyUrl = verifyUrl;
     }
     res.json(response);
   } catch (e) { next(e); }
@@ -301,19 +328,20 @@ export async function forgotPassword(req, res, next) {
     const user = await User.findOne({ email });
     // Güvenlik: user yoksa da success dön (email enumeration prevention)
     let emailResult;
+    // `devResetUrl` bu bağlamdan okunur — blok içi `const` ReferenceError üretirdi.
+    let resetUrl = '';
     if (user) {
       const token = crypto.randomBytes(32).toString('hex');
       user.passwordResetToken = token;
       user.passwordResetExpires = new Date(Date.now() + PASSWORD_RESET_TTL_HOURS * 3600 * 1000);
       await user.save();
+      resetUrl = `${getBaseUrl(req)}/reset-password?token=${token}`;
       try {
-        emailResult = await sendEmail({
+        emailResult = await sendActionMail('user.passwordReset', {
+          user,
           to: email,
-          template: 'password-reset',
-          data: {
-            username: user.username,
-            resetUrl: `${getBaseUrl(req)}/reset-password?token=${token}`,
-          },
+          vars: { resetUrl, expiresMinutes: PASSWORD_RESET_TTL_HOURS * 60 },
+          fallback: () => renderBuiltinTemplate('password-reset', { username: user.username, resetUrl }),
         });
       } catch (e) {
         console.error('reset email send failed:', e.message);
@@ -321,7 +349,7 @@ export async function forgotPassword(req, res, next) {
     }
     const response = { message: 'Şifre sıfırlama talimatları e-posta adresinize gönderildi' };
     if (process.env.NODE_ENV !== 'production' && emailResult?.mock) {
-      response.devResetUrl = emailResult.resetUrl;
+      response.devResetUrl = resetUrl;
     }
     res.json(response);
   } catch (e) { next(e); }
@@ -341,6 +369,8 @@ export async function resetPassword(req, res, next) {
     user.tokenVersion = (user.tokenVersion || 0) + 1; // eski token'ları revoke
     await user.save();
     invalidateTokenVersionCache(user._id); // revoke'un 30sn önbellek gecikmesi olmadan anında etkili olması için
+    // Güvenlik bildirimi — panelde bir şablon tanımlanmışsa gönderilir.
+    sendActionMail('user.passwordChanged', { user, vars: { changedAt: new Date().toISOString() } }).catch(() => {});
     res.json({ message: 'Şifreniz başarıyla değiştirildi. Yeni şifrenizle giriş yapabilirsiniz.' });
   } catch (e) { next(e); }
 }

@@ -60,4 +60,11 @@ describe('demoData/riskSeed', () => {
     const events = await ActivityEvent.find({ type: 'risk_flag', userId: result.userId });
     assert.equal(events.length, 1);
   });
+  it('liveTick havuz boşken null döner ve seed kullanıcı oluşturmaz', async () => {
+    const { default: User } = await import('../src/models/User.js');
+    await User.deleteMany({ isSeed: true });
+    const result = await riskSeed.liveTick();
+    assert.equal(result, null);
+    assert.equal(await User.countDocuments({ isSeed: true }), 0);
+  });
 });

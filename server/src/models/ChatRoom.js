@@ -43,6 +43,5 @@ const schema = new mongoose.Schema({
 }, { timestamps: true });
 
 schema.index({ isActive: 1, isPublic: 1 });
-schema.index({ slug: 1 });
 
 export default mongoose.model('ChatRoom', schema);

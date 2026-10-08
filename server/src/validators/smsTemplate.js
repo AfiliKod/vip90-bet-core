@@ -12,6 +12,43 @@ const content = z.string().trim().min(1).max(1000);
 const eventKey = z.string().trim().min(1).max(60).nullable().optional();
 
 /**
+ * Otomatik gönderim kitle + vadesi — yalnız `type='scheduled'` şablonlarda
+ * anlamlıdır (bkz. `services/smsTemplate.js` → `runDueScheduledSms`).
+ * Elle gönderimde seçilen kitle BURAYA yazılmaz; form yalnız zamanlanmış
+ * şablonlarda bu bloğu gösterir.
+ */
+const audienceSchema = z.object({
+  type: z.enum(SMS_AUDIENCE_TYPES),
+  segmentId: z.string().trim().min(1).nullable().optional(),
+  userIds: z.array(z.string().trim().min(1)).max(500).optional(),
+}).optional();
+
+const scheduleSchema = z.object({
+  enabled: z.boolean().optional(),
+  intervalHours: z.number().int().min(1).max(24 * 365).optional(),
+}).optional();
+
+/**
+ * Çapraz kurallar (create'te tam nesne bilinir). Update'te `type` opsiyonel
+ * olabildiği için aynı denetim servis katmanında da çalışır
+ * (`services/smsTemplate.js` → `assertAudienceAndSchedule`).
+ */
+function refineAudienceAndSchedule(val, ctx) {
+  if (val.type === 'action' && val.schedule?.enabled) {
+    ctx.addIssue({ code: z.ZodIssueCode.custom, path: ['schedule', 'enabled'], message: 'Aksiyon şablonlarına zamanlanmış gönderim bağlanamaz' });
+  }
+  if (val.audience?.type === 'segment' && !val.audience.segmentId) {
+    ctx.addIssue({ code: z.ZodIssueCode.custom, path: ['audience', 'segmentId'], message: 'Segment seçilmedi' });
+  }
+  if (val.audience?.type === 'users' && !(Array.isArray(val.audience.userIds) && val.audience.userIds.length)) {
+    ctx.addIssue({ code: z.ZodIssueCode.custom, path: ['audience', 'userIds'], message: 'En az bir kullanıcı seçilmeli' });
+  }
+  if (val.schedule?.enabled && val.audience?.type === 'users') {
+    ctx.addIssue({ code: z.ZodIssueCode.custom, path: ['audience', 'type'], message: 'Otomatik gönderim yalnız tüm kullanıcılar veya segment ile yapılabilir' });
+  }
+}
+
+/**
  * type='action' (sistem mesajı) bir olaya bağlanmak ZORUNDA — aksi hâlde
  * şablonu tetikleyen hiçbir kod olmaz ve panelde "gönderilemez" diye
  * görünür ama asla çalışmaz. `scheduled` tipinde olay opsiyoneldir.
@@ -24,10 +61,13 @@ export const createSmsTemplateSchema = z.object({
   category: z.enum(SMS_TEMPLATE_CATEGORIES).optional(),
   content,
   isActive: z.boolean().optional(),
+  audience: audienceSchema,
+  schedule: scheduleSchema,
 }).superRefine((val, ctx) => {
   if (val.type === 'action' && !val.eventKey) {
     ctx.addIssue({ code: z.ZodIssueCode.custom, path: ['eventKey'], message: 'Sistem mesajı için olay seçilmeli' });
   }
+  refineAudienceAndSchedule(val, ctx);
 });
 
 export const updateSmsTemplateSchema = z.object({
@@ -39,6 +79,8 @@ export const updateSmsTemplateSchema = z.object({
   category: z.enum(SMS_TEMPLATE_CATEGORIES).optional(),
   content: content.optional(),
   isActive: z.boolean().optional(),
+  audience: audienceSchema,
+  schedule: scheduleSchema,
 });
 
 export const sendSmsSchema = z.object({
@@ -46,6 +88,12 @@ export const sendSmsSchema = z.object({
   segmentId: z.string().trim().min(1).optional(),
   userIds: z.array(z.string().trim().min(1)).max(500).optional(),
   variables: z.record(z.string()).optional(),
+});
+
+/** POST /admin/sms/test-send — şablonsuz tek test mesajı (serbest metin). */
+export const testSendSmsSchema = z.object({
+  to: z.string().trim().min(6).max(32),
+  message: z.string().trim().min(1).max(320),
 });
 
 export const updateSmsSettingsSchema = z.object({

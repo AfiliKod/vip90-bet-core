@@ -4,6 +4,15 @@ import { subscribeToGameStream, unsubscribeFromGameStream, initializeGameStream,
 import { initChatSocket } from '../services/chat.js';
 import { broadcastOnlineCount, getOnlineCount } from '../services/onlineCount.js';
 
+function verifySocketToken(token) {
+  if (typeof token !== 'string' || !token) return null;
+  try {
+    return jwt.verify(token, process.env.JWT_SECRET);
+  } catch {
+    return null;
+  }
+}
+
 export function initSocket(io) {
   // Ana namespace — mevcut event/user subscription'ları
   io.on('connection', (socket) => {
@@ -19,22 +28,28 @@ export function initSocket(io) {
     socket.on('subscribe:event', ({ eventId }) => socket.join(`event:${eventId}`));
     socket.on('unsubscribe:event', ({ eventId }) => socket.leave(`event:${eventId}`));
 
-    socket.on('subscribe:user', ({ userId }) => {
-      if (userId) socket.join(`user:${userId}`);
+    // Kişisel ve admin odaları yalnızca geçerli bir access token'ın sahibine
+    // açılır. Eskiden sunucu istemcinin GÖNDERDİĞİ userId'ye güveniyordu:
+    // ana namespace'te kimlik doğrulaması olmadığından, bir admin'in id'sini
+    // bilen herkes 'role:admin' odasına katılıp tüm yatırma/çekme ve KYC
+    // olaylarını (kullanıcı adı + tutarla), herhangi bir oyuncunun id'siyle
+    // de onun bakiye olaylarını dinleyebiliyordu (2026-10-03 denetimi).
+    socket.on('subscribe:user', ({ token } = {}) => {
+      const payload = verifySocketToken(token);
+      if (payload?.id) socket.join(`user:${payload.id}`);
     });
-    socket.on('unsubscribe:user', ({ userId }) => {
+    socket.on('unsubscribe:user', ({ userId } = {}) => {
       if (userId) socket.leave(`user:${userId}`);
     });
 
-    // Ticket/KYC gibi admin-only bildirimler için — daha önce hiçbir socket
-    // bu odaya katılmıyordu, services/kyc.js'teki io.to('role:admin').emit(...)
-    // çağrısı hiç kimseye ulaşmıyordu. userId'nin gerçekten admin olduğu DB'den
-    // doğrulanır (client'ın kendi beyanına güvenilmez).
-    socket.on('subscribe:admin', async ({ userId }) => {
-      if (!userId) return;
+    // Ticket/KYC/aktivite gibi admin-only bildirimler. Rol, token'daki
+    // kimlik üzerinden DB'den doğrulanır (client'ın beyanına güvenilmez).
+    socket.on('subscribe:admin', async ({ token } = {}) => {
+      const payload = verifySocketToken(token);
+      if (!payload?.id) return;
       try {
-        const user = await User.findById(userId).select('role').lean();
-        if (user?.role === 'admin') socket.join('role:admin');
+        const user = await User.findById(payload.id).select('role isSeed').lean();
+        if (user?.role === 'admin' && !user.isSeed) socket.join('role:admin');
       } catch { /* geçersiz id vb. — sessizce yok say */ }
     });
   });

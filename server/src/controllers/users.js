@@ -6,6 +6,7 @@ import BonusWagering from '../models/BonusWagering.js';
 import CasinoSession from '../models/CasinoSession.js';
 import { createError } from '../middleware/error.js';
 import { invalidateTokenVersionCache } from '../middleware/auth.js';
+import { sendActionMail } from '../services/systemMail.js';
 
 const DATA_EXPORT_CATEGORIES = [
   'Hesap bilgileri (kullanıcı adı, e-posta, kayıt tarihi)',
@@ -147,6 +148,8 @@ export async function updatePassword(req, res, next) {
     user.tokenVersion = (user.tokenVersion || 0) + 1;
     await user.save();
     invalidateTokenVersionCache(user._id); // revoke'un 30sn önbellek gecikmesi olmadan anında etkili olması için
+    // Güvenlik bildirimi — panelde bir şablon tanımlanmışsa gönderilir.
+    sendActionMail('user.passwordChanged', { user, vars: { changedAt: user.passwordChangedAt.toISOString() } }).catch(() => {});
     res.json({ message: 'Şifre güncellendi. 24 saat withdrawal kilidi aktif.' });
   } catch(e) { next(e); }
 }

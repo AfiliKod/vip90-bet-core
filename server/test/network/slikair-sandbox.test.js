@@ -10,8 +10,9 @@
  * - Tüm yöntemler payin_id döndürmüyor, bazıları sadece redirect_url
  * - Payout sandbox'ta çalışmayabilir (support onaylamalı)
  *
- * Çalıştırmak için: npm run test -- test/slikair-sandbox.test.js
- * veya: node --test test/slikair-sandbox.test.js
+ * Varsayılan `npm test` paketine dahil DEĞİL (gerçek ağ + sandbox kotası).
+ * Çalıştırmak için (kökten): npm run test:network
+ * veya (server/ içinden): node --test test/network/slikair-sandbox.test.js
  */
 import { describe, it } from 'node:test';
 import assert from 'node:assert/strict';
@@ -26,12 +27,12 @@ const SANDBOX = {
 // Platform webhook URL'leri — sandbox'tan gelen bildirimlerin hedefi.
 // DİKKAT: Bu testler çalışırken sunucu ayakta olmalı ki Slikair webhook'ları platforma ulaşabilsin.
 // Production: https://api.vip90.bet, Development: http://localhost:3001
-const PLATFORM_BASE = process.env.API_BASE_URL || 'https://api.vip90.bet';
+const PLATFORM_BASE = process.env.API_BASE_URL || 'https://app.vip90.bet';
 const WEBHOOK_PAYIN  = `${PLATFORM_BASE}/api/slikair/webhook/payin`;
 const WEBHOOK_PAYOUT = `${PLATFORM_BASE}/api/slikair/webhook/payout`;
 
 // Redirect URL'leri — kullanıcının yönlendirildiği sayfalar
-const APP_BASE = process.env.CLIENT_URL || 'https://vip90.bet';
+const APP_BASE = (process.env.CLIENT_URL || 'https://app.vip90.bet').split(',')[0].trim();
 const REDIRECT = {
   success_url: `${APP_BASE}/profile?deposit=success`,
   pending_url: `${APP_BASE}/profile?deposit=pending`,

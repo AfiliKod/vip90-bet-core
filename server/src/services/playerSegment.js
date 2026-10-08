@@ -2,6 +2,7 @@ import mongoose from 'mongoose';
 import escapeStringRegexp from 'escape-string-regexp';
 import PlayerSegment from '../models/PlayerSegment.js';
 import User from '../models/User.js';
+import VipLevel from '../models/VipLevel.js';
 
 /**
  * Player Segmentation Service
@@ -114,7 +115,7 @@ export async function computeSegmentPlayers(segmentId, options = {}) {
   const segment = await PlayerSegment.findById(segmentId);
   if (!segment) throw new Error('Segment not found');
   
-  const query = buildQueryFromCriteria(segment.criteria);
+  const query = await buildQueryFromCriteria(segment.criteria);
   
   const players = await User.find(query)
     .select('username email balance vipLevel totalWagered lastLoginAt country createdAt')
@@ -140,7 +141,7 @@ export async function getSegmentPlayers(segmentId, options = {}) {
   const segment = await PlayerSegment.findById(segmentId);
   if (!segment) throw new Error('Segment not found');
   
-  const query = buildQueryFromCriteria(segment.criteria);
+  const query = await buildQueryFromCriteria(segment.criteria);
   
   const [players, total] = await Promise.all([
     User.find(query)
@@ -162,7 +163,9 @@ export async function getSegmentPlayers(segmentId, options = {}) {
 /**
  * Build MongoDB query from segment criteria
  */
-function buildQueryFromCriteria(criteria) {
+export async function buildQueryFromCriteria(criteria) {
+  // Kriter alanı yoksa (segment tüm kriterleri boş) hata vermemeli.
+  criteria = criteria || {};
   const query = {};
 
   // Sayısal aralıklar: yalnız EN AZ BİR sınır gerçek bir sayıysa alan eklenir.
@@ -173,11 +176,15 @@ function buildQueryFromCriteria(criteria) {
   // `undefined`'i eler.
   const bound = v => (typeof v === 'number' && Number.isFinite(v) ? v : null);
   
-  // VIP level
+  // VIP level — User.vipLevel bir VipLevel referansı (ObjectId), kriter ise
+  // seviye NUMARASI aralığı: önce eşleşen seviyelerin id'leri çözülür. Sayı
+  // doğrudan ObjectId alanına yazılırsa `Cast to ObjectId` hatası fırlatır.
   if (bound(criteria.vipLevel?.min) !== null || bound(criteria.vipLevel?.max) !== null) {
-    query.vipLevel = {};
-    if (bound(criteria.vipLevel?.min) !== null) query.vipLevel.$gte = criteria.vipLevel.min;
-    if (bound(criteria.vipLevel?.max) !== null) query.vipLevel.$lte = criteria.vipLevel.max;
+    const range = {};
+    if (bound(criteria.vipLevel?.min) !== null) range.$gte = criteria.vipLevel.min;
+    if (bound(criteria.vipLevel?.max) !== null) range.$lte = criteria.vipLevel.max;
+    const vipIds = (await VipLevel.find({ level: range }).select('_id').lean()).map((v) => v._id);
+    query.vipLevel = { $in: vipIds };
   }
   
   // Balance
@@ -214,8 +221,11 @@ function buildQueryFromCriteria(criteria) {
   }
   
   // Active status — `boolean` olmalı; `undefined` de `!== null` testini geçiyordu.
+  // `deletedAt` default `null` olduğu için `$exists:false` TÜM kayıtları elerdi
+  // (segment sessizce hiç kişi bulamazdı) — `null` silinmemiş hem alanı olan hem
+  // olmayanı kapsar.
   if (typeof criteria.isActive === 'boolean') {
-    query.deletedAt = criteria.isActive ? { $exists: false } : { $exists: true };
+    query.deletedAt = criteria.isActive ? null : { $ne: null };
   }
   
   // Bot status
@@ -238,7 +248,7 @@ export async function getSegmentStats(segmentId) {
   const segment = await PlayerSegment.findById(segmentId);
   if (!segment) throw new Error('Segment not found');
   
-  const query = buildQueryFromCriteria(segment.criteria);
+  const query = await buildQueryFromCriteria(segment.criteria);
   
   const [count, aggregate] = await Promise.all([
     User.countDocuments(query),
@@ -275,7 +285,7 @@ export async function updateAllSegmentStats() {
   const segments = await PlayerSegment.find({ isActive: true });
   
   for (const segment of segments) {
-    const query = buildQueryFromCriteria(segment.criteria);
+    const query = await buildQueryFromCriteria(segment.criteria);
     const count = await User.countDocuments(query);
     
     segment.stats.playerCount = count;

@@ -33,7 +33,12 @@ import {
   fetchCryptoExternalRecords,
   _setCryptoService,
   _getCryptoService,
+  parsePagination,
+  listJobs,
+  getJobItems,
 } from '../src/controllers/reconciliation.js';
+import Agent from '../src/models/Agent.js';
+import { getAllAgents } from '../src/controllers/agent.js';
 
 const ORIGINAL_CRYPTO_SERVICE = _getCryptoService();
 
@@ -237,6 +242,53 @@ describe('Reconciliation — cryptoDeposit (TronGrid)', () => {
 
       assert.equal(completed.summary.statusMismatch, 1);
       assert.equal(completed.summary.matched, 0);
+    });
+  });
+
+  // 2026-09-17 Batch 2, Task 3.2 Step 5 — admin liste uçlarında limit üst sınırı.
+  describe('sayfalama limit üst sınırı (agent + reconciliation)', () => {
+    async function callList(handler, query, params = {}) {
+      let body;
+      const res = { json(b) { body = b; }, status() { return this; } };
+      await handler({ query, params }, res, (e) => { throw e; });
+      return body;
+    }
+
+    it('parsePagination: limit 1-100 aralığına sıkıştırılır, geçersiz değerler varsayılana düşer', () => {
+      assert.deepEqual(parsePagination({ limit: '1000000' }), { page: 1, limit: 100 });
+      assert.deepEqual(parsePagination({ limit: '-5', page: '0' }), { page: 1, limit: 1 });
+      assert.deepEqual(parsePagination({ limit: 'abc', page: 'x' }), { page: 1, limit: 20 });
+      assert.deepEqual(parsePagination({ limit: '50', page: '3' }), { page: 3, limit: 50 });
+      assert.deepEqual(parsePagination(), { page: 1, limit: 20 });
+    });
+
+    it('GET /reconciliation/jobs/:id/items ?limit=1000000 en fazla 100 kayıt döner', async () => {
+      const jobId = new mongoose.Types.ObjectId();
+      await ReconciliationItem.insertMany(Array.from({ length: 101 }, () => ({ jobId, recordType: 'transaction' })));
+      const body = await callList(getJobItems, { limit: '1000000' }, { id: String(jobId) });
+      assert.equal(body.items.length, 100);
+      assert.equal(body.total, 101);
+      assert.equal(body.pages, 2);
+    });
+
+    it('GET /reconciliation/jobs ?limit=1000000 en fazla 100 iş döner', async () => {
+      const startedBy = new mongoose.Types.ObjectId();
+      await ReconciliationJob.insertMany(Array.from({ length: 101 }, (_, i) => ({ name: `job-${i}`, type: 'transaction', startedBy })));
+      const body = await callList(listJobs, { limit: '1000000' });
+      const rows = body.jobs || body.items;
+      assert.equal(rows.length, 100);
+      assert.equal(body.total, 101);
+    });
+
+    it('GET /agents ?limit=1000000 en fazla 100 agent döner', async () => {
+      await Agent.deleteMany({});
+      const users = await User.insertMany(Array.from({ length: 101 }, (_, i) => ({ username: `pg_agent_${i}`, email: `pg_agent_${i}@test.com`, password: 'x' })));
+      await Agent.insertMany(users.map(u => ({ userId: u._id })));
+      const body = await callList(getAllAgents, { limit: '1000000' });
+      assert.equal(body.agents.length, 100);
+      assert.equal(body.total, 101);
+      assert.equal(body.pages, 2);
+      await Agent.deleteMany({});
     });
   });
 });

@@ -1,15 +1,18 @@
 /**
  * SEO'nun HTTP katmanı: robots/sitemap, herkese açık ayar ucu, SPA fallback
- * (head enjeksiyonu) ve dinamik CSP. Bağımlılıklar enjekte edilir (testte mock).
+ * (head enjeksiyonu + geçersiz rota için gerçek 404) ve dinamik CSP.
+ * Bağımlılıklar enjekte edilir (testte mock).
  */
 import { Router } from 'express';
 import helmet from 'helmet';
 import { readFile } from 'fs/promises';
+import { readFileSync } from 'fs';
 import { seoStore } from './store.js';
 import {
   buildSeoTags, injectIntoHtml, seoCspExtras, buildRobotsTxt, buildSitemapXml,
   resolveBaseUrl, isPrivatePath,
 } from './render.js';
+import { compileRoutes, matchRoute } from '../../../shared/route-matcher.js';
 
 /** Sitemap'te her zaman bulunan çekirdek rotalar (modül açıksa). */
 const CORE_ROUTES = [
@@ -86,22 +89,75 @@ export function createSeoPublicRouter({
 /**
  * SPA fallback: index.html bellekte tutulur; ayar kaydı varsa etiketler enjekte
  * edilir. Ayar yoksa (ya da okuma hata verirse) sade index.html aynen servis edilir.
+ *
+ * `routesPath` verilirse rota tablosu (`client/dist/routes.json`, client build'i
+ * sırasında `App.jsx`'ten türetilir) bir kez okunur ve `req.path` eşleştirilir:
+ *   - eşleşen yol  → 200 + index.html (client-side routing, derin linklerde
+ *                     yenileme çalışmaya devam eder)
+ *   - eşleşmeyen yol → 404 + `X-Robots-Tag: noindex` + index.html (istemci
+ *                     `pages/NotFound.jsx`'i render eder)
+ * Tablo yoksa/okunamazsa **fail-open**: mevcut davranış (tüm yollar 200) sürer,
+ * ilk istekte bir kez uyarı loglanır — sunucu tarafı tek başına deploy edilse bile
+ * hiçbir şey kılmaz. `ROUTE_404_REPORT_ONLY=1` zorlamayı kapatıp yalnızca loglar
+ * (yayına geçişte iki aşamalı dağıtımın 1. fazı).
  */
-export function createSpaFallback({ indexPath, store = seoStore, getSiteName = async () => '' }) {
+export function createSpaFallback({
+  indexPath,
+  routesPath = null,
+  store = seoStore,
+  getSiteName = async () => '',
+  isReportOnly = () => process.env.ROUTE_404_REPORT_ONLY === '1',
+  log = console,
+}) {
   let rawPromise = null;
   const raw = () => (rawPromise ||= readFile(indexPath, 'utf8').catch(e => { rawPromise = null; throw e; }));
 
+  // null = fail-open (her yol 200); aksi hâlde derlenmiş rota tablosu.
+  let routesRead = false;
+  let routes = null;
+  const loadRoutes = () => {
+    if (routesRead) return routes;
+    routesRead = true;
+    if (!routesPath) return routes;
+    try {
+      const compiled = compileRoutes(JSON.parse(readFileSync(routesPath, 'utf8')).patterns);
+      if (compiled.length === 0) throw new Error('boş rota listesi');
+      routes = compiled;
+      log.log(`[route-404] ${routes.length} rota routes.json'dan yüklendi (${routesPath})`);
+    } catch (e) {
+      log.warn(`[route-404] routes.json okunamadı (${e.message}) — TÜM yollar 200 dönecek (fail-open)`);
+    }
+    return routes;
+  };
+
+  async function sendIndex(req, res) {
+    let seoConfigured = false;
+    let seo;
+    try { seoConfigured = await store.isConfigured(); if (seoConfigured) seo = await store.get(); } catch { /* sade index */ }
+    if (!seoConfigured) return res.sendFile(indexPath);
+    const html = await raw();
+    const siteName = await getSiteName().catch(() => '');
+    const tags = buildSeoTags(seo, { path: req.path, baseUrl: resolveBaseUrl(seo, req), siteName });
+    res.set('Cache-Control', 'no-cache');
+    res.type('html').send(injectIntoHtml(html, tags));
+  }
+
   return async function spaFallback(req, res, next) {
     try {
-      let seoConfigured = false;
-      let seo;
-      try { seoConfigured = await store.isConfigured(); if (seoConfigured) seo = await store.get(); } catch { /* sade index */ }
-      if (!seoConfigured) return res.sendFile(indexPath);
-      const html = await raw();
-      const siteName = await getSiteName().catch(() => '');
-      const tags = buildSeoTags(seo, { path: req.path, baseUrl: resolveBaseUrl(seo, req), siteName });
-      res.set('Cache-Control', 'no-cache');
-      res.type('html').send(injectIntoHtml(html, tags));
+      const compiled = loadRoutes();
+      if (compiled && !matchRoute(compiled, req.path)) {
+        if (isReportOnly()) {
+          log.warn(`[route-404] (rapor modu) manifest dışı: ${req.path}`);
+        } else {
+          // index.html yine gönderilir: uygulama tek sayfalık, 404 görselini
+          // istemci üretir. Kanonik/SEO enjeksiyonu YAPILMAZ (404'te index
+          // edilmemeli); noindex hem header'da hem sayfada (NotFound.jsx).
+          res.set('X-Robots-Tag', 'noindex');
+          res.set('Cache-Control', 'no-cache');
+          return res.status(404).type('html').sendFile(indexPath);
+        }
+      }
+      return await sendIndex(req, res);
     } catch (e) { next(e); }
   };
 }

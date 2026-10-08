@@ -580,9 +580,8 @@ export default function AdminSmsSenders({ embedded = false }) {
     </>
   );
 
-  // Sekme içinde kullanılırken tam sayfa başlığı render edilmez (üstte
-  // zaten SMS Mesaj Şablonları başlığı ve sekme şeridi var); aksi halde
-  // "Yeni Gönderici" butonu için yer kalmazdı.
+  // Gömülü kullanımda (Modules → SMS Gateway kartı) tam sayfa başlığı
+  // render edilmez; kartın kendi başlığı var.
   if (embedded) {
     return (
       <>

@@ -1,6 +1,5 @@
 import { useEffect, useState } from 'react';
 import api from '../../services/api';
-import { useToastStore } from '../../store/toastStore';
 import { useTranslation } from '../../i18n';
 import { ADMIN_BTN, ADMIN_BTN_GHOST, ADMIN_BTN_PRIMARY } from '../../components/admin/AdminPageHeader.jsx';
 
@@ -10,7 +9,7 @@ import { ADMIN_BTN, ADMIN_BTN_GHOST, ADMIN_BTN_PRIMARY } from '../../components/
  * U4: currency/index.js'teki servis katmanı (setActiveCurrency) zaten
  * vardı, yalnızca admin HTTP ucu eksikti (bkz. controllers/admin.js).
  * U5: services/timezone.js + timezoneLive.js tam bağlıydı, yalnızca bu
- * arayüz eksikti (RAPOR.md'de "U4 paralelinde... bilerek dokunulmadı"
+ * arayüz eksikti (docs/archive/reports/RAPOR.md'de "U4 paralelinde... bilerek dokunulmadı"
  * notuyla kapsam dışı bırakılmıştı).
  *
  * Para birimi değişikliği yalnızca GÖRÜNTÜLEME biçimini değiştirir —
@@ -189,128 +188,6 @@ function RegionCurrencyCard({ t }) {
 }
 
 /**
- * E-posta (SMTP) kartı. Mail servisi modül DEĞİL: kapanırsa kayıt doğrulama ve
- * şifre sıfırlama çalışmaz. Değerler DB'de (şifre şifreli), boş alanlar sunucu
- * ortam değişkenlerinden okunur. Şifre alanı boş bırakılırsa değişmez.
- */
-const EMAIL_FIELDS = [
-  { key: 'host', labelKey: 'admin.emailSettings.host', placeholder: 'smtp.mailgun.org' },
-  { key: 'port', labelKey: 'admin.emailSettings.port', placeholder: '587', inputMode: 'numeric' },
-  { key: 'user', labelKey: 'admin.emailSettings.user' },
-  { key: 'pass', labelKey: 'admin.emailSettings.pass', secret: true },
-  { key: 'from', labelKey: 'admin.emailSettings.from', placeholder: 'noreply@example.com' },
-];
-
-function EmailSettingsCard({ t }) {
-  const addToast = useToastStore(s => s.add);
-  const [settings, setSettings] = useState(null);
-  const [form, setForm] = useState({});
-  const [saving, setSaving] = useState(false);
-  const [testing, setTesting] = useState(false);
-
-  useEffect(() => {
-    api.get('/admin/settings/email')
-      .then(r => setSettings(r.data.settings))
-      .catch(() => addToast(t('admin.emailSettings.loadFailed'), 'error'));
-  }, [t, addToast]);
-
-  async function save() {
-    setSaving(true);
-    try {
-      const r = await api.put('/admin/settings/email', form);
-      setSettings(r.data.settings);
-      setForm({});
-      addToast(t('admin.emailSettings.saved'), 'success');
-    } catch (e) {
-      addToast(e.response?.data?.error?.message || t('admin.emailSettings.saveFailed'), 'error');
-    } finally {
-      setSaving(false);
-    }
-  }
-
-  async function sendTest() {
-    setTesting(true);
-    try {
-      const r = await api.post('/admin/settings/email/test');
-      addToast(t('admin.emailSettings.testSent', { email: r.data.to }), 'success');
-    } catch (e) {
-      addToast(e.response?.data?.error?.message || t('admin.emailSettings.testFailed'), 'error');
-    } finally {
-      setTesting(false);
-    }
-  }
-
-  if (!settings) return <div className="h-40 bg-bg-card rounded-xl animate-pulse mb-4" />;
-
-  const byKey = Object.fromEntries(settings.map(s => [s.key, s]));
-  const secureCurrent = form.secure ?? (byKey.secure?.value === 'true');
-  const dirty = Object.keys(form).length > 0;
-  const inputCls = 'w-full bg-bg-deep border border-white/10 rounded-lg px-3 py-2 text-sm text-text-1 placeholder:text-text-3/60 focus:outline-none focus:border-white/25';
-
-  return (
-    <div className="bg-bg-card border border-white/10 rounded-xl p-4 mb-4">
-      <div className="mb-4 flex items-center gap-2">
-        <span className="grid h-7 w-7 place-items-center rounded-lg bg-primary/10 text-primary"><span className="material-symbols-outlined !text-[16px]" aria-hidden="true">mail</span></span>
-        <div className="min-w-0">
-          <h3 className="text-sm font-extrabold text-text-1">{t('admin.emailSettings.title')}</h3>
-          <p className="truncate text-[11.5px] text-text-3">{t('admin.emailSettings.hint')}</p>
-        </div>
-      </div>
-
-      <div className="grid gap-3 sm:grid-cols-2">
-        {EMAIL_FIELDS.map(({ key, labelKey, secret, placeholder, inputMode }) => {
-          const current = byKey[key] || {};
-          return (
-            <div key={key}>
-              <label className="text-xs font-medium text-text-2 mb-1 block" htmlFor={`smtp-${key}`}>{t(labelKey)}</label>
-              <input
-                id={`smtp-${key}`}
-                type={secret ? 'password' : 'text'}
-                inputMode={inputMode}
-                autoComplete="off"
-                value={form[key] ?? (secret ? '' : (current.value || ''))}
-                placeholder={secret ? (current.value || '') : placeholder}
-                onChange={e => setForm(f => ({ ...f, [key]: e.target.value }))}
-                className={inputCls}
-              />
-              {secret && <div className="mt-1 text-[11px] text-text-3/70">{t('admin.emailSettings.passHint')}</div>}
-            </div>
-          );
-        })}
-        <div className="flex items-center justify-between gap-3 rounded-lg bg-bg-hover p-3 sm:col-span-2">
-          <div className="min-w-0">
-            <div className="text-xs font-medium text-text-2">{t('admin.emailSettings.secure')}</div>
-            <div className="text-[11px] text-text-3/70">{t('admin.emailSettings.secureHelp')}</div>
-          </div>
-          <button
-            type="button"
-            role="switch"
-            aria-checked={secureCurrent}
-            aria-label={t('admin.emailSettings.secure')}
-            onClick={() => setForm(f => ({ ...f, secure: !secureCurrent }))}
-            className={`relative w-12 h-6 rounded-full transition shrink-0 ${secureCurrent ? 'bg-success/80' : 'bg-white/10'}`}
-          >
-            <span className={`absolute top-0.5 left-0.5 w-5 h-5 rounded-full bg-white transition-transform ${secureCurrent ? 'translate-x-6' : ''}`} />
-          </button>
-        </div>
-      </div>
-
-      <div className="mt-4 flex flex-wrap items-center gap-2">
-        <button onClick={save} disabled={saving || !dirty} className={`${ADMIN_BTN} disabled:opacity-40`}>
-          <span className="material-symbols-outlined !text-[15px]" aria-hidden="true">save</span>
-          {saving ? t('admin.settings.savingEllipsis') : t('common.save')}
-        </button>
-        <button onClick={sendTest} disabled={testing || dirty} className={`${ADMIN_BTN} disabled:opacity-40`}>
-          <span className="material-symbols-outlined !text-[15px]" aria-hidden="true">send</span>
-          {testing ? t('admin.emailSettings.sending') : t('admin.emailSettings.sendTest')}
-        </button>
-      </div>
-      <p className="mt-3 text-[11px] text-text-3/70">{t('admin.emailSettings.envNote')}</p>
-    </div>
-  );
-}
-
-/**
  * Panel Dili kartı — yönetim panelinin arayüz dili. Yeni bir backend
  * alanı/model AÇILMADI: mevcut global I18nProvider state'ini (locale,
  * localStorage'da saklanır) doğrudan kullanır — Navbar'daki dil
@@ -440,7 +317,6 @@ export default function AdminSettings() {
     <div>
       <PanelLanguageCard />
       <RegionCurrencyCard t={t} />
-      <EmailSettingsCard t={t} />
 
       <div className="mb-2 flex flex-wrap items-center justify-between gap-2">
         <div className="flex items-center gap-2">

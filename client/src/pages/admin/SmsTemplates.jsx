@@ -8,7 +8,9 @@
  *                    PANELDEN GÖNDERİLEMEZ — tetikleyen domain kodudur.
  *   type='scheduled' Zamana duyarlı / kampanya mesajı (bonus, turuva, duyuru).
  *                    Panelden "Gönder" ile tek kullanıcıya, tüm kullanıcılara
- *                    veya bir segmente gönderilebilir.
+ *                    veya bir segmente gönderilebilir. Ayrıca "Otomatik
+ *                    Gönderim" açıksa 15 dakikalık iş `audience` kitleye
+ *                    vadesi gelince otomatik gönderir (e-posta modeliyle aynı).
  *
  * Sağlayıcı kimlik bilgileri BURADA değil, Modüller → SMS Gateway kartındadır
  * (Modül açık/kapalı anahtarı da oradan yönetilir).
@@ -25,18 +27,26 @@ import { AdminTable, AdminTableRow, AdminTableCell, AdminTableEmpty, AdminKpiCar
 import RowActions from '../../components/admin/RowActions.jsx';
 import AdminSmsSenders from './SmsSenders.jsx';
 import { toKeySegment } from '../../utils/smsSenderLogic.js';
-import { smsCharInfo, unknownPlaceholders, TYPE_FILTERS, CATEGORIES, AUDIENCE_TYPES } from './smsTemplateLogic.js';
+import { smsCharInfo, unknownPlaceholders, apiErrorMessage, TYPE_FILTERS, CATEGORIES, AUDIENCE_TYPES } from './smsTemplateLogic.js';
 
 const EMPTY_FORM = {
   title: '', type: 'scheduled', eventKey: '', category: 'system', content: '', isActive: true,
+  // Otomatik gönderim (yalnız scheduled): kitle + aralık. Elle gönderimde
+  // seçilen kitle bu alanlara yazılmaz; buradaki değer job'un vadesi gelince
+  // kime gideceğini belirler.
+  audience: { type: 'all', segmentId: null, userIds: [] },
+  schedule: { enabled: false, intervalHours: 168 },
 };
 
-export default function AdminSmsTemplates() {
+export default function AdminSmsTemplates({ embedded = false }) {
   const { t, locale } = useTranslation();
 
   const [params, setParams] = useSearchParams();
   const rawTab = params.get('tab') || 'templates';
-  const tab = ['logs', 'senders'].includes(rawTab) ? rawTab : 'templates';
+  // Gömülü modda (İletişim → SMS) logs/sendres ayrı panellerdedir — dahili
+  // şerit gizlenir, yalnız şablon listesi gösterilir. Normal modda main'in
+  // senders sekmesi de korunur.
+  const tab = embedded ? 'templates' : (['logs', 'senders'].includes(rawTab) ? rawTab : 'templates');
 
   const [data, setData] = useState(null);
   const [logs, setLogs] = useState(null);
@@ -44,6 +54,7 @@ export default function AdminSmsTemplates() {
   const [error, setError] = useState('');
   const [notice, setNotice] = useState('');
   const [form, setForm] = useState(null);
+  const [formSegments, setFormSegments] = useState([]);
   const [send, setSend] = useState(null);
   const [saving, setSaving] = useState(false);
   const [search, setSearch] = useState('');
@@ -63,7 +74,7 @@ export default function AdminSmsTemplates() {
       const { data: res } = await api.get('/admin/sms/templates', { params: { search: debounced } });
       setData(res);
     } catch (e) {
-      setError(e.response?.data?.error?.message || t('admin.smsTemplates.loadError'));
+      setError(apiErrorMessage(t, e));
     } finally {
       setLoading(false);
     }
@@ -75,7 +86,7 @@ export default function AdminSmsTemplates() {
       const { data: res } = await api.get('/admin/sms/logs', { params: { limit: 50 } });
       setLogs(res);
     } catch (e) {
-      setError(e.response?.data?.error?.message || t('admin.smsTemplates.loadError'));
+      setError(apiErrorMessage(t, e));
     }
   }, [t]);
 
@@ -107,8 +118,31 @@ export default function AdminSmsTemplates() {
     setForm({
       _id: tpl._id, key: tpl.key, title: tpl.title, type: tpl.type,
       eventKey: tpl.eventKey ?? '', category: tpl.category, content: tpl.content, isActive: tpl.isActive,
+      audience: {
+        type: tpl.audience?.type ?? 'all',
+        segmentId: tpl.audience?.segmentId ?? null,
+        userIds: tpl.audience?.userIds ?? [],
+      },
+      schedule: {
+        enabled: !!tpl.schedule?.enabled,
+        intervalHours: tpl.schedule?.intervalHours ?? 168,
+      },
     });
   }
+
+  // Formdaki segment seçici için: scheduled + segment kitle açıldığında yükle.
+  // İzlenen değerler extract edildi — exhaustive-deps `form`'u istememeli,
+  // her tuş vuruşunda segment listesi yeniden çekilmemeli.
+  const formType = form?.type;
+  const formAudienceType = form?.audience?.type;
+  useEffect(() => {
+    if (formType !== 'scheduled' || formAudienceType !== 'segment') return;
+    let alive = true;
+    api.get('/admin/segments', { params: { limit: 100 } })
+      .then(({ data }) => { if (alive) setFormSegments(data?.segments ?? []); })
+      .catch(() => { if (alive) setFormSegments([]); });
+    return () => { alive = false; };
+  }, [formType, formAudienceType]);
 
   function eventOptions(type) {
     return type === 'action' ? events.action : events.scheduled;
@@ -129,6 +163,19 @@ export default function AdminSmsTemplates() {
         category: form.category,
         content: form.content,
         isActive: form.isActive,
+        // Otomatik gönderim kitle + vadesi yalnız scheduled şablonlarda yazılır;
+        // aksiyon şablonlarına servis yine de reddeder (kapı çift taraflı).
+        ...(form.type === 'scheduled' ? {
+          audience: {
+            type: form.audience?.type === 'segment' ? 'segment' : 'all',
+            segmentId: form.audience?.type === 'segment' ? (form.audience?.segmentId || null) : null,
+            userIds: [],
+          },
+          schedule: {
+            enabled: !!form.schedule?.enabled,
+            intervalHours: Math.max(1, Math.min(24 * 365, Number(form.schedule?.intervalHours) || 168)),
+          },
+        } : {}),
       };
       if (form._id) await api.patch(`/admin/sms/templates/${form._id}`, payload);
       else await api.post('/admin/sms/templates', payload);
@@ -136,7 +183,7 @@ export default function AdminSmsTemplates() {
       setNotice(t('admin.smsTemplates.saved'));
       load();
     } catch (e) {
-      setError(e.response?.data?.error?.message || t('admin.smsTemplates.saveError'));
+      setError(apiErrorMessage(t, e));
     } finally {
       setSaving(false);
     }
@@ -148,7 +195,7 @@ export default function AdminSmsTemplates() {
       await api.patch(`/admin/sms/templates/${tpl._id}`, { isActive: next });
       load();
     } catch (e) {
-      setError(e.response?.data?.error?.message || t('admin.smsTemplates.saveError'));
+      setError(apiErrorMessage(t, e));
     }
   }
 
@@ -222,7 +269,7 @@ export default function AdminSmsTemplates() {
       load();
       if (tab === 'logs') loadLogs();
     } catch (e) {
-      setError(e.response?.data?.error?.message || t('admin.smsTemplates.sendError'));
+      setError(apiErrorMessage(t, e));
       setSend(s => (s ? { ...s, sending: false } : s));
     }
   }
@@ -230,8 +277,9 @@ export default function AdminSmsTemplates() {
   const summary = data?.summary ?? { all: 0, active: 0, action: 0, scheduled: 0 };
 
   return (
-    <div className="mx-auto w-full max-w-[1400px] px-4 py-5 sm:px-6">
+    <div className={embedded ? '' : 'mx-auto w-full max-w-[1400px] px-4 py-5 sm:px-6'}>
       <AdminPageHeader
+        embedded={embedded}
         crumbs={[{ label: t('admin.nav.groupEngagement') }, { label: t('admin.smsTemplates.title') }]}
         title={t('admin.smsTemplates.title')}
         sub={t('admin.smsTemplates.subtitle')}
@@ -242,15 +290,17 @@ export default function AdminSmsTemplates() {
           </button>
         )}
       >
-        <AdminTabs
-          value={tab}
-          onChange={key => setParams({ tab: key })}
-          items={[
-            { key: 'templates', label: t('admin.smsTemplates.tabTemplates') },
-            { key: 'senders', label: t('admin.smsTemplates.tabSenders') },
-            { key: 'logs', label: t('admin.smsTemplates.tabLogs') },
-          ]}
-        />
+        {!embedded && (
+          <AdminTabs
+            value={tab}
+            onChange={key => setParams({ tab: key })}
+            items={[
+              { key: 'templates', label: t('admin.smsTemplates.tabTemplates') },
+              { key: 'senders', label: t('admin.smsTemplates.tabSenders') },
+              { key: 'logs', label: t('admin.smsTemplates.tabLogs') },
+            ]}
+          />
+        )}
       </AdminPageHeader>
 
       {error && (
@@ -577,6 +627,72 @@ export default function AdminSmsTemplates() {
                   ))}
                 </div>
               </div>
+
+              {/* ── Otomatik gönderim (yalnız scheduled) ── */}
+              {form.type === 'scheduled' && (
+                <div className="rounded-xl border border-white/10 bg-bg-deep/40 p-3 space-y-3">
+                  <div className="text-[11px] uppercase font-bold text-text-3">{t('admin.smsTemplates.autoSection')}</div>
+                  <div className="flex items-center gap-2">
+                    <ActiveSwitch
+                      checked={!!form.schedule?.enabled}
+                      onChange={next => setForm(f => ({ ...f, schedule: { ...f.schedule, enabled: next } }))}
+                      label={t('admin.smsTemplates.autoEnabled')}
+                    />
+                    <span className="text-xs text-text-2">{t('admin.smsTemplates.autoEnabled')}</span>
+                  </div>
+                  {!!form.schedule?.enabled && (
+                    <label className="block text-[11px] uppercase font-bold text-text-3">
+                      {t('admin.smsTemplates.autoInterval')}
+                      <input
+                        type="number"
+                        min={1}
+                        max={24 * 365}
+                        value={form.schedule?.intervalHours ?? 168}
+                        onChange={e => setForm(f => ({
+                          ...f,
+                          schedule: { ...f.schedule, intervalHours: Math.max(1, Math.min(24 * 365, Number(e.target.value) || 168)) },
+                        }))}
+                        className="mt-1 w-full h-9 rounded-lg bg-bg-deep border border-white/10 px-3 text-sm text-text-1 normal-case tracking-normal font-normal"
+                      />
+                    </label>
+                  )}
+                  <div>
+                    <div className="text-[11px] uppercase font-bold text-text-3 mb-1.5">{t('admin.smsTemplates.audience')}</div>
+                    <div className="flex flex-wrap gap-1.5">
+                      {['all', 'segment'].map(at => (
+                        <button
+                          key={at}
+                          type="button"
+                          onClick={() => setForm(f => ({
+                            ...f,
+                            audience: { ...f.audience, type: at, segmentId: at === 'segment' ? (f.audience?.segmentId ?? null) : null },
+                          }))}
+                          className={`rounded-lg px-2.5 py-1.5 text-[11.5px] font-extrabold transition ${
+                            form.audience?.type === at
+                              ? 'bg-primary/20 text-primary shadow-[0_0_0_1px_rgba(0,212,255,0.35)]'
+                              : 'border border-white/10 bg-bg-hover text-text-3 hover:text-text-1'
+                          }`}
+                        >
+                          {t(`admin.smsTemplates.audienceType.${at}`)}
+                        </button>
+                      ))}
+                    </div>
+                    {form.audience?.type === 'segment' && (
+                      <select
+                        value={form.audience?.segmentId || ''}
+                        onChange={e => setForm(f => ({ ...f, audience: { ...f.audience, segmentId: e.target.value || null } }))}
+                        className="mt-2 w-full h-9 rounded-lg bg-bg-deep border border-white/10 px-3 text-sm text-text-1 normal-case tracking-normal font-normal"
+                      >
+                        <option value="">{t('admin.smsTemplates.segmentNone')}</option>
+                        {formSegments.map(seg => (
+                          <option key={seg._id} value={seg._id}>{seg.name}</option>
+                        ))}
+                      </select>
+                    )}
+                  </div>
+                  <p className="text-[11px] text-text-3">{t('admin.smsTemplates.autoHint')}</p>
+                </div>
+              )}
 
               <div className="flex items-center gap-2">
                 <ActiveSwitch checked={form.isActive} onChange={next => setForm(f => ({ ...f, isActive: next }))} label={t('admin.smsTemplates.fieldActive')} />

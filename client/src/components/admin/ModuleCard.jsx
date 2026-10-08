@@ -1,27 +1,53 @@
 import { useState } from 'react';
-import { Link } from 'react-router-dom';
 import { useTranslation } from '../../i18n';
 
 /**
  * Modüller + Modül Ayarları'nın birleşmesinden doğan ortak kart: üstte
  * her-zaman-görünür başlık/rozet/aç-kapa, altta accordion ile açılan detay
- * ayarlar. `alwaysOn` (örn. In-house Provider — M1 çekirdek, hiçbir modül
- * tarafından kapatılamaz) durumunda toggle yerine sabit bir "Çekirdek" rozeti
- * gösterilir (metni `coreLabel` prop'uyla verilir — çağıran taraf zaten
- * `useTranslation()` çağırdığından burada tekrar `t()` çağırmaya gerek yok).
+ * ayarlar.
+ *
+ * Sağ üst kontrol sırası: `headerSwitch` (çağıran tarafın kendi switch'i —
+ * ör. Email Gateway kartının gateway anahtarı, Core rozetinin yerine) varsa
+ * o; yoksa modül switch'i (`enabled`/`onToggle`). `alwaysOn` (örn. çekirdek
+ * kart — hiçbir modül tarafından kapatılamaz) kartta modül switch'i
+ * çizilmez ve gövdede "modül kapalı" uyarısı çıkmaz.
+ *
+ * "Yönet →" linki ve licence rozetleri 2026-10-06 IA kararıyla kartlardan
+ * kaldırıldı (docs/admin-redesign/README.md §8).
  */
+export function CardSwitch({ checked, busy = false, onToggle, ariaLabel }) {
+  return (
+    <button
+      type="button"
+      onClick={onToggle}
+      disabled={busy}
+      role="switch"
+      aria-checked={checked}
+      aria-label={ariaLabel}
+      className={`relative w-12 h-6 rounded-full transition shrink-0 disabled:opacity-50 ${
+        checked ? 'bg-green-500/80' : 'bg-white/10'
+      }`}
+    >
+      <span
+        className={`absolute top-0.5 left-0.5 w-5 h-5 rounded-full bg-white transition-transform ${
+          checked ? 'translate-x-6' : ''
+        }`}
+      />
+    </button>
+  );
+}
+
 export default function ModuleCard({
   icon,
   title,
   description,
   badge,
   alwaysOn = false,
-  coreLabel,
   enabled = false,
   onToggle,
   toggleBusy = false,
+  headerSwitch,
   defaultOpen = false,
-  manageTo,
   children,
 }) {
   const { t } = useTranslation();
@@ -45,39 +71,14 @@ export default function ModuleCard({
           </div>
         </button>
 
-        {manageTo && (
-          <Link
-            to={manageTo}
-            className="hidden shrink-0 items-center gap-1 text-xs font-semibold text-text-3 transition hover:text-text-1 sm:inline-flex"
-          >
-            {t('admin.productLinks.manage')}
-            <span className="material-symbols-outlined !text-[14px]" aria-hidden="true">arrow_forward</span>
-          </Link>
-        )}
-
-        {alwaysOn ? (
-          <span className="text-xs px-2 py-0.5 rounded-full border bg-primary/15 border-primary/30 text-primary shrink-0">
-            {coreLabel ?? t('admin.moduleCards.coreBadge')}
-          </span>
-        ) : (
-          <button
-            type="button"
-            onClick={onToggle}
-            disabled={toggleBusy}
-            role="switch"
-            aria-checked={enabled}
-            aria-label={enabled ? t('admin.moduleCards.toggleOff', { title }) : t('admin.moduleCards.toggleOn', { title })}
-            className={`relative w-12 h-6 rounded-full transition shrink-0 disabled:opacity-50 ${
-              enabled ? 'bg-green-500/80' : 'bg-white/10'
-            }`}
-          >
-            <span
-              className={`absolute top-0.5 left-0.5 w-5 h-5 rounded-full bg-white transition-transform ${
-                enabled ? 'translate-x-6' : ''
-              }`}
-            />
-          </button>
-        )}
+        {headerSwitch ?? (!alwaysOn && (
+          <CardSwitch
+            checked={enabled}
+            busy={toggleBusy}
+            onToggle={onToggle}
+            ariaLabel={enabled ? t('admin.moduleCards.toggleOff', { title }) : t('admin.moduleCards.toggleOn', { title })}
+          />
+        ))}
 
         <button
           type="button"
@@ -98,15 +99,6 @@ export default function ModuleCard({
             <p className="text-xs text-amber-300/80 bg-amber-500/10 border border-amber-500/20 rounded-lg px-3 py-2 mt-3 mb-1">
               {t('admin.moduleCards.disabledNotice')}
             </p>
-          )}
-          {manageTo && (
-            <Link
-              to={manageTo}
-              className="mt-3 inline-flex items-center gap-1 text-xs font-semibold text-text-3 transition hover:text-text-1 sm:hidden"
-            >
-              {t('admin.productLinks.manage')}
-              <span className="material-symbols-outlined !text-[14px]" aria-hidden="true">arrow_forward</span>
-            </Link>
           )}
           {children}
         </div>

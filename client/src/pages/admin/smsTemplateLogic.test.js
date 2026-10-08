@@ -14,6 +14,9 @@ import {
   CATEGORIES,
   GSM7_LIMIT,
   UNICODE_LIMIT,
+  smsGatewayErrorText,
+  apiErrorMessage,
+  deriveSmsMissing,
 } from './smsTemplateLogic.js';
 
 describe('SMS karakter/segment sayacı', () => {
@@ -86,5 +89,72 @@ describe('sabit listeler sunucu ile aynı kalmalı', () => {
     assert.deepStrictEqual(TYPE_FILTERS, ['all', 'action', 'scheduled']);
     assert.deepStrictEqual(AUDIENCE_TYPES, ['users', 'all', 'segment']);
     assert.deepStrictEqual(CATEGORIES, ['system', 'betting', 'casino', 'wallet', 'promotion']);
+  });
+});
+
+describe('smsGatewayErrorText', () => {
+  const t = (key) => ({
+    'admin.smsGateway.error.smsNotConfigured': 'TR-not-configured',
+    'admin.smsGateway.error.smsEncryptionKeyMissing': 'TR-enc-missing',
+    'admin.smsGateway.testFailed': 'TR-fallback',
+  }[key] ?? key);
+
+  test('bilinen kod çevrilmiş metni verir (sunucu Türkçe mesajı ezer)', () => {
+    assert.strictEqual(
+      smsGatewayErrorText(t, 'SMS_NOT_CONFIGURED', 'SMS Gateway kimlik bilgileri eksik…'),
+      'TR-not-configured',
+    );
+  });
+  test('bilinmeyen kod sunucu mesajına düşer', () => {
+    assert.strictEqual(smsGatewayErrorText(t, 'SOMETHING_NEW', 'sunucu metni'), 'sunucu metni');
+  });
+  test('kod yoksa fallback kullanılır', () => {
+    assert.strictEqual(smsGatewayErrorText(t, null, ''), 'TR-fallback');
+    assert.strictEqual(smsGatewayErrorText(t, null, 'sunucu metni'), 'sunucu metni');
+  });
+});
+
+describe('deriveSmsMissing', () => {
+  test('sunucu missing alanı varsa onu kullanır', () => {
+    assert.deepStrictEqual(deriveSmsMissing({ missing: ['sender'] }), ['sender']);
+  });
+  test('alan yoksa status türetmesi yapılır', () => {
+    assert.deepStrictEqual(
+      deriveSmsMissing({ accountSid: null, authTokenConfigured: false, fromNumber: null, messagingServiceSid: null }),
+      ['accountSid', 'authToken', 'sender'],
+    );
+    assert.deepStrictEqual(
+      deriveSmsMissing({ accountSid: 'ACx', authTokenConfigured: true, fromNumber: '+1555', messagingServiceSid: null }),
+      [],
+    );
+    assert.deepStrictEqual(
+      deriveSmsMissing({ accountSid: 'ACx', authTokenConfigured: true, fromNumber: null, messagingServiceSid: 'MGx' }),
+      [],
+    );
+  });
+});
+
+describe('apiErrorMessage — hata gövdesi yoksa genel çeviriye düşme', () => {
+  const t = (key, params) => (params ? `${key}:${params.status}` : key);
+
+  test('sunucu {error:{message}} döndürdüyse o metin kullanılır', () => {
+    assert.strictEqual(
+      apiErrorMessage(t, { response: { data: { error: { message: 'Segment seçilmedi' } } } }),
+      'Segment seçilmedi',
+    );
+  });
+
+  test('hata gövdesi string ise (eski uçlar) o da kullanılır', () => {
+    assert.strictEqual(apiErrorMessage(t, { response: { data: { error: 'Reddedildi' } } }), 'Reddedildi');
+  });
+
+  test('yanıt var ama mesaj YOK (boş 502/504, HTML sayfa) → HTTP durumu görünür', () => {
+    assert.strictEqual(apiErrorMessage(t, { response: { status: 502, data: '' } }), 'admin.smsTemplates.serverError:502');
+    assert.strictEqual(apiErrorMessage(t, { response: { status: 504, data: '<html></html>' } }), 'admin.smsTemplates.serverError:504');
+  });
+
+  test('yanıt hiç yoksa (ağ kopması) → bağlantı hatası metni', () => {
+    assert.strictEqual(apiErrorMessage(t, { code: 'ERR_NETWORK' }), 'admin.smsTemplates.networkError');
+    assert.strictEqual(apiErrorMessage(t, undefined), 'admin.smsTemplates.networkError');
   });
 });

@@ -98,7 +98,9 @@ export const ADMIN_NAV_GROUPS = [
     items: [
       { id: 'promotions', labelKey: 'admin.nav.promotions', to: '/admin/promotions', icon: 'redeem' },
       { id: 'vip', labelKey: 'admin.nav.vip', to: '/admin/vip', icon: 'workspace_premium' },
-      { id: 'sms-templates', labelKey: 'admin.nav.smsTemplates', to: '/admin/sms-templates', icon: 'sms' },
+      // Tek iletişim yüzeyi: e-posta + SMS + kampanya/otomasyon/segment.
+      // Eski `sms-templates` + `mail-templates` öğeleri buraya taşındı.
+      { id: 'communication', labelKey: 'admin.nav.communication', to: '/admin/communications', icon: 'campaign' },
       { id: 'chat', labelKey: 'admin.nav.chat', to: '/admin/chat', icon: 'chat' },
     ],
   },

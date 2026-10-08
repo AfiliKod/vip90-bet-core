@@ -2,25 +2,36 @@ import { useEffect, useState, useCallback } from 'react';
 import api from '../../services/api';
 import { useTranslation } from '../../i18n';
 import { useToastStore } from '../../store/toastStore';
-import ModuleCard from '../../components/admin/ModuleCard';
+import ModuleCard, { CardSwitch } from '../../components/admin/ModuleCard';
 import SmsGatewayBody from '../../components/admin/SmsGatewayCard.jsx';
+import EmailProviderPanel from '../../components/admin/EmailProviderPanel.jsx';
 import { Chip, MultiCheck } from './components/AdminChoice.jsx';
 import { getActiveCurrency } from '../../utils/money.js';
 
 /**
  * Modüller + Modül Ayarları'nın birleşmiş hali (2026-09-10) — eskiden iki ayrı
  * sayfaydı (`/admin/modules` aç/kapa listesi, `/admin/module-settings` detay
- * ayarlar). Artık her modül/provider TEK bir kart: üstte aç/kapa + lisans
- * rozeti (her zaman görünür), altta accordion ile açılan detay ayarlar
- * (dil/kategori/API key vb. — eski `ModuleSettings.jsx`'in section'ları).
+ * ayarlar). Artık her modül/provider TEK bir kart: üstte aç/kapa, altta
+ * accordion ile açılan detay ayarlar (dil/kategori/API key vb. — eski
+ * `ModuleSettings.jsx`'in section'ları).
  *
- * In-house Oyunlar Provider'ı `MODULE_DEFINITIONS`'ta YOK (M1 çekirdek platform,
- * hiçbir modül tarafından kapatılamaz) — bu yüzden kendi kartı toggle'sız,
- * "Çekirdek" rozetiyle gösterilir.
+ * 2026-10-06 IA (docs/admin-redesign/README.md §8):
+ * - Licence rozetleri ("Lisans: doğrulandı/önbellek/doğrulanamadı") ve
+ *   kartlardaki "Yönet →" linkleri kaldırıldı — kart yalnızca başlık +
+ *   aç/kapa + accordion.
+ * - Çekirdek "Core" rozeti de kalktı; Email Gateway kartında onun yerine
+ *   gateway anahtarı switch'i durur (kartın sağ üstünde, anında kaydeder).
  *
- * SMS Gateway (2026-10-03): gövdesi `components/admin/SmsGatewayCard.jsx`'te
- * (Twilio kimlik bilgileri), mesaj şablonları `manageTo` ile ayrı CRUD
- * sayfasında (`/admin/sms-templates`).
+ * SMS Gateway (2026-10-03): gövdesi `components/admin/SmsGatewayCard.jsx`te
+ * (Twilio kimlik bilgileri + gönderici alanları tek gövde); mesaj şablonları
+ * Communication hub'ından (`/admin/communications?channel=sms`).
+ *
+ * İletişim sağlayıcıları (2026-10-06): tek "Communication Providers" kartı
+ * kaldırıldı; yerine modül listesinin SONDAKİ çekirdek "Email Gateway" kartı
+ * (`EmailProviderPanel`; anahtar kart başlığında — açık: panel/DB, kapalı:
+ * sunucu .env SMTP) ve modül listesindeki `sms-gateway` kartı geldi.
+ * İletişim → E-posta/SMS alt sekmelerinden sağlayıcı sekmeleri
+ * çıkarıldı; sayfa artık yalnız şablon/kimlik/günlük/test taşır.
  *
  * Tüm metinler `t('admin.moduleCards.*')` üzerinden (bkz. i18n/dictionaries/) —
  * server'dan gelen modül title/description'ı (registry.js) KASITLI OLARAK
@@ -874,14 +885,17 @@ function SlikairModuleBody() {
 }
 
 // ─── Modül id → kart görünümü (ikon + accordion body + çevrilebilir başlık) ─
+// "Yönet →" linki (`manageTo`) 2026-10-06 IA kararıyla kaldırıldı — kartlar
+// yalnızca accordion ile açılır; erişim Communication hub'ından/eski rota
+// redirect'lerinden yapılır.
 const MODULE_VIEW = {
-  betting:           { icon: 'sports', Body: OddsProviderBody, key: 'betting', manageTo: '/admin/events?tab=categories' },
-  'casino-content':  { icon: 'casino', Body: IgamesModuleBody, key: 'casinoContent', manageTo: '/admin/igames?tab=popular' },
-  'inhouse-games':   { icon: 'sports_esports', Body: InhouseProviderBody, key: 'inhouseGames', manageTo: '/admin/game-settings' },
+  betting:           { icon: 'sports', Body: OddsProviderBody, key: 'betting' },
+  'casino-content':  { icon: 'casino', Body: IgamesModuleBody, key: 'casinoContent' },
+  'inhouse-games':   { icon: 'sports_esports', Body: InhouseProviderBody, key: 'inhouseGames' },
   'crypto-payment':  { icon: 'currency_bitcoin', Body: CryptoPaymentBody, key: 'cryptoPayment' },
   'slikair-payment': { icon: 'account_balance', Body: SlikairModuleBody, key: 'slikairPayment' },
   'kyc-verification':{ icon: 'verified_user', Body: KycSettingsBody, key: 'kycVerification' },
-  'sms-gateway':    { icon: 'sms', Body: SmsGatewayBody, key: 'smsGateway', manageTo: '/admin/sms-templates' },
+  'sms-gateway':    { icon: 'sms', Body: SmsGatewayBody, key: 'smsGateway' },
 };
 
 export default function AdminModules() {
@@ -890,12 +904,10 @@ export default function AdminModules() {
   const [loading, setLoading] = useState(true);
   const [busyId, setBusyId] = useState(null);
   const [error, setError] = useState('');
-
-  const LICENSE_BADGE = {
-    live:   { label: t('admin.modules.licenseLive'), cls: 'bg-success/15 text-success border-success/30' },
-    cached: { label: t('admin.modules.licenseCached'), cls: 'bg-warning/15 text-warning border-warning/30' },
-    closed: { label: t('admin.modules.licenseClosed'), cls: 'bg-danger/20 text-danger border-danger/30' },
-  };
+  // Email Gateway anahtarı kart başlığında (Core rozetinin yerine) durur ve
+  // anında kaydeder (modül switch'leriyle aynı davranış); panel bunu prop
+  // olarak alıp mod rozetinde gösterir.
+  const [gatewayOn, setGatewayOn] = useState(null);
 
   const load = useCallback(async () => {
     setError('');
@@ -910,6 +922,32 @@ export default function AdminModules() {
   }, [t]);
 
   useEffect(() => { load(); }, [load]);
+
+  // Email Gateway anahtarı durumu (karta başlık switch'i olarak çizilir).
+  // Kayıt hatası panelin kendi yüklemesinde de görünür; burada sessizce
+  // boş bırakılır.
+  useEffect(() => {
+    api.get('/admin/settings/email')
+      .then(r => {
+        const g = (r.data.settings ?? []).find(s => s.key === 'gatewayEnabled');
+        setGatewayOn(g ? g.value !== 'false' : true);
+      })
+      .catch(() => {});
+  }, []);
+
+  async function toggleGateway() {
+    const next = !gatewayOn;
+    setBusyId('gateway');
+    setError('');
+    try {
+      await api.put('/admin/settings/email', { gatewayEnabled: next });
+      setGatewayOn(next);
+    } catch {
+      setError(t('admin.emailSettings.saveFailed'));
+    } finally {
+      setBusyId(null);
+    }
+  }
 
   async function toggle(m) {
     setBusyId(m.id);
@@ -962,7 +1000,6 @@ export default function AdminModules() {
       ) : (
         <>
           {modules.map(m => {
-            const badgeInfo = LICENSE_BADGE[m.licenseSource] ?? LICENSE_BADGE.closed;
             const view = MODULE_VIEW[m.id];
             // Server tek dilde (TR) sabit title/description döner — client-side
             // bilinen modül id'leri için çevrilebilir sabit metne düşülür.
@@ -979,20 +1016,11 @@ export default function AdminModules() {
                 enabled={m.enabled}
                 onToggle={() => toggle(m)}
                 toggleBusy={busyId === m.id}
-                coreLabel={t('admin.moduleCards.coreBadge')}
-                manageTo={view?.manageTo}
-                badge={
-                  <>
-                    <span className={`text-xs px-2 py-0.5 rounded-full border ${badgeInfo.cls}`}>
-                      {badgeInfo.label}
-                    </span>
-                    {m.enabled && !m.licensed && (
-                      <span className="text-xs px-2 py-0.5 rounded-full border bg-danger/20 text-danger border-danger/30">
-                        {t('admin.modules.unlicensed')}
-                      </span>
-                    )}
-                  </>
-                }
+                badge={m.enabled && !m.licensed && (
+                  <span className="text-xs px-2 py-0.5 rounded-full border bg-danger/20 text-danger border-danger/30">
+                    {t('admin.modules.unlicensed')}
+                  </span>
+                )}
               >
                 {view ? <view.Body /> : (
                   <p className="text-text-3 text-sm">{t('admin.moduleCards.noSettingsScreen')}</p>
@@ -1002,6 +1030,29 @@ export default function AdminModules() {
           })}
         </>
       )}
+
+      {/* E-posta sağlayıcısı: modüllerden bağımsız (çekirdek) tek kart —
+          listenin SONunda, licence/yönet linki olmadan. Sağ üstteki switch
+          Email Gateway anahtarıdır (Core rozetinin yerine): açık → panel
+          ayarları (DB > env), kapalı → sunucu .env SMTP. Anında kaydedilir;
+          anahtar durumu EmailProviderPanel'e prop olarak gidip mod rozetinde
+          görünür. */}
+      <ModuleCard
+        icon="hub"
+        title={t('admin.emailGateway.title')}
+        description={t('admin.emailGateway.desc')}
+        alwaysOn
+        headerSwitch={gatewayOn == null ? null : (
+          <CardSwitch
+            checked={gatewayOn}
+            busy={busyId === 'gateway'}
+            onToggle={toggleGateway}
+            ariaLabel={t('admin.emailGateway.enabled')}
+          />
+        )}
+      >
+        <EmailProviderPanel gatewayEnabled={gatewayOn} />
+      </ModuleCard>
     </div>
   );
 }

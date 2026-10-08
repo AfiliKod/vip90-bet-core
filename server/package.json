@@ -1,5 +1,16 @@
 {
   "name": "vip90-bet-server",
+  "version": "0.4.0",
+  "description": "VIP90.bet API server (Express, MongoDB, Socket.IO).",
+  "homepage": "https://vip90.bet",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/AfiliKod/vip90-bet-core.git",
+    "directory": "server"
+  },
+  "engines": {
+    "node": ">=22"
+  },
   "license": "AGPL-3.0-only",
   "type": "module",
   "scripts": {
@@ -26,7 +37,7 @@
     "jsonwebtoken": "^9.0.2",
     "mongoose": "^8.4.0",
     "multer": "^2.3.0",
-    "nodemailer": "^9.0.3",
+    "nodemailer": "^10.0.16",
     "playwright": "^1.60.0",
     "qrcode": "^1.5.4",
     "socket.io": "^4.7.5",
@@ -38,5 +49,8 @@
   },
   "devDependencies": {
     "yaml": "^2.9.0"
+  },
+  "overrides": {
+    "axios": "^1.20.0"
   }
 }

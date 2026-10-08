@@ -91,6 +91,11 @@ export function createInstaller({
       password: input.adminPassword,
       role: 'admin',
       isActive: true,
+      // Kurulumu yapan operatörün e-postası doğrulanmış sayılır: SMTP henüz
+      // yapılandırılmamış olabilir ve doğrulanmamış admin EMAIL_NOT_VERIFIED ile
+      // giriş yapamıyordu (login, EMAIL_VERIFICATION_CUTOFF sonrası hesaplarda
+      // doğrulama ister).
+      emailVerified: true,
     });
 
     const enabledModules = OPTIONAL_MODULES
@@ -129,12 +134,12 @@ export function createInstaller({
   function buildEnvContent({ jwtSecret, jwtRefreshSecret, clientUrl, mongoUri }) {
     const manual = Boolean(mongoUri);
     return [
-      '# VIP90.bet kurulum sihirbazı çıktısı — server/.env olarak kaydedin',
+      '# VIP90.bet setup wizard output — save as server/.env',
       ...(manual
-        ? ['# MongoDB replica set olmalı (bahis sonuçlandırma/transaction standalone\'da çalışmaz).']
+        ? ['# MongoDB must be a replica set (bet settlement and transactions fail on a standalone server).']
         : [
-          '# (Docker compose kullanıyorsanız MONGODB_URI\'yi .env\'e YAZMAYIN:',
-          '#  docker-compose.yml onu compose içi mongo servisine yönlendirir.)',
+          '# (With Docker Compose do NOT put MONGODB_URI in .env:',
+          '#  docker-compose.yml points it at the mongo service inside Compose.)',
         ]),
       '',
       `MONGODB_URI=${manual ? mongoUri : DOCKER_MONGODB_URI}`,

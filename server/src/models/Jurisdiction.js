@@ -79,7 +79,6 @@ const schema = new mongoose.Schema({
 }, { timestamps: true });
 
 // Indexes
-schema.index({ code: 1 });
 schema.index({ isActive: 1 });
 schema.index({ isDefault: 1 });
 

@@ -52,7 +52,6 @@ const schema = new mongoose.Schema({
 }, { timestamps: true });
 
 // Indexes
-schema.index({ slug: 1 });
 schema.index({ isActive: 1 });
 schema.index({ isDefault: 1 });
 schema.index({ 'domains.domain': 1 });

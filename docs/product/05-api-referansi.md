@@ -10,6 +10,7 @@ All endpoints are grouped under `/api` (except the setup wizard, which is under 
 | 2FA | `/api/auth/2fa` | Two-factor authentication for admin accounts |
 | Events | `/api/events` | Sports betting event list, details — **betting module gate** (paid Sports Betting add-on) |
 | Bets | `/api/bets` | Coupon creation, bet details — **betting module gate** |
+| Responsible gaming | `/api/responsible-gaming` | Player self-service limits (daily/weekly/monthly), cool-off, self-exclusion |
 | Users | `/api/users` | Profile, balance, favorites/recently played, password/email change, KVKK data export, account deletion, responsible gaming limits |
 | Transactions | `/api/transactions` | Simple deposit/withdrawal records |
 | Promotions | `/api/promotions` | Bonus claiming, active promotions, wagering conversion |
@@ -20,7 +21,6 @@ All endpoints are grouped under `/api` (except the setup wizard, which is under 
 | In-house provider API | `/api/provider/v1` | The game host's own API (launch token, session, the 13 games, fairness) — add-on, no module gate |
 | KYC | `/api/kyc` | User KYC status, Sumsub session, document upload — **kyc-verification module gate** |
 | Slikair | `/api/slikair` | Deposit initiation, own payment history, provider webhooks |
-| Responsible gaming | `/api/responsible-gaming` | Player limits, cool-off, self-exclusion |
 | Help | `/api/help` | AI support assistant (chatbot) |
 | Crypto | `/api/crypto` | USDT-TRC20 deposit address/tracking + withdrawal request — **crypto-payment module gate** |
 | Bank | `/api/bank` | Bank transfer deposit/withdrawal requests + admin approval flow |
@@ -37,7 +37,7 @@ All endpoints are grouped under `/api` (except the setup wizard, which is under 
 | SEO | `/api/seo`, `/robots.txt`, `/sitemap.xml` | Public SEO configuration, robots and sitemap (see [`docs/seo-settings.md`](../seo-settings.md)) |
 | Demo showcase | `/api/demo/showcase` | "Requires module" badge data for demo sites (public) |
 | VIP | `/api/vip` | User's VIP level/progress and cashback |
-| Admin | `/api/admin` | Users, events, games, theme/brand, roles, VIP, bots, wallet, KYC, compliance, settings — requires admin privileges and per-area permissions |
+| Admin | `/api/admin` | Users, events, games, theme/brand, roles, VIP, bots, wallet, KYC, compliance, settings, email and SMS gateways/templates — requires admin privileges and per-area permissions |
 | Admin analytics | `/api/admin/analytics` | Dashboard statistics |
 | Admin responsible gaming / risk / health | `/api/admin/responsible-gaming`, `/api/admin/risk`, `/api/admin/health` | Restricted players, risk engine, system health |
 | Sumsub webhook | `POST /api/webhook/sumsub` | Sumsub verification result callback (outside the module gate) |
@@ -143,10 +143,12 @@ If the module is disabled, all these endpoints return `503 { error: { code: 'MOD
 
 | Method + Path | Auth |
 |---|---|
-| `GET /` | Public |
-| `GET /summary` | Public |
-| `GET /countries` | Public |
+| `GET /` | Public — query `sport`, `status` (`upcoming`/`live`/`all`), `country`, `league`, `search`, `page`, `limit`, `full`; upcoming limited to the next 30 days, first page cached 5 s |
+| `GET /summary` | Public — sport → league tree with counts (`{ sports, prioritySport, priorityCountry }`) |
+| `GET /countries` | Public — distinct countries, optional `?sport=` |
 | `GET /:id` | Public |
+
+Response shapes and payload rules are documented with the Sports Betting add-on.
 
 ### Bets — `/api/bets` (`routes/bets.js`) — **betting module gate**
 
@@ -178,7 +180,21 @@ If the module is disabled, all these endpoints return `503 { error: { code: 'MOD
 | Method + Path | Body schema |
 |---|---|
 | `POST /deposit` | `depositSchema`: `amount` (10-50000) |
-| `POST /withdraw` | `withdrawSchema`: `amount` (20-50000), `iban` (TR + 24 digits, mod-97 checksum), `fullName` (3-100), `confirmForfeit?` (default `false`) |
+| `POST /withdraw` | `withdrawSchema`: `amount` (20-50000), `iban` (TR + 24 digits, mod-97 checksum), `fullName` (3-100), `confirmForfeit?` (default `false`). If `amount` exceeds the withdrawable part while a bonus is active → `409 ACTIVE_BONUS_LOCK`; repeat with `confirmForfeit: true` to forfeit it — see [10 — Bonus and Wagering](10-bonus-ve-cevrim.md) |
+
+### Responsible gaming — `/api/responsible-gaming` (`routes/responsibleGaming.js`) — requires user login
+
+Player page: `/responsible-gaming` (`client/src/pages/ResponsibleGaming.jsx`).
+
+| Method + Path | Body |
+|---|---|
+| `GET /me/status` | — (limits + daily/weekly/monthly stats, cool-off/exclusion state) |
+| `PUT /me/limits/deposit`, `PUT /me/limits/loss`, `PUT /me/limits/wager` | `setLimitSchema`: `amount` (≥0, `0` removes the limit), `limitType?` `daily`\|`weekly`\|`monthly` (default daily) |
+| `PUT /me/limits/session` | `setSessionLimitSchema` |
+| `POST /me/cool-off` | `activateCoolOffSchema` |
+| `POST /me/self-exclusion` | `activateSelfExclusionSchema` |
+
+Admin side: `/api/admin/responsible-gaming` (permission `admin:rg:manage`) — `GET /players` (`admin:rg:read`), `POST /restrict/:userId`, `DELETE /restrict/:userId` (both audited as `RESPONSIBLE_GAMING_RESTRICT`/`_LIFT`), `GET /audit` (`admin:rg:read`).
 
 ### Promotions — `/api/promotions` (`routes/promotions.js`)
 
@@ -264,6 +280,8 @@ The 13 games' logic no longer lives in the core. The core keeps one public endpo
 
 Crash and Roulette are multiplayer games and run over Socket.IO namespaces, not REST. These paths were `/api/inhouse/<game>/*` in earlier versions and were moved to `/api/provider/v1/games/<game>/*`.
 
+**Provably-fair verification** is served by the in-house provider's own API, not by `/api/inhouse`: `GET/POST /api/provider/v1/fairness/{active,rotate,round/:roundId,rounds}` with the player's game-session token — the protocol is documented with the In-house Games add-on.
+
 ### KYC — `/api/kyc` (`routes/kyc.js`) — **kyc-verification module gate**, all require user login
 
 | Method + Path | Notes |
@@ -281,18 +299,6 @@ Crash and Roulette are multiplayer games and run over Socket.IO namespaces, not 
 | `POST /deposit` | `slikair-payment` module gate + User | `slikairDepositSchema`; starts a deposit and returns the redirect |
 | `GET /my-payments` | User | The user's own payment history |
 | `POST /webhook/payin`, `POST /webhook/payout` | None (no signature) | Provider notifications. Every `succeeded` notification is cross-checked against Slikair's get-status API before crediting (see [09](09-bilinen-kisitlar.md)) |
-
-### Responsible gaming — `/api/responsible-gaming` (`routes/responsibleGaming.js`) — all require user login
-
-| Method + Path | Notes |
-|---|---|
-| `GET /me/status` | Current limits, cool-off/self-exclusion state, daily/weekly/monthly stats |
-| `PUT /me/limits/deposit`, `/me/limits/loss`, `/me/limits/wager` | `setLimitSchema` (value 0 removes the limit) |
-| `PUT /me/limits/session` | `setSessionLimitSchema` |
-| `POST /me/cool-off` | `activateCoolOffSchema` |
-| `POST /me/self-exclusion` | `activateSelfExclusionSchema` |
-
-Admin side (`/api/admin/responsible-gaming`, permission `admin:rg:manage`): `GET /players`, `POST /restrict/:userId`, `DELETE /restrict/:userId`, `GET /audit`.
 
 ### Help — `/api/help` (`routes/help.js`)
 
@@ -370,6 +376,23 @@ Admin side (`/api/admin/responsible-gaming`, permission `admin:rg:manage`): `GET
 | `GET /robots.txt`, `GET /sitemap.xml` | `seo/http.js` | Generated from Settings → SEO; sitemap is 404 while `noindex` is on |
 | `GET /api/demo/showcase` | `demo/showcase.js` | "Requires module" badge data |
 
+### SPA rotaları (API dışı) — gerçek 404
+
+Non-API `GET` istekleri `app.get('*')` içinde ele alınır (`server/src/seo/http.js`).
+
+| Request | Response |
+|---|---|
+| Existing route (`/`, `/bahis`, `/events/:id`, `/admin/users`, …) | `200` + `index.html` (SEO tags injected per Settings → SEO). Deep links keep working on refresh |
+| Unknown route | `404` + `X-Robots-Tag: noindex` + `Cache-Control: no-cache` + `index.html` — the SPA renders its own 404 page (`client/src/pages/NotFound.jsx`). No canonical/SEO tags are injected |
+| Anything, when the route manifest is missing/unreadable | `200` + `index.html` (fail-open; the server logs the reason once, on the first request) |
+| Anything, with `ROUTE_404_REPORT_ONLY=1` | `200` + `index.html`, unknown paths only logged |
+
+The route list is **not** written by hand: the client build parses
+`client/src/App.jsx` and writes `client/dist/routes.json`
+(`client/scripts/emit-route-manifest.mjs`); the server matches `req.path`
+against it (`shared/route-matcher.js`). Adding a page to `App.jsx` is
+therefore enough — no manifest edit, no server restart for the list.
+
 ### VIP — `/api/vip` (`routes/vip.js`)
 
 | Method + Path | Auth |
@@ -382,10 +405,10 @@ Admin side (`/api/admin/responsible-gaming`, permission `admin:rg:manage`): `GET
 Destructive/financial endpoints additionally apply `blockDemoAdmin` (marked below as **[demo blocked]**) — `isDemoAdmin: true` accounts get `403 DEMO_ADMIN_READONLY` on these endpoints. Permission keys are in parentheses where one key covers an area.
 
 **Users** (`admin:users:read` / `write` / `balance`)
-- `GET /users`, `GET /users/facets`, `GET /users/kpis` (filter options and KPI figures of the Users page), `POST /users` (`createUserSchema`)
+- `GET /users`, `GET /users/facets`, `GET /users/kpis` (filter options and KPI figures of the Users page), `POST /users` (`createUserSchema`; an `admin` created without `roles` gets the built-in `admin` role — all permissions except role management)
 - `PATCH /users/:id` (`updateUserAdminSchema`: `isActive`, `kycVerified`, ...)
 - `DELETE /users/:id` **[demo blocked]**
-- `PATCH /users/:id/balance` **[demo blocked]** (`updateBalanceSchema`: `amount` (positive), `type`: `credit`|`debit`|`bonus`, `note?`)
+- `PATCH /users/:id/balance` **[demo blocked]** (`updateBalanceSchema`: `amount` (positive), `type`: `credit`|`debit`|`bonus`, `note?`, `requestId?` (UUID; a repeated request with the same id returns the first result with `duplicate: true` and does not change the balance))
 - `GET /users/:id/referrals`, `GET /users/:id/referral-tree` (3-level read-only tree), `GET /users/:id/transactions`
 
 **Events** (`admin:events:*`; Sports Betting add-on data)
@@ -396,6 +419,7 @@ Destructive/financial endpoints additionally apply `blockDemoAdmin` (marked belo
 
 **Statistics / activity / demo data**
 - `GET /stats`, `GET /activity`, `GET /queues/counts`
+- `GET /queues/pending-finance` (`admin:transactions:read`, `limit` default 5, max 50) → `{ items: [{ ref, kind: crypto_deposit|crypto_withdraw|bank_deposit|bank_withdraw, userId, username, amount, usdtAmount, risk: high|vip|medium|low, status, createdAt }] }`, longest waiting first — feeds the Dashboard "Pending finance" card
 - `GET /demo-data/status`, `POST /demo-data/:category/load`, `POST /demo-data/:category/clear`, `POST /demo-data/live/start`, `POST /demo-data/live/stop` (`admin:demo-data:manage`)
 - `GET /tasks`, `PATCH /tasks/:id` (Game Tasks; the page is no longer in the menu)
 
@@ -422,7 +446,9 @@ Destructive/financial endpoints additionally apply `blockDemoAdmin` (marked belo
 
 **Settings** (`admin:settings:read` / `write`)
 - Alerts: `GET /settings/alerts`, `PUT /settings/alerts`, `POST /settings/alerts/test`
-- Email (SMTP): `GET /settings/email`, `PUT /settings/email` (password stored encrypted, needs `OPERATOR_SECRET_ENCRYPTION_KEY`), `POST /settings/email/test` (rate limited, sends a real mail)
+- Email Gateway (SMTP/Mailgun; UI: Settings → Modules → Email Gateway): `GET /settings/email`, `PUT /settings/email` (password stored encrypted, needs `OPERATOR_SECRET_ENCRYPTION_KEY`; `gatewayEnabled` selects panel values vs. `.env` SMTP), `POST /settings/email/test` (rate limited, sends a real mail; optional `to`)
+- System email templates — `/mail-templates`: `GET /`, `GET /stats`, `GET /events`, `GET /logs`, `POST /preview`, `GET /:id` (read); `POST /`, `PATCH /:id`, `DELETE /:id`, `POST /:id/send` (write; only `scheduled` templates can be sent from the panel, event templates are sent by the platform). Details: [`docs/mail-templates.md`](../mail-templates.md)
+- SMS Gateway — `/sms`: provider `GET /settings`, `PATCH /settings`, `POST /settings/test` (dry connection test, sends nothing), `POST /test-send` (`{ to, message }`, sends a real SMS); senders `GET /senders`, `GET /senders/gate`, `POST /senders`, `PATCH /senders/:id`, `DELETE /senders/:id`; `GET /logs`; templates `GET /templates`, `POST /templates`, `PATCH /templates/:id`, `DELETE /templates/:id`, `POST /templates/:id/send`. Details: [`docs/sms-gateway/README.md`](../sms-gateway/README.md)
 - Slikair credentials: `GET /slikair/settings`, `PUT /slikair/settings`
 - SEO: `GET /settings/seo`, `PUT /settings/seo` (`seoSettingsSchema`)
 - Timezone / default language: `GET`/`PUT /settings/timezone`, `GET`/`PUT /settings/default-locale`

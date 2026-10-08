@@ -77,7 +77,11 @@ export async function clear() {
 }
 
 export async function liveTick() {
-  const pool = await ensureRulesAndPool();
+  // Canlı tick havuzu kendisi DOLDURMAZ (load() doldurur): operatör demo
+  // verisini temizledikten sonra simülasyon 20 yeni seed kullanıcı açıyor ve
+  // "havuz boş → iş durur" kuralı hiç tetiklenmiyordu (2026-10-08).
+  await initDefaultRules();
+  const pool = await getSeedUserPool(500);
   if (!pool.length) return null;
   const playerId = pick(pool)._id;
   const scenario = pick(SCENARIOS);

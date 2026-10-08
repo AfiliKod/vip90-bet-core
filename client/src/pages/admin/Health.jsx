@@ -110,14 +110,16 @@ export default function Health() {
     return `${fmt.formatNumber((bytes / 1024).toFixed(1))} KB`;
   }
 
+  // Birim kısaltmaları i18n'den gelir (tr: g/sa/dk, en: d/h/m …).
   function formatUptime(seconds) {
     if (seconds == null) return '—';
     const days = Math.floor(seconds / 86400);
     const hrs = Math.floor((seconds % 86400) / 3600);
     const mins = Math.floor((seconds % 3600) / 60);
-    if (days > 0) return `${fmt.formatNumber(days)}d ${fmt.formatNumber(hrs)}h`;
-    if (hrs > 0) return `${fmt.formatNumber(hrs)}h ${fmt.formatNumber(mins)}m`;
-    return `${fmt.formatNumber(mins)}m`;
+    const u = (k) => t(`admin.health.uptimeUnit.${k}`);
+    if (days > 0) return `${fmt.formatNumber(days)}${u('day')} ${fmt.formatNumber(hrs)}${u('hour')}`;
+    if (hrs > 0) return `${fmt.formatNumber(hrs)}${u('hour')} ${fmt.formatNumber(mins)}${u('minute')}`;
+    return `${fmt.formatNumber(mins)}${u('minute')}`;
   }
 
   if (loading) {

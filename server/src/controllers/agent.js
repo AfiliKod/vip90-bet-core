@@ -14,7 +14,10 @@ export async function createAgent(req, res, next) {
 
 export async function getAllAgents(req, res, next) {
   try {
-    const { page, limit, status, search } = req.query;
+    const { status, search } = req.query;
+    // Sayfalama sınırı (admin.js'teki desen) — ?limit=1000000 tüm koleksiyonu yüklemesin.
+    const page = Math.max(1, parseInt(req.query.page, 10) || 1);
+    const limit = Math.min(Math.max(1, parseInt(req.query.limit, 10) || 20), 100);
     const result = await agentService.getAllAgents({ page, limit, status, search: search || '' });
     res.json(result);
   } catch (e) { next(e); }

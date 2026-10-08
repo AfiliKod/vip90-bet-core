@@ -20,6 +20,7 @@ function settingsHandlers(store, afterUpdate = () => {}) {
       try {
         const { clear = [], ...patch } = req.validated ?? req.body ?? {};
         if ('secure' in patch) patch.secure = patch.secure === true ? 'true' : patch.secure === false ? 'false' : patch.secure;
+        if ('gatewayEnabled' in patch) patch.gatewayEnabled = patch.gatewayEnabled === true ? 'true' : patch.gatewayEnabled === false ? 'false' : patch.gatewayEnabled;
         if ('port' in patch) patch.port = String(patch.port);
         try {
           await store.update(patch, { clear, adminId: req.user?.id });
@@ -50,7 +51,11 @@ export function createEmailSettingsHandlers({
     ...settingsHandlers(store),
     async test(req, res, next) {
       try {
-        const to = await getAdminEmail(req.user?.id);
+        // "Test / send" paneli: alıcı gövdeden gelirse ona gönderilir
+        // (validate + admin:settings:write ile korumalı), gelmezse eskisi
+        // gibi yöneticinin kendi adresine.
+        const requested = typeof req.validated?.to === 'string' ? req.validated.to.trim() : '';
+        const to = requested || await getAdminEmail(req.user?.id);
         if (!to) throw createError(400, 'NO_ADMIN_EMAIL', 'Yönetici hesabında e-posta adresi yok');
         try {
           await sendTest(to);

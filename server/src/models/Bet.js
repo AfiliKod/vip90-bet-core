@@ -45,6 +45,45 @@ schema.post('save', async function() {
         amount: this.status === 'won' ? this.potentialWin : this.stake,
         referenceId: this._id, referenceModel: 'Bet',
       });
+      // Kazanma/kaybetme bildirimi — settle döngüsünü ASLA bekletmez (floating
+      // promise). Panelde şablon yoksa sendActionMail ilk sorguda atlar.
+      if (!this.isSeed) {
+        import('../services/systemMail.js')
+          .then(({ sendActionMail }) => sendActionMail('bet.settled', {
+            userId: this.userId,
+            vars: {
+              betId: String(this._id),
+              betStatus: this.status,
+              isWon: this.status === 'won',
+              isLost: this.status === 'lost',
+              isCancelled: this.status === 'cancelled',
+              stake: this.stake,
+              potentialWin: this.potentialWin,
+              totalOdds: this.totalOdds,
+              payout: this.status === 'won' ? this.potentialWin : 0,
+              selectionCount: Array.isArray(this.selections) ? this.selections.length : 0,
+              settledAt: (this.settledAt || new Date()).toISOString(),
+            },
+          }))
+          .catch(() => {});
+        // SMS — kazanma/kaybetme ayrı olaylardır (iptal olayı yok). Alıcı
+        // `userId` ile çözülür; fire-and-forget, kapılar kapalıysa atlar.
+        if (this.status === 'won' || this.status === 'lost') {
+          const first = Array.isArray(this.selections) ? (this.selections[0] || {}) : {};
+          const smsEvent = this.status === 'won' ? 'betWon' : 'betLost';
+          const smsVars = {
+            betId: String(this._id),
+            amount: this.status === 'won' ? this.potentialWin : this.stake,
+            stake: this.stake,
+            market: first.oddLabel || first.eventLabel || first.marketType || '',
+            odds: this.totalOdds,
+          };
+          const betUserId = this.userId;
+          import('../services/smsTemplate.js')
+            .then(({ dispatchSmsEvent }) => dispatchSmsEvent(smsEvent, null, smsVars, { userId: betUserId }))
+            .catch(() => {});
+        }
+      }
     }
   } catch (e) {
     console.error('[activity] Bet post-save error:', e.message);

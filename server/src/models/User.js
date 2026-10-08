@@ -201,6 +201,11 @@ schema.index({ isBot: 1, 'botProfile.nextActionAt': 1 });
 // Unique index for walletAddress (only non-null values)
 schema.index({ walletAddress: 1 }, { unique: true, sparse: true });
 
+// Bir telefon numarası yalnızca bir hesapta kullanılabilir. phone default'u
+// null olduğu için sparse yetmez (null da indekslenir); yalnızca string
+// değerler benzersizliğe tabi.
+schema.index({ phone: 1 }, { unique: true, partialFilterExpression: { phone: { $type: 'string' } } });
+
 // Indexes (Phase E1)
 schema.index({ palaceUserCode: 1 }, { sparse: true });
 schema.index({ deletedAt: 1 }, { sparse: true });

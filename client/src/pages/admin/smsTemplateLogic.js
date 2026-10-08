@@ -68,3 +68,56 @@ export function unknownPlaceholders(content, allowed = [], alwaysAllowed = ['use
   const ok = new Set([...allowed, ...alwaysAllowed]);
   return extractPlaceholders(content).filter(v => !ok.has(v));
 }
+
+/**
+ * Sunucu `SmsError` kodlarını arayüz metnine çevirir. Sunucu Türkçe mesaj da
+ * döndürür; İngilizce panellerde o metin görünmesin diye bilinen kodlar için
+ * `t('admin.smsGateway.error.<code>')` anahtarı kullanılır (kod camelCase'e
+ * çevrilir: `SMS_NOT_CONFIGURED` → `smsNotConfigured`). Bilinmeyen kodlarda
+ * sunucu mesajına düşülür.
+ */
+export function smsGatewayErrorText(t, code, serverMessage = '') {
+  if (code) {
+    const camel = String(code).toLowerCase().split('_')
+      .map((part, i) => (i === 0 ? part : part.charAt(0).toUpperCase() + part.slice(1)))
+      .join('');
+    const key = `admin.smsGateway.error.${camel}`;
+    // Sözlükte olmayan kodlar t() anahtarını ham döndürür — onu sunucu
+    // mesajına tercih etme; yalnız çevrilmiş metin varsa kullan.
+    const translated = t(key);
+    if (translated && translated !== key) return translated;
+  }
+  return serverMessage || t('admin.smsGateway.testFailed');
+}
+
+/**
+ * Axios hatası → okunabilir arayüz metni (SmsTemplates'in beş catch'i).
+ *
+ * Sunucu `{error:{message}}` gövdesi döndürdüyse o metin eski davranışla
+ * aynıdır. Gövde YOKSA (ağ kopması, deploy/restart penceresi, nginx'in boş
+ * döndüğü 502/504, HTML hata sayfası) eski kod `e.response.data.error.message`
+ * undefined olduğu için genel "kaydedilemedi/yüklenemedi" çevirisine
+ * düşüyordu — operatör hatanın kaynağını göremiyordu. Burada sırayla:
+ * string hata gövdesi → `{message}` → HTTP durumu → bağlantı hatası.
+ */
+export function apiErrorMessage(t, e) {
+  const err = e?.response?.data?.error;
+  if (typeof err === 'string' && err.trim()) return err;
+  if (typeof err?.message === 'string' && err.message) return err.message;
+  if (e?.response) return t('admin.smsTemplates.serverError', { status: e.response.status });
+  return t('admin.smsTemplates.networkError');
+}
+
+/**
+ * Eksik yapılandırma parçaları → arayüz etiketleri.
+ * Sunucu `status.missing` alanını döndürür (`accountSid|authToken|sender`);
+ * daha eski bir sunucuya karşı istemci türetmesi de vardır.
+ */
+export function deriveSmsMissing(status) {
+  if (Array.isArray(status?.missing) && status.missing.length) return status.missing;
+  return [
+    ...(status?.accountSid ? [] : ['accountSid']),
+    ...(status?.authTokenConfigured ? [] : ['authToken']),
+    ...((status?.fromNumber || status?.messagingServiceSid) ? [] : ['sender']),
+  ];
+}

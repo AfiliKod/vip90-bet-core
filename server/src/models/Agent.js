@@ -16,7 +16,6 @@ const schema = new mongoose.Schema({
   isSeed: { type: Boolean, default: false, index: true },
 }, { timestamps: true });
 
-schema.index({ userId: 1 }, { unique: true });
 schema.index({ isActive: 1 });
 
 export default mongoose.model('Agent', schema);

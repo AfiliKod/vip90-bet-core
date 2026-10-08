@@ -1,4 +1,4 @@
-import { useMemo } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { useTranslation } from '../../i18n';
 
 // Doğum tarihi için takvim yerine gün/ay/yıl dropdown'ları — yıl seçiminde
@@ -6,6 +6,13 @@ import { useTranslation } from '../../i18n';
 // dostu. value: 'YYYY-MM-DD' string ya da '' (eksik/seçilmemiş).
 const MIN_AGE_YEARS = 18;
 const MAX_AGE_YEARS = 100;
+
+function parseValue(value) {
+  if (!value) return { y: '', m: '', d: '' };
+  const [y, m, d] = value.split('-');
+  const num = (v) => (v ? String(Number(v)) : '');
+  return { y: num(y), m: num(m), d: num(d) };
+}
 
 function daysInMonth(year, month) {
   if (!year || !month) return 31;
@@ -15,11 +22,15 @@ function daysInMonth(year, month) {
 export default function BirthDatePicker({ value, onChange, size = 'md', error }) {
   const { t, locale } = useTranslation();
 
-  const [year, month, day] = useMemo(() => {
-    if (!value) return ['', '', ''];
-    const [y, m, d] = value.split('-');
-    return [y || '', m || '', d || ''];
+  // Seçimler yerelde tutulur: üçü de seçilene kadar dışarıya '' gider, bu
+  // yüzden değeri yalnızca prop'tan türetmek her kısmi seçimi sıfırlıyordu.
+  // Option value'ları '5' gibi dolgusuz; '05' ile eşleşmesin diye sayıya çevrilir.
+  const [parts, setParts] = useState(() => parseValue(value));
+  useEffect(() => {
+    // Dışarıdan sıfırlama (form reset) tam seçimi temizler; kısmi seçim zaten '' yayar, korunur.
+    setParts(p => (value || (p.y && p.m && p.d) ? parseValue(value) : p));
   }, [value]);
+  const { y: year, m: month, d: day } = parts;
 
   const years = useMemo(() => {
     const now = new Date().getFullYear();
@@ -40,15 +51,15 @@ export default function BirthDatePicker({ value, onChange, size = 'md', error })
   const days = useMemo(() => Array.from({ length: dayCount }, (_, i) => i + 1), [dayCount]);
 
   const emit = (next) => {
-    const { y = year, m = month, d = day } = next;
-    if (!y || !m || !d) {
-      onChange('');
-      return;
+    const merged = { ...parts, ...next };
+    // Ay/yıl değişince eski gün yeni ayda yoksa (ör. 31 Şubat) en son güne düşür
+    if (merged.d && merged.m) {
+      const maxDay = daysInMonth(Number(merged.y) || 2000, Number(merged.m));
+      if (Number(merged.d) > maxDay) merged.d = String(maxDay);
     }
-    // Ay değişince eski gün yeni ayda yoksa (ör. 31 Şubat) en son güne düşür
-    const maxDay = daysInMonth(Number(y), Number(m));
-    const safeDay = Math.min(Number(d), maxDay);
-    onChange(`${y}-${String(m).padStart(2, '0')}-${String(safeDay).padStart(2, '0')}`);
+    setParts(merged);
+    const { y, m, d } = merged;
+    onChange(y && m && d ? `${y}-${m.padStart(2, '0')}-${d.padStart(2, '0')}` : '');
   };
 
   const selectClass = size === 'sm'

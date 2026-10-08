@@ -1,4 +1,6 @@
-// Referans komisyonu ayarları — admin panelinden değiştirilebilir
+// Referans komisyonu VARSAYILANLARI. Panelden yapılan değişiklik `Setting`
+// koleksiyonunda saklanır ve bunları ezer (bkz. services/referralSettings.js);
+// bu nesneyi çalışma anında değiştirmeyin.
 export const REFERRAL_SETTINGS = {
   // Referans komisyonu aktif mi?
   enabled: true,

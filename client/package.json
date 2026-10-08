@@ -2,12 +2,20 @@
   "name": "client",
   "private": true,
   "license": "AGPL-3.0-only",
-  "version": "0.0.0",
+  "version": "0.4.0",
+  "description": "VIP90.bet player site and admin panel (React, Vite).",
+  "homepage": "https://vip90.bet",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/AfiliKod/vip90-bet-core.git",
+    "directory": "client"
+  },
   "type": "module",
   "scripts": {
     "dev": "vite",
-    "build": "vite build",
+    "build": "vite build && node scripts/emit-route-manifest.mjs",
     "lint": "eslint .",
+    "routes:check": "node scripts/check-route-manifest.mjs",
     "preview": "vite preview",
     "cap:sync": "vite build && cap sync",
     "cap:sync:dev": "node scripts/cap-sync-dev.mjs"

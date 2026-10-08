@@ -2,7 +2,9 @@ import crypto from 'crypto';
 import BonusWagering from '../models/BonusWagering.js';
 import User from '../models/User.js';
 import Transaction from '../models/Transaction.js';
+import mongoose from 'mongoose';
 import { createTransaction } from './ledger.js';
+import { withTransactionRetry } from '../utils/transactionRetry.js';
 
 const DEFAULT_WEIGHTS = {
   sports: 1.0,
@@ -36,8 +38,8 @@ export async function recordWagering(userId, gameType, amount, extra = {}) {
 
   for (const w of activeWagerings) {
     if (w.deadline && w.deadline < new Date()) {
-      w.status = 'expired';
-      await w.save();
+      // Süresi dolmuş: kilidi açmak yerine çevrilmemiş payı geri al (bkz. expireWagering).
+      await expireWagering(w);
       continue;
     }
 
@@ -214,6 +216,10 @@ export async function forfeitActiveWagerings(userId) {
  * Bu tutar user.balance içinde yer alır ama çekilemez (bkz. getSpendableBreakdown).
  */
 export async function getLockedAmount(userId) {
+  // Süresi dolmuş ama henüz işlenmemiş çevrimleri önce işle — aksi halde
+  // çekim kapısı bunları hâlâ "kilitli" sayar ama periyodik iş/sonraki bahis
+  // işlediği an kilit, çevrilmemiş pay geri alınarak kalkar.
+  await expireOverdueWagerings({ userId });
   const active = await BonusWagering.find({ userId, status: 'active' }).select('bonusAmount');
   const total = active.reduce((sum, w) => sum + w.bonusAmount, 0);
   return parseFloat(total.toFixed(2));
@@ -224,11 +230,117 @@ export async function getLockedAmount(userId) {
  * withdrawable = balance - locked (asla negatif değil).
  */
 export async function getSpendableBreakdown(userId) {
+  // Süre dolumunu bakiyeyi OKUMADAN önce işle — aksi halde geri alınan pay
+  // düşülmeden önceki bakiyeyle çekilebilir tutar hesaplanır.
+  await expireOverdueWagerings({ userId });
   const user = await User.findById(userId);
   if (!user) return { balance: 0, locked: 0, withdrawable: 0 };
   const locked = await getLockedAmount(userId);
   const withdrawable = Math.max(0, parseFloat((user.balance - locked).toFixed(2)));
   return { balance: user.balance, locked, withdrawable };
+}
+
+/**
+ * Süresi dolan bir çevrimi sonlandırır.
+ *
+ * Eski davranış (2026-10-03'e kadar): `status: 'expired'` yapılıyor ve hiçbir
+ * şey bakiyeden düşülmüyordu. `getLockedAmount()` yalnızca `active` kayıtları
+ * saydığı için süresi dolan bonus, çevrim şartı tamamlanmadan TAMAMEN
+ * çekilebilir hale geliyordu. Artık süre dolumu, oyuncunun bonusu iptal
+ * etmesiyle (forfeitActiveWagerings) aynı kuralı uygular: çevrilmemiş pay
+ * (`bonusAmount × kalan/gerekli`) bakiyeden geri alınır; çevrilmiş pay
+ * oyuncuda kalır. Bakiye bu tutarın altına düşmüşse (bonus oynanıp
+ * kaybedilmişse) yalnızca kalan bakiye alınır — bakiye asla negatife inmez.
+ *
+ * Eşzamanlılık: kayıt önce koşullu `findOneAndUpdate` ile `active → expired`
+ * çekilir; iki süreç aynı kaydı yakalayamaz, bakiye bir kez düşer. Ledger
+ * kaydı `bonus_expire_<wageringId>` anahtarıyla idempotent.
+ *
+ * @returns {number} bakiyeden fiilen düşülen tutar
+ */
+export async function expireWagering(w, now = new Date()) {
+  // Durum geçişi + bakiye düşümü + ledger kaydı tek transaction'da: biri
+  // başarısız olursa kayıt `active` (kilitli) kalır, kilit asla "bedavaya" açılmaz.
+  const session = await mongoose.startSession();
+  let outcome;
+  try {
+    outcome = await withTransactionRetry(session, async () => {
+      const claimed = await BonusWagering.findOneAndUpdate(
+        { _id: w._id, status: 'active', deadline: { $ne: null, $lt: now } },
+        { $set: { status: 'expired' } },
+        { new: true, session },
+      );
+      if (!claimed) return null;
+
+      const forfeitAmount = computeForfeitAmount(claimed);
+      let deducted = 0;
+      let balanceAfter = null;
+      if (forfeitAmount > 0) {
+        const before = await User.findOneAndUpdate(
+          { _id: claimed.userId },
+          [{ $set: { balance: { $max: [0, { $round: [{ $subtract: ['$balance', forfeitAmount] }, 2] }] } } }],
+          { new: false, session },
+        );
+        if (before) {
+          const balanceBefore = before.balance;
+          balanceAfter = Math.max(0, parseFloat((balanceBefore - forfeitAmount).toFixed(2)));
+          deducted = parseFloat((balanceBefore - balanceAfter).toFixed(2));
+          if (deducted > 0) {
+            await createTransaction({
+              userId: claimed.userId,
+              type: 'bonus_forfeit',
+              amount: -deducted,
+              balanceBefore,
+              balanceAfter,
+              note: 'Bonus süresi doldu — çevrilmemiş pay geri alındı',
+              idempotencyKey: `bonus_expire_${claimed._id}`,
+              source: 'system',
+              metadata: { reason: 'expired', wageringId: claimed._id, forfeitAmount, deducted },
+            }, { session });
+          }
+        }
+      }
+      return { userId: claimed.userId, deducted, balanceAfter };
+    });
+  } finally {
+    session.endSession();
+  }
+  if (!outcome) return 0;
+  const { deducted, balanceAfter } = outcome;
+  const claimed = { userId: outcome.userId };
+  if (deducted > 0) {
+    try {
+      const { getIO } = await import('./socketEmitter.js');
+      const io = getIO();
+      if (io) io.to(`user:${claimed.userId}`).emit('balance:update', { balance: balanceAfter });
+    } catch { /* soket yayını kritik değil */ }
+  }
+
+  // bonusBalance yalnızca gösterge (mirror) — aktif kalan çevrimlerin toplamı.
+  const remaining = await BonusWagering.find({ userId: claimed.userId, status: 'active' }).select('bonusAmount');
+  const locked = parseFloat(remaining.reduce((sum, r) => sum + r.bonusAmount, 0).toFixed(2));
+  await User.updateOne({ _id: claimed.userId }, { $set: { bonusBalance: locked } });
+
+  return deducted;
+}
+
+/**
+ * Süresi dolmuş tüm aktif çevrimleri işler (userId verilirse yalnızca o oyuncu).
+ * Periyodik iş (jobs/bonusExpiry.js) ve kilit hesabı tarafından çağrılır.
+ * @returns {{ processed: number, deducted: number }}
+ */
+export async function expireOverdueWagerings({ userId = null, now = new Date(), limit = 500 } = {}) {
+  const filter = { status: 'active', deadline: { $ne: null, $lt: now } };
+  if (userId) filter.userId = userId;
+  const overdue = await BonusWagering.find(filter).sort({ deadline: 1 }).limit(limit);
+  let processed = 0;
+  let deducted = 0;
+  for (const w of overdue) {
+    const d = await expireWagering(w, now);
+    processed += 1;
+    deducted += d;
+  }
+  return { processed, deducted: parseFloat(deducted.toFixed(2)) };
 }
 
 export { DEFAULT_WEIGHTS };

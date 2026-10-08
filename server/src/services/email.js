@@ -3,10 +3,11 @@
 
 import nodemailer from 'nodemailer';
 import { getSiteName } from '../branding/index.js';
-import { emailConfig } from '../config/emailConfig.js';
+import { emailConfig, emailEnvView } from '../config/emailConfig.js';
 
 // Transport, ayarlar (host/port/secure/user/pass) değişince yeniden kurulur:
-// imza değişmediği sürece aynı örnek yeniden kullanılır. Ayar kaynağı: DB > env.
+// imza değişmediği sürece aynı örnek yeniden kullanılır. Ayar kaynağı:
+// Email Gateway AÇIK → DB > env, KAPALI → yalnız sunucu .env (emailEnvView).
 let _transporter = null;
 let _signature = null;
 let _createTransport = (opts) => nodemailer.createTransport(opts);
@@ -19,13 +20,19 @@ export function _setCreateTransport(fn) {
 }
 
 async function getTransporter() {
-  const c = await emailConfig.getAll();
+  const all = await emailConfig.getAll();
+  // Modules → Email Gateway kartındaki anahtar: kapalıysa paneldeki DB
+  // değerleri girmez, transport yalnızca sunucu .env SMTP'sine kurulur.
+  const gatewayOn = all.gatewayEnabled !== 'false';
+  const c = gatewayOn ? all : emailEnvView();
   if (!c.host) {
     _transporter = null;
     _signature = null;
-    return { transporter: null, from: c.from };
+    return { transporter: null, from: c.from, fromName: c.fromName };
   }
-  const signature = JSON.stringify([c.host, c.port, c.secure, c.user, c.pass]);
+  // Mod da imzanın parçası: anahtar değişince DB/env kaynağı değişir,
+  // aynı host değeriyle bile olsa transport yeniden kurulur.
+  const signature = JSON.stringify([gatewayOn, c.host, c.port, c.secure, c.user, c.pass]);
   if (!_transporter || signature !== _signature) {
     _transporter = _createTransport({
       host: c.host,
@@ -35,18 +42,29 @@ async function getTransporter() {
     });
     _signature = signature;
   }
-  return { transporter: _transporter, from: c.from };
+  return { transporter: _transporter, from: c.from, fromName: c.fromName };
+}
+
+/**
+ * From başlığı: `"Görünen Ad" <adres>`. `fromName` panelde tanımlıysa site
+ * adını ezer (operatörün sender identity tercihi), tanımlı değilse davranış
+ * eskisiyle aynı kalır.
+ */
+export function formatFrom(fromName, siteName, from) {
+  const name = (fromName || siteName || '').replace(/["\\]/g, '');
+  const addr = from || 'noreply@vip90.bet';
+  return name ? `"${name}" <${addr}>` : `<${addr}>`;
 }
 
 // ─── Ortak mail görünümü (mail-güvenli: tablo tabanlı, inline CSS) ──────────
-const FONT = 'Arial,Helvetica,sans-serif';
+export const FONT = 'Arial,Helvetica,sans-serif';
 // E-posta domaini gerçek, teslim edilebilir bir adres olmalı — kozmetik marka
 // adından (siteName) BİLEREK bağımsız tutulur, SMTP_FROM ile aynı desende
 // env'den okunur (aşağıdaki 'noreply@vip90.bet' fallback'iyle tutarlı).
-const SUPPORT_EMAIL = process.env.SUPPORT_EMAIL || 'destek@vip90.bet';
+export const SUPPORT_EMAIL = process.env.SUPPORT_EMAIL || 'destek@vip90.bet';
 
 // Bulletproof CTA butonu — bgcolor fallback'li, Outlook dahil çalışır.
-function button(url, label, bg = '#00d4ff', fg = '#04121a') {
+export function button(url, label, bg = '#00d4ff', fg = '#04121a') {
   return `
     <table role="presentation" cellpadding="0" cellspacing="0" border="0" style="margin:26px auto;">
       <tr>
@@ -58,21 +76,26 @@ function button(url, label, bg = '#00d4ff', fg = '#04121a') {
 }
 
 // Buton açılmazsa diye düz-metin yedek link (kesilmeden).
-function fallbackLink(url) {
+export function fallbackLink(url) {
   return `<p style="margin:22px 0 0;font-family:${FONT};font-size:12px;line-height:1.7;color:#8b97ad;">Buton çalışmıyorsa bu bağlantıyı tarayıcınıza kopyalayın:<br><span style="color:#00d4ff;word-break:break-all;">${url}</span></p>`;
 }
 
 // Tüm mailleri saran çerçeve: neon şerit + marka wordmark'ı (admin panelinden
 // ayarlanan siteName) + kart + footer.
-function layout({ preheader = '', body, siteName = 'VIP90.bet' }) {
+export function layout({ preheader = '', body, siteName = 'VIP90.bet', lang = 'tr' }) {
   const year = new Date().getFullYear();
   return `<!DOCTYPE html>
-<html lang="tr">
+<html lang="${lang}">
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <meta name="color-scheme" content="dark">
 <meta name="supported-color-schemes" content="dark">
+<style>
+.m-h1{margin:18px 0 10px;font-family:${FONT};font-size:22px;font-weight:700;color:#ffffff;}
+.m-p{margin:0 0 6px;font-family:${FONT};font-size:15px;line-height:1.7;color:#c3cbdb;}
+.m-note{margin:0;font-family:${FONT};font-size:13px;color:#8b97ad;}
+</style>
 </head>
 <body style="margin:0;padding:0;background:#0a0d16;">
   <span style="display:none;max-height:0;overflow:hidden;opacity:0;color:#0a0d16;">${preheader}</span>
@@ -99,9 +122,9 @@ function layout({ preheader = '', body, siteName = 'VIP90.bet' }) {
 </html>`;
 }
 
-const H1 = `margin:18px 0 10px;font-family:${FONT};font-size:22px;font-weight:700;color:#ffffff;`;
-const P  = `margin:0 0 6px;font-family:${FONT};font-size:15px;line-height:1.7;color:#c3cbdb;`;
-const NOTE = `margin:0;font-family:${FONT};font-size:13px;color:#8b97ad;`;
+export const H1 = `margin:18px 0 10px;font-family:${FONT};font-size:22px;font-weight:700;color:#ffffff;`;
+export const P  = `margin:0 0 6px;font-family:${FONT};font-size:15px;line-height:1.7;color:#c3cbdb;`;
+export const NOTE = `margin:0;font-family:${FONT};font-size:13px;color:#8b97ad;`;
 
 const TEMPLATES = {
   'verify-email': (data) => ({
@@ -164,8 +187,19 @@ const TEMPLATES = {
   }),
 };
 
+/**
+ * Gömülü (kodda tanımlı) şablonu HTML'e çevirir — `sendEmail` göndermeden önce
+ * içerik üretmek isteyen çağıranlar (ör. systemMail'in yolu) için.
+ * Şablon yoksa `null` döner.
+ */
+export async function renderBuiltinTemplate(template, data = {}) {
+  if (!TEMPLATES[template]) return null;
+  const siteName = await getSiteName();
+  return TEMPLATES[template]({ ...(data || {}), siteName });
+}
+
 export async function sendEmail({ to, subject, template, data, html }) {
-  const { transporter, from } = await getTransporter();
+  const { transporter, from, fromName } = await getTransporter();
   const siteName = await getSiteName();
   let body = { subject, html };
   if (template && TEMPLATES[template]) {
@@ -174,12 +208,14 @@ export async function sendEmail({ to, subject, template, data, html }) {
   if (!transporter) {
     // SMTP yok — development mode'da console.log + linki bas
     console.log(`📧 [EMAIL MOCK] → ${to} | ${body.subject}`);
-    if (data?.verifyUrl) console.log(`   🔗 ${data.verifyUrl}`);
-    if (data?.resetUrl) console.log(`   🔗 ${data.resetUrl}`);
+    const link = data?.verifyUrl
+      || data?.resetUrl
+      || (typeof body.html === 'string' ? (body.html.match(/https?:\/\/[^\s"'<>]+/) || [])[0] : null);
+    if (link) console.log(`   🔗 ${link}`);
     return { mock: true, verifyUrl: data?.verifyUrl, resetUrl: data?.resetUrl };
   }
   return transporter.sendMail({
-    from: `"${siteName}" <${from || 'noreply@vip90.bet'}>`,
+    from: formatFrom(fromName, siteName, from),
     to,
     subject: body.subject,
     html: body.html,
@@ -191,7 +227,7 @@ export async function sendEmail({ to, subject, template, data, html }) {
  * (aksi halde admin yanlış bir "gönderildi" izlenimi alırdı).
  */
 export async function sendTestEmail(to) {
-  const { transporter, from } = await getTransporter();
+  const { transporter, from, fromName } = await getTransporter();
   if (!transporter) {
     const err = new Error('SMTP sunucusu tanımlı değil');
     err.code = 'SMTP_NOT_CONFIGURED';
@@ -199,7 +235,7 @@ export async function sendTestEmail(to) {
   }
   const siteName = await getSiteName();
   return transporter.sendMail({
-    from: `"${siteName}" <${from || 'noreply@vip90.bet'}>`,
+    from: formatFrom(fromName, siteName, from),
     to,
     subject: `${siteName} - SMTP test`,
     html: layout({ siteName, preheader: 'SMTP test', body: `<p style="font-family:${FONT};font-size:15px;color:#e6ebf5;">SMTP ayarları çalışıyor.</p>` }),

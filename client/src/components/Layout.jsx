@@ -7,7 +7,7 @@ import ChatWidgetContainer from './chat/ChatWidgetContainer';
 import CookieConsent from './CookieConsent';
 import ScrollToTop from './ScrollToTop';
 
-export default function Layout({ children }) {
+export default function Layout({ children, noSidebar = false }) {
   const { pathname } = useLocation();
   // Canlı Yardım'ın sabit sağ-alt İKONU kaldırıldı (kullanıcı isteği) ama
   // özelliğin kendisi durmuyor — Footer'daki "Canlı Yardım" linki hâlâ
@@ -21,9 +21,10 @@ export default function Layout({ children }) {
   // Bahislerim/Ayarlar kullanıcı isteğiyle sadeleştirildi: sol sidebar +
   // sağ ray yok, yalnızca üst menü + tek sütun içerik + footer.
   // Favoriler/Son Oynananlar bu sadeleştirmenin dışında, HomeSidebar'ı
-  // korumaya devam ediyor.
+  // korumaya devam ediyor. `noSidebar` yalnız 404 sayfası için: eşleşmeyen
+  // yolda sidebar'ın veri çekmesine gerek yok.
   const SIMPLE_PATHS = ['/promotions', '/help', '/profile', '/my-bets', '/settings', '/about', '/career', '/press', '/contact'];
-  const showSidebar = !pathname.startsWith('/casino') && !pathname.startsWith('/events/') && !pathname.startsWith('/legal') && pathname !== '/' && pathname !== '/bahis' && pathname !== '/canli' && !SIMPLE_PATHS.includes(pathname);
+  const showSidebar = !noSidebar && !pathname.startsWith('/casino') && !pathname.startsWith('/events/') && !pathname.startsWith('/legal') && pathname !== '/' && pathname !== '/bahis' && pathname !== '/canli' && !SIMPLE_PATHS.includes(pathname);
 
   return (
     <div className="pb-14 lg:pb-0 relative" style={{ height: 'calc(100vh - 56px)' }}>
