@@ -69,6 +69,17 @@ Rules and limits:
   (existing files) and `/api/*`, `/robots.txt`, `/sitemap.xml` are unaffected.
   `routes.json` is the server's own data and is not served (`/routes.json` →
   `404`).
+- **The service worker must not swallow the 404.** Workbox's `NavigationRoute`
+  answers *every* `mode: 'navigate'` request with the precached `index.html`
+  unless it is restricted, so the SPA fallback would only apply to browsers
+  without an installed service worker (curl, first visit, crawlers). The build
+  therefore passes `navigateFallbackAllowlist`
+  (`client/scripts/pwa-route-allowlist.mjs`), generated from the same route
+  table: **known routes** are still served by the service worker (the PWA/offline
+  shell keeps working), while `/api/*`, `/install`, `/uploads/*`, `robots.txt`,
+  `sitemap.xml`, static files and every unknown path go to the network and the
+  server's response (200 / 404 / JSON) stands. The allowlist is derived at build
+  time, so adding a route needs no extra step.
 - Two-phase deployment: first review the logs with `ROUTE_404_REPORT_ONLY=1`,
   then remove the variable (see `docs/RUNBOOK.md`).
 

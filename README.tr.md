@@ -1,5 +1,5 @@
 ![VIP90.bet](https://img.shields.io/badge/VIP90.bet-iGaming%20Platform-1a2332?style=for-the-badge)
-![Version](https://img.shields.io/badge/version-0.4.0-6366f1?style=flat-square)
+![Version](https://img.shields.io/badge/version-1.0.0-6366f1?style=flat-square)
 ![Node](https://img.shields.io/badge/node-22-339933?style=flat-square&logo=node.js&logoColor=white)
 ![React](https://img.shields.io/badge/react-19-61DAFB?style=flat-square&logo=react&logoColor=black)
 ![MongoDB](https://img.shields.io/badge/mongodb-7%20(replica%20set)-47A248?style=flat-square&logo=mongodb&logoColor=white)

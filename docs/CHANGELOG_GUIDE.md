@@ -59,6 +59,23 @@ Pick the number by SemVer: something that breaks the install, an API consumer
 or the schema → major, a new feature → minor, a fix → patch. The running version
 is read from the `version` field of the `GET /api/health` response.
 
+## Versions before 1.0.0
+
+The 0.x history was rebuilt so that every pull request merged before 1.0.0 is
+its own version with its own entry: the PRs are ordered by merge time and spread
+linearly from 0.0.0 to 1.0.0 (the k-th of N PRs gets minor
+`⌊(k−1)·100/(N−1)⌋`; PRs landing on the same minor take a patch). The rule and
+the commit each version points to come from `scripts/version-history.mjs` in
+the development repository (not part of the public core): without arguments it
+prints the PR → version → commit table, `--tag` creates the annotated tags
+locally (pushing them is a separate step); it never creates `v1.0.0`, which
+points to the release PR's merge commit that carries the version numbers and
+this changelog. The 0.x tags exist only there; the
+public core is tagged from `v1.0.0` on. Entries are written
+for the operator: internal-only PRs (deployment, CI, internal notes) keep a
+one-line entry so that no merged PR is missing. From 1.0.0 on, versions are cut
+with `scripts/release.mjs` and follow SemVer.
+
 ## The "what does this break" discipline — mandatory
 
 If a change affects an existing install, an API consumer or the database

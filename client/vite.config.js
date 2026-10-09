@@ -1,13 +1,14 @@
 import { defineConfig } from 'vite'
 import react from '@vitejs/plugin-react'
 import { VitePWA } from 'vite-plugin-pwa'
+import { appNavigateAllowlist } from './scripts/pwa-route-allowlist.mjs'
 
 export default defineConfig({
   plugins: [
     react(),
     VitePWA({
       registerType: 'autoUpdate',
-      includeAssets: ['favicon.svg', 'icons.svg'],
+      includeAssets: ['favicon.svg'],
       manifest: {
         name: 'VIP90.bet',
         short_name: 'VIP90.bet',
@@ -78,12 +79,16 @@ export default defineConfig({
         // (uzun max-age) yeterli, precache manifest'i şişirmesin.
         globPatterns: ['**/*.{js,css,html,ico,png,svg,woff2}'],
         globIgnores: ['fonts/material-symbols-outlined.woff2'],
-        // Sunucunun yanıtladığı yollara yapılan sayfa geçişleri SPA'ya
-        // (index.html) düşmemeli: aksi halde "Google ile devam et"
-        // (/api/auth/google) gibi bağlantılar sunucuya hiç gitmeden React'in
-        // 404 sayfasını açıyordu (2026-10-08). Yalnız SW kurulu tarayıcıda
-        // görülür; curl ve ilk ziyaret etkilenmez.
-        navigateFallbackDenylist: [/^\/api\//, /^\/install(\/|$)/, /^\/uploads\//, /^\/robots\.txt$/, /^\/sitemap\.xml$/],
+        // Service worker YALNIZCA gerçek uygulama rotalarını index.html'e
+        // düşürür. Allowlist `App.jsx`'ten build sırasında türetilir
+        // (`scripts/pwa-route-allowlist.mjs`); bilinmeyen yollar, `/api/*`,
+        // `/install`, `/uploads/*`, `robots.txt`, `sitemap.xml` ve statik
+        // dosyalar AĞA gider ve sunucunun yanıtı geçerli olur — yani SPA'nın
+        // gerçek 404'ü (server/src/seo/http.js + dist/routes.json) SW kurulu
+        // tarayıcıda da 404 kalır. Daha önce yalnız sunucu yollarını reddeden
+        // `navigateFallbackDenylist` vardı; o, bilinmeyen uygulama yollarını
+        // 200'e çeviriyordu (2026-10-08).
+        navigateFallbackAllowlist: appNavigateAllowlist(),
         // Fontlar artık self-hosted (bkz. client/public/fonts/) — Google Fonts'a
         // özel runtime-cache kuralları kaldırıldı, gerek kalmadı.
         runtimeCaching: [
