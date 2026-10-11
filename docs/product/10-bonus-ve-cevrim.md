@@ -2,7 +2,7 @@
 
 _Last verified: 2026-10-02 against `server/src/services/wagering.js`, `server/src/controllers/promotions.js`, `server/src/controllers/admin.js` (`updateBalance`), `server/src/controllers/transactions.js` and `server/src/controllers/bank.js`._
 
-This document explains how a bonus behaves once it is granted: where the money goes, when it can be withdrawn, how wagering progresses and what happens when a player withdraws before finishing. The model was introduced on 2026-07-09 (plan: `docs/superpowers/plans/2026-07-08-bonus-playable-lockbalance.md`, design: `docs/superpowers/specs/2026-07-08-bonus-playable-lockbalance-design.md`).
+This document explains how a bonus behaves once it is granted: where the money goes, when it can be withdrawn, how wagering progresses and what happens when a player withdraws before finishing. The model was introduced on 2026-07-09 (internal plan `docs/superpowers/plans/2026-07-08-bonus-playable-lockbalance.md` and design `docs/superpowers/specs/2026-07-08-bonus-playable-lockbalance-design.md` — internal planning files are not published here).
 
 ## The model in one paragraph
 

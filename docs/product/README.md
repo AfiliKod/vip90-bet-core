@@ -1,6 +1,6 @@
 # VIP90.bet Documentation
 
-This directory is written for operators who have purchased the product — not for developers who already know the codebase (that documentation is in `docs/superpowers/` and in code comments).
+This directory is written for operators who have purchased the product — not for developers who already know the codebase (that documentation lives in our internal planning directory `docs/superpowers/`, which is not published to this repository, and in code comments).
 
 - [01 — Installation](01-kurulum.md) — from scratch to a working core setup (Docker or manual), plus how to install the paid add-ons (In-house Games, Sports Betting, Casino Content).
 - [02 — Configuration](02-yapilandirma.md) — `.env` variables (including which listed ones the code does not read) and panel-managed settings with their menu locations.
@@ -16,4 +16,4 @@ Related documents outside this directory: [`docs/seo-settings.md`](../seo-settin
 
 ## Status note (honesty)
 
-This documentation reflects the **actual** code in the repository — it does not present unfinished work (e.g., Live Casino, one-click module purchase) as if it exists. Last full audit against the code: 2026-10-03; updated the same day after the PR #132 code fixes, and on 2026-10-08 for the email/SMS gateways, the Communication page, the seventh module and i18n coverage. Premium add-on behavior was read from the add-on source in the main checkout; if a statement here and the running system disagree, the code wins and the document should be corrected.
+This documentation reflects the **actual** code in the repository — it does not present unfinished work (e.g., Live Casino, one-click module purchase) as if it exists. Last full audit against the code: 2026-10-03; updated the same day after the internal PR #132 code fixes, and on 2026-10-08 for the email/SMS gateways, the Communication page, the seventh module and i18n coverage. Premium add-on behavior was read from the add-on source in the main checkout; if a statement here and the running system disagree, the code wins and the document should be corrected.
