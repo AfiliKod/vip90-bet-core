@@ -77,8 +77,8 @@ eklentiler sağlar.
 |---|---|
 | **Admin — gelir paneli**<br>Canlı KPI'lar, GGR grafiği, gelir dağılımı, çevrimiçi sayacı | **Spor Bahisleri — maç öncesi oranlar**<br>1X2 ve alt/üst marketleri, etkinlik sayıları |
 | <img src="assets/readme/admin.jpg" alt="Admin paneli gelir paneli, canlı KPI ve GGR grafikleri" width="470"> | <img src="assets/readme/sports.jpg" alt="Spor bahisleri oran listesi" width="470"> |
-| **Oyuncu lobisi**<br>Sağlayıcı satırı, oyun ızgarası, son kazananlar, promosyonlar | **In-house Crash**<br>Canlı çarpan ile provably-fair tur |
-| <img src="assets/readme/lobby.jpg" alt="Oyuncu casino lobisi, sağlayıcılar ve oyun ızgarası" width="470"> | <img src="assets/readme/crash.jpg" alt="Crash oyunu, yükselen çarpan" width="470"> |
+| **Oyuncu lobisi**<br>Sağlayıcı satırı, oyun ızgarası, son kazananlar, promosyonlar | **In-house Mines**<br>Canlı çarpan ile provably-fair tur |
+| <img src="assets/readme/lobby.jpg" alt="Oyuncu casino lobisi, sağlayıcılar ve oyun ızgarası" width="470"> | <img src="assets/readme/mines.jpg" alt="Mines oyunu, provably-fair rozet" width="470"> |
 
 ## Neler Dahil
 
