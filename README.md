@@ -9,6 +9,10 @@
 
 **English** · [Türkçe](README.tr.md)
 
+<p align="center">
+  <img src="assets/readme/hero.jpg" alt="VIP90.bet — admin panel, sportsbook, casino lobby and a provably-fair in-house game in one product" width="100%">
+</p>
+
 **Self-hosted full-stack betting and casino platform with sportsbook,
 live betting, casino, wallet, bonuses, affiliate and admin management.**
 
@@ -31,6 +35,7 @@ yet; see the [Roadmap](#roadmap) and [Known Limitations](docs/product/09-bilinen
 ## Contents
 
 - [Highlights](#highlights)
+- [Screenshots](#screenshots)
 - [What's Included](#whats-included)
 - [Module System](#module-system)
 - [Architecture and Tech Stack](#architecture-and-tech-stack)
@@ -59,6 +64,19 @@ yet; see the [Roadmap](#roadmap) and [Known Limitations](docs/product/09-bilinen
 | 🎰 **13 in-house games (paid add-on)** | Crash, Mines, Plinko, Dice, Limbo, Wheel, Hi-Lo, Keno, Blackjack, Roulette, Baccarat, Video Poker, Dragon Tiger; all HMAC-SHA256 **provably fair**, house edge adjustable per game in the panel |
 | ⚽ **Sports and live betting (paid add-on)** | 30 sport definitions, live odds feed, single/combo bet slip, automatic settlement |
 | 🃏 **Casino Content (paid add-on)** | Slots and table games through an aggregator integration (one iGaming content provider adapter today) |
+
+## Screenshots
+
+Real screens from a running instance (demo data, no mockups). The admin panel
+and the player lobby are core; the sportsbook and the in-house game come from
+the paid add-ons.
+
+| | |
+|---|---|
+| **Admin — revenue dashboard**<br>Live KPIs, GGR trend, revenue split, online counter | **Sportsbook — pre-match odds**<br>1X2 and over/under markets, event counts |
+| <img src="assets/readme/admin.jpg" alt="Admin panel revenue dashboard with live KPIs and GGR charts" width="470"> | <img src="assets/readme/sports.jpg" alt="Sportsbook odds list" width="470"> |
+| **Player lobby**<br>Provider row, game grid, live winners, promotions | **In-house Crash**<br>Provably-fair round with live multiplier |
+| <img src="assets/readme/lobby.jpg" alt="Player casino lobby with providers and game grid" width="470"> | <img src="assets/readme/crash.jpg" alt="Crash game with rising multiplier" width="470"> |
 
 ## What's Included
 
