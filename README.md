@@ -76,8 +76,8 @@ the paid add-ons.
 |---|---|
 | **Admin — revenue dashboard**<br>Live KPIs, GGR trend, revenue split, online counter | **Sportsbook — pre-match odds**<br>1X2 and over/under markets, event counts |
 | <img src="assets/readme/admin.jpg" alt="Admin panel revenue dashboard with live KPIs and GGR charts" width="470"> | <img src="assets/readme/sports.jpg" alt="Sportsbook odds list" width="470"> |
-| **Player lobby**<br>Provider row, game grid, live winners, promotions | **In-house Crash**<br>Provably-fair round with live multiplier |
-| <img src="assets/readme/lobby.jpg" alt="Player casino lobby with providers and game grid" width="470"> | <img src="assets/readme/crash.jpg" alt="Crash game with rising multiplier" width="470"> |
+| **Player lobby**<br>Provider row, game grid, live winners, promotions | **In-house Mines**<br>Provably-fair round with live multiplier |
+| <img src="assets/readme/lobby.jpg" alt="Player casino lobby with providers and game grid" width="470"> | <img src="assets/readme/mines.jpg" alt="Mines game with provably-fair badge" width="470"> |
 
 ## What's Included
 
