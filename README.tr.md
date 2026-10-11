@@ -45,6 +45,7 @@ olgunlaşmadığını gizlemiyoruz — bkz. [Yol Haritası](#yol-haritası) ve
 - [Belgeler](#belgeler)
 - [Yol Haritası](#yol-haritası)
 - [Lisanslama](#lisanslama)
+- [Yasal Uyarı](#yasal-uyarı)
 
 ---
 
@@ -354,6 +355,33 @@ lisansından bağımsız olarak lisanslanır.
 
 Fiyatlandırma, destek süresi ve tedarik detayları için
 [vip90.bet](https://vip90.bet) üzerinden satış ekibiyle iletişime geçin.
+
+## Yasal Uyarı
+
+**Bu yazılım bir araç setidir, işletme ruhsatı değildir.** Gerçek parayla bahis
+veya şans oyunu sunmak ülkelerin çoğunda düzenlemeye tabidir ve genellikle
+yetkili kurumdan önceden alınmış bir operatör lisansı gerektirir. Bu kodu
+gerçek parayla, söz konusu lisans olmadan çalıştırmak — ya da yasak olan bir
+ülkeden erişilebilir kılmak — o yerlerde yasadışıdır ve sorumluluğu bu
+deponun yazarlarına değil, size aittir.
+
+- Buradaki hiçbir şey hukuki tavsiye değildir. Gerçek para temas eden bir
+  kurulum yapmadan önce hedef jurisdictions hakkında hukuki görüş alın ve
+  ödeme sağlayıcılarının kendi şartlarını kontrol edin.
+- Yerleşik sorumlu oyun kontrolleri (depozisyon/kayıp/bahis limitleri,
+  cool-off, self-exclusion), KYC kancaları ve kayıt izleme birer
+  **uygulama aracıdır**. Tek başlarına herhangi bir düzenleyici kurum
+  gereksinimini karşıladığı iddia edilmez.
+- Yaş sınırı: oyuncu arayüzü yetişkinler içindir (18+, veya operasyon
+  yaptığınız yerdeki daha yüksek yasal yaş).
+- Provably-fair tarafı, tur şeffaflığı için kriptografik bir taahhüt
+  şemasıdır; **sertifika değildir**. Oyun adilliği ve RNG sertifikasyonu
+  akredite bir test laboratuvarı gerektirir.
+- Ekran görüntüleri yerel bir örnekte üretilmiş demo verisini gösterir; gerçek
+  oyuncu, operatör veya ödeme sağlayıcısı verisi içermez.
+
+Kendi ürününüzü geliştirmek/test etmek ya da gerekli izinleri almış bir
+operasyonu çalıştırmak için kullanın.
 
 ---
 

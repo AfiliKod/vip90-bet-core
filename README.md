@@ -44,6 +44,7 @@ yet; see the [Roadmap](#roadmap) and [Known Limitations](docs/product/09-bilinen
 - [Documentation](#documentation)
 - [Roadmap](#roadmap)
 - [Licensing](#licensing)
+- [Legal notice](#legal-notice)
 
 ---
 
@@ -355,6 +356,33 @@ repositories and licensed independently of the core license.
 
 For pricing, support terms and supply details, contact the sales team via
 [vip90.bet](https://vip90.bet).
+
+## Legal notice
+
+**This software is a toolkit, not a licence to operate.** Offering real-money
+betting or games of chance is regulated in most countries and usually requires
+a prior operator licence from the competent authority. Running this code for
+real-money play without that licence — or making it reachable from a
+jurisdiction where it is prohibited — is illegal in those places and is your
+responsibility alone, not the responsibility of this repository's authors.
+
+- Nothing in this repository is legal advice. Before deploying anything that
+  touches real money, get advice on your target jurisdictions and check the
+  payment providers' own terms.
+- The built-in responsible-gaming controls (deposit/loss/wager limits, cool-off,
+  self-exclusion), KYC hooks and audit logging are **implementation tools**.
+  They do not by themselves satisfy any regulator's requirements, and no
+  compliance claim is made or implied.
+- Age restriction: the player UI is intended for adults (18+, or the higher
+  legal age where you operate).
+- The provably-fair implementation is a cryptographic commitment scheme for
+  round transparency. It is not a certification — game fairness and RNG
+  certification requires an accredited testing lab.
+- The demo screenshots show a local instance with generated data; no real
+  player, operator or payment-provider data is present.
+
+Use it to build and test your own product, or to run a licensed operation with
+the right paperwork in place.
 
 ---
 
