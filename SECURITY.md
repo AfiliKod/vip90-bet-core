@@ -10,8 +10,13 @@ most recent version before reporting.
 
 | Version | Supported |
 |---|---|
-| 0.4.x | ✅ |
-| < 0.4 | ❌ |
+| 1.0.x | ✅ |
+| < 1.0 | ❌ |
+
+This public repository is the AGPL-3.0 core mirror of our development
+repository; releases here are cut from that line. See
+[`CONTRIBUTING.md`](CONTRIBUTING.md#how-this-repository-is-maintained) for how
+the two stay in sync.
 
 ## Reporting a vulnerability
 

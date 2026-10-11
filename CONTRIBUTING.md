@@ -17,6 +17,12 @@ is synchronised here from there. Because of that:
   close your PR with a link to the release that contains it.
 - **Security issues** go through private reporting, not issues or PRs; see
   [`SECURITY.md`](SECURITY.md).
+- **Numbering note.** When `CHANGELOG.md` or a document under `docs/` mentions
+  a pull request (for example "internal PR #132") or a path under
+  `docs/superpowers/`, it refers to the private development repository. Those
+  numbers and files do not exist in this repository, and the history here is
+  deliberately short: it is written by `scripts/sync-core.mjs` in the
+  development repository, one commit per release line.
 
 ## Making a change
 

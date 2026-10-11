@@ -4,11 +4,14 @@ _Last verified: 2026-10-02 against `server/src/routes/admin.js`, `server/src/con
 
 Three admin-panel tools added between 2026-09-22 and 2026-10-02. Each section covers what the tool does, which permission it needs, its endpoints, and what to watch out for.
 
-| Tool | Panel location | Permission | Plan / design |
+Internal plan/design documents are not published to this repository; the implementation is
+readable at the code paths below.
+
+| Tool | Panel location | Permission | Implementation |
 |---|---|---|---|
-| Live activity feed | `/admin` (Dashboard) | `admin:activity:read` | `docs/superpowers/plans/2026-09-22-admin-activity-feed.md`, `specs/2026-09-22-admin-activity-feed-design.md` |
-| Demo data | `/admin/demo-data` (sidebar group "Demo & Simulation") | `admin:demo-data:manage` | `docs/superpowers/plans/2026-09-23-admin-demo-data-seed.md`, `specs/2026-09-23-admin-demo-data-seed-design.md` |
-| Casino rewards (bonus call + freeround) | `/admin/igames?tab=bonus` | `admin:casino:read` (view), `admin:casino:bonus` (grant/cancel) | `docs/superpowers/plans/2026-09-30-casino-promo-grants.md`, `specs/2026-09-30-casino-promo-grants-design.md`, implementation report `docs/superpowers/reports/2026-09-30-casino-promo-grants-report.md` |
+| Live activity feed | `/admin` (Dashboard) | `admin:activity:read` | `server/src/services/activityFeed.js`, `client/src/pages/admin/components/ActivityFeed.jsx` |
+| Demo data | `/admin/demo-data` (sidebar group "Demo & Simulation") | `admin:demo-data:manage` | `server/src/services/demoData/` |
+| Casino rewards (bonus call + freeround) | `/admin/igames?tab=bonus` | `admin:casino:read` (view), `admin:casino:bonus` (grant/cancel) | `server/src/services/casinoPromo/` |
 
 Permissions are assigned under **Admin → Roles**. New permission keys such as `admin:activity:read` and `admin:demo-data:manage` are inserted into existing installations idempotently by `syncMissingPermissions()` (`server/src/services/permissions.js`), which also attaches them to the `super_admin` and `admin` roles.
 
