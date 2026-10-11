@@ -9,6 +9,10 @@
 
 [English](README.md) · **Türkçe**
 
+<p align="center">
+  <img src="assets/readme/hero.jpg" alt="VIP90.bet — admin paneli, spor bahisleri, casino lobisi ve provably-fair in-house oyunu tek üründe" width="100%">
+</p>
+
 **Self-hosted full-stack betting and casino platform with sportsbook,
 live betting, casino, wallet, bonuses, affiliate and admin management.**
 
@@ -32,6 +36,7 @@ olgunlaşmadığını gizlemiyoruz — bkz. [Yol Haritası](#yol-haritası) ve
 ## İçindekiler
 
 - [Öne Çıkanlar](#öne-çıkanlar)
+- [Ekran Görüntüleri](#ekran-görüntüleri)
 - [Neler Dahil](#neler-dahil)
 - [Modül Sistemi](#modül-sistemi)
 - [Mimari ve Teknoloji Yığını](#mimari-ve-teknoloji-yığını)
@@ -60,6 +65,19 @@ olgunlaşmadığını gizlemiyoruz — bkz. [Yol Haritası](#yol-haritası) ve
 | 🎰 **13 in-house oyun (ücretli eklenti)** | Crash, Mines, Plinko, Dice, Limbo, Wheel, Hi-Lo, Keno, Blackjack, Roulette, Baccarat, Video Poker, Dragon Tiger — hepsi HMAC-SHA256 **provably fair**, house edge her oyun için panelden ayarlanabilir |
 | ⚽ **Spor & Canlı Bahis (ücretli eklenti)** | 30 spor tanımı, canlı oran akışı, kupon (tekli/kombine), otomatik sonuçlandırma |
 | 🃏 **Casino İçeriği (ücretli eklenti)** | Aggregator entegrasyonu ile slot ve masa oyunları — iGaming içerik sağlayıcısı entegrasyonu (bugün tek adaptör) |
+
+## Ekran Görüntüleri
+
+Çalışan bir örnekteki gerçek ekranlar (demo verisi, mockup değil). Admin paneli
+ve oyuncu lobisi çekirdeğe ait; spor bahisleri ve in-house oyunu ücretli
+eklentiler sağlar.
+
+| | |
+|---|---|
+| **Admin — gelir paneli**<br>Canlı KPI'lar, GGR grafiği, gelir dağılımı, çevrimiçi sayacı | **Spor Bahisleri — maç öncesi oranlar**<br>1X2 ve alt/üst marketleri, etkinlik sayıları |
+| <img src="assets/readme/admin.jpg" alt="Admin paneli gelir paneli, canlı KPI ve GGR grafikleri" width="470"> | <img src="assets/readme/sports.jpg" alt="Spor bahisleri oran listesi" width="470"> |
+| **Oyuncu lobisi**<br>Sağlayıcı satırı, oyun ızgarası, son kazananlar, promosyonlar | **In-house Crash**<br>Canlı çarpan ile provably-fair tur |
+| <img src="assets/readme/lobby.jpg" alt="Oyuncu casino lobisi, sağlayıcılar ve oyun ızgarası" width="470"> | <img src="assets/readme/crash.jpg" alt="Crash oyunu, yükselen çarpan" width="470"> |
 
 ## Neler Dahil
 
