@@ -5,6 +5,9 @@
 ![MongoDB](https://img.shields.io/badge/mongodb-7%20(replica%20set)-47A248?style=flat-square&logo=mongodb&logoColor=white)
 ![License](https://img.shields.io/badge/license-AGPL--3.0%20%2B%20commercial%20add--ons-blue?style=flat-square)
 
+[![Ücretsiz kayıt demo](https://img.shields.io/badge/free_signup_demo-app.VIP90.bet-6366f1?style=for-the-badge)](https://app.VIP90.bet?utm_source=github&utm_medium=referral&utm_content=readme_hero&utm_campaign=vip90b2b_p1)
+[![Ürün sitesi](https://img.shields.io/badge/product_site-VIP90.bet-1a2332?style=for-the-badge)](https://vip90.bet)
+
 # VIP90.bet
 
 [English](README.md) · **Türkçe**
@@ -38,6 +41,7 @@ olgunlaşmadığını gizlemiyoruz — bkz. [Yol Haritası](#yol-haritası) ve
 - [Öne Çıkanlar](#öne-çıkanlar)
 - [Ekran Görüntüleri](#ekran-görüntüleri)
 - [Neler Dahil](#neler-dahil)
+- [Deneyin](#deneyin)
 - [Modül Sistemi](#modül-sistemi)
 - [Mimari ve Teknoloji Yığını](#mimari-ve-teknoloji-yığını)
 - [Hızlı Başlangıç](#hızlı-başlangıç)
@@ -175,6 +179,14 @@ Communication, Chat) · **Platform** (Settings: General · Modules ·
 Currencies · Jurisdictions · Brands · SEO; Personalization; Roles; System
 Health & Logs) ·
 **Demo & Simulation** (Demo Data, Bots).
+
+## Deneyin
+
+| | |
+|---|---|
+| **Canlı demo** | [app.VIP90.bet](https://app.VIP90.bet?utm_source=github&utm_medium=referral&utm_content=readme_hero&utm_campaign=vip90b2b_p1) — ücretsiz kayıt demosu: play-money bakiye, gerçek para yok; kayıt zorunludur. |
+| **Kendi sunucunda** | `git clone` → `docker compose up -d` → `/install` sihirbazı (EN/TR). |
+| **Ürün ve satış** | [vip90.bet](https://vip90.bet) — modüller, entegrasyon ve destek görüşmeleri. |
 
 ## Modül Sistemi
 
@@ -380,6 +392,14 @@ deponun yazarlarına değil, size aittir.
   akredite bir test laboratuvarı gerektirir.
 - Ekran görüntüleri yerel bir örnekte üretilmiş demo verisini gösterir; gerçek
   oyuncu, operatör veya ödeme sağlayıcısı verisi içermez.
+- Bu yazılım dünya genelinde kullanılabilir; bir bahis servisini işletmenin
+  yasal zemini, her operatörün kendi ülkesindeki yükümlülüğüdür. Burada hiçbir
+  bahis lisansı iddia edilmez veya ima edilmez; hiçbir yerde kazanç, ikramiye
+  veya ciro vaadi yapılmaz.
+- **Türkiye'de bahis oynatma hizmeti yasal değildir; bu proje Türkiye'de
+  işletilmek üzere pazarlanmaz, satılmaz veya desteklenmez.** Türkçe arayüz ve
+  bu Türkçe belge, yazılımı denetleyecek geliştiriciler içindir — Türkiye
+  pazarına bir teklif değildir.
 
 Kendi ürününüzü geliştirmek/test etmek ya da gerekli izinleri almış bir
 operasyonu çalıştırmak için kullanın.
