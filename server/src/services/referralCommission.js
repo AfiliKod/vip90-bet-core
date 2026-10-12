@@ -1,10 +1,22 @@
 import User from '../models/User.js';
 import { getIO } from './socketEmitter.js';
 import { getReferralSettings } from './referralSettings.js';
-import { createTransaction } from './ledger.js';
+import { createTransaction, isDuplicateTransaction } from './ledger.js';
+import { runInTransaction } from '../utils/transactionRetry.js';
 import Transaction from '../models/Transaction.js';
 
 export async function payReferralCommission(userId, houseProfit, options = {}) {
+  try {
+    return await runInTransaction(options.session, session => payReferralCommissionInner(userId, houseProfit, { ...options, session }));
+  } catch (e) {
+    // Kendi açtığımız işlem geri alındı → hiçbir şey yazılmadı, "zaten ödendi".
+    // Çağıranın işlemindeysek hata yukarı gider ki o işlem de geri alınsın.
+    if (!options.session && isDuplicateTransaction(e)) return null;
+    throw e;
+  }
+}
+
+async function payReferralCommissionInner(userId, houseProfit, options = {}) {
   const { session = null, sourceId = null } = options;
 
   const settings = await getReferralSettings();

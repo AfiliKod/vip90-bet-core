@@ -103,6 +103,15 @@ const schema = new mongoose.Schema({
   vpMinBet: { type: Number, default: 1, min: 0.01 },
   vpMaxBet: { type: Number, default: 50000, min: 1 },
 
+  // Coin Flip settings — RTP = 0.5 × payoutMult (kazanma olasılığı sabit %50,
+  // provably-fair HMAC'dan türetilen tek adil para). ONAYLI spec (2026-10-09):
+  // mult 1.96 = RTP %98.00. Sert aralık 1.8-2.0: mult > 2.0 matematiksel olarak
+  // %100+ RTP demek (negatif house edge) — validateOperatorUpdate
+  // (services/gameSettings.js, multField) ile aynı sınırlar.
+  coinflipPayoutMult: { type: Number, default: 1.96, min: 1.8, max: 2 },
+  coinflipMinBet: { type: Number, default: 1, min: 0.01 },
+  coinflipMaxBet: { type: Number, default: 1000, min: 1 },
+
   // Common
   isActive: { type: Boolean, default: true },
   

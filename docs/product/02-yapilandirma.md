@@ -144,17 +144,17 @@ These two variables are **not** in `server/.env.example` — they are read direc
 
 ### Odds (sports betting) — Sports Betting add-on
 
-The odds data comes from a separate application (`odds-provider`, part of the Sports Betting add-on, not in Docker Compose). The main server only needs to know how to reach it:
+The odds data comes from the hosted VIP90 odds feed (`https://feed.vip90.bet`); nothing runs locally. The main server only needs the address and its API key:
 
 | Variable | Required | What it does |
 |---|---|---|
-| `ODDS_PROVIDER_API_BASE` | If the add-on is installed | Address of the odds-provider app, e.g. `http://localhost:3003` (the app's own code default port is 3002 — keep both sides identical) |
-| `ODDS_PROVIDER_API_TOKEN` | If the add-on is installed | Bearer token shared with the odds-provider. After the first start it can be rotated from **Settings → Modules → Sports & Live Betting** (stored encrypted; pushed to the provider without a restart) |
-| `ODDS_PROVIDER_MANAGEMENT_SECRET` | If the add-on is installed | A **separate** secret that only protects the token-rotation push; must equal the same-named variable in the odds-provider's `.env` |
+| `ODDS_PROVIDER_API_BASE` | If the add-on is installed | Address of the odds feed: `https://feed.vip90.bet` |
+| `ODDS_PROVIDER_API_TOKEN` | If the add-on is installed | API key (`odp_…`) created in the developer portal (`https://developers.vip90.bet`). It can also be entered later in **Settings → Modules → Sports & Live Betting** (stored encrypted) |
+| `ODDS_PROVIDER_MANAGEMENT_SECRET` | No | Only for a self-hosted feed (VIP90's own installation); not used with the hosted feed |
 
-The odds feed's data source settings are read by the **odds-provider app from its own `.env`**, not by the main server; they are documented in the Sports Betting add-on's own README — see [01 — Installation § Sports Betting](01-kurulum.md#sports-betting).
+Which sports you receive and the request limit come from your plan; the key's IP allowlist, extra keys and team members are managed in the developer portal. See [01 — Installation § Sports Betting](01-kurulum.md#sports-betting).
 
-> **Odds come only from our own feed, through the odds-provider service.** The live and upcoming sync jobs started in `server.js` talk to the odds-provider app through `oddsProviderClient`; there is no third-party odds API integration in the core. The legacy The Odds API client (`server/src/services/oddsApi.js`) and `server/src/jobs/dataSync.js` were deleted on 2026-10-03, so `ODDS_API_KEY` and `ODDS_API_SPORT` are not read anywhere. `ODDS_PROVIDER` only names an adapter in the add-on's provider registry (`oddsProviders/`, default `internalProvider`), and nothing calls that registry — treat it as having no effect (add-on code, not re-verified locally: the add-on submodules are not checked out here).
+> **Odds come only from the hosted odds feed.** The live and upcoming sync jobs started in `server.js` talk to the feed through `oddsProviderClient`; there is no third-party odds API integration in the core. The legacy The Odds API client (`server/src/services/oddsApi.js`) and `server/src/jobs/dataSync.js` were deleted on 2026-10-03, so `ODDS_API_KEY` and `ODDS_API_SPORT` are not read anywhere. `ODDS_PROVIDER` only names an adapter in the add-on's provider registry (`oddsProviders/`, default `internalProvider`), and nothing calls that registry — treat it as having no effect (add-on code, not re-verified locally: the add-on submodules are not checked out here).
 
 ## Panel-managed settings
 

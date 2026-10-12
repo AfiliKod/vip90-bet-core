@@ -5,7 +5,7 @@ import User from '../models/User.js';
 import BankDepositRequest from '../models/BankDepositRequest.js';
 import { createError } from '../middleware/error.js';
 import { formatMoney } from '../currency/index.js';
-import { createTransaction } from '../services/ledger.js';
+import { createTransaction, adjustBalance } from '../services/ledger.js';
 import { updateDailyStats } from '../services/responsibleGaming.js';
 
 export function getInfo(req, res) {
@@ -118,11 +118,19 @@ export async function approve(req, res, next) {
       record.approvedAt = new Date();
       await record.save({ session });
 
-      const user = await User.findById(record.userId).session(session);
-      const balanceBefore = user.balance;
+      // Çekim talebi oluşturulurken bakiye ayrılmıyor; onay anında bakiye
+      // yetmiyorsa (oyuncu arada oynadı/başka talep onaylandı) onay reddedilir.
+      // Önceden koşulsuz düşülüyor, bakiye eksiye inebiliyordu.
       const txAmount = record.type === 'deposit' ? record.amount : -record.amount;
-      user.balance = +(user.balance + txAmount).toFixed(2);
-      await user.save({ session });
+      const adjusted = await adjustBalance(record.userId, txAmount, { session, requireFunds: true });
+      if (!adjusted) {
+        const exists = await User.exists({ _id: record.userId }).session(session);
+        throw exists
+          ? createError(409, 'INSUFFICIENT_BALANCE', 'Oyuncunun bakiyesi bu çekim için yetersiz')
+          : createError(404, 'USER_NOT_FOUND', 'Kullanıcı bulunamadı');
+      }
+      const user = adjusted.doc;
+      const { balanceBefore } = adjusted;
 
       const idempotencyKey = `bank_approve_${record._id}`;
       await createTransaction({
@@ -155,15 +163,17 @@ export async function approve(req, res, next) {
 export async function reject(req, res, next) {
   try {
     const { note } = req.body;
-    const record = await BankDepositRequest.findById(req.params.id);
-    if (!record) throw createError(404, 'NOT_FOUND', 'Talep bulunamadı');
-    if (record.status !== 'pending') throw createError(409, 'ALREADY_PROCESSED', 'Talep zaten işlenmiş');
-
-    record.status = 'rejected';
-    record.adminNote = note || '';
-    record.approvedBy = req.user.id;
-    record.approvedAt = new Date();
-    await record.save();
+    // Koşullu ve atomik: aynı anda gelen onay ile çakışırsa yalnız biri geçer
+    // (önceden red, onaylanmış ve parası işlenmiş talebin durumunu ezebiliyordu).
+    const record = await BankDepositRequest.findOneAndUpdate(
+      { _id: req.params.id, status: 'pending' },
+      { $set: { status: 'rejected', adminNote: note || '', approvedBy: req.user.id, approvedAt: new Date() } },
+      { new: true },
+    );
+    if (!record) {
+      const exists = await BankDepositRequest.exists({ _id: req.params.id });
+      throw exists ? createError(409, 'ALREADY_PROCESSED', 'Talep zaten işlenmiş') : createError(404, 'NOT_FOUND', 'Talep bulunamadı');
+    }
 
     broadcastAdminCounts();
     res.json({ message: 'Talep reddedildi' });

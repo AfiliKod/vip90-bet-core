@@ -18,6 +18,129 @@ Madde formatı ve kategoriler için `docs/CHANGELOG_GUIDE.md`'ye bakın —
 
 ## [Yayınlanmadı]
 
+### Para hareketlerinde eşzamanlılık güvencesi
+**Kırılan Değişiklikler**
+- `POST /api/crypto/withdraw-request`: bakiye artık USDT gönderilmeden önce
+  düşülüyor. Otomatik transfer zincirde reddedilirse `500` döner, çekim
+  `failed` olur ve bakiye iade satırıyla geri verilir; transfer sonucu
+  bilinemezse `502` döner ve çekim admin incelemesi için `processing`te
+  kalır. İşlem kayıtlarında yeni `processing` durumu var.
+- `PATCH /api/bank/admin/pending/:id/approve`: oyuncunun bakiyesi artık
+  çekimi karşılamıyorsa `409 INSUFFICIENT_BALANCE` döner (önceden bakiye
+  eksiye iniyordu).
+- `POST /api/igames/game/launch`: açılış sırasında bakiye değişirse
+  `409 BALANCE_CHANGED` dönebilir.
+
+- **Düzeltme (kritik):** Otomatik kripto çekiminde USDT işlem onaylanmadan
+  gönderiliyordu; işlem çakışmayla geri alınırsa oyuncu hem USDT'yi alıyor
+  hem bakiyesini geri alıyordu. Aynı bekleyen çekime eşzamanlı iki admin
+  onayı USDT'yi iki kez gönderebiliyor, onay ile red aynı anda gelirse hem
+  transfer hem iade yapılabiliyordu.
+- **Düzeltme:** Aynı in-house oyun geri çağrısının ya da Slikair
+  webhook'unun eşzamanlı kopyaları bakiyeyi iki kez değiştirebiliyordu.
+  Defter kaydı işlem içinde ikinci kez yazılmak istenince artık işlem geri
+  alınıyor (`DUPLICATE_TRANSACTION`). Igames geri çağrılarının tekrar
+  koruması süreç belleğinden kalıcı tekil indekse taşındı.
+- **Düzeltme:** VIP cashback, seviye ödülü, referans komisyonu, ters kayıt,
+  promosyon, bonus feshi ve Igames açılış/kapanışı bakiyeyi okuyup mutlak
+  değer olarak yazıyordu; aynı anda gelen bir bahis ya da yatırma
+  kaybolabiliyordu. Hepsi tek atomik güncellemeye (`adjustBalance`) geçti.
+  Seviye ödülü ve bonus feshi artık eşzamanlı çağrılarda bir kez uygulanıyor.
+- **Düzeltme:** Banka talebinde red, aynı anda onaylanmış talebin durumunu
+  ezebiliyordu; onay ve red artık koşullu ve tek seferlik.
+
+### Sorumlu oyun limitleri eşzamanlı isteklerde aşılmıyor
+- **Düzeltme:** Oyuncu yatırması (`POST /api/transactions/deposit`) ve spor
+  kuponu (`POST /api/bets`) sorumlu oyun limitini bakiye değişikliğiyle aynı
+  veritabanı işleminde denetleyip sayacı orada artırıyor. Önceden limit
+  işlemden önce okunup sayaç sonra artırıldığı için aynı anda gelen istekler
+  limiti aşabiliyordu (300'lük günlük limitle 10 paralel istekte 1000'e
+  kadar). Banka/kripto/Slikair yatırma onayı ve casino oyunlarının kanalları
+  henüz bu yapıda değil.
+- **Düzeltme:** Aynı oyuncunun eşzamanlı işlemleri (paralel kupon, çekim)
+  veritabanında çakışınca yeniden deneme hakkı tükenip `500` dönebiliyordu.
+  Yeniden denemeler artık üstel artan, rastgele sapmalı bekleme ile en fazla
+  15 kez yapılıyor. Para güvenliği önceden de korunuyordu (işlem geri
+  alınıyordu).
+
+### Kurulum: KYC inceleme noktası varsayılan açık
+**Kırılan Değişiklikler**
+- Yeni kurulumda KYC Kimlik Doğrulama modülü (`kyc-verification`) açık
+  başlar: sihirbazdaki kutu işaretli gelir ve `/install/api/run` isteğinde
+  `enableKyc` hiç gönderilmezse modül açık yazılır. Böylece oyuncu çekimleri
+  ilk günden onaylı KYC ister (`403 KYC_REQUIRED`). KYC'siz başlamak için
+  kutunun işaretini kaldırın ya da API'ye `enableKyc: false` gönderin.
+  Kurulumu otomatikleştiren betikler bu alanı göndermiyorsa artık KYC açık
+  başlar. Mevcut kurulumların modül ayarı değişmez.
+
+### Spor Bahisleri: oran verisi barındırılan beslemeden
+**Kırılan Değişiklikler**
+- Oran besleme servisi (`odds-provider`) artık Spor Bahisleri eklentisiyle
+  gelmiyor; kökteki `odds-provider` symlink'i ve `npm run dev` /
+  `install:all` içindeki adımları kaldırıldı. Eklentili platformlar oran
+  verisini barındırılan beslemeden alır: `server/.env`'de
+  `ODDS_PROVIDER_API_BASE=https://feed.vip90.bet` ve
+  `ODDS_PROVIDER_API_TOKEN` olarak geliştirici portalında
+  (`https://developers.vip90.bet`) oluşturulan API anahtarı.
+  `ODDS_PROVIDER_MANAGEMENT_SECRET` barındırılan beslemede kullanılmaz.
+  Kendi odds-provider kurulumunu çalıştıran mevcut kurulumlar, yeni
+  anahtarla beslemeye geçene kadar o servisi kendi başına çalıştırmaya devam
+  edebilir.
+
+### Spor Bahisleri eklentisi: oran verisi ek sitelere verilebiliyor
+- **Yeni:** odds-provider aynı veriyi platform dışındaki sitelere (veri
+  alıcılarına) verebilir. Her alıcının kendi anahtarı, spor filtresi, IP izin
+  listesi ve dakikalık istek sınırı vardır; istek, canlı mesaj, açık bağlantı
+  ve son görülme 30 günlük dökümle izlenir. Alıcılar odds-provider'ın
+  yönetim uçlarından (`/internal/consumers`, yönetim sırrıyla) yönetilir;
+  eklentinin `odds-provider/docs/consumer-api.md` belgesi alıcıya verilir.
+  Platformun kendi bağlantısı eskisi gibi kısıtsızdır.
+- **Düzeltme:** odds-provider'ın `package-lock.json`'ı `package.json` ile
+  uyumsuzdu; temiz kurulumda `npm ci` çalışmıyordu.
+
+### Coin Flip — site vitrin entegrasyonu (lobby kartı + route + i18n)
+
+- **Eklendi:** Coin Flip artık site client lobisinde de görünüyor: `client/src/App.jsx`'te
+  `/games/coinflip` route'u (`<InhouseGameLauncher gameId="coinflip" />`), `client/src/data/inhouseGames.js`
+  paylaşan listesinde 14. giriş, `HomePage.jsx`'teki `INHOUSE_GAMES` kart rayında kart ve
+  8 dilin tümünde (`tr/en/de/es/pt/ja/ko/th`) `games.coinflip.title` + `subtitle` + `cta` + `cardDesc`.
+  Kart görseli `client/public/images/games/coinflip.png` (768×512, mevcut thumbnail'lerle aynı
+  biçim) — game-host'un `coinflip-bg.png`'inden bağımsız, vitrin için ayrıca üretildi.
+- **Neden gerekliydi:** Engine/API ve game-host tarafı yayındaydı (`POST /api/provider/v1/games/coinflip/flip`
+  canlı, migration koşuldu), ancak client lobi listesi yalnız 13 oyun tanıyordu ve route yoktu —
+  `/games/coinflip` gerçek 404'e düşüyordu. `build` script'i bu route'u route manifest'e
+  dağittiği için manifest de yeniden üretimde otomatik güncellenir.
+- **Not:** `client/src/data/inhouseGames.js` yorumunda geçen `CasinoRedesign.jsx` kart listesi
+  `8dbb4a07` ile kaldırılmış (`/casino` → `HomePage` yönlendirmesi); bu yüzden ikinci bir kart
+  listesi güncellenmedi — güncellenmesi gereken tek kart rayı `HomePage.jsx`'te.
+
+### Coin Flip — 14. in-house oyun (mobil uyumlu, onaylı math spec)
+
+- **Eklendi:** Coin Flip oyunu (`coinflip` / `inhouse-coinflip`): tek dokunuşla yazı-tura;
+  kazanana bahis × 1.96 → RTP %98.00 (house edge %2.00), min bahis 1.00 / max 1.000.00 TRY
+  (sahip onayı 2026-10-09). Provably-fair: HMAC-SHA256 `coinflip-v1` (msg `roundSeed`,
+  ilk byte % 2 → 0=yazı / 1=tura) — game-host `verifyCoinFlip` sunucuyla bayt-bayt aynı
+  reçeteyi kullanır. Sunucu tarafı: `GameSettings` şemasına `coinflipMinBet` /
+  `coinflipMaxBet` / `coinflipPayoutMult` alanları + `OPERATOR_GAME_DEFAULTS` lazy-seed;
+  admin Game Settings sayfasında Coin Flip kartı ve canlı RTP önizlemesi (RTP = ½ × mult);
+  `validateOperatorUpdate` mult aralık guardı (1.8–2.0 — üst sınırı aşan çarpan matematiksel
+  olarak %100+ RTP üretir).
+- **Doğrulandı (QA, 2026-10-09):** production-mount üzerinde endpoint seviyesinde N=20.000
+  tur — flipped dağılımı uniform (χ²=2.464, p≈0.116), payout kimliği 20000/20000 birebir,
+  endpoint RTP %98.049 (analitik %98.00, ±0.10 pp tolerans içinde); 10M-turluk matematik
+  simülasyonu ayrıca ±0.10 pp içinde. `instantGamesSeed` assertasyonu 7→8 handler'a
+  güncellendi (bu merge ile birlikte inmek zorundadır, ayrı commit'te kırmızı kalır).
+- **Kırılan Değişiklikler:**
+  - Coin Flip'in açılması için her operatörün `allowedGameIds` listesi güncellenmeli:
+    sunucu ayağa kalktıktan sonra, **ilk trafikten önce** `server/` dizininde
+    `node src/scripts/migrations/add-coinflip-to-operators.mjs` çalıştırılır
+    (idempotent `$addToSet`; tekrar koşulabilir). Aksi halde launch gate coinflip'i
+    503 GAME_DISABLED ile reddeder.
+  - Engine (vip90-bet-inhouse) ile platform **birlikte** inmelidir: altmodül pini
+    `game/play@46b84fa` (sunucu baytları QA'nın test ettiği `game/math@6530607` ile
+    blob-bazında birebir; fark yalnız game-host UI + docs). Eski engine pin'iyle
+    platform tek başına coinflip rotasını sunamaz.
+
 ## [1.0.0] — 2026-10-09
 
 İlk kararlı sürüm. 1.0.0, değişikliklerin büyüklüğünü değil bir taahhüdü işaret eder: 0.x sürümleri başlangıç geliştirmesiydi ve her şey değişebiliyordu. Bu sürümden itibaren kurulum yolu (Docker ve elle), `.env` değişkenleri, HTTP API'si ve veritabanı şeması kararlı kabul edilir; bunları bozan her değişiklik **Kırılan Değişiklikler** altında yazılır ve ana sürümü artırır. Sürüm, 0.x geçmişinin son PR'ına ek olarak sürüm kesilmeden önce `main`'e giren service worker düzeltmesini de içerir.

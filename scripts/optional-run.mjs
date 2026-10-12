@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 // Kullanım: node scripts/optional-run.mjs <klasör> <komut> [argümanlar...]
-// <klasör>/package.json yoksa (eklenti kurulu değil: game-host, odds-provider
-// birer alt modül symlink'idir) uyarı basıp 0 ile çıkar; varsa komutu çalıştırır.
+// <klasör>/package.json yoksa (eklenti kurulu değil: game-host bir
+// alt modül symlink'idir) uyarı basıp 0 ile çıkar; varsa komutu çalıştırır.
 // Eklentisiz bir alıcı kurulumunda `npm run install:all` / `npm run dev`
 // ENOENT ile düşmesin diye kullanılır.
 import { existsSync } from 'node:fs';

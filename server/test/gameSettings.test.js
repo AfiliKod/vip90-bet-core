@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import mongoose from 'mongoose';
 import User from '../src/models/User.js';
 import GameSettings from '../src/models/GameSettings.js';
-import { initDefaultGameSettings, getGameSettings, getAllGameSettings, updateGameSettings, getCrashSettingsForOperator, getRouletteSettingsForOperator } from '../src/services/gameSettings.js';
+import { initDefaultGameSettings, getGameSettings, getAllGameSettings, updateGameSettings, getCrashSettingsForOperator, getRouletteSettingsForOperator, getGameSettingsForOperator, updateOperatorGameSettings } from '../src/services/gameSettings.js';
 
 describe('Game Settings', () => {
   before(async () => {
@@ -30,7 +30,7 @@ describe('Game Settings', () => {
       await initDefaultGameSettings();
 
       const count = await GameSettings.countDocuments();
-      assert.equal(count, 13);
+      assert.equal(count, 14);
 
       const crash = await GameSettings.findOne({ gameId: 'inhouse-crash' });
       assert.ok(crash);
@@ -113,6 +113,20 @@ describe('Game Settings', () => {
       assert.equal(vp.vpRoyalFlushMult, 800);
     });
 
+    // Coin Flip (14. oyun) — ONAYLI spec 2026-10-09: RTP %98.00 (mult 1.96),
+    // min 1.00 / max 1.000,00 TRY. Bu değerler math spec dışına taşamaz.
+    it('should create default settings for Coin Flip with approved spec values', async () => {
+      await initDefaultGameSettings();
+
+      const coinflip = await GameSettings.findOne({ gameId: 'inhouse-coinflip' });
+      assert.ok(coinflip);
+      assert.equal(coinflip.gameTitle, 'Coin Flip');
+      assert.equal(coinflip.coinflipPayoutMult, 1.96);
+      assert.equal(coinflip.coinflipMinBet, 1);
+      assert.equal(coinflip.coinflipMaxBet, 1000);
+      assert.equal(coinflip.isActive, true);
+    });
+
     it('should not create duplicates on second call', async () => {
       await initDefaultGameSettings();
       const count1 = await GameSettings.countDocuments();
@@ -165,9 +179,9 @@ describe('Game Settings', () => {
       await initDefaultGameSettings();
       
       const settings = await getAllGameSettings();
-      assert.equal(settings.length, 13);
+      assert.equal(settings.length, 14);
       assert.deepEqual(settings.map(s => s.gameId), [
-        'inhouse-baccarat', 'inhouse-blackjack', 'inhouse-crash', 'inhouse-dice',
+        'inhouse-baccarat', 'inhouse-blackjack', 'inhouse-coinflip', 'inhouse-crash', 'inhouse-dice',
         'inhouse-dragontiger', 'inhouse-hilo', 'inhouse-keno', 'inhouse-limbo',
         'inhouse-mines', 'inhouse-plinko', 'inhouse-roulette', 'inhouse-videopoker',
         'inhouse-wheel',
@@ -505,6 +519,148 @@ describe('Game Settings', () => {
       assert.equal(settings.changeLog.length, 2);
       assert.equal(settings.changeLog[0].field, 'crashHouseEdgePercent');
       assert.equal(settings.changeLog[1].field, 'crashMinBet');
+    });
+
+    it('should update coinflip settings with change log', async () => {
+      await initDefaultGameSettings();
+
+      const admin = await User.create({
+        username: 'admin',
+        email: 'admin@example.com',
+        password: 'password123',
+        role: 'admin',
+      });
+
+      const result = await updateGameSettings('inhouse-coinflip', {
+        coinflipPayoutMult: 1.95,
+        coinflipMinBet: 2,
+        coinflipMaxBet: 2000,
+      }, admin._id, { reason: 'Operator request' });
+
+      assert.equal(result.settings.coinflipPayoutMult, 1.95);
+      assert.equal(result.settings.coinflipMinBet, 2);
+      assert.equal(result.settings.coinflipMaxBet, 2000);
+      assert.equal(result.changes.length, 3);
+      assert.equal(result.changes[0].field, 'coinflipPayoutMult');
+    });
+
+    // mult > 2.0 = RTP %100+ (negatif house edge) — sert tavan, spec dışı hiçbir
+    // değer kabul edilmemeli. (multField guard, GAME_FIELD_META'da 1.8-2.0.)
+    it('should validate coinflip payout multiplier range', async () => {
+      await initDefaultGameSettings();
+
+      const admin = await User.create({
+        username: 'admin',
+        email: 'admin@example.com',
+        password: 'password123',
+        role: 'admin',
+      });
+
+      try {
+        await updateGameSettings('inhouse-coinflip', { coinflipPayoutMult: 2.01 }, admin._id);
+        assert.fail('Should have thrown error');
+      } catch (err) {
+        assert.ok(err.message.includes('1.8-2.0'));
+      }
+
+      try {
+        await updateGameSettings('inhouse-coinflip', { coinflipPayoutMult: 1.79 }, admin._id);
+        assert.fail('Should have thrown error');
+      } catch (err) {
+        assert.ok(err.message.includes('1.8-2.0'));
+      }
+    });
+
+    it('should reject coinflip max bet below min bet', async () => {
+      await initDefaultGameSettings();
+
+      const admin = await User.create({
+        username: 'admin',
+        email: 'admin@example.com',
+        password: 'password123',
+        role: 'admin',
+      });
+
+      try {
+        await updateGameSettings('inhouse-coinflip', {
+          coinflipMinBet: 100,
+          coinflipMaxBet: 10,
+        }, admin._id);
+        assert.fail('Should have thrown error');
+      } catch (err) {
+        assert.ok(err.message.includes('Max bet min betten büyük olmalı'));
+      }
+    });
+  });
+
+  // Coin Flip operatör yolu — engine (instantGameEngine.js) her istekte
+  // getGameSettingsForOperator + GAME_FIELD_META üzerinden bu akışı kullanır.
+  describe('coinflip operator settings', () => {
+    it('should lazy-seed operator-scoped coinflip settings with approved defaults', async () => {
+      const mongoose = (await import('mongoose')).default;
+      const operatorId = new mongoose.Types.ObjectId();
+
+      const settings = await getGameSettingsForOperator(operatorId, 'inhouse-coinflip');
+      assert.ok(settings);
+      assert.equal(settings.gameId, 'inhouse-coinflip');
+      assert.equal(String(settings.operatorId), String(operatorId));
+      assert.equal(settings.coinflipPayoutMult, 1.96);
+      assert.equal(settings.coinflipMinBet, 1);
+      assert.equal(settings.coinflipMaxBet, 1000);
+    });
+
+    it('should update operator coinflip settings via updateOperatorGameSettings', async () => {
+      const mongoose = (await import('mongoose')).default;
+      const operatorId = new mongoose.Types.ObjectId();
+
+      const { settings, changes } = await updateOperatorGameSettings(operatorId, 'inhouse-coinflip', {
+        coinflipPayoutMult: 1.9,
+        coinflipMaxBet: 500,
+      }, { reason: 'Season tuning' });
+
+      assert.equal(settings.coinflipPayoutMult, 1.9);
+      assert.equal(settings.coinflipMaxBet, 500);
+      assert.equal(settings.coinflipMinBet, 1); // dokunulmadı
+      assert.equal(changes.length, 2);
+    });
+
+    it('should reject operator coinflip multiplier outside the safety range', async () => {
+      const mongoose = (await import('mongoose')).default;
+      const operatorId = new mongoose.Types.ObjectId();
+
+      try {
+        await updateOperatorGameSettings(operatorId, 'inhouse-coinflip', { coinflipPayoutMult: 2.5 });
+        assert.fail('Should have thrown error');
+      } catch (err) {
+        assert.ok(err.message.includes('coinflipPayoutMult 1.8-2'));
+      }
+    });
+
+    it('should reject operator coinflip max below min', async () => {
+      const mongoose = (await import('mongoose')).default;
+      const operatorId = new mongoose.Types.ObjectId();
+
+      try {
+        await updateOperatorGameSettings(operatorId, 'inhouse-coinflip', {
+          coinflipMinBet: 500,
+          coinflipMaxBet: 100,
+        });
+        assert.fail('Should have thrown error');
+      } catch (err) {
+        assert.ok(err.message.includes('Max bet min betten büyük olmalı'));
+      }
+    });
+
+    it('should reject unknown fields for operator coinflip update', async () => {
+      const mongoose = (await import('mongoose')).default;
+      const operatorId = new mongoose.Types.ObjectId();
+
+      try {
+        await updateOperatorGameSettings(operatorId, 'inhouse-coinflip', { minesPayoutFactor: 0.9 });
+        assert.fail('Should have thrown error');
+      } catch (err) {
+        assert.ok(err.message.includes('geçerli alan yok'));
+      }
     });
   });
 });

@@ -175,6 +175,7 @@ export default function App() {
         <Route path="/games/baccarat" element={<ProtectedRoute><Suspense fallback={<PageLoader />}><InhouseGameLauncher gameId="baccarat" /></Suspense></ProtectedRoute>} />
         <Route path="/games/videopoker" element={<ProtectedRoute><Suspense fallback={<PageLoader />}><InhouseGameLauncher gameId="videopoker" /></Suspense></ProtectedRoute>} />
         <Route path="/games/dragontiger" element={<ProtectedRoute><Suspense fallback={<PageLoader />}><InhouseGameLauncher gameId="dragontiger" /></Suspense></ProtectedRoute>} />
+        <Route path="/games/coinflip" element={<ProtectedRoute><Suspense fallback={<PageLoader />}><InhouseGameLauncher gameId="coinflip" /></Suspense></ProtectedRoute>} />
         <Route path="/my-bets" element={<ProtectedRoute><Layout><Suspense fallback={<PageLoader />}><MyBets /></Suspense></Layout></ProtectedRoute>} />
         <Route path="/favorites" element={<ProtectedRoute><Layout><Suspense fallback={<PageLoader />}><Favorites /></Suspense></Layout></ProtectedRoute>} />
         <Route path="/recently-played" element={<ProtectedRoute><Layout><Suspense fallback={<PageLoader />}><RecentlyPlayed /></Suspense></Layout></ProtectedRoute>} />

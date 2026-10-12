@@ -4,7 +4,7 @@ import Transaction from '../models/Transaction.js';
 import mongoose from 'mongoose';
 import escapeStringRegexp from 'escape-string-regexp';
 import { getIO } from './socketEmitter.js';
-import { createTransaction } from './ledger.js';
+import { createTransaction, adjustBalance } from './ledger.js';
 import { createError } from '../middleware/error.js';
 
 /**
@@ -344,9 +344,10 @@ export async function payAgentCommission(playerId, houseProfit, options = {}) {
     : `agent_commission_${agent._id}_${player._id}_${Date.now()}`;
   if (sourceId && await Transaction.exists({ idempotencyKey }).session(session)) return null;
 
-  const balanceBefore = agent.balance;
-  agent.balance = parseFloat((agent.balance + commission).toFixed(2));
-  await agent.save({ session });
+  const credited = await adjustBalance(agent._id, commission, { session, model: Agent });
+  if (!credited) return null;
+  const { balanceBefore } = credited;
+  agent.balance = credited.balanceAfter; // yalnız aşağıdaki yanıt/bildirim için; kaydedilmez
 
   const { transaction } = await createTransaction({
     userId: agent.userId,

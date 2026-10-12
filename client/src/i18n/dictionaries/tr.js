@@ -353,6 +353,9 @@ export default {
     'games.dragontiger.title': 'Dragon Tiger',
     'games.dragontiger.subtitle': 'Dragon mı Tiger mı — yüksek kart kazanır',
     'games.dragontiger.cta': 'Taraf Seç',
+    'games.coinflip.title': 'Coin Flip',
+    'games.coinflip.subtitle': 'Yazı mı Tura mı — paradan tarafını seç, bahsini ikiye katla',
+    'games.coinflip.cta': 'Parayı At',
 
     // Game UI
     'game.betAmount': 'Bahis Miktarı',
@@ -763,6 +766,13 @@ export default {
   'admin.gameSettings.field.vpMinBet': 'Min. Bahis',
   'admin.gameSettings.field.vpMaxBet': 'Maks. Bahis',
 
+  'admin.gameSettings.field.coinflipPayoutMult': 'Kazanç Çarpanı',
+  'admin.gameSettings.field.coinflipPayoutMult.help': 'Tahmin edilen taraf geldiğinde toplam iade. ONAYLI değer 1.96 (RTP %98.00): her ±0.01 değişim RTP\'yi ∓0,50 pp oynatır. 1.8-2.0 sert aralığı, 2.0 üzeri çarpanın (RTP %100+\') engellenmesi içindir.',
+  'admin.gameSettings.field.coinflipMinBet': 'Min. Bahis',
+  'admin.gameSettings.field.coinflipMaxBet': 'Maks. Bahis',
+  'admin.gameSettings.coinflip.rtpMain': 'Coin Flip RTP',
+  'admin.gameSettings.coinflip.info': "Coin Flip tek bir adil paradır — kazanma olasılığı tam olarak %50 sabittir, RTP'yi yalnızca kazanç çarpanı belirler: RTP = %50 × çarpan. ONAYLI değer 1.96 (RTP %98.00, house edge %2.00). Oyun matematiği spec'ine göre çarpanda ±0.01 değişiklik RTP'yi ∓0,50 pp kaydırır; ±0,10 pp toleransının ötesindeki her değişiklik Game Math yeniden onayı gerektirir. Tur başına maksimum kazanç: 1.000,00 × 1.96 = 1.960,00 TRY.",
+
   'admin.gameSettings.simulate.info': 'RTP burada oyuncunun kararına bağlı (Blackjack: hit/stand/double; Video Poker: hangi kartların tutulacağı) — kapalı formda hesaplanamaz. "Hesapla" butonu, sunucuda gerçek oyun mantığıyla (temel strateji / en-iyi-tutma sezgisel kurallarıyla) yüz binlerce eli simüle ederek RTP\'yi ±güven aralığıyla TAHMİN eder. Kaydetmeden önce mevcut form değerleriyle deneyebilirsiniz.',
   'admin.gameSettings.simulate.label': 'Tahmini RTP (Monte Carlo)',
   'admin.gameSettings.simulate.button': 'Hesapla',
@@ -1092,6 +1102,7 @@ export default {
   'games.baccarat.cardDesc': 'Oyuncu mu banker mi kazanır',
   'games.videopoker.cardDesc': 'Jacks or Better poker',
   'games.dragontiger.cardDesc': 'Dragon mı Tiger mı?',
+  'games.coinflip.cardDesc': 'Yazı mı Tura mı?',
 
   // Settings sayfası
   'settings.title': 'Ayarlar',

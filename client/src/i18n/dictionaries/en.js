@@ -352,6 +352,9 @@ export default {
   'games.dragontiger.title': 'Dragon Tiger',
   'games.dragontiger.subtitle': 'Dragon or Tiger — higher card wins',
   'games.dragontiger.cta': 'Pick Side',
+  'games.coinflip.title': 'Coin Flip',
+  'games.coinflip.subtitle': 'Heads or Tails — call the coin and double your bet',
+  'games.coinflip.cta': 'Flip the Coin',
 
   // Game UI
   'game.betAmount': 'Bet Amount',
@@ -762,6 +765,13 @@ export default {
   'admin.gameSettings.field.vpMinBet': 'Min. Bet',
   'admin.gameSettings.field.vpMaxBet': 'Max. Bet',
 
+  'admin.gameSettings.field.coinflipPayoutMult': 'Win Multiplier',
+  'admin.gameSettings.field.coinflipPayoutMult.help': 'Total return when the guessed side lands. The approved value is 1.96 (RTP 98.00%): each ±0.01 moves RTP by ∓0.50 pp. The hard range 1.8–2.0 prevents a multiplier above 2.0, which would mean an RTP over 100%.',
+  'admin.gameSettings.field.coinflipMinBet': 'Min. Bet',
+  'admin.gameSettings.field.coinflipMaxBet': 'Max. Bet',
+  'admin.gameSettings.coinflip.rtpMain': 'Coin Flip RTP',
+  'admin.gameSettings.coinflip.info': "Coin Flip is a single fair coin — the win probability is fixed at exactly 50%, so RTP is fully determined by the multiplier: RTP = 50% × multiplier. The approved value is 1.96 (RTP 98.00%, house edge 2.00%). Per the game math spec, a change of ±0.01 in the multiplier shifts RTP by ∓0.50 pp; anything beyond the ±0.10 pp tolerance requires re-approval from Game Math. Maximum win per round: 1,000.00 × 1.96 = 1,960.00 TRY.",
+
   'admin.gameSettings.simulate.info': "RTP here depends on player decisions (Blackjack: hit/stand/double; Video Poker: which cards to hold) — it can't be computed in closed form. The \"Calculate\" button runs a server-side Monte Carlo simulation of hundreds of thousands of hands using the real game logic (basic strategy / best-hold heuristics) and returns an RTP estimate with a margin of error. You can try it with the current form values before saving.",
   'admin.gameSettings.simulate.label': 'Estimated RTP (Monte Carlo)',
   'admin.gameSettings.simulate.button': 'Calculate',
@@ -1091,6 +1101,7 @@ export default {
   'games.baccarat.cardDesc': 'Player or banker wins',
   'games.videopoker.cardDesc': 'Jacks or Better poker',
   'games.dragontiger.cardDesc': 'Dragon or Tiger?',
+  'games.coinflip.cardDesc': 'Heads or Tails?',
 
   // Settings page
   'settings.title': 'Settings',

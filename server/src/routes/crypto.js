@@ -15,7 +15,9 @@ import { getSpendableBreakdown } from '../services/wagering.js';
 import { formatMoney } from '../currency/index.js';
 import { CRYPTO_SETTINGS, shouldAutoCredit, shouldAutoProcessWithdraw } from '../config/crypto.js';
 import { updateDailyStats } from '../services/responsibleGaming.js';
-import { createTransaction } from '../services/ledger.js';
+import { createTransaction, adjustBalance } from '../services/ledger.js';
+import Transaction from '../models/Transaction.js';
+import { withTransactionRetry } from '../utils/transactionRetry.js';
 
 const r = Router();
 r.use(requireAuth);
@@ -97,9 +99,10 @@ r.post('/check-deposit', enforceRiskCheck('deposit'), async (req, res, next) => 
         const balBefore = fresh.balance;
 
         if (autoCredit) {
-          // Otomatik hesaba ekle
-          fresh.balance = +(fresh.balance + tryAmount).toFixed(2);
-          await fresh.save({ session });
+          // Otomatik hesaba ekle (atomik; aynı txHash'in ikinci kez işlenmesini
+          // CryptoDeposit.txHash tekilliği ve işlem içi defter koruması engeller)
+          const adjusted = await adjustBalance(fresh._id, tryAmount, { session });
+          fresh.balance = adjusted.balanceAfter;
 
           const [dep] = await CryptoDeposit.create([{
             userId: fresh._id,
@@ -229,89 +232,111 @@ r.post('/withdraw-request', requireKycForWithdrawal(), enforceRiskCheck('withdra
       });
     }
 
-    // 4. Bakiyeyi düş + transfer yap
+    // 4. Bakiyeyi düş (yeterlilik koşullu, atomik) + kaydı yaz → commit.
+    //    USDT ancak commit'ten SONRA gönderilir (2026-10-12). Önceden transfer
+    //    işlemin İÇİNDE yapılıyordu: commit çakışmayla geri alınırsa oyuncu
+    //    USDT'yi alıyor, bakiyesi de geri geliyordu; ayrıca işlem içinde
+    //    bakiye yeniden denetlenmediği için eşzamanlı talepler bakiyeyi eksiye
+    //    düşürebiliyordu.
+    const autoProcess = shouldAutoProcessWithdraw(usdtAmount);
     const session = await mongoose.startSession();
-    session.startTransaction();
+    let reserved;
     try {
-      const user = await User.findById(req.user.id).session(session);
-      const balBefore = user.balance;
-      user.balance = +(user.balance - tryNeeded).toFixed(2);
-      await user.save({ session });
-
-      const autoProcess = shouldAutoProcessWithdraw(usdtAmount);
-
-      if (autoProcess) {
-        // Otomatik: hot wallet'tan gönder
-        const result = await transferUSDT(address, usdtAmount);
-        if (!result.success) {
-          await session.abortTransaction();
-          // SECURITY FIX (H11): Don't manually save balance — abortTransaction already reverts it
-          return res.status(500).json({ error: `Transfer başarısız: ${result.error}` });
-        }
-
-        // Tek kayıt (idempotent ledger). Adres/USDT/txHash şemada ayrı alan
-        // olmadığı için metadata'da saklanır — eskiden ikinci bir ham
-        // Transaction.create çift kayıt üretiyordu ve bu alanlar strict
-        // şemada zaten düşüyordu.
-        await createTransaction({
-          userId: user._id,
+      reserved = await withTransactionRetry(session, async () => {
+        const adjusted = await adjustBalance(req.user.id, -tryNeeded, { session, requireFunds: true });
+        if (!adjusted) throw createError(400, 'INSUFFICIENT_BALANCE', 'Yetersiz bakiye');
+        const { transaction } = await createTransaction({
+          userId: req.user.id,
           type: 'crypto_withdraw',
           amount: -tryNeeded,
-          balanceBefore: balBefore,
-          balanceAfter: user.balance,
-          note: `${usdtAmount} USDT → ${address} (tx: ${result.txHash.slice(0, 12)}...)`,
-          status: 'completed',
-          metadata: { toAddress: address, usdtAmount, rate, txHash: result.txHash },
-          idempotencyKey: `crypto_withdraw_${result.txHash}`,
-          source: 'player',
-        }, { session });
-
-        await session.commitTransaction();
-        res.json({
-          newBalance: user.balance,
-          autoProcessed: true,
-          txHash: result.txHash,
-          message: `${usdtAmount} USDT gönderildi`,
-        });
-      } else {
-        // Admin onayına gönder
-        await createTransaction({
-          userId: user._id,
-          type: 'crypto_withdraw',
-          amount: -tryNeeded,
-          balanceBefore: balBefore,
-          balanceAfter: user.balance,
-          note: `${usdtAmount} USDT → ${address} — Admin onayı bekliyor`,
-          status: 'pending',
+          balanceBefore: adjusted.balanceBefore,
+          balanceAfter: adjusted.balanceAfter,
+          note: autoProcess ? `${usdtAmount} USDT → ${address} — gönderiliyor` : `${usdtAmount} USDT → ${address} — Admin onayı bekliyor`,
+          status: autoProcess ? 'processing' : 'pending',
           metadata: { toAddress: address, usdtAmount, rate },
-          idempotencyKey: `crypto_withdraw_pending_${user._id}_${crypto.randomUUID()}`,
+          idempotencyKey: `crypto_withdraw_pending_${req.user.id}_${crypto.randomUUID()}`,
           source: 'player',
         }, { session });
-
-        await session.commitTransaction();
-        res.json({
-          newBalance: user.balance,
-          autoProcessed: false,
-          message: `${usdtAmount} USDT çekim talebiniz alındı — Admin onayı bekliyor`,
-        });
-        // Çekim talebi SMS'i — "admin onayı bekliyor" anı tetikleyicisidir
-        // (banka çekimi aynı istekte tamamlanır; onay bekleyen tek akış budur).
-        // Fire-and-forget; şablon/gateway/modül kapalıysa dispatch atlar.
-        import('../services/smsTemplate.js')
-          .then(({ dispatchSmsEvent }) => dispatchSmsEvent(
-            'withdrawalRequested',
-            null,
-            { amount: usdtAmount, currency: 'USDT', method: 'crypto' },
-            { userId: user._id },
-          ))
-          .catch(() => {});
-      }
-    } catch (e) {
-      await session.abortTransaction();
-      next(e);
+        return { tx: transaction, balanceAfter: adjusted.balanceAfter };
+      });
     } finally {
-      session.endSession();
+      await session.endSession();
     }
+
+    if (!autoProcess) {
+      res.json({
+        newBalance: reserved.balanceAfter,
+        autoProcessed: false,
+        message: `${usdtAmount} USDT çekim talebiniz alındı — Admin onayı bekliyor`,
+      });
+      // Çekim talebi SMS'i — "admin onayı bekliyor" anı tetikleyicisidir
+      // (banka çekimi aynı istekte tamamlanır; onay bekleyen tek akış budur).
+      // Fire-and-forget; şablon/gateway/modül kapalıysa dispatch atlar.
+      import('../services/smsTemplate.js')
+        .then(({ dispatchSmsEvent }) => dispatchSmsEvent(
+          'withdrawalRequested',
+          null,
+          { amount: usdtAmount, currency: 'USDT', method: 'crypto' },
+          { userId: req.user.id },
+        ))
+        .catch(() => {});
+      return;
+    }
+
+    // Otomatik: hot wallet'tan gönder
+    let result;
+    try {
+      result = await transferUSDT(address, usdtAmount);
+    } catch (e) {
+      // Sonuç belirsiz (ağ hatası): kayıt "processing"te kalır, iade edilmez;
+      // admin zinciri kontrol edip sonuçlandırır.
+      console.error(`[crypto] withdraw transfer belirsiz: tx=${reserved.tx._id}`, e.message);
+      return res.status(502).json({ error: 'Transfer sonucu alınamadı; talebiniz incelemeye alındı', newBalance: reserved.balanceAfter });
+    }
+
+    if (!result.success) {
+      // Transfer gitmedi: kayıt "failed", bakiye ve iade satırı tek işlemde.
+      const refundSession = await mongoose.startSession();
+      let refundedBalance = reserved.balanceAfter;
+      try {
+        refundedBalance = await withTransactionRetry(refundSession, async () => {
+          const claimed = await Transaction.findOneAndUpdate(
+            { _id: reserved.tx._id, status: 'processing' },
+            { $set: { status: 'failed', note: `${usdtAmount} USDT → ${address} — transfer başarısız, iade edildi` } },
+            { new: true, session: refundSession },
+          );
+          if (!claimed) return reserved.balanceAfter;
+          const adj = await adjustBalance(req.user.id, tryNeeded, { session: refundSession });
+          await createTransaction({
+            userId: req.user.id,
+            type: 'refund',
+            amount: tryNeeded,
+            balanceBefore: adj.balanceBefore,
+            balanceAfter: adj.balanceAfter,
+            referenceId: reserved.tx._id,
+            note: 'Kripto çekim transferi başarısız, bakiye iade edildi',
+            idempotencyKey: `crypto_withdraw_refund_${reserved.tx._id}`,
+            source: 'system',
+          }, { session: refundSession });
+          return adj.balanceAfter;
+        });
+      } finally {
+        await refundSession.endSession();
+      }
+      return res.status(500).json({ error: `Transfer başarısız: ${result.error}`, newBalance: refundedBalance });
+    }
+
+    await Transaction.updateOne({ _id: reserved.tx._id }, { $set: {
+      status: 'completed',
+      note: `${usdtAmount} USDT → ${address} (tx: ${result.txHash.slice(0, 12)}...)`,
+      'metadata.txHash': result.txHash,
+    } });
+    res.json({
+      newBalance: reserved.balanceAfter,
+      autoProcessed: true,
+      txHash: result.txHash,
+      message: `${usdtAmount} USDT gönderildi`,
+    });
   } catch (e) { next(e); }
 });
 

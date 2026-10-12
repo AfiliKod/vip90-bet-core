@@ -11,7 +11,7 @@ import User from '../models/User.js';
 import SlikairPayment from '../models/SlikairPayment.js';
 import SlikairPayout from '../models/SlikairPayout.js';
 import * as slikairService from '../services/slikairService.js';
-import { createTransaction, emitDepositRisk } from '../services/ledger.js';
+import { createTransaction, emitDepositRisk, adjustBalance, isDuplicateTransaction } from '../services/ledger.js';
 import { updateDailyStats, checkPlayerEligibility } from '../services/responsibleGaming.js';
 import { isSlikairConfigured } from '../config/slikairConfig.js';
 import { errorLogger } from '../services/errorLogger.js';
@@ -186,18 +186,13 @@ export async function initiatePayout(req, res, next) {
     } catch (e) {
       payout.status = 'failed';
       await payout.save();
-      const balanceBeforeRefund = (await User.findById(userId)).balance;
-      const refunded = await User.findByIdAndUpdate(
-        userId,
-        { $inc: { balance: amount } },
-        { new: true },
-      );
+      const refunded = await adjustBalance(userId, amount);
       await createTransaction({
         userId,
         type: 'refund',
         amount,
-        balanceBefore: balanceBeforeRefund,
-        balanceAfter: refunded.balance,
+        balanceBefore: refunded.balanceBefore,
+        balanceAfter: refunded.balanceAfter,
         referenceId: payout._id,
         status: 'completed',
         note: `Slikair çekim başlatılamadı, bakiye iade edildi: ${e.message}`,
@@ -305,18 +300,23 @@ export async function handlePayinWebhook(req, res, next) {
     if (newStatus === 'succeeded' && payment.status !== 'succeeded' && verifiedSucceeded) {
       const session = await mongoose.startSession();
       try {
-        await withTransactionRetry(session, async () => {
-          const user = await User.findById(payment.userId).session(session);
-          if (!user) throw new Error('User not found');
+        const credited = await withTransactionRetry(session, async () => {
+          // Ödeme kaydı koşullu ve atomik "succeeded" olur: aynı payin için
+          // eşzamanlı iki webhook'tan yalnız biri kredi verir (önceden ikisi de
+          // dışarıdaki "succeeded değil" kontrolünü geçip iki kez yatırıyordu).
+          const claimed = await SlikairPayment.findOneAndUpdate(
+            { _id: payment._id, status: { $ne: 'succeeded' } },
+            { $set: { status: 'succeeded', creditedAt: new Date() } },
+            { new: true, session },
+          );
+          if (!claimed) return false;
 
-          const balanceBefore = user.balance;
-          const balanceAfter = parseFloat((user.balance + payment.amount).toFixed(2));
-
-          user.balance = balanceAfter;
-          await user.save({ session });
+          const adjusted = await adjustBalance(payment.userId, payment.amount, { session });
+          if (!adjusted) throw new Error('User not found');
+          const { balanceBefore, balanceAfter } = adjusted;
 
           await createTransaction({
-            userId: user._id,
+            userId: payment.userId,
             type: 'deposit',
             amount: payment.amount,
             balanceBefore,
@@ -328,17 +328,14 @@ export async function handlePayinWebhook(req, res, next) {
             source: 'system',
             metadata: { payinId: payment.payinId, paymentMethod: payment.paymentMethod },
           }, { session });
-
-          payment.status = 'succeeded';
-          payment.creditedAt = new Date();
-          await payment.save({ session });
-        });
+          return true;
+        }).catch((e) => { if (isDuplicateTransaction(e)) return false; throw e; });
 
         // Transaction SONRASI — retry bloğunun dışında
-        updateDailyStats(payment.userId, 'deposit', payment.amount).catch((e) => {
+        if (credited) updateDailyStats(payment.userId, 'deposit', payment.amount).catch((e) => {
           console.error(`[RG] updateDailyStats (deposit) failed for payin ${payment.payinId}:`, e.message);
         });
-        emitDepositRisk(payment.userId, payment.amount, { payinId: payment.payinId }).catch(() => {});
+        if (credited) emitDepositRisk(payment.userId, payment.amount, { payinId: payment.payinId }).catch(() => {});
       } finally {
         await session.endSession();
       }
@@ -347,22 +344,28 @@ export async function handlePayinWebhook(req, res, next) {
       // halde en üstteki idempotency kontrolü sonraki gerçek/doğrulanmış webhook'u da
       // sessizce yok sayardı). 'processing'de bırakılıp admin incelemesi için
       // metadata'ya işleniyor; krediye geçilmiyor.
-      payment.status = 'processing';
-      payment.statusCode = status_code;
-      payment.metadata = {
-        ...(payment.metadata || {}),
-        unverifiedSucceededWebhook: { status, status_code, amount, currency, receivedAt: new Date() },
-      };
-      payment.webhookReceivedAt = new Date();
-      await payment.save();
+      // Koşullu: arada başka bir webhook kredi verdiyse "succeeded" ezilmez.
+      await SlikairPayment.updateOne({ _id: payment._id, status: { $ne: 'succeeded' } }, { $set: {
+        status: 'processing',
+        statusCode: status_code,
+        metadata: {
+          ...(payment.metadata || {}),
+          unverifiedSucceededWebhook: { status, status_code, amount, currency, receivedAt: new Date() },
+        },
+        webhookReceivedAt: new Date(),
+      } });
     } else {
-      // Succeeded değilse (failed/refunded/pending/processing vb.) sadece durumu güncelle
-      payment.status = newStatus;
-      payment.statusCode = status_code;
-      payment.reasonCode = reason_code || null;
-      payment.declineReason = decline_reason || null;
-      payment.webhookReceivedAt = new Date();
-      await payment.save();
+      // Succeeded değilse (failed/refunded/pending/processing vb.) sadece durumu güncelle.
+      // Kredilenmiş ödemenin durumu geç gelen bir webhook'la geri çekilmez
+      // (iade gibi gerçek bir durum değişikliği hariç).
+      const guard = newStatus === 'refunded' ? {} : { status: { $ne: 'succeeded' } };
+      await SlikairPayment.updateOne({ _id: payment._id, ...guard }, { $set: {
+        status: newStatus,
+        statusCode: status_code,
+        reasonCode: reason_code || null,
+        declineReason: decline_reason || null,
+        webhookReceivedAt: new Date(),
+      } });
     }
 
     res.status(200).json({ ok: true });

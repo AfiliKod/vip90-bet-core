@@ -134,8 +134,9 @@ Blackjack · Roulette · Baccarat · Video Poker · Dragon Tiger**
   sayfasında market bazlı oran tablosu.
 - Tekli / kombine kupon, otomatik sonuçlandırma motoru: bahis oynanır,
   etkinlik sonuçlanınca bakiye atomik bir işlemle kredilenir.
-- Oran verisi ayrı bir uygulamadan (`odds-provider`) gelir; veri kaynağı
-  sözleşmesi sizin sorumluluğunuzdadır.
+- Oran verisi VIP90'ın barındırdığı besleme servisinden
+  (`https://feed.vip90.bet`) gelir; platform, geliştirici portalında
+  (`https://developers.vip90.bet`) oluşturulan API anahtarıyla bağlanır.
 
 ### 🃏 Casino İçeriği (ücretli eklenti)
 
@@ -217,12 +218,12 @@ installer/ Tarayıcı tabanlı kurulum sihirbazı (/install)
 deploy/    Caddy ters vekil yapılandırması (Docker)
 server/src/premium/   Ücretli eklentiler (özel git alt modülleri)
   inhouse-provider/   oyun motoru + game-host/ (ayrı React/Vite uygulaması)
-  betting/            sonuçlandırma + sync job'ları + odds-provider/ (ayrı Node uygulaması)
+  betting/            sonuçlandırma + oran beslemesi istemcisi + sync job'ları
   igames/             casino aggregator entegrasyonu
 ```
 
 `docker compose` yalnızca `mongo`, `app` ve `caddy` servislerini çalıştırır;
-`game-host` ve `odds-provider` Docker'da **yoktur** — ayrı kurulur
+`game-host` Docker'da **yoktur** — ayrı kurulur
 ([Kurulum](docs/product/01-kurulum.md)). MongoDB tek düğümlü replica set
 olarak çalışmalıdır (çoklu doküman transaction'ları kullanılır).
 
@@ -251,7 +252,7 @@ docker compose up -d            # mongo + app + caddy
 Ardından tarayıcıdan **`https://DOMAIN/install`** adresine gidin — ilk yönetici
 hesabı ve site adı/para birimi tek sayfalık bir sihirbazla tamamlanır.
 `.env` dosyasını önceden doldurmanız gerekir (JWT anahtarları olmadan oturum
-açılamaz); sihirbaz yönetici hesabını, site adı/para birimini ve (isteğe bağlı) başlangıçta açık olacak Kripto/KYC modüllerini yazar.
+açılamaz); sihirbaz yönetici hesabını, site adı/para birimini ve başlangıçta açık olacak Kripto/KYC modüllerini yazar (KYC varsayılan açık, Kripto kapalı).
 
 ### Elle kurulum
 
@@ -261,8 +262,8 @@ cp server/.env.example server/.env                        # MONGODB_URI, JWT_*, 
 npm start                                                 # client build + server
 ```
 
-`npm run install:all` eklenti dizinlerini (`game-host`, `odds-provider`) de
-kurar; eklentiler yoksa o adımı uyarıyla atlar. MongoDB replica set olmalıdır.
+`npm run install:all` eklenti dizinini (`game-host`) de kurar; eklenti yoksa
+o adımı uyarıyla atlar. MongoDB replica set olmalıdır.
 Sunucu ayaktayken **`/install`** adresine gidin.
 
 Eklentileri (In-house Games, Sports Betting, Casino Content) kurmak için:
@@ -271,7 +272,7 @@ Eklentileri (In-house Games, Sports Betting, Casino Content) kurmak için:
 ### Geliştirme ortamı
 
 ```bash
-npm run dev   # client + server (+ odds-provider; Sports Betting eklentisi yoksa o süreç başlamaz)
+npm run dev   # client + server
 ```
 
 ### Testler

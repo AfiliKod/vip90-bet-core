@@ -3,7 +3,7 @@ import BonusWagering from '../models/BonusWagering.js';
 import User from '../models/User.js';
 import Transaction from '../models/Transaction.js';
 import mongoose from 'mongoose';
-import { createTransaction } from './ledger.js';
+import { createTransaction, adjustBalance } from './ledger.js';
 import { withTransactionRetry } from '../utils/transactionRetry.js';
 
 const DEFAULT_WEIGHTS = {
@@ -175,23 +175,25 @@ export async function forfeitActiveWagerings(userId) {
   let totalForfeitedAmount = 0;
 
   for (const w of active) {
+    // Koşullu ve atomik: eşzamanlı iki çekim aynı bonusu iki kez feshedip
+    // bakiyeden iki kez düşmesin. Yalnız "active"ten çevirebildiğimiz sayılır.
+    const claimed = await BonusWagering.findOneAndUpdate(
+      { _id: w._id, status: 'active' },
+      { $set: { status: 'forfeited' } },
+      { new: true },
+    );
+    if (!claimed) continue;
     const forfeitAmount = computeForfeitAmount(w);
     totalForfeitedAmount += forfeitAmount;
-
-    w.status = 'forfeited';
-    await w.save();
-    forfeited.push({ wagering: w, forfeitAmount });
+    forfeited.push({ wagering: claimed, forfeitAmount });
   }
   totalForfeitedAmount = parseFloat(totalForfeitedAmount.toFixed(2));
 
   if (totalForfeitedAmount > 0) {
     // SECURITY FIX (C6): Use atomic $inc instead of read-modify-write
-    const balanceBefore = (await User.findById(userId)).balance;
-    const user = await User.findByIdAndUpdate(
-      userId,
-      { $inc: { balance: -totalForfeitedAmount } },
-      { new: true }
-    );
+    const adjusted = await adjustBalance(userId, -totalForfeitedAmount);
+    const balanceBefore = adjusted?.balanceBefore ?? 0;
+    const user = { balance: adjusted?.balanceAfter ?? 0 };
 
     // SECURITY FIX (C5): Use UUID instead of Date.now() for idempotency key
     const idempotencyKey = `forfeit_${userId}_${crypto.randomUUID()}`;

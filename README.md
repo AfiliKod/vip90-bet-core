@@ -134,8 +134,9 @@ Blackjack · Roulette · Baccarat · Video Poker · Dragon Tiger**
   event page.
 - Single and combo bet slip, automatic settlement engine: once an event is
   settled, the balance is credited in one atomic transaction.
-- Odds data comes from a separate application (`odds-provider`); the data
-  source contract is your responsibility.
+- Odds data comes from the hosted VIP90 odds feed (`https://feed.vip90.bet`);
+  the platform connects with an API key created in the developer portal
+  (`https://developers.vip90.bet`).
 
 ### 🃏 Casino Content (paid add-on)
 
@@ -216,12 +217,12 @@ installer/ Browser-based setup wizard (/install)
 deploy/    Caddy reverse proxy configuration (Docker)
 server/src/premium/   Paid add-ons (private git submodules)
   inhouse-provider/   game engine + game-host/ (separate React/Vite app)
-  betting/            settlement + sync jobs + odds-provider/ (separate Node app)
+  betting/            settlement + odds feed client + sync jobs
   igames/             casino aggregator integration
 ```
 
 `docker compose` runs only the `mongo`, `app` and `caddy` services;
-`game-host` and `odds-provider` are **not** in Docker and are installed
+`game-host` is **not** in Docker and is installed
 separately ([Installation](docs/product/01-kurulum.md)). MongoDB must run as a
 single-node replica set (multi-document transactions are used).
 
@@ -250,7 +251,7 @@ Then open **`https://DOMAIN/install`** in the browser: a one-page wizard
 creates the first admin account and sets the site name and currency. The
 `.env` file must be filled in beforehand (sessions cannot be issued without
 the JWT keys); the wizard writes the admin account, the site name/currency
-and, optionally, which of the Crypto/KYC modules start enabled.
+and which of the Crypto/KYC modules start enabled (KYC on by default, Crypto off).
 
 ### Manual installation
 
@@ -260,9 +261,8 @@ cp server/.env.example server/.env                        # fill in MONGODB_URI,
 npm start                                                 # client build + server
 ```
 
-`npm run install:all` also installs the add-on directories (`game-host`,
-`odds-provider`) and skips them with a warning when the add-ons are not
-present. MongoDB must be a replica set. Open **`/install`** while the server
+`npm run install:all` also installs the add-on directory (`game-host`) and
+skips it with a warning when the add-on is not present. MongoDB must be a replica set. Open **`/install`** while the server
 is running.
 
 To install the add-ons (In-house Games, Sports Betting, Casino Content):
@@ -271,7 +271,7 @@ To install the add-ons (In-house Games, Sports Betting, Casino Content):
 ### Development
 
 ```bash
-npm run dev   # client + server (+ odds-provider; skipped when the Sports Betting add-on is absent)
+npm run dev   # client + server
 ```
 
 ### Tests

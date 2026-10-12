@@ -1,6 +1,8 @@
 import VipLevel from '../models/VipLevel.js';
 import User from '../models/User.js';
-import { createTransaction } from './ledger.js';
+import { createTransaction, adjustBalance, isDuplicateTransaction } from './ledger.js';
+import { runInTransaction as inTxn } from '../utils/transactionRetry.js';
+
 import Transaction from '../models/Transaction.js';
 import { getIO } from './socketEmitter.js';
 
@@ -25,6 +27,10 @@ export const XP_RATES = {
  * @returns {object} { xpAwarded, leveledUp, newLevel, reward }
  */
 export async function awardXp(userId, amount, type, options = {}) {
+  return inTxn(options.session, session => awardXpInner(userId, amount, type, { ...options, session }));
+}
+
+async function awardXpInner(userId, amount, type, options = {}) {
   const { session = null } = options;
 
   if (!amount || amount <= 0) return { xpAwarded: 0, leveledUp: false };
@@ -35,17 +41,17 @@ export async function awardXp(userId, amount, type, options = {}) {
   const xpAwarded = Math.floor(amount * rate);
   if (xpAwarded <= 0) return { xpAwarded: 0, leveledUp: false };
 
-  const user = await User.findById(userId).session(session);
+  // XP atomik artar (eşzamanlı turlar birbirinin XP'sini ezmesin). Bakiye bu
+  // belgeye hiç yazılmaz: seviye ödülü adjustBalance ile ayrı ve atomik.
+  const user = await User.findByIdAndUpdate(
+    userId,
+    { $inc: { vipXp: xpAwarded, totalXpEarned: xpAwarded } },
+    { new: true, session },
+  );
   if (!user) return { xpAwarded: 0, leveledUp: false };
-
-  // Update user's XP
-  user.vipXp = (user.vipXp || 0) + xpAwarded;
-  user.totalXpEarned = (user.totalXpEarned || 0) + xpAwarded;
 
   // Check for level up
   const result = await checkLevelUp(user, session);
-
-  await user.save({ session });
 
   return {
     xpAwarded,
@@ -53,7 +59,7 @@ export async function awardXp(userId, amount, type, options = {}) {
     newLevel: result.newLevel,
     reward: result.reward,
     vipXp: user.vipXp,
-    vipLevel: user.vipLevel,
+    vipLevel: result.vipLevel ?? user.vipLevel,
   };
 }
 
@@ -66,6 +72,17 @@ export async function awardXp(userId, amount, type, options = {}) {
  * @returns {number} cashback amount credited (0 if none)
  */
 export async function payCashback(userId, betAmount, options = {}) {
+  try {
+    return await inTxn(options.session, session => payCashbackInner(userId, betAmount, { ...options, session }));
+  } catch (e) {
+    // Kendi açtığımız işlem geri alındı → hiçbir şey yazılmadı, "zaten ödendi".
+    // Çağıranın işlemindeysek hata yukarı gider ki o işlem de geri alınsın.
+    if (!options.session && isDuplicateTransaction(e)) return 0;
+    throw e;
+  }
+}
+
+async function payCashbackInner(userId, betAmount, options = {}) {
   const { session = null, sourceId = null } = options;
 
   if (!betAmount || betAmount <= 0) return 0;
@@ -99,23 +116,23 @@ export async function payCashback(userId, betAmount, options = {}) {
     : `vip_cashback_${user._id}_${Date.now()}`;
   if (sourceId && await Transaction.exists({ idempotencyKey }).session(session)) return 0;
 
-  const balanceBefore = user.balance;
-  user.balance = parseFloat((user.balance + cashback).toFixed(2));
-  await user.save({ session });
+  const credited = await adjustBalance(user._id, cashback, { session });
+  if (!credited) return 0;
+  const { balanceBefore, balanceAfter } = credited;
 
   await createTransaction({
     userId: user._id,
     type: 'cashback',
     amount: cashback,
     balanceBefore,
-    balanceAfter: user.balance,
+    balanceAfter,
     note: `VIP cashback (${levelDoc.name} %${levelDoc.cashbackPercent})`,
     idempotencyKey,
     source: 'system',
   }, { session });
 
   const io = getIO();
-  if (io) io.to(`user:${user._id}`).emit('balance:update', { balance: user.balance });
+  if (io) io.to(`user:${user._id}`).emit('balance:update', { balance: balanceAfter });
 
   return cashback;
 }
@@ -150,9 +167,18 @@ async function checkLevelUp(user, session) {
 
   // If user has no level yet, assign the base level (Bronze, level 1) silently
   // Don't count initial Bronze assignment as a "level up"
+  // Seviye değişikliği koşullu ve atomik: yalnız belge hâlâ okuduğumuz
+  // seviyedeyse yazılır. Eşzamanlı iki çağrıdan yalnız biri kazanır ve ödülü
+  // yalnız o öder (aksi halde seviye ödülü iki kez verilebiliyordu).
+  const claimLevel = () => User.findOneAndUpdate(
+    { _id: user._id, vipLevel: user.vipLevel || null },
+    { $set: { vipLevel: qualifiedLevel._id } },
+    { new: true, session },
+  );
+
   if (!currentLevelId && qualifiedLevel.level === 1) {
-    user.vipLevel = qualifiedLevel._id;
-    return { leveledUp: false };
+    await claimLevel();
+    return { leveledUp: false, vipLevel: qualifiedLevel._id };
   }
 
   if (currentLevel && qualifiedLevel.level <= currentLevel.level) {
@@ -160,23 +186,31 @@ async function checkLevelUp(user, session) {
   }
 
   // Level up!
-  user.vipLevel = qualifiedLevel._id;
+  if (!(await claimLevel())) return { leveledUp: false };
 
   // Apply level reward if any
   let reward = null;
   if (qualifiedLevel.rewardAmount > 0) {
-    const balanceBefore = user.balance;
     const rewardAmount = qualifiedLevel.rewardAmount;
+    const credit = async (idempotencyKey) => {
+      // Ödül daha önce verildiyse (seviye düşürülüp yeniden kazanıldıysa) ikinci kez verilmez.
+      if (await Transaction.exists({ idempotencyKey }).session(session)) return null;
+      const r = await adjustBalance(user._id, rewardAmount, { session });
+      if (!r) throw new Error('User not found');
+      return r;
+    };
 
     if (qualifiedLevel.rewardType === 'balance') {
-      user.balance = parseFloat((user.balance + rewardAmount).toFixed(2));
-      
+      const paid = await credit(`vip_levelup_${user._id}_${qualifiedLevel._id}`);
+      if (!paid) return { leveledUp: true, newLevel: qualifiedLevel, vipLevel: qualifiedLevel._id, reward: null };
+      const { balanceBefore, balanceAfter } = paid;
+
       await createTransaction({
         userId: user._id,
         type: 'bonus',
         amount: rewardAmount,
         balanceBefore,
-        balanceAfter: user.balance,
+        balanceAfter,
         note: `VIP seviye ödülü: ${qualifiedLevel.name}`,
         idempotencyKey: `vip_levelup_${user._id}_${qualifiedLevel._id}`,
         source: 'system',
@@ -184,14 +218,16 @@ async function checkLevelUp(user, session) {
     } else if (qualifiedLevel.rewardType === 'bonus') {
       // Bonus balance would be handled by wagering system
       // For now, treat as balance with bonus type
-      user.balance = parseFloat((user.balance + rewardAmount).toFixed(2));
-      
+      const paid = await credit(`vip_levelup_${user._id}_${qualifiedLevel._id}_bonus`);
+      if (!paid) return { leveledUp: true, newLevel: qualifiedLevel, vipLevel: qualifiedLevel._id, reward: null };
+      const { balanceBefore, balanceAfter } = paid;
+
       await createTransaction({
         userId: user._id,
         type: 'bonus',
         amount: rewardAmount,
         balanceBefore,
-        balanceAfter: user.balance,
+        balanceAfter,
         note: `VIP seviye bonus ödülü: ${qualifiedLevel.name}`,
         idempotencyKey: `vip_levelup_${user._id}_${qualifiedLevel._id}_bonus`,
         source: 'system',
@@ -208,6 +244,7 @@ async function checkLevelUp(user, session) {
   return {
     leveledUp: true,
     newLevel: qualifiedLevel,
+    vipLevel: qualifiedLevel._id,
     reward,
   };
 }

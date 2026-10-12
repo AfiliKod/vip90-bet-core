@@ -7,7 +7,7 @@ import Event from '../models/Event.js';
 import { createError } from '../middleware/error.js';
 import { assertFeedFresh } from '../utils/bettingGate.js';
 import { createTransaction } from '../services/ledger.js';
-import { updateDailyStats } from '../services/responsibleGaming.js';
+import { enforceAndRecordInTransaction } from '../services/responsibleGaming.js';
 import { withTransactionRetry } from '../utils/transactionRetry.js';
 
 export async function place(req, res, next) {
@@ -18,6 +18,8 @@ export async function place(req, res, next) {
       const user = await User.findById(req.user.id).session(session);
       if (!user) throw createError(404,'USER_NOT_FOUND','Kullanıcı bulunamadı');
       if (user.balance < stake) throw createError(400,'INSUFFICIENT_BALANCE','Yetersiz bakiye');
+      // RG limiti + wager sayacı bakiye ile aynı yazımda: eşzamanlı kuponlar limiti aşamaz.
+      enforceAndRecordInTransaction(user, 'bet', stake);
 
       // Oranları doğrula
       for (const sel of selections) {
@@ -60,10 +62,6 @@ export async function place(req, res, next) {
       }, { session });
 
       return { bet: created[0], newBalance: user.balance };
-    });
-
-    await updateDailyStats(bet.userId, 'wager', bet.stake).catch((e) => {
-      console.error('[RG] updateDailyStats (wager) failed:', e.message);
     });
 
     // Bonus wagering credit (transaction dışında, hata olursa bet'i etkilemesin)

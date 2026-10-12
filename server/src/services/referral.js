@@ -3,7 +3,7 @@ import ReferralTree from '../models/ReferralTree.js';
 import ReferralCommission from '../models/ReferralCommission.js';
 import Transaction from '../models/Transaction.js';
 import { getIO } from './socketEmitter.js';
-import { createTransaction } from './ledger.js';
+import { createTransaction, adjustBalance } from './ledger.js';
 
 export const COMMISSION_RATES = {
   1: 10, // 10% for direct referrals
@@ -171,17 +171,23 @@ export async function createPendingCommissions(bettorId, houseProfit, source, so
 export async function approveCommission(commissionId, adminId, options = {}) {
   const { session = null } = options;
 
-  const commission = await ReferralCommission.findById(commissionId).session(session);
-  if (!commission) throw new Error('Commission not found');
-  if (commission.status !== 'pending') throw new Error('Commission already processed');
+  // Durum koşullu ve atomik değişir: eşzamanlı iki onaydan yalnız biri öder.
+  const commission = await ReferralCommission.findOneAndUpdate(
+    { _id: commissionId, status: 'pending' },
+    { $set: { status: 'approved', approvedBy: adminId, approvedAt: new Date() } },
+    { new: true, session },
+  );
+  if (!commission) {
+    const exists = await ReferralCommission.exists({ _id: commissionId }).session(session);
+    throw new Error(exists ? 'Commission already processed' : 'Commission not found');
+  }
 
-  const referrer = await User.findById(commission.referrerId).session(session);
-  if (!referrer) throw new Error('Referrer not found');
-
-  const balanceBefore = referrer.balance;
-  referrer.balance = parseFloat((referrer.balance + commission.commissionAmount).toFixed(2));
-  referrer.totalReferralEarnings = parseFloat((referrer.totalReferralEarnings + commission.commissionAmount).toFixed(2));
-  await referrer.save({ session });
+  const credited = await adjustBalance(commission.referrerId, commission.commissionAmount, {
+    session, alsoAdd: { totalReferralEarnings: commission.commissionAmount },
+  });
+  if (!credited) throw new Error('Referrer not found');
+  const referrer = credited.doc;
+  const { balanceBefore } = credited;
 
   const { transaction } = await createTransaction({
     userId: referrer._id,
@@ -196,9 +202,6 @@ export async function approveCommission(commissionId, adminId, options = {}) {
     source: 'admin',
   }, { session });
 
-  commission.status = 'approved';
-  commission.approvedBy = adminId;
-  commission.approvedAt = new Date();
   commission.transactionId = transaction._id;
   await commission.save({ session });
 

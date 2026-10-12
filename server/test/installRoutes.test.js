@@ -124,9 +124,19 @@ describe('install route handlers', () => {
     const d = deps();
     const { runHandler } = createInstallHandlers(d);
     const res = mockRes();
-    await runHandler({ body: { ...validBody, enableCrypto: 'on' }, protocol: 'http', get: () => 'h' }, res);
+    await runHandler({ body: { ...validBody, enableCrypto: 'on', enableKyc: false }, protocol: 'http', get: () => 'h' }, res);
     assert.strictEqual(d.settingModel.store.get('module.crypto-payment.enabled'), 'true');
     assert.strictEqual(d.settingModel.store.has('module.kyc-verification.enabled'), false);
+  });
+
+  test('form KYC kutusunu işaretli getirir ve kutuların durumunu açıkça gönderir', async () => {
+    const { pageHandler } = createInstallHandlers(deps());
+    const res = mockRes();
+    await pageHandler({}, res);
+    const html = String(res.body);
+    assert.match(html, /name="enableKyc" checked/);
+    assert.doesNotMatch(html, /name="enableCrypto" checked/);
+    assert.match(html, /payload\[box\.name\] = box\.checked/);
   });
 
   test('page handler kurulum formu HTML döner', async () => {

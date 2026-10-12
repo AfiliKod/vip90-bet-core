@@ -207,6 +207,7 @@ export default function HomePage() {
     { name: t('games.keno.title'),      path: '/games/keno', accent: '#2dd4bf', image: '/images/games/keno.png' },
     { name: t('games.hilo.title'),      path: '/games/hilo', accent: '#818cf8', image: '/images/games/hilo.png' },
     { name: t('games.dragontiger.title'), path: '/games/dragontiger', accent: '#fb923c', image: '/images/games/dragontiger.png' },
+    { name: t('games.coinflip.title'), path: '/games/coinflip', accent: '#facc15', image: '/images/games/coinflip.png' },
   ];
 
   const SECTIONS = {

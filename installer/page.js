@@ -83,7 +83,7 @@ export const INSTALL_PAGE_HTML = `<!doctype html>
     <input id="clientUrl" name="clientUrl" placeholder="https://example.com">
 
     <label class="kutu"><input type="checkbox" name="enableCrypto"> <span data-i18n="enableCrypto">Enable the crypto payment module from the start (default: off)</span></label>
-    <label class="kutu"><input type="checkbox" name="enableKyc"> <span data-i18n="enableKyc">Enable the KYC identity verification module from the start (default: off)</span></label>
+    <label class="kutu"><input type="checkbox" name="enableKyc" checked> <span data-i18n="enableKyc">Enable the KYC identity verification module from the start (default: on; player withdrawals then require approved KYC)</span></label>
 
     <button type="submit" id="kaydet" data-i18n="submit">Complete Setup</button>
     <p class="hata" id="hata"></p>
@@ -116,7 +116,7 @@ export const INSTALL_PAGE_HTML = `<!doctype html>
       mongoUri: 'MongoDB connection string (must be a replica set)',
       clientUrl: 'Site address (this address is used if left empty)',
       enableCrypto: 'Enable the crypto payment module from the start (default: off)',
-      enableKyc: 'Enable the KYC identity verification module from the start (default: off)',
+      enableKyc: 'Enable the KYC identity verification module from the start (default: on; player withdrawals then require approved KYC)',
       submit: 'Complete Setup',
       done: '✔ Setup complete. Save the content below as <code>server/.env</code> on the server and restart the application:',
       copy: 'Copy to Clipboard',
@@ -148,7 +148,7 @@ export const INSTALL_PAGE_HTML = `<!doctype html>
       mongoUri: 'MongoDB bağlantı adresi (replica set olmalı)',
       clientUrl: 'Site adresi (boş bırakılırsa bu adres kullanılır)',
       enableCrypto: 'Kripto ödeme modülü başlangıçta AÇIK olsun (varsayılan: kapalı)',
-      enableKyc: 'KYC kimlik doğrulama modülü başlangıçta AÇIK olsun (varsayılan: kapalı)',
+      enableKyc: 'KYC kimlik doğrulama modülü başlangıçta AÇIK olsun (varsayılan: açık; oyuncu çekimleri onaylı KYC ister)',
       submit: 'Kurulumu Tamamla',
       done: '✔ Kurulum tamamlandı. Aşağıdaki içeriği sunucudaki <code>server/.env</code> dosyasına kaydedin ve uygulamayı yeniden başlatın:',
       copy: 'Panoya Kopyala',
@@ -216,6 +216,9 @@ export const INSTALL_PAGE_HTML = `<!doctype html>
     hata.textContent = '';
     btn.disabled = true;
     const payload = Object.fromEntries(new FormData(e.target).entries());
+    // İşaretsiz kutu FormData'ya hiç girmez; sunucu "gönderilmedi"yi varsayılan
+    // sayar (KYC: açık). Seçim her zaman açıkça gönderilir.
+    for (const box of e.target.querySelectorAll('input[type=checkbox]')) payload[box.name] = box.checked;
     try {
       const r = await fetch('/install/api/run', {
         method: 'POST',

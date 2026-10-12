@@ -393,6 +393,9 @@ export default {
     'games.dragontiger.title': 'Dragon Tiger',
     'games.dragontiger.subtitle': 'Dragon ou Tiger — a carta mais alta ganha',
     'games.dragontiger.cta': 'Escolher Lado',
+    'games.coinflip.title': 'Coin Flip',
+    'games.coinflip.subtitle': 'Cara ou coroa — escolha o lado da moeda e dobre a sua aposta',
+    'games.coinflip.cta': 'Lançar Moeda',
 
     // Game UI
     'game.betAmount': 'Valor da Aposta',
@@ -1076,6 +1079,7 @@ export default {
   'games.baccarat.cardDesc': 'Jogador ou banqueiro ganha',
   'games.videopoker.cardDesc': 'Poker Jacks or Better',
   'games.dragontiger.cardDesc': 'Dragon ou Tiger?',
+  'games.coinflip.cardDesc': 'Cara ou coroa?',
 
   // Página de Configurações
   'settings.title': 'Configurações',

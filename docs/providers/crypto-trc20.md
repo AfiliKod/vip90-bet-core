@@ -160,13 +160,16 @@ POST /api/crypto/withdraw-request
     Amount < $15?
     │       │
     │  YES → AUTO-PROCESS
-    │       │  Send USDT from hot wallet to user
-    │       │  Return txHash
-    │       │  Deduct from balance
+    │       │  Deduct from balance first (atomic, only if the balance
+    │       │  still covers it) + ledger row status 'processing' → commit
+    │       │  Then send USDT from hot wallet to user
+    │       │    sent     → status 'completed', return txHash
+    │       │    rejected → status 'failed', balance refunded (refund row)
+    │       │    unknown  → stays 'processing' (network error); admin checks the chain
     │       │
     │  NO → SEND TO ADMIN APPROVAL
     │       │  status: 'pending'
-    │       │  Deduct from balance (locked)
+    │       │  Deduct from balance (atomic, only if the balance still covers it)
     │       │
     ▼
 "Pending Withdrawals" appears in admin panel
@@ -174,9 +177,10 @@ POST /api/crypto/withdraw-request
         ▼
     Admin approves/rejects
     │       │
-    │  APPROVE → Send USDT from hot wallet
-    │         Return txHash
-    │         status: 'completed'
+    │  APPROVE → claim: 'pending' → 'processing' (atomic; a second
+    │         approval or a parallel reject gets 400)
+    │         Send USDT from hot wallet, return txHash
+    │         status: 'completed' (transfer failed → back to 'pending')
     │       │
     │  REJECT → Refund balance
     │           status: 'rejected'
@@ -186,8 +190,9 @@ POST /api/crypto/withdraw-request
 | Status | Meaning |
 |--------|---------|
 | `pending` | Awaiting admin approval |
-| `processing` | Transfer in progress |
+| `processing` | Transfer in progress, or its result is unknown (network error) — check the chain before acting |
 | `completed` | Transfer completed, txHash available |
+| `failed` | Automatic transfer rejected by the chain, balance refunded |
 | `rejected` | Admin rejected, balance refunded |
 
 ### Bonus Forfeit Flow

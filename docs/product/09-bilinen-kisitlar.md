@@ -8,7 +8,7 @@ This document lists features that are **defined but not end-to-end connected** o
 
 ## Commercial scope: what is core and what is a paid add-on
 
-The core platform (accounts, wallet, bonus/wagering, KYC, risk, admin) is the base product. **In-house Games (13 games), Sports Betting and Casino Content are separate paid add-ons** (private submodules under `server/src/premium/`); the core starts without them (`503 MODULE_NOT_INSTALLED` on their routes). Installation steps: [01 — Installation § Add-on modules](01-kurulum.md#add-on-modules-in-house-games-sports-betting-casino-content). The game front end (`game-host`) and the odds service (`odds-provider`) are separate Node apps, not in Docker Compose; they are built, deployed and restarted on their own, independently of the main application.
+The core platform (accounts, wallet, bonus/wagering, KYC, risk, admin) is the base product. **In-house Games (13 games), Sports Betting and Casino Content are separate paid add-ons** (private submodules under `server/src/premium/`); the core starts without them (`503 MODULE_NOT_INSTALLED` on their routes). Installation steps: [01 — Installation § Add-on modules](01-kurulum.md#add-on-modules-in-house-games-sports-betting-casino-content). The game front end (`game-host`) is a separate app, not in Docker Compose; it is built, deployed and restarted on its own, independently of the main application.
 
 ## SMS sender screen — RESOLVED 2026-10-08
 
@@ -37,7 +37,7 @@ Both are implemented and **off by default**. Turnstile turns on when `TURNSTILE_
 
 ## KYC — withdrawal gate RESOLVED 2026-10-03
 
-With the `kyc-verification` module enabled, every player withdrawal (bank, transactions, crypto) requires an approved KYC (`403 KYC_REQUIRED`, `server/src/middleware/kycGate.js`), and `expireOldKyc()` now runs daily. What remains: with the module disabled (the default on a new install) nothing is required; deposits and bets are never gated by KYC; the older `checkKycRequired`/`requireKyc` helpers (amount-based `KYC_REQUIREMENTS`) are still unused.
+With the `kyc-verification` module enabled, every player withdrawal (bank, transactions, crypto) requires an approved KYC (`403 KYC_REQUIRED`, `server/src/middleware/kycGate.js`), and `expireOldKyc()` now runs daily. What remains: with the module disabled (a new install starts with it enabled, but the operator can switch it off in the wizard or under Settings → Modules) nothing is required; deposits and bets are never gated by KYC; the older `checkKycRequired`/`requireKyc` helpers (amount-based `KYC_REQUIREMENTS`) are still unused.
 
 ## Casino provider routes and setup wizard keys — RESOLVED 2026-10-03
 
@@ -54,8 +54,8 @@ With the `kyc-verification` module enabled, every player withdrawal (bank, trans
 
 - `npm run install:all` / `dev` / `dev:games` / `build:game-host` skip missing add-on directories with a warning (`scripts/optional-run.mjs`).
 - The Docker image now copies `docs/product/` and `CHANGELOG.md` (the chatbot's knowledge base); `.env.docker.example` lists the core and add-on variable groups.
-- Odds: there is no third-party odds API in the code any more (the legacy The Odds API client and `dataSync` job were deleted); odds come only from the odds-provider service. `ODDS_API_KEY`/`ODDS_API_SPORT` are gone from the code; `ODDS_PROVIDER` is not wired to anything.
-- Still open: `game-host` and `odds-provider` are not built or updated by the deploy, and `odds-provider/.env.example` says `PORT=3003` while the code default is 3002.
+- Odds: there is no third-party odds API in the code any more (the legacy The Odds API client and `dataSync` job were deleted); odds come only from the hosted odds feed (`https://feed.vip90.bet`). `ODDS_API_KEY`/`ODDS_API_SPORT` are gone from the code; `ODDS_PROVIDER` is not wired to anything.
+- Still open: `game-host` is not built or updated by the deploy.
 
 ## Agent (reseller) system — IMPLEMENTED (API + admin UI)
 
@@ -109,7 +109,8 @@ Admin balance adjustment — RESOLVED 2026-10-08: `PATCH /api/admin/users/:id/ba
 `server/src/services/responsibleGaming.js`'s `updateDailyStats()` was dead code (never called) as of the last pass. It is now wired into all major channels:
 
 - **Deposit tracking:** `bank.js approve`, `crypto.js check-deposit` auto-credit, `admin.js approveCryptoDeposit` — all call `updateDailyStats(userId, 'deposit', amount)` after successful deposit
-- **Wager tracking:** `bets.js` (sports), `premium/inhouse-provider/inhouseProviderProxy.js` debit (in-house games), `premium/igames/igames.js handleIgamesBet` (Igames) — all call `updateDailyStats(userId, 'wager', amount)`
+- **Limit enforcement inside the money transaction (2026-10-12):** player deposits (`POST /api/transactions/deposit`) and sports bets (`POST /api/bets`) check the RG limit and increment the counters in the same DB transaction as the balance change (`enforceAndRecordInTransaction`), so concurrent requests cannot exceed a limit. The other channels (bank/crypto/Slikair deposit approval, in-house and Igames debits) still check before and count after the money movement: concurrent requests on those channels can overshoot a limit by the amounts in flight.
+- **Wager tracking:** `bets.js` (sports, inside the transaction), `premium/inhouse-provider/inhouseProviderProxy.js` debit (in-house games), `premium/igames/igames.js handleIgamesBet` (Igames) — all call `updateDailyStats(userId, 'wager', amount)`
 - **Loss tracking:** `premium/betting/settlement.js` (sports), `premium/inhouse-provider/inhouseProviderProxy.js` settle (in-house games) — calls `updateDailyStats(userId, 'loss', bet - payout)` when payout < bet
 - **Atomic reset:** `updateDailyStats` uses atomic conditional `$set` period-resets + a single `$inc` (safe under concurrent requests)
 - **Weekly/monthly buckets:** `weeklyStats`/`monthlyStats` on the User model, exposed in player UI via period selector
@@ -117,6 +118,15 @@ Admin balance adjustment — RESOLVED 2026-10-08: `PATCH /api/admin/users/:id/ba
 - **RG audit:** `restrictAccount`/`liftRestriction` now write to `AuditLog` with `category: 'responsible_gaming'`
 
 **Igames loss tracking — RESOLVED (verified 2026-10-03):** the Igames callback has no explicit "round result" event, so `premium/igames/igames.js` counts every Bet as a full loss first (`updateDailyStats(..., 'loss', amount)`), subtracts it again when the matching Win arrives (`handleIgamesWin`) and reverses both wager and loss on BetCancel (`handleIgamesBetCancel`). Net loss therefore converges to the real value without an extra provider signal.
+
+## Money movement concurrency — RESOLVED 2026-10-12
+
+Every balance change goes through one of two safe shapes: inside a DB transaction (`withTransactionRetry`, jittered retries) or as a single atomic update (`adjustBalance` in `server/src/services/ledger.js`: server-side `balance + delta`, rounded to 2 decimals, optional "only if the balance covers it" guard). Read-modify-`save()` outside a transaction is no longer used for balances. Inside a transaction, `createTransaction` throws `DUPLICATE_TRANSACTION` instead of returning an existing ledger row with the same `idempotencyKey`, so a concurrent duplicate rolls back its balance change. Status changes that release money (bank/crypto approve and reject, Slikair payin credit, referral commission approval, bonus forfeit, VIP level reward) are conditional atomic claims, so only one of two parallel requests wins. Igames callbacks are de-duplicated by a persistent unique key (`round_id` + transaction type) instead of an in-memory map. Covered by `server/test/moneyConcurrency.test.js` (17), `cryptoWithdrawConcurrency.test.js` (4) and `rgConcurrency.test.js` (15).
+
+What remains:
+- **Bank withdrawals are not reserved at request time.** The balance is checked when the player creates the request and again (atomically) when the admin approves it; if the player spent it in between, approval answers `409 INSUFFICIENT_BALANCE`.
+- **Unknown transfer results.** When the hot wallet transfer or the Igames deposit fails with a network error, the platform cannot know whether the money left. Crypto withdrawals stay `processing` for the admin to check on chain; an Igames launch refunds the local balance (as before).
+- **Side effects inside transactions.** Deposit/withdrawal mails and SMS are triggered from `createTransaction`; if the surrounding transaction later rolls back, the notification may already be on its way.
 
 ## RG audit log — RESOLVED 2026-09-17
 

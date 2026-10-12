@@ -10,6 +10,7 @@ import User from '../models/User.js';
 import Transaction from '../models/Transaction.js';
 import { createTransaction } from './ledger.js';
 import { logAuditEvent } from './audit.js';
+import { createError } from '../middleware/error.js';
 
 function getWeekStart(date = new Date()) {
   const d = new Date(date);
@@ -38,7 +39,11 @@ function getMonthStart(date = new Date()) {
 export async function checkPlayerEligibility(playerId, action, context = {}) {
   const user = await User.findById(playerId);
   if (!user) return 'BLOCK';
+  return evaluateEligibility(user, action, context);
+}
 
+/** `checkPlayerEligibility`'nin DB'siz çekirdeği: yüklenmiş kullanıcı belgesi üzerinde karar verir. */
+export function evaluateEligibility(user, action, context = {}) {
   // Check if account is restricted
   if (user.accountRestricted) {
     return 'BLOCK';
@@ -408,6 +413,52 @@ export async function updateDailyStats(userId, type, amount) {
   if (!user) throw new Error('User not found');
 
   return { daily: user.dailyStats, weekly: user.weeklyStats, monthly: user.monthlyStats };
+}
+
+/**
+ * Sorumlu oyun kontrolü + sayaç artışı, para işleminin İÇİNDE (2026-10-12).
+ *
+ * Route ara katmanı (`checkDepositLimits`/`checkBetLimits`) limiti işlemden
+ * önce okuyor, `updateDailyStats` sayacı işlemden sonra artırıyordu: aynı
+ * anda gelen istekler hepsi "limit boş" görüp limiti aşıyordu (300'lük
+ * günlük limitle 10 paralel istekte 1000'e kadar; test/rgConcurrency.test.js).
+ *
+ * Bu fonksiyon, işlemin `session` ile okuduğu kullanıcı belgesi üzerinde
+ * çalışır: kararı verir, uygunsa sayaçları belgede artırır; kaydetme
+ * çağıranın `user.save({ session })`'ıdır (bakiye ile aynı yazım). İki
+ * eşzamanlı işlem aynı belgeye yazdığı için MongoDB biri için WriteConflict
+ * üretir; `withTransactionRetry` onu güncel sayaçlarla yeniden çalıştırır ve
+ * limit kontrolü artık doğru değeri görür.
+ *
+ * @param {import('mongoose').Document} user session ile okunmuş kullanıcı
+ * @param {'deposit'|'bet'} action
+ * @param {number} amount
+ * @throws 403 ACCOUNT_RESTRICTED | 403 LIMIT_EXCEEDED
+ */
+export function enforceAndRecordInTransaction(user, action, amount, now = new Date()) {
+  const verdict = evaluateEligibility(user, action, { amount });
+  if (verdict === 'BLOCK') throw createError(403, 'ACCOUNT_RESTRICTED', 'Hesabınız sorumlu oyun nedeniyle kısıtlıdır');
+  if (verdict === 'RESTRICT') throw createError(403, 'LIMIT_EXCEEDED', 'Sorumlu oyun limitiniz aşıldı');
+
+  const field = action === 'deposit' ? 'deposits' : 'wagers';
+  const today = new Date(now); today.setHours(0, 0, 0, 0);
+  const weekStart = getWeekStart(now);
+  const monthStart = getMonthStart(now);
+  const zero = { deposits: 0, losses: 0, wagers: 0 };
+  // Periyot reset'i updateDailyStats ile aynı kural: damga yoksa ya da eskiyse sıfırla.
+  const d = user.dailyStats || {};
+  const daily = d.lastUpdated && d.lastUpdated >= today ? d : zero;
+  const w = user.weeklyStats || {};
+  const weekly = w.weekStart && w.weekStart >= weekStart ? w : zero;
+  const m = user.monthlyStats || {};
+  const monthly = m.monthStart && m.monthStart >= monthStart ? m : zero;
+  const bump = (stats, key) => ({
+    deposits: stats.deposits || 0, losses: stats.losses || 0, wagers: stats.wagers || 0,
+    [field]: +((stats[field] || 0) + amount).toFixed(2), ...key,
+  });
+  user.set('dailyStats', bump(daily, { lastUpdated: now }));
+  user.set('weeklyStats', bump(weekly, { weekStart: w.weekStart && w.weekStart >= weekStart ? w.weekStart : weekStart }));
+  user.set('monthlyStats', bump(monthly, { monthStart: m.monthStart && m.monthStart >= monthStart ? m.monthStart : monthStart }));
 }
 
 /**

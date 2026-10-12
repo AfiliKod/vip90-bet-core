@@ -393,6 +393,9 @@ export default {
     'games.dragontiger.title': 'ドラゴンタイガー',
     'games.dragontiger.subtitle': 'ドラゴンかタイガーか — 高いカードが勝つ',
     'games.dragontiger.cta': 'サイドを選択',
+    'games.coinflip.title': 'コインフリップ',
+    'games.coinflip.subtitle': '表か裏か — コインを予想してベットを2倍に',
+    'games.coinflip.cta': 'コインを投げる',
 
     // Game UI
     'game.betAmount': 'ベット金額',
@@ -1075,6 +1078,7 @@ export default {
   'games.baccarat.cardDesc': 'プレイヤーかバンカーか勝者は誰か',
   'games.videopoker.cardDesc': 'ジャックス・オア・ベターポーカー',
   'games.dragontiger.cardDesc': 'ドラゴンかタイガーか？',
+  'games.coinflip.cardDesc': '表？裏？',
 
   // Settings page
   'settings.title': '設定',

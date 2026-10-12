@@ -237,7 +237,7 @@ If the add-on is absent, every path answers `503 { error: 'MODULE_NOT_INSTALLED'
 | `GET /popular-games` | Public | The operator-selected "Popular Games" `game_code` list (empty array if none selected) |
 | `GET /game/popular` | Public | Most played in last 7 days (aggregated) |
 | `POST /game/url` | User | `{ user_code, provider_id, game_code|game_symbol, win_ratio?, language?, return_url? }` |
-| `POST /game/launch` | User | Transfers local balance to Igames and opens game; `409 SESSION_ACTIVE`, `400 INSUFFICIENT_BALANCE`, `503 IGAMES_BALANCE_UNAVAILABLE`, `400 IGAMES_DEPOSIT_FAILED` |
+| `POST /game/launch` | User | Transfers local balance to Igames and opens game; `409 SESSION_ACTIVE`, `400 INSUFFICIENT_BALANCE`, `409 BALANCE_CHANGED` (balance changed while launching), `503 IGAMES_BALANCE_UNAVAILABLE`, `400 IGAMES_DEPOSIT_FAILED` |
 | `POST /game/close` | User | Closes session and pulls balance back |
 | `GET /game/session` | User | Active session check |
 | `POST /game/online` | User | |
@@ -315,7 +315,7 @@ Crash and Roulette are multiplayer games and run over Socket.IO namespaces, not 
 |---|---|---|
 | `GET /deposit-address` | — | User-specific TRC20 USDT address; returns `503` if `CRYPTO_SEED_PHRASE` not set |
 | `POST /check-deposit` | — | Queries TronGrid, converts incoming USDT to the site currency at `USDT_TRY_RATE`; small amounts (default under 100 USDT) are credited automatically, larger ones wait for admin approval. Risk and responsible-gaming checks apply |
-| `POST /withdraw-request` | `withdrawRequestSchema`: `{ address, usdtAmount, confirmForfeit? }` (min 5 USDT; address `T` + 33 characters) | Creates a withdrawal; small amounts (default under 15 USDT) are processed automatically, larger ones wait for admin approval. `409 ACTIVE_BONUS_LOCK` when an active bonus locks part of the balance and `confirmForfeit` is not sent |
+| `POST /withdraw-request` | `withdrawRequestSchema`: `{ address, usdtAmount, confirmForfeit? }` (min 5 USDT; address `T` + 33 characters) | Creates a withdrawal; small amounts (default under 15 USDT) are processed automatically, larger ones wait for admin approval. The balance is deducted atomically before any USDT leaves the hot wallet. `409 ACTIVE_BONUS_LOCK` when an active bonus locks part of the balance and `confirmForfeit` is not sent; `400 INSUFFICIENT_BALANCE` when concurrent requests already used the balance; `500` when the chain rejects an automatic transfer (balance refunded); `502` when the transfer result is unknown (request stays `processing` for admin review) |
 | `GET /withdraw-preview` | — | Withdrawable/locked balance breakdown, hot-wallet balance, `minWithdraw` |
 | `GET /settings` | — | **Admin only** — current `CRYPTO_SETTINGS` |
 | `GET /hot-wallet-balance` | — | **Admin only** — hot wallet USDT/TRX balance (`503 CRYPTO_WALLET_NOT_CONFIGURED` without wallet keys) |
@@ -329,7 +329,7 @@ Crash and Roulette are multiplayer games and run over Socket.IO namespaces, not 
 | `POST /withdraw` | User + `financialLimiter` | `withdrawSchema` |
 | `GET /requests` | User | — |
 | `GET /admin/pending` | Admin (`admin:bank:read`) | — |
-| `PATCH /admin/pending/:id/approve` | Admin (`admin:bank:write`) | — |
+| `PATCH /admin/pending/:id/approve` | Admin (`admin:bank:write`) | — (`409 INSUFFICIENT_BALANCE` when approving a withdrawal the player's balance no longer covers; `409 ALREADY_PROCESSED` when a parallel approve/reject won) |
 | `PATCH /admin/pending/:id/reject` | Admin (`admin:bank:write`) | `adminRejectSchema` |
 
 ### Support tickets — `/api/tickets` (`routes/ticket.js`) — no module gate

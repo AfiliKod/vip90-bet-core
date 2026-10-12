@@ -393,6 +393,9 @@ export default {
     'games.dragontiger.title': 'Dragon Tiger',
     'games.dragontiger.subtitle': 'Dragon หรือ Tiger — ไพ่สูงกว่าชนะ',
     'games.dragontiger.cta': 'เลือกฝั่ง',
+    'games.coinflip.title': 'เหรียญหัวหรือก้อย',
+    'games.coinflip.subtitle': 'หัวหรือก้อย — เลือกหน้าเหรียญแล้วคูณเงินเดิมพันสองเท่า',
+    'games.coinflip.cta': 'โยนเหรียญ',
 
     // Game UI
     'game.betAmount': 'จำนวนเดิมพัน',
@@ -1076,6 +1079,7 @@ export default {
   'games.baccarat.cardDesc': 'ผู้เล่นหรือเจ้ามือใครชนะ',
   'games.videopoker.cardDesc': 'Jacks or Better โป๊กเกอร์',
   'games.dragontiger.cardDesc': 'Dragon หรือ Tiger?',
+  'games.coinflip.cardDesc': 'หัวหรือก้อย?',
 
   // Settings
   'settings.title': 'ตั้งค่า',

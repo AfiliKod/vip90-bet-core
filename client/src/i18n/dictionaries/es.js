@@ -393,6 +393,9 @@ export default {
     'games.dragontiger.title': 'Dragon Tiger',
     'games.dragontiger.subtitle': '¿Dragon o Tiger? — la carta más alta gana',
     'games.dragontiger.cta': 'Elegir Lado',
+    'games.coinflip.title': 'Coin Flip',
+    'games.coinflip.subtitle': 'Cara o cruz — elige el lado de la moneda y duplica tu apuesta',
+    'games.coinflip.cta': 'Lanzar Moneda',
 
     // Game UI
     'game.betAmount': 'Monto de Apuesta',
@@ -1076,6 +1079,7 @@ export default {
   'games.baccarat.cardDesc': '¿Quién gana, jugador o banca?',
   'games.videopoker.cardDesc': 'Poker Jacks or Better',
   'games.dragontiger.cardDesc': '¿Dragon o Tiger?',
+  'games.coinflip.cardDesc': '¿Cara o cruz?',
 
   // Página de Configuración
   'settings.title': 'Configuración',

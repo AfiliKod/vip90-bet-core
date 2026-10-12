@@ -393,6 +393,9 @@ export default {
     'games.dragontiger.title': '드래곤 타이거',
     'games.dragontiger.subtitle': '드래곤 vs 타이거 — 높은 카드가 승리',
     'games.dragontiger.cta': '쪽 선택',
+    'games.coinflip.title': '코인 플립',
+    'games.coinflip.subtitle': '앞면 아니면 뒷면 — 동전을 예측하고 배당을 두 배로',
+    'games.coinflip.cta': '코인 던지기',
 
     // Game UI
     'game.betAmount': '베팅 금액',
@@ -1076,6 +1079,7 @@ export default {
   'games.baccarat.cardDesc': '플레이어 vs 뱅커 누가 이길까요',
   'games.videopoker.cardDesc': '잭스 오어 베터 포커',
   'games.dragontiger.cardDesc': '드래곤 vs 타이거',
+  'games.coinflip.cardDesc': '앞면 아니면 뒷면?',
 
   // 설정 페이지
   'settings.title': '설정',

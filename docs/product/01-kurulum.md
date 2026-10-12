@@ -22,7 +22,7 @@ The repository root includes `docker-compose.yml`, `Dockerfile`, `deploy/Caddyfi
 
 Traffic flow: internet → Caddy (80/443) → `app:3001` → `mongo`. Mongo and app do not expose any ports; only Caddy is published.
 
-**Compose contains only these three services.** The in-house games front end (`game-host`) and the sports odds service (`odds-provider`) are separate Node applications and are **not** part of `docker-compose.yml` — see [Add-on modules](#add-on-modules-in-house-games-sports-betting-casino-content). Shortcuts: `npm run docker:up` (= `docker compose up -d --build`), `npm run docker:down`, `npm run docker:test` (runs the test suite in a container).
+**Compose contains only these three services.** The in-house games front end (`game-host`) is a separate application and is **not** part of `docker-compose.yml`; sports odds come from the hosted odds feed (no local service) — see [Add-on modules](#add-on-modules-in-house-games-sports-betting-casino-content). Shortcuts: `npm run docker:up` (= `docker compose up -d --build`), `npm run docker:down`, `npm run docker:test` (runs the test suite in a container).
 
 ### Steps
 
@@ -51,13 +51,13 @@ On first startup, the `app` image is built (including client build + server depe
 While the containers are running, open `https://DOMAIN/install` (or `https://localhost/install` for testing) in a browser. The wizard:
 
 1. Checks database connectivity and "already installed" status via `/install/api/status` (`needsInstall: false` once an admin exists).
-2. Asks for site name, currency (TRY/USD/EUR), the first admin username (3-30 characters) / email / password (min 8 characters), the install type (Docker, or non-Docker with your own MongoDB URI — a replica set), and — optionally — whether the Crypto Payment and KYC modules should start **enabled** (default: disabled).
+2. Asks for site name, currency (TRY/USD/EUR), the first admin username (3-30 characters) / email / password (min 8 characters), the install type (Docker, or non-Docker with your own MongoDB URI — a replica set), and whether the Crypto Payment and KYC modules should start **enabled** (Crypto: disabled by default; KYC: enabled by default, so player withdrawals require an approved KYC from day one).
 3. On submission, creates the first `admin` role user (the password is hashed with bcrypt via the real `User` model's pre-save hook) with its e-mail already marked verified — SMTP is usually not configured yet, and an unverified account cannot log in — and writes the site name (`branding.siteName`; `site.name` is also written, health checks use it as a "seeded" marker), currency (`currency.code`), `setup.completed` and any selected modules (`module.<id>.enabled`) to the `Setting` collection — the same keys the admin panel edits. Unselected modules get no record (no record = disabled).
 4. Generates a copyable `.env` output on screen (including random JWT keys; `MONGODB_URI` is the compose URI `mongodb://mongo:27017/betzone?replicaSet=rs0` for Docker, or your own URI otherwise) — for a manual installation you are asked to save this to `server/.env` on the server and restart the application. On the Docker path the values are already in the root `.env`, nothing to save.
 
 Source: `installer/core.js`, `installer/page.js`, `server/src/routes/install.js` (mounted under `/install` in `app.js`).
 
-5. **Switch on the modules you use.** Every module except Slikair starts disabled unless you ticked it in the wizard: log in as the admin you just created and enable *Crypto Payment Gateway*, *KYC Identity Verification* and any installed add-on under **Settings → Modules** (`/admin/platform?tab=modules`); until then the matching routes answer `503 MODULE_DISABLED` (see [03 — Module System](03-modul-sistemi.md)).
+5. **Switch on the modules you use.** Every module except Slikair and KYC starts disabled unless you ticked it in the wizard (KYC is ticked by default): log in as the admin you just created and enable *Crypto Payment Gateway*, *KYC Identity Verification* and any installed add-on under **Settings → Modules** (`/admin/platform?tab=modules`); until then the matching routes answer `503 MODULE_DISABLED` (see [03 — Module System](03-modul-sistemi.md)).
 
 > **Important:** The wizard only runs when **no admin user exists yet**. If an admin already exists, `GET /install` answers `404` (the form is not shown; `/install/api/status` still answers and reports `needsInstall: false`) and `POST /install/api/run` answers `409 ALREADY_INSTALLED` — to run it again, you must first remove the existing admin record.
 
@@ -69,7 +69,7 @@ Source: `installer/core.js`, `installer/page.js`, `server/src/routes/install.js`
 npm run install:all
 ```
 
-The script is `npm i && npm i --prefix server && npm i --prefix client` followed by `game-host` and `odds-provider` installs routed through `scripts/optional-run.mjs`: those two directories are symlinks into the add-on submodules (`server/src/premium/...`), and when the add-ons are not installed the step prints a warning and is skipped (exit 0) instead of failing. `npm run dev` / `dev:games` / `build:game-host` skip missing add-ons the same way. The three core commands are:
+The script is `npm i && npm i --prefix server && npm i --prefix client` followed by the `game-host` install routed through `scripts/optional-run.mjs`: that directory is a symlink into the In-house Games submodule (`server/src/premium/...`), and when the add-on is not installed the step prints a warning and is skipped (exit 0) instead of failing. `npm run dev` / `dev:games` / `build:game-host` skip missing add-ons the same way. The three core commands are:
 
 ```bash
 npm i && npm i --prefix server && npm i --prefix client
@@ -116,7 +116,7 @@ If you want to run with live reload instead of a production build:
 npm run dev
 ```
 
-This starts the client (Vite, `localhost:5173`), the server (`localhost:3001`) and the odds-provider add-on app (`odds-provider`) simultaneously (using `concurrently`). Without the Sports Betting add-on the third process prints a warning and exits (`scripts/optional-run.mjs`); the client and server keep running. `npm run dev:games` additionally starts `game-host` (in-house games front end, `localhost:5174`).
+This starts the client (Vite, `localhost:5173`) and the server (`localhost:3001`) simultaneously (using `concurrently`). `npm run dev:games` additionally starts `game-host` (in-house games front end, `localhost:5174`).
 
 ## Post-installation verification
 
@@ -174,10 +174,10 @@ The core platform is the base product. **In-house Games (13 games), Sports Betti
 | Add-on | Submodule path | Repository | What it contains |
 |---|---|---|---|
 | In-house Games | `server/src/premium/inhouse-provider` | `AfiliKod/vip90-bet-inhouse` | game engine + math (runs inside the main Node process), `game-host/` (separate React/Vite front end) |
-| Sports Betting | `server/src/premium/betting` | `AfiliKod/vip90-bet-betting` | settlement, odds sync jobs, odds provider adapters, `odds-provider/` (separate Node app) |
+| Sports Betting | `server/src/premium/betting` | `AfiliKod/vip90-bet-betting` | settlement, odds sync jobs, client of the hosted odds feed |
 | Casino Content | `server/src/premium/igames` | `AfiliKod/vip90-bet-igames` | casino content aggregator integration, callback, session reconciliation |
 
-`/game-host` and `/odds-provider` at the repository root are symlinks to `server/src/premium/inhouse-provider/game-host` and `server/src/premium/betting/odds-provider`. **Live Casino (real dealer tables) is a planned future update; there is no code for it in this release.**
+`/game-host` at the repository root is a symlink to `server/src/premium/inhouse-provider/game-host`. **Live Casino (real dealer tables) is a planned future update; there is no code for it in this release.**
 
 ### How the core behaves without an add-on
 
@@ -191,7 +191,7 @@ The three repositories are private. How a buyer receives access (repository invi
 git submodule update --init --recursive      # fetches the three add-ons
 ```
 
-If you deploy from CI, the job needs read access to the add-on repositories to fetch the submodules; without it, deploy the add-on files another way. `game-host` and `odds-provider` are separate apps and are built and run on their own.
+If you deploy from CI, the job needs read access to the add-on repositories to fetch the submodules; without it, deploy the add-on files another way. `game-host` is a separate app and is built and hosted on its own.
 
 ### In-house Games
 
@@ -220,16 +220,17 @@ If you deploy from CI, the job needs read access to the add-on repositories to f
 
 ### Sports Betting
 
-1. **Odds provider** — a separate Node app (`server/src/premium/betting/odds-provider`), **not in Compose and not updated by the deploy workflow**:
+Odds data (live and upcoming events, odds, scores) is **not** part of the add-on: it comes from the hosted VIP90 odds feed. There is no odds service to install or run.
+
+1. **API key** — your account on the developer portal (`https://developers.vip90.bet`, opened by invitation) creates the key (`odp_…`, shown once). The portal also has the API documentation; your plan sets which sports you receive and the request limit.
+2. **Main server `.env`**:
    ```bash
-   npm install --prefix server/src/premium/betting/odds-provider
-   cp server/src/premium/betting/odds-provider/.env.example server/src/premium/betting/odds-provider/.env
-   npm start --prefix odds-provider       # or: node server.js
+   ODDS_PROVIDER_API_BASE=https://feed.vip90.bet
+   ODDS_PROVIDER_API_TOKEN=odp_…        # the key from the portal
    ```
-   Its `.env` needs `PORT` (default **3002**; keep it in sync with `ODDS_PROVIDER_API_BASE` on the main server), `ODDS_PROVIDER_API_TOKEN`, `ODDS_PROVIDER_MANAGEMENT_SECRET` and the data source settings documented in the Sports Betting add-on's own README. In production run it as its own long-running service (e.g. a separate systemd unit); the main deploy does not update or restart it.
-2. **Main server `.env`**: `ODDS_PROVIDER_API_BASE` (e.g. `http://localhost:3003`), `ODDS_PROVIDER_API_TOKEN` (same value as the provider's), `ODDS_PROVIDER_MANAGEMENT_SECRET` (same value as the provider's; a separate secret that only protects token rotation). Changing the URL/port needs a restart of **both** processes. In a Docker deployment `localhost` points at the container itself — use an address the container can reach (for example the host's address); **unverified, not tested here**.
-3. Enable the module under **Settings → Modules** (card *Sports & Live Betting*; the token can be rotated there, which pushes it to the odds provider without a restart). Sports categories are managed under **Products → Sportsbook → Categories**.
-4. Data source: the odds-provider reads an odds source you must contract yourself; its settings are documented in the add-on's own README. Odds reach the main server only through the odds-provider service; there is no third-party odds API adapter in the code, and `ODDS_PROVIDER`, `ODDS_API_KEY`, `ODDS_API_SPORT` have no effect (see [02 — Configuration § Odds](02-yapilandirma.md#odds-sports-betting--sports-betting-add-on)).
+   `ODDS_PROVIDER_MANAGEMENT_SECRET` is not needed. If you restrict the key to IP addresses in the portal, add the server's outgoing IP address.
+3. Enable the module under **Settings → Modules** (card *Sports & Live Betting*). Sports categories shown on the site are managed under **Products → Sportsbook → Categories** (within the sports your plan includes).
+4. The live and upcoming sync jobs started by the server pull the feed over REST and keep a Socket.IO connection for live updates; `ODDS_PROVIDER`, `ODDS_API_KEY`, `ODDS_API_SPORT` have no effect (see [02 — Configuration § Odds](02-yapilandirma.md#odds-sports-betting--sports-betting-add-on)).
 
 ### Casino Content
 

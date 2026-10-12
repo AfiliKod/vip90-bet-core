@@ -8,7 +8,7 @@ const schema = new mongoose.Schema({
   balanceAfter:  { type: Number, required: true },
   referenceId:     mongoose.Schema.Types.ObjectId,
   cryptoDepositId: { type: mongoose.Schema.Types.ObjectId, ref: 'CryptoDeposit', default: null },
-  status:        { type: String, enum: ['pending','completed','failed','rejected'], default: 'completed' },
+  status:        { type: String, enum: ['pending','processing','completed','failed','rejected'], default: 'completed' },
   note:          { type: String, default: '' },
   createdBy:     { type: mongoose.Schema.Types.ObjectId, ref: 'User', default: null },
   // ─── Financial Ledger Enhancement (Phase 2A) ──────────────────────

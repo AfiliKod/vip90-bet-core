@@ -1241,7 +1241,7 @@ export async function getGameSettings(req, res, next) {
   }
 }
 
-// TAM 13 in-house oyun da artık çok-kiracılı provider mimarisine taşındı
+// TAM 14 in-house oyun da artık çok-kiracılı provider mimarisine taşındı
 // (bkz. server/src/provider/) — ayarları doğrudan bu DB'den değil, operatör
 // API anahtarıyla PUT /api/provider/v1/settings/:gameId üzerinden yönetiliyor.
 // Admin panelimiz "kısayol yok" kararı gereği gelecekteki alıcıların
@@ -1260,6 +1260,7 @@ const PROVIDER_GAME_SHORT_IDS = {
   'inhouse-baccarat': 'baccarat',
   'inhouse-videopoker': 'videopoker',
   'inhouse-dragontiger': 'dragontiger',
+  'inhouse-coinflip': 'coinflip',
 };
 
 export async function updateGameSettings(req, res, next) {
@@ -1663,7 +1664,8 @@ export async function getCryptoPendingDeposits(req, res, next) {
 
 export async function getCryptoPendingWithdrawals(req, res, next) {
   try {
-    const withdrawals = await Transaction.find({ type: 'crypto_withdraw', status: 'pending' })
+    // 'processing': transferi başlamış ama sonucu kesinleşmemiş çekimler de görünsün
+    const withdrawals = await Transaction.find({ type: 'crypto_withdraw', status: { $in: ['pending', 'processing'] } })
       .populate('userId', 'username email')
       .sort({ createdAt: -1 });
     res.json(withdrawals);
@@ -1944,9 +1946,22 @@ export async function rejectCryptoDeposit(req, res, next) {
 
 export async function approveCryptoWithdrawal(req, res, next) {
   try {
-    const tx = await Transaction.findById(req.params.id);
-    if (!tx) return res.status(404).json({ error: 'Çekim bulunamadı' });
-    if (tx.status !== 'pending') return res.status(400).json({ error: 'Bu çekim zaten işlenmiş' });
+    // Talep koşullu ve atomik "processing"e alınır: aynı çekime eşzamanlı iki
+    // onay (ya da onay + red) gelirse yalnız biri geçer. Önceden ikisi de
+    // "pending" görüp USDT'yi iki kez gönderebiliyor, red de aynı anda
+    // bakiyeyi iade edebiliyordu.
+    const tx = await Transaction.findOneAndUpdate(
+      { _id: req.params.id, type: 'crypto_withdraw', status: 'pending' },
+      { $set: { status: 'processing' } },
+      { new: true },
+    );
+    if (!tx) {
+      const exists = await Transaction.exists({ _id: req.params.id });
+      return exists
+        ? res.status(400).json({ error: 'Bu çekim zaten işlenmiş' })
+        : res.status(404).json({ error: 'Çekim bulunamadı' });
+    }
+    const release = () => Transaction.updateOne({ _id: tx._id, status: 'processing' }, { $set: { status: 'pending' } });
 
     // Demo kaydı: zincire ASLA gitme (gerçek transferUSDT hot wallet'tan para gönderir).
     if (tx.isSeed) {
@@ -1964,11 +1979,23 @@ export async function approveCryptoWithdrawal(req, res, next) {
     const toAddress = meta.toAddress || addrMatch?.[1];
     const usdtAmount = Number(meta.usdtAmount ?? (amtMatch ? parseFloat(amtMatch[1]) : NaN));
     if (!toAddress || !/^T[A-Za-z0-9]{33}$/.test(toAddress) || !Number.isFinite(usdtAmount) || usdtAmount <= 0) {
+      await release();
       return res.status(400).json({ error: 'Çekim detayları okunamadı' });
     }
 
-    const result = await transferUSDT(toAddress, usdtAmount);
-    if (!result.success) return res.status(500).json({ error: `Transfer başarısız: ${result.error}` });
+    let result;
+    try {
+      result = await transferUSDT(toAddress, usdtAmount);
+    } catch (e) {
+      // Ağ hatası: transferin gidip gitmediği bilinmiyor. "processing"te
+      // bırakılır; admin zinciri kontrol etmeden yeniden onaylayamaz.
+      console.error(`[crypto] approve transfer belirsiz: tx=${tx._id}`, e.message);
+      return res.status(502).json({ error: 'Transfer sonucu alınamadı; zincirde kontrol edin (çekim işlemde bırakıldı)' });
+    }
+    if (!result.success) {
+      await release();
+      return res.status(500).json({ error: `Transfer başarısız: ${result.error}` });
+    }
 
     tx.status = 'completed';
     tx.note = `${tx.note} — txHash: ${result.txHash}`;

@@ -5,7 +5,7 @@ import Transaction from '../models/Transaction.js';
 import { createError } from '../middleware/error.js';
 import { formatMoney } from '../currency/index.js';
 import { createTransaction } from '../services/ledger.js';
-import { updateDailyStats } from '../services/responsibleGaming.js';
+import { enforceAndRecordInTransaction } from '../services/responsibleGaming.js';
 import { withTransactionRetry } from '../utils/transactionRetry.js';
 
 export async function deposit(req, res, next) {
@@ -15,6 +15,8 @@ export async function deposit(req, res, next) {
       const { amount } = req.validated;
       const user = await User.findById(req.user.id).session(session);
       if (!user) throw createError(404, 'USER_NOT_FOUND', 'Kullanıcı bulunamadı');
+      // RG limiti + sayaç bakiye ile aynı yazımda: eşzamanlı yatırmalar limiti aşamaz.
+      enforceAndRecordInTransaction(user, 'deposit', amount);
 
       const balanceBefore = user.balance;
       user.balance = +(user.balance + amount).toFixed(2);
@@ -36,9 +38,6 @@ export async function deposit(req, res, next) {
       }, { session });
 
       return user.balance;
-    });
-    await updateDailyStats(req.user.id, 'deposit', req.validated.amount).catch((e) => {
-      console.error('[RG] updateDailyStats (deposit) failed:', e.message);
     });
     res.json({ newBalance, message: `${await formatMoney(req.validated.amount)} yatırıldı` });
   } catch(e) { next(e); }

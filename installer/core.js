@@ -31,13 +31,19 @@ export const DOCKER_MONGODB_URI = 'mongodb://mongo:27017/betzone?replicaSet=rs0'
 /** Desteklenen para birimleri: server/src/currency/registry.js CURRENCY_DEFINITIONS ile aynı olmalı (testle doğrulanır). */
 export const DEFAULT_CURRENCY_CODES = ['TRY', 'USD', 'EUR'];
 
-/** Kurulumda "başlangıçta açık olsun" seçilebilen modüller (input alanı → modül kimliği). */
+/**
+ * Kurulumda "başlangıçta açık olsun" seçilebilen modüller (input alanı → modül
+ * kimliği). `defaultOn`: alan hiç gönderilmezse modül açık başlar. KYC
+ * inceleme noktası varsayılan açıktır (2026-10-12): yeni kurulumda oyuncu
+ * çekimleri onaylı KYC ister; operatör sihirbazda bilerek kapatabilir.
+ */
 export const OPTIONAL_MODULES = [
-  { field: 'enableCrypto', moduleId: 'crypto-payment' },
-  { field: 'enableKyc', moduleId: 'kyc-verification' },
+  { field: 'enableCrypto', moduleId: 'crypto-payment', defaultOn: false },
+  { field: 'enableKyc', moduleId: 'kyc-verification', defaultOn: true },
 ];
 
 const truthy = v => v === true || v === 'true' || v === 'on' || v === '1' || v === 1;
+const moduleChosen = (input, m) => (input[m.field] === undefined ? m.defaultOn : truthy(input[m.field]));
 
 function validate(input, currencyCodes) {
   const errors = [];
@@ -104,7 +110,7 @@ export function createInstaller({
     await assignOwnerRole(admin._id);
 
     const enabledModules = OPTIONAL_MODULES
-      .filter(m => truthy(input[m.field]))
+      .filter(m => moduleChosen(input, m))
       .map(m => m.moduleId);
 
     const writes = [
@@ -114,7 +120,7 @@ export function createInstaller({
       ['site.name', siteName],
       ['site.currency', currency],
       ['setup.completed', 'true'],
-      // Seçilmeyen modüle kayıt YAZILMAZ: kayıt yok = kapalı (varsayılan).
+      // Seçilmeyen modüle kayıt YAZILMAZ: kayıt yok = kapalı.
       ...enabledModules.map(id => [`module.${id}.enabled`, 'true']),
     ];
     for (const [key, value] of writes) {

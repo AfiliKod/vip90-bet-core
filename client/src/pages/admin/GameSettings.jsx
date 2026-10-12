@@ -227,6 +227,15 @@ const VIDEOPOKER_FIELDS = [
   { key: 'vpMaxBet', type: 'number', step: '1' },
 ];
 
+// Coin Flip — RTP kapalı formda: kazanma olasılığı sabit %50 (tek adil para),
+// RTP = 0.5 × coinflipPayoutMult. Bu yüzden RTP_CALC_BY_GAME canlı hesaplar
+// ve alanın kendisi çarpan olarak düzenlenir (houseEdgeToRtp transformu yok).
+const COINFLIP_FIELDS = [
+  { key: 'coinflipPayoutMult', type: 'number', step: '0.01', min: 1.8, max: 2.0 },
+  { key: 'coinflipMinBet', type: 'number', step: '0.01' },
+  { key: 'coinflipMaxBet', type: 'number', step: '1' },
+];
+
 const FIELDS_BY_GAME = {
   'inhouse-crash': CRASH_FIELDS,
   'inhouse-roulette': ROULETTE_FIELDS,
@@ -241,6 +250,7 @@ const FIELDS_BY_GAME = {
   'inhouse-baccarat': BACCARAT_FIELDS,
   'inhouse-blackjack': BLACKJACK_FIELDS,
   'inhouse-videopoker': VIDEOPOKER_FIELDS,
+  'inhouse-coinflip': COINFLIP_FIELDS,
 };
 
 const RISK_LABEL_KEYS = {
@@ -323,6 +333,11 @@ const RTP_CALC_BY_GAME = {
       { label: t('admin.gameSettings.baccarat.rtpTie'), value: r.tie },
     ];
   },
+  // Coin Flip: RTP = 0.5 × çarpan — kazanma olasılığı her zaman %50 (tek adil
+  // para), tek değişken ödeme çarpanı.
+  'inhouse-coinflip': (t, form) => [
+    { label: t('admin.gameSettings.coinflip.rtpMain'), value: (Number(form.coinflipPayoutMult) || 0) * 50 },
+  ],
 };
 
 // Tek bir RTP alanına indirgenemeyen oyunlar için: alanların ne olduğunu ve
@@ -335,6 +350,7 @@ const INFO_NOTE_BY_GAME = {
   'inhouse-baccarat': 'admin.gameSettings.baccarat.info',
   'inhouse-blackjack': 'admin.gameSettings.simulate.info',
   'inhouse-videopoker': 'admin.gameSettings.simulate.info',
+  'inhouse-coinflip': 'admin.gameSettings.coinflip.info',
 };
 
 function toDisplay(f, raw) {

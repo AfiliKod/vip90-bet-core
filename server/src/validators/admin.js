@@ -123,6 +123,9 @@ export const updateGameSettingsSchema = z.object({
   vpJacksOrBetterMult: z.number().optional(),
   vpMinBet: z.number().positive().optional(),
   vpMaxBet: z.number().positive().optional(),
+  coinflipPayoutMult: z.number().optional(),
+  coinflipMinBet: z.number().positive().optional(),
+  coinflipMaxBet: z.number().positive().optional(),
   isActive: z.boolean().optional(),
   reason: z.string().max(300).optional(),
 });

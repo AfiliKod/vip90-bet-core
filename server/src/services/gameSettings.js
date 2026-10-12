@@ -119,6 +119,16 @@ export async function initDefaultGameSettings() {
       vpMinBet: 1,
       vpMaxBet: 50000,
     },
+    {
+      // Coin Flip (14. oyun) — ONAYLI spec (2026-10-09): RTP %98.00 (mult 1.96),
+      // min 1.00 / max 1.000,00 TRY. Matematik tek kaynak: inhouse-provider
+      // alt modülündeki math/coinflipMath.js (engine buradan import eder).
+      gameId: 'inhouse-coinflip',
+      gameTitle: 'Coin Flip',
+      coinflipPayoutMult: 1.96,
+      coinflipMinBet: 1,
+      coinflipMaxBet: 1000,
+    },
   ];
 
   // find+create yerine atomik upsert: eşzamanlı çağrılar (crashGame.js ve
@@ -199,6 +209,8 @@ export async function updateGameSettings(gameId, updates, adminId, options = {})
     'vpRoyalFlushMult', 'vpStraightFlushMult', 'vpFourKindMult', 'vpFullHouseMult',
     'vpFlushMult', 'vpStraightMult', 'vpThreeKindMult', 'vpTwoPairMult', 'vpJacksOrBetterMult',
     'vpMinBet', 'vpMaxBet',
+    // Coin Flip — RTP = 0.5 × mult (kazanma olasılığı sabit %50)
+    'coinflipPayoutMult', 'coinflipMinBet', 'coinflipMaxBet',
     // Common
     'isActive',
   ];
@@ -222,6 +234,15 @@ export async function updateGameSettings(gameId, updates, adminId, options = {})
       throw createError(400, 'INVALID_RANGE', 'Roulette house edge 0-10 aralığında olmalı');
     }
   }
+  // Coin Flip — ödeme çarpanı koruması: RTP = %50 × mult, bu yüzden mult > 2.0
+  // matematiksel olarak %100+ RTP demek (house edge negatif). Sert tavan 2.0;
+  // ONAYLI değer 1.96 (RTP %98.00) ve spec toleransı ±0.01 mult = ∓0.5 pp RTP
+  // — bunun ötesindeki değişiklik Game Math yeniden onayı gerektirir.
+  if (updateData.coinflipPayoutMult !== undefined) {
+    if (updateData.coinflipPayoutMult < 1.8 || updateData.coinflipPayoutMult > 2) {
+      throw createError(400, 'INVALID_RANGE', 'Coin Flip ödeme çarpanı 1.8-2.0 aralığında olmalı');
+    }
+  }
   if (updateData.crashMinBet !== undefined && updateData.crashMinBet <= 0) {
     throw createError(400, 'INVALID_RANGE', 'Min bet pozitif olmalı');
   }
@@ -233,7 +254,7 @@ export async function updateGameSettings(gameId, updates, adminId, options = {})
   // Tekil alan aralıkları (ör. payoutFactor 0.5-0.99) zaten şema seviyesinde
   // (models/GameSettings.js) min/max ile korunuyor; burada yalnızca
   // şemanın ifade edemediği çapraz alan kısıtı (max >= min) kontrol ediliyor.
-  for (const prefix of ['mines', 'dice', 'limbo', 'hilo', 'dragonTiger', 'plinko', 'wheel', 'keno', 'baccarat', 'blackjack', 'vp']) {
+  for (const prefix of ['mines', 'dice', 'limbo', 'hilo', 'dragonTiger', 'plinko', 'wheel', 'keno', 'baccarat', 'blackjack', 'vp', 'coinflip']) {
     const minKey = `${prefix}MinBet`;
     const maxKey = `${prefix}MaxBet`;
     if (updateData[minKey] !== undefined && updateData[minKey] <= 0) {
@@ -381,6 +402,13 @@ const OPERATOR_GAME_DEFAULTS = {
     vpMinBet: 1,
     vpMaxBet: 50000,
   },
+  // ONAYLI spec (2026-10-09): RTP %98.00 (çarpan 1.96), min 1.00 / max 1.000,00 TRY
+  'inhouse-coinflip': {
+    gameTitle: 'Coin Flip',
+    coinflipPayoutMult: 1.96,
+    coinflipMinBet: 1,
+    coinflipMaxBet: 1000,
+  },
 };
 
 /** operatorId + gameId scoped ayar — yoksa o oyunun varsayılanlarıyla lazy-seed. */
@@ -414,7 +442,9 @@ export async function getGameSettingsForOperator(operatorId, gameId) {
 // minKey/maxKey: her oyunun min/max bahis alan adları — jenerik çapraz
 // doğrulama (max >= min) ve jenerik bahis-aralığı kontrolü (instantGameEngine.js)
 // için. percentField: varsa [alan, min, max] — house-edge tipi tekil yüzde
-// alanlarının aralık kontrolü.
+// alanlarının aralık kontrolü. multField: aynı mekanik, ödeme ÇARPANI alanları
+// için (Coin Flip): RTP = kazanma olasılığı × mult olduğundan çarpanın
+// güvenlik aralığı (mult > 2.0 = %100+ RTP) burada tutulur.
 const GAME_FIELD_META = {
   'inhouse-crash':       { minKey: 'crashMinBet', maxKey: 'crashMaxBet', percentField: ['crashHouseEdgePercent', 0, 50] },
   'inhouse-roulette':    { minKey: 'rouletteMinBet', maxKey: 'rouletteMaxBet', percentField: ['rouletteHouseEdgePercent', 0, 10] },
@@ -429,6 +459,7 @@ const GAME_FIELD_META = {
   'inhouse-baccarat':    { minKey: 'baccaratMinBet', maxKey: 'baccaratMaxBet' },
   'inhouse-blackjack':   { minKey: 'blackjackMinBet', maxKey: 'blackjackMaxBet' },
   'inhouse-videopoker':  { minKey: 'vpMinBet', maxKey: 'vpMaxBet' },
+  'inhouse-coinflip':    { minKey: 'coinflipMinBet', maxKey: 'coinflipMaxBet', multField: ['coinflipPayoutMult', 1.8, 2.0] },
 };
 
 export function getGameFieldMeta(gameId) {
@@ -468,14 +499,21 @@ const OPERATOR_ALLOWED_FIELDS = {
     'vpFlushMult', 'vpStraightMult', 'vpThreeKindMult', 'vpTwoPairMult', 'vpJacksOrBetterMult',
     'vpMinBet', 'vpMaxBet', 'isActive',
   ],
+  'inhouse-coinflip': ['coinflipPayoutMult', 'coinflipMinBet', 'coinflipMaxBet', 'isActive'],
 };
 
 function validateOperatorUpdate(gameId, updateData) {
   const meta = GAME_FIELD_META[gameId];
   if (!meta) return;
-  const { minKey, maxKey, percentField } = meta;
+  const { minKey, maxKey, percentField, multField } = meta;
   if (percentField) {
     const [field, lo, hi] = percentField;
+    if (updateData[field] !== undefined && (updateData[field] < lo || updateData[field] > hi)) {
+      throw createError(400, 'INVALID_RANGE', `${field} ${lo}-${hi} aralığında olmalı`);
+    }
+  }
+  if (multField) {
+    const [field, lo, hi] = multField;
     if (updateData[field] !== undefined && (updateData[field] < lo || updateData[field] > hi)) {
       throw createError(400, 'INVALID_RANGE', `${field} ${lo}-${hi} aralığında olmalı`);
     }

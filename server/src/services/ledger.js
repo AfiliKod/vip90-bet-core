@@ -10,6 +10,53 @@ import User from '../models/User.js';
 import { getActiveCurrency } from '../currency/index.js';
 
 /**
+ * Bakiye değişikliğinin tek güvenli yolu (2026-10-12).
+ *
+ * "Oku → bellekte topla → save()" deseni, işlem (transaction) dışında
+ * çalışınca eşzamanlı bir başka hareketi ezer: save() bakiyeyi mutlak değer
+ * olarak yazar (`$set: { balance }`), arada yapılan düşüm/ekleme kaybolur.
+ * Bu fonksiyon tek bir atomik güncelleme yapar (sunucu tarafında
+ * `balance + delta`, 2 haneye yuvarlanmış), işlem içinde de dışında da
+ * güvenlidir ve gerçek önceki/sonraki bakiyeyi döndürür.
+ *
+ * @param {*} id  belge kimliği (varsayılan model User)
+ * @param {number} delta  + ekleme, − düşüm
+ * @param {object} [opts]
+ * @param {import('mongoose').ClientSession|null} [opts.session]
+ * @param {boolean} [opts.requireFunds]  düşümde bakiye yetmezse güncelleme yapılmaz, null döner
+ * @param {object} [opts.alsoAdd]  aynı güncellemede artırılacak diğer sayısal alanlar ({ alan: miktar })
+ * @param {import('mongoose').Model} [opts.model]  User dışında bakiye taşıyan model (ör. Agent)
+ * @returns {Promise<{ doc, balanceBefore: number, balanceAfter: number } | null>}
+ *   belge yoksa ya da `requireFunds` sağlanmadıysa null
+ */
+export async function adjustBalance(id, delta, { session = null, requireFunds = false, alsoAdd = {}, model = User } = {}) {
+  const amount = Number(delta);
+  if (!Number.isFinite(amount)) throw new Error(`adjustBalance: geçersiz tutar ${delta}`);
+  const filter = { _id: id };
+  if (requireFunds && amount < 0) filter.balance = { $gte: -amount };
+  const set = { balance: { $round: [{ $add: [{ $ifNull: ['$balance', 0] }, amount] }, 2] } };
+  for (const [field, inc] of Object.entries(alsoAdd)) {
+    set[field] = { $round: [{ $add: [{ $ifNull: [`$${field}`, 0] }, Number(inc)] }, 2] };
+  }
+  const doc = await model.findOneAndUpdate(filter, [{ $set: set }], { new: true, session });
+  if (!doc) return null;
+  const balanceAfter = doc.balance;
+  return { doc, balanceAfter, balanceBefore: +(balanceAfter - amount).toFixed(2) };
+}
+
+/** Aynı idempotencyKey'li hareket bir işlem içinde ikinci kez yazılmak istendi. */
+export function isDuplicateTransaction(err) {
+  return err?.code === 'DUPLICATE_TRANSACTION';
+}
+
+function duplicateTransactionError(idempotencyKey) {
+  const e = new Error(`Bu hareket zaten işlenmiş (${idempotencyKey})`);
+  e.status = 409;
+  e.code = 'DUPLICATE_TRANSACTION';
+  return e;
+}
+
+/**
  * Create a transaction with idempotency protection.
  * If idempotencyKey is provided and already exists, returns the existing transaction.
  * Otherwise creates a new transaction atomically.
@@ -38,10 +85,16 @@ export async function createTransaction(data, options = {}) {
     walletId = 'main',
   } = data;
 
-  // Check idempotency if key provided
+  // Tekrar koruması. İşlem (transaction) içindeyken aynı anahtarın zaten var
+  // olması, çağıranın aynı işlemde bakiyeyi de değiştirmiş olduğu anlamına
+  // gelir: kaydı sessizce döndürmek bakiyeyi iki kez değiştirirdi (eşzamanlı
+  // iki webhook/callback). Bu yüzden işlem içinde hata atılır ve çağıranın
+  // işlemi geri alınır (2026-10-12). İşlem dışında eski davranış korunur.
+  const inTxn = Boolean(session?.inTransaction?.());
   if (idempotencyKey) {
     const existing = await Transaction.findOne({ idempotencyKey }).session(session);
     if (existing) {
+      if (inTxn) throw duplicateTransactionError(idempotencyKey);
       return { transaction: existing, idempotent: true };
     }
   }
@@ -67,7 +120,11 @@ export async function createTransaction(data, options = {}) {
     metadata,
     relatedTransactionId,
     walletId,
-  }], { session });
+  }], { session }).catch((e) => {
+    // Eşzamanlı yazan öteki işlem bizim anlık görüntümüzden sonra commit etti.
+    if (e?.code === 11000 && idempotencyKey && e?.keyPattern?.idempotencyKey) throw duplicateTransactionError(idempotencyKey);
+    throw e;
+  });
 
   if (type === 'deposit' || type === 'withdraw') {
     try {
@@ -154,18 +211,11 @@ export async function createReversal(originalTransactionId, reason, options = {}
   if (!original) throw new Error('Original transaction not found');
   if (original.type === 'reversal') throw new Error('Cannot reverse a reversal');
 
-  // Get user's current balance
-  const user = await User.findById(original.userId).session(session);
-  if (!user) throw new Error('User not found');
-
-  // Calculate reversal amount (opposite of original)
+  // Calculate reversal amount (opposite of original) — atomik güncelleme
   const reversalAmount = -original.amount;
-  const balanceBefore = user.balance;
-  const balanceAfter = parseFloat((user.balance + reversalAmount).toFixed(2));
-
-  // Update user balance
-  user.balance = balanceAfter;
-  await user.save({ session });
+  const adjusted = await adjustBalance(original.userId, reversalAmount, { session });
+  if (!adjusted) throw new Error('User not found');
+  const { balanceBefore, balanceAfter } = adjusted;
 
   // Create reversal transaction
   const { transaction: reversal } = await createTransaction({

@@ -3,7 +3,7 @@ import User from '../models/User.js';
 import BonusWagering from '../models/BonusWagering.js';
 import Transaction from '../models/Transaction.js';
 import { createError } from '../middleware/error.js';
-import { createTransaction } from '../services/ledger.js';
+import { createTransaction, adjustBalance } from '../services/ledger.js';
 
 export async function list(req, res, next) {
   try {
@@ -54,14 +54,9 @@ export async function claim(req, res, next) {
     // oynanabilir olur. wageringRequired tamamlanana dek lockedAmount kadarı
     // çekilemez (bkz. wagering.js getLockedAmount/getSpendableBreakdown).
     // SECURITY FIX (H9): Use atomic $inc for balance update
-    const balanceBeforeUser = await User.findById(req.user.id);
-    const balanceBefore = balanceBeforeUser.balance;
-
-    const user = await User.findByIdAndUpdate(
-      req.user.id,
-      { $inc: { balance: promo.amount } },
-      { new: true }
-    );
+    const credited = await adjustBalance(req.user.id, promo.amount);
+    if (!credited) throw createError(404, 'USER_NOT_FOUND', 'Kullanıcı bulunamadı');
+    const { doc: user, balanceBefore } = credited;
 
     // idempotencyKey pre-check above already guarded against double-claim;
     // still pass it here as a defense-in-depth second layer (consistent with

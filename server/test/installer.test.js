@@ -225,11 +225,21 @@ describe('installer — uygulamanın gerçekten okuduğu ayarlara bağlanma', ()
     await assert.rejects(() => make().run({ ...validInput, currency: 'GBP' }), /VALIDATION/);
   });
 
-  test('modül seçilmediyse modül kaydı YAZILMAZ (kayıt yok = kapalı)', async () => {
+  test('modül alanı gönderilmezse KYC varsayılan açık, kripto kapalı başlar', async () => {
     const settings = fakeSettingModel();
     const r = await make(settings).run(validInput);
-    assert.deepStrictEqual(r.enabledModules, []);
-    assert.ok(![...settings.store.keys()].some(k => k.startsWith('module.')));
+    assert.deepStrictEqual(r.enabledModules, ['kyc-verification']);
+    assert.strictEqual(settings.store.get('module.kyc-verification.enabled'), 'true');
+    assert.strictEqual(settings.store.has('module.crypto-payment.enabled'), false);
+  });
+
+  test('KYC açıkça kapatılırsa modül kaydı YAZILMAZ (kayıt yok = kapalı)', async () => {
+    for (const off of [false, 'false', '']) {
+      const settings = fakeSettingModel();
+      const r = await make(settings).run({ ...validInput, enableKyc: off });
+      assert.deepStrictEqual(r.enabledModules, [], String(off));
+      assert.ok(![...settings.store.keys()].some(k => k.startsWith('module.')), String(off));
+    }
   });
 
   test('crypto ve KYC seçilirse modül kaydı açık yazılır ve moduleStore açık okur', async () => {
@@ -248,7 +258,7 @@ describe('installer — uygulamanın gerçekten okuduğu ayarlara bağlanma', ()
 
   test('yalnız biri seçilirse diğeri yazılmaz', async () => {
     const settings = fakeSettingModel();
-    await make(settings).run({ ...validInput, enableKyc: 'on' });
+    await make(settings).run({ ...validInput, enableKyc: 'on', enableCrypto: false });
     assert.strictEqual(settings.store.has('module.crypto-payment.enabled'), false);
     assert.strictEqual(settings.store.get('module.kyc-verification.enabled'), 'true');
   });

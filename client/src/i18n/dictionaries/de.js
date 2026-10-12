@@ -385,6 +385,9 @@ export default {
     'games.dragontiger.title': 'Dragon Tiger',
     'games.dragontiger.subtitle': 'Dragon oder Tiger — die höchste Karte gewinnt',
     'games.dragontiger.cta': 'Seite wählen',
+    'games.coinflip.title': 'Coin Flip',
+    'games.coinflip.subtitle': 'Kopf oder Zahl — tippe auf die Seite und verdopple deinen Einsatz',
+    'games.coinflip.cta': 'Münze werfen',
     // Game UI
     'game.betAmount': 'Einsatz',
     'game.autoBet': 'Automatische Wette',
@@ -1034,6 +1037,7 @@ export default {
   'games.baccarat.cardDesc': 'Spieler oder Banker gewinnt',
   'games.videopoker.cardDesc': 'Jacks or Better Poker',
   'games.dragontiger.cardDesc': 'Dragon oder Tiger?',
+  'games.coinflip.cardDesc': 'Kopf oder Zahl?',
   // Einstellungsseite
   'settings.title': 'Einstellungen',
   'settings.tabAccount': 'Konto',

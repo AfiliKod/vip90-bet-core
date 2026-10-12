@@ -12,8 +12,19 @@
  * birkaç deneme bile yetmiyordu, bu yüzden artan bekleme süresi eklendi).
  */
 
-const MAX_RETRIES = 8;
-const BASE_DELAY_MS = 30;
+// 2026-10-12: aynı oyuncunun eşzamanlı işlemleri (paralel kupon/çekim) aynı
+// kullanıcı belgesine yazdığı için WriteConflict üretir. Sabit artan gecikme
+// (30·n ms) yeniden denemeleri aynı anlara dizip tekrar çarpıştırıyor, 8
+// deneme tükenip oyuncuya 500 dönüyordu (test/rgConcurrency.test.js). Üstel
+// artan tavan + tam rastgele sapma ("full jitter") denemeleri dağıtır.
+const MAX_RETRIES = 15;
+const BASE_DELAY_MS = 20;
+const MAX_DELAY_MS = 400;
+
+export function retryDelay(attempt, random = Math.random) {
+  const cap = Math.min(MAX_DELAY_MS, BASE_DELAY_MS * 2 ** (attempt - 1));
+  return Math.floor(random() * cap) + 1;
+}
 
 function sleep(ms) {
   return new Promise(resolve => setTimeout(resolve, ms));
@@ -53,10 +64,27 @@ export async function withTransactionRetry(session, fn) {
     } catch (e) {
       await session.abortTransaction().catch(() => {});
       if (e.hasErrorLabel?.('TransientTransactionError') && attempt < MAX_RETRIES) {
-        await sleep(BASE_DELAY_MS * attempt);
+        await sleep(retryDelay(attempt));
         continue;
       }
       throw e;
     }
+  }
+}
+
+/**
+ * Çağıran bir işlem (session) verdiyse gövdeyi onun içinde çalıştırır;
+ * vermediyse kendi işlemini açar (withTransactionRetry ile). Bakiye ve defter
+ * satırı böylece hep birlikte yazılır; eşzamanlı ikinci ödeme createTransaction'ın
+ * işlem içi tekrar korumasına takılıp geri alınır.
+ */
+export async function runInTransaction(session, fn) {
+  if (session) return fn(session);
+  const { default: mongoose } = await import('mongoose');
+  const own = await mongoose.startSession();
+  try {
+    return await withTransactionRetry(own, () => fn(own));
+  } finally {
+    await own.endSession();
   }
 }
