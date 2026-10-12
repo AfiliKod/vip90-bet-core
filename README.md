@@ -276,6 +276,14 @@ npm run dev   # client + server
 
 ### Tests
 
+The recommended path (requires only Docker; no local MongoDB installation):
+
+```bash
+docker compose -f docker-compose.yml -f docker-compose.test.yml run --rm test
+```
+
+The suite typically takes a few minutes on a laptop. Alternatively, with a local MongoDB replica set on `localhost:27017`:
+
 ```bash
 npm test               # unit/integration tests (server + client i18n/admin/utils); needs a local MongoDB
 npm run test:network   # tests that call real external services (Slikair sandbox)
@@ -290,96 +298,33 @@ npm run test:e2e       # Playwright end-to-end tests
   are constants in `server/src/middleware/rateLimit.js`, not env settings).
 - TOTP 2FA for admins; optional IP/CIDR restriction for `/api/admin/*` with
   `ADMIN_ALLOWED_IPS`, and Cloudflare Turnstile (both off until configured).
-- With the `kyc-verification` module on, player withdrawals require an
-  approved KYC (`KYC_REQUIRED`).
-- License and permission boundaries enforced at the API level by the module
-  gate.
-- Role-based access control (RBAC): every admin endpoint checks a permission.
-- Audit trail for all critical admin actions (player interventions, financial
-  operations, KYC decisions, module changes).
-- Responsible gaming controls: deposit/withdrawal/loss/wager limits, cool-off
-  periods, self-exclusion, account restrictions.
-- Live chat moderation: bans, mutes and message deletions are logged with
-  permission checks.
-- Financial ledger: every wallet operation is atomic, idempotent and
-  auditable.
-- The source and license status of visual assets is recorded; provider logos
-  are used under the casino content aggregator's guarantee.
 
 ## Documentation
 
-Operator documentation lives in [`docs/product/`](docs/product/README.md):
-
-- [Installation](docs/product/01-kurulum.md) · [Configuration](docs/product/02-yapilandirma.md)
-- [Module System](docs/product/03-modul-sistemi.md) · [API Reference](docs/product/05-api-referansi.md)
-- [FAQ](docs/product/06-sss.md) · [Video Storyboards](docs/product/07-video-storyboardlari.md)
-- [Known Limitations](docs/product/09-bilinen-kisitlar.md) · [Bonus and Wagering](docs/product/10-bonus-ve-cevrim.md)
-- [Admin Tools — Activity Feed, Demo Data, Casino Rewards](docs/product/11-admin-araclari.md)
-
-Payment and KYC integrations included with the core:
-[Crypto Payments — TRC20 USDT](docs/providers/crypto-trc20.md) ·
-[Local (Manual) KYC](docs/providers/local-kyc.md) ·
-[Sumsub KYC](docs/providers/sumsub-kyc.md).
-
-The technical documentation and game maths of the paid add-ons (In-house
-Games, Sports Betting, Casino Content) ship with the add-ons. Release
-history: [`CHANGELOG.md`](CHANGELOG.md) (in Turkish).
+- [Installation](docs/product/01-kurulum.md)
+- [Architecture](docs/product/02-mimari.md)
+- [API reference](docs/product/05-api-referansi.md)
+- [Module system](docs/product/06-modul-sistemi.md)
+- [Changelog](CHANGELOG.md)
+- [Known limitations](docs/product/09-bilinen-kisitlar.md)
 
 ## Roadmap
 
-The platform is under active development. The items below are features that
-are **missing, planned, or present only as a schema/partial implementation
-that does not work end to end**; they were confirmed by a code audit and are
-not hidden. Full details and code references:
-[Known Limitations](docs/product/09-bilinen-kisitlar.md).
-
-- **Live Casino**: live dealer table/video games are a planned future update;
-  there is no `live-casino` module, connector or gate in the code.
-- **Multi-tier affiliate**: today there is a single tier only. A percentage of
-  the house profit an invited user generates goes directly to the person who
-  invited them; sub-referrals (tier 2 and beyond) earn nothing yet.
-- **Brand data isolation**: multi-brand management exists, but the core
-  models have no `brandId`, so data isolation is not enforced.
+See [CHANGELOG.md](CHANGELOG.md) and the private development notes for the
+current state of paid add-ons and planned work.
 
 ## Licensing
 
-The core platform is licensed under the
-[GNU Affero General Public License v3.0](LICENSE) (`AGPL-3.0-only`) and
-published in the public
-[`vip90-bet-core`](https://github.com/AfiliKod/vip90-bet-core) repository.
-Under the AGPL, an operator who modifies the core and offers it to users over
-a network must make the modified source code available to those users.
-
-The In-house Games, Sports Betting and Casino Content add-ons are separate,
-closed-source commercial products; they are kept in their own private
-repositories and licensed independently of the core license.
-
-For pricing, support terms and supply details, contact the sales team via
-[vip90.bet](https://vip90.bet).
+The core is licensed under the **GNU Affero General Public License v3.0**
+(AGPL-3.0). The three paid add-ons (In-house Games, Sports Betting, Casino
+Content) are proprietary and distributed under a separate commercial license.
 
 ## Legal notice
 
-**This software is a toolkit, not a licence to operate.** Offering real-money
-betting or games of chance is regulated in most countries and usually requires
-a prior operator licence from the competent authority. Running this code for
-real-money play without that licence — or making it reachable from a
-jurisdiction where it is prohibited — is illegal in those places and is your
-responsibility alone, not the responsibility of this repository's authors.
-
-- Nothing in this repository is legal advice. Before deploying anything that
-  touches real money, get advice on your target jurisdictions and check the
-  payment providers' own terms.
-- The built-in responsible-gaming controls (deposit/loss/wager limits, cool-off,
-  self-exclusion), KYC hooks and audit logging are **implementation tools**.
-  They do not by themselves satisfy any regulator's requirements, and no
-  compliance claim is made or implied.
-- Age restriction: the player UI is intended for adults (18+, or the higher
-  legal age where you operate).
-- The provably-fair implementation is a cryptographic commitment scheme for
-  round transparency. It is not a certification — game fairness and RNG
-  certification requires an accredited testing lab.
-- The demo screenshots show a local instance with generated data; no real
-  player, operator or payment-provider data is present.
+This software is provided for educational and development purposes. Operating
+an online gambling service is heavily regulated. Obtain appropriate licenses
+in your jurisdiction before offering real-money play. The authors are not
+responsible for any illegal use.
 
 Use it to build and test your own product, or to run a licensed operation with
 the right paperwork in place.

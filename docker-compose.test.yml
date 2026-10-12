@@ -1,3 +1,8 @@
+# Test overlay for running the suite with Docker only (no local MongoDB required).
+# The test service shares the mongo container's network namespace
+# (network_mode: service:mongo) so that the hardcoded mongodb://localhost:27017/...
+# connection strings in the test files work unchanged without a separate MONGODB_URI.
+#
 # Test overlay — ana docker-compose.yml'e ek olarak kullanılır, tek başına
 # `docker compose up` ile başlamaz (test servisi ayrı, tek seferlik çalışır).
 #
