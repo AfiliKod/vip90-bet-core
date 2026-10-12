@@ -5,6 +5,9 @@
 ![MongoDB](https://img.shields.io/badge/mongodb-7%20(replica%20set)-47A248?style=flat-square&logo=mongodb&logoColor=white)
 ![License](https://img.shields.io/badge/license-AGPL--3.0%20%2B%20commercial%20add--ons-blue?style=flat-square)
 
+[![Try the free signup demo](https://img.shields.io/badge/free_signup_demo-app.VIP90.bet-6366f1?style=for-the-badge)](https://app.VIP90.bet?utm_source=github&utm_medium=referral&utm_content=readme_hero&utm_campaign=vip90b2b_p1)
+[![Product site](https://img.shields.io/badge/product_site-VIP90.bet-1a2332?style=for-the-badge)](https://vip90.bet)
+
 # VIP90.bet
 
 **English** · [Türkçe](README.tr.md)
@@ -37,6 +40,7 @@ yet; see the [Roadmap](#roadmap) and [Known Limitations](docs/product/09-bilinen
 - [Highlights](#highlights)
 - [Screenshots](#screenshots)
 - [What's Included](#whats-included)
+- [Try it](#try-it)
 - [Module System](#module-system)
 - [Architecture and Tech Stack](#architecture-and-tech-stack)
 - [Quick Start](#quick-start)
@@ -174,6 +178,14 @@ Provider, In-house Games, Sportsbook) · **Engagement** (Promotions, VIP,
 Communication, Chat) · **Platform** (Settings: General · Modules ·
 Currencies · Jurisdictions · Brands · SEO; Personalization; Roles; System
 Health & Logs) · **Demo & Simulation** (Demo Data, Bots).
+
+## Try it
+
+| | |
+|---|---|
+| **Live demo** | [app.VIP90.bet](https://app.VIP90.bet?utm_source=github&utm_medium=referral&utm_content=readme_hero&utm_campaign=vip90b2b_p1) — free signup demo: play-money balance, no real money; registration required. |
+| **Self-host** | `git clone` → `docker compose up -d` → open `/install` (EN/TR wizard). |
+| **Product & sales** | [vip90.bet](https://vip90.bet) — modules, integration and support talks. |
 
 ## Module System
 
@@ -380,6 +392,14 @@ responsibility alone, not the responsibility of this repository's authors.
   certification requires an accredited testing lab.
 - The demo screenshots show a local instance with generated data; no real
   player, operator or payment-provider data is present.
+- This software may be deployed worldwide; the legal basis for operating a
+  betting service is the operator's responsibility in their own jurisdiction.
+  No gambling licence is claimed or implied here, and no earnings, winnings or
+  revenue claims are made anywhere in this project.
+- It is not marketed, sold, or supported for operation in Türkiye, where
+  offering betting services is illegal. The Turkish-language interface and
+  `README.tr.md` exist for developers auditing the code — not as an offer to
+  the Turkish market.
 
 Use it to build and test your own product, or to run a licensed operation with
 the right paperwork in place.
