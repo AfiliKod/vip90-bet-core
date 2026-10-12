@@ -37,6 +37,31 @@ is synchronised here from there. Because of that:
   [`docs/CHANGELOG_GUIDE.md`](docs/CHANGELOG_GUIDE.md)), including what an
   existing installation must do to upgrade.
 
+## Your first PR
+
+If this is your first contribution to this repository:
+
+1. Pick an issue labelled `good first issue`, or open a small one first and
+   say what you would change. Issue titles are in English; some bodies and
+   code comments mix English and Turkish, and either language is fine in a PR.
+2. Branch from `main`, install dependencies, and run the test suite before
+   you change anything so you know the starting state. Note that
+   `docker compose up` and the test overlay can currently interfere with each
+   other — see issue #9, which is open; if your install behaves oddly, say so
+   in the PR rather than assuming you did something wrong.
+3. Open the PR with a short description of the behaviour change and, if it
+   changes user-visible behaviour, a `CHANGELOG.md`-style note.
+4. What happens next: we read every PR and reply — the working target is
+   about three working days, but it is a target, not a guaranteed SLA.
+   Because development happens in the private repository described above, an
+   accepted PR is usually not merged with the GitHub merge button — we apply
+   the change there, credit you with `Co-authored-by`, and close your PR with
+   a link to the release that ships it. Your authorship is preserved; the
+   merge commit just is not yours.
+5. If a PR is closed for another reason (out of scope, superseded, no
+   response), the reason is stated in the closing comment. Ask before
+   re-opening; a quick issue thread usually settles it.
+
 ## License
 
 By contributing you agree that your contribution is licensed under the
