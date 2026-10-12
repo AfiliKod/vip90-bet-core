@@ -1,17 +1,28 @@
-# Test overlay — ana docker-compose.yml'e ek olarak kullanılır, tek başına
-# `docker compose up` ile başlamaz (test servisi ayrı, tek seferlik çalışır).
+# Test overlay — ana docker-compose.yml'e EK OLARAK kullanılır.
 #
-# Kullanım:
-#   docker compose -f docker-compose.yml -f docker-compose.test.yml run --rm test
+# Bu dosya tek başına çalıştırılmak için değildir ve artık sessizce yanlış bir
+# kurulum denemesine izin vermez: `test` servisi `profiles: ["test"]` altında
+# durur, yani normal `docker compose up` onu hiç başlatmaz.
+#
+#   Yanlış:   docker compose -f docker-compose.test.yml up     → başlatılacak
+#             servis yok (test profili kapalı); mongo'ya bağımlı ağ
+#             hatası yerine "yapılacak bir şey yok" görürsünüz.
+#   Doğru:    docker compose -f docker-compose.yml -f docker-compose.test.yml run --rm test
+#   ya da:    npm run docker:test
+#
+# Not: bir servisi komutta ADIYLA hedeflediğinizde Compose onun profilini
+# otomatik etkinleştirir; bu yüzden yukarıdaki `run --rm test` komutu
+# `COMPOSE_PROFILES` ayarlamadan çalışmaya devam eder.
 #
 # Test servisi mongo container'ının AĞ NAMESPACE'ini paylaşır
 # (network_mode: service:mongo) — böylece test dosyalarındaki hardcoded
 # `mongodb://localhost:27017/...` bağlantı string'leri (ayrı bir MONGODB_URI
 # env'i olmadan) doğrudan çalışır, hiçbir test dosyasını değiştirmeye gerek
-# kalmaz.
+# kalmaz. Bu yüzden bu servis yalnız overlay içinde anlamlıdır.
 
 services:
   test:
+    profiles: ["test"]
     build:
       context: .
       dockerfile: Dockerfile
