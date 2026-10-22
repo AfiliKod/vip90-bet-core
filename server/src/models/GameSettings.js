@@ -105,12 +105,24 @@ const schema = new mongoose.Schema({
 
   // Coin Flip settings — RTP = 0.5 × payoutMult (kazanma olasılığı sabit %50,
   // provably-fair HMAC'dan türetilen tek adil para). ONAYLI spec (2026-10-09):
-  // mult 1.96 = RTP %98.00. Sert aralık 1.8-2.0: mult > 2.0 matematiksel olarak
-  // %100+ RTP demek (negatif house edge) — validateOperatorUpdate
+  // mult 1.96 = RTP %98.00. Sert aralık 1.8-1.96 — TAVAN 2.0 → 1.96 indirildi
+  // (Burak onayı 2026-10-22, madde 7 "1.96 olsun hatta"): tavan = default ⇒
+  // operatör yalnız AŞAĞI oynayabilir, yazılabilir RTP %90.00–98.00; %100/negatif
+  // house-edge vak'ası imkânsız. validateOperatorUpdate
   // (services/gameSettings.js, multField) ile aynı sınırlar.
-  coinflipPayoutMult: { type: Number, default: 1.96, min: 1.8, max: 2 },
+  coinflipPayoutMult: { type: Number, default: 1.96, min: 1.8, max: 1.96 },
   coinflipMinBet: { type: Number, default: 1, min: 0.01 },
   coinflipMaxBet: { type: Number, default: 1000, min: 1 },
+
+  // Neon Abyss (provably-fair slot, 15. oyun) — MÜHÜRLÜ matematik: ödeme
+  // çarpanları provider'ın math/neonAbyssMath.js sabitlerinde, ölçülen RTP
+  // %95.932 ±0.093 (100M×2, 6/6 gate) o sabitlerle sertifikalı. Operatör
+  // yetkisi YALNIZ aç/kapat + bet aralığı — payoutMult/paytable benzeri hiçbir
+  // RTP knobu bilinçli olarak TANIMSIZ (coinflipPayoutMult'un karşılığı yok;
+  // Admin'e açılan her çarpan mührü kırar + yeniden sim ister). Bet aralığı
+  // 0.20–100 onaylı literal (v1.9 spec; Burak onayı 2026-10-20).
+  neonabyssMinBet: { type: Number, default: 0.20, min: 0.01 },
+  neonabyssMaxBet: { type: Number, default: 100, min: 1 },
 
   // Common
   isActive: { type: Boolean, default: true },

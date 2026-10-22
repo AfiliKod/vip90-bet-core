@@ -58,14 +58,20 @@ export default function Navbar() {
           {user?.role === 'admin' && <Link to="/admin" className="px-3 py-1.5 rounded-lg text-sm text-warning hover:bg-bg-hover transition whitespace-nowrap">{t('nav.admin')}</Link>}
         </div>
 
-        <div className="hidden sm:flex items-center gap-3 shrink-0">
-          <div className="relative" ref={searchRef}>
+        <div className="flex items-center gap-3 shrink-0">
+          {/* Mobilde (sm altı) arama girişi anasayfada section başlığının
+              sağındaki pill'dir (MobileSearchTrigger → ProviderRow.jsx); aynı
+              sayfada iki buton olmasın diye navbar ikonu o darlıkta ve o
+              yolda gizli. Diğer sayfalarda (casino/bahis/canlı/profil) mobil
+              aramanın tek girişi budur — eskiden `hidden sm:flex` yüzünden
+              mobilde hiç görünmüyordu. */}
+          <div className={`relative ${pathname === '/' ? 'hidden sm:block' : 'block'}`} ref={searchRef}>
             <button type="button" aria-label={t('nav.search')} onClick={() => setSearchOpen(o => !o)} className="w-8 h-8 rounded-full flex items-center justify-center text-text-2 hover:text-text-1 hover:bg-bg-hover transition">
               <span className="material-symbols-outlined !text-[19px]">search</span>
             </button>
             {searchOpen && <SearchOverlay onClose={() => setSearchOpen(false)} />}
           </div>
-          <LanguageSwitcher />
+          <div className="hidden sm:block"><LanguageSwitcher /></div>
         </div>
 
         {!user ? (

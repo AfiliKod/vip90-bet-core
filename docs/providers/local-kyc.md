@@ -399,6 +399,8 @@ const KYC_REQUIREMENTS = {
 ```
 
 > **Enforcement (2026-10-03).** The `KYC_REQUIREMENTS` table above and `checkKycRequired` / `requireKyc` are still not used by any route. The real gate is `requireKycForWithdrawal` (`server/src/middleware/kycGate.js`): while the `kyc-verification` module is usable (enabled and licensed), every player withdrawal needs `kycVerified` + `kycStatus === 'approved'`, otherwise `403 KYC_REQUIRED` (`details.kycStatus`) — regardless of amount. It is wired to `POST /api/bank/withdraw`, `POST /api/transactions/withdraw` and `POST /api/crypto/withdraw-request`, before the risk check. With the module off, behaviour is unchanged; deposits and bets are not gated. `expireOldKyc()` runs at startup and daily (`jobs/kycExpiry.js`, started in `server.js`).
+>
+> **Withdrawal gate policy (2026-10-12).** Module **off** (operator's choice) → no gate. Module on, licensed and the card's **KYC active** switch on → approved KYC required (`403 KYC_REQUIRED`). Module on but **KYC active** off → no gate (players cannot submit, so withdrawals are not locked). Module or licence state **unreadable**, or module on but **unlicensed** → the card's **If verification cannot be checked** setting (`KYC_FAILURE_POLICY`) decides: `block` (default) answers `503 KYC_CHECK_UNAVAILABLE` (`details.reason`: `unknown` | `unlicensed`), `allow` lets the withdrawal through and logs a warning. Before this, an unreadable state or a lapsed licence silently opened the gate.
 
 ## Notifications
 

@@ -1,4 +1,4 @@
-import { Fragment, useState, useEffect, useRef, useMemo } from 'react';
+import { Fragment, useState, useEffect, useRef, useMemo, useCallback } from 'react';
 import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import { useTranslation } from '../i18n';
 import api from '../services/api';
@@ -107,7 +107,12 @@ export default function HomePage() {
   // gizlenir, "Tüm Oyunlar" alanı yalnızca bu sağlayıcının oyunlarını
   // gösterir (bkz. AllGamesSection.jsx, ProviderRow.jsx).
   const [selectedProvider, setSelectedProvider] = useState(null); // {id, name} | null
+  // Sağlayıcı rayı render oldu mu? Casino add-on'suz kurulumda ProviderRow
+  // null döner ve mobil arama pill'i orada kayboluyordu — false'ta pill
+  // "Tüm Oyunlar" başlığına taşınır (bkz. AllGamesSection `searchTrigger`).
+  const [providerRail, setProviderRail] = useState(null); // null = henüz bilinmiyor
   const [providerGames, setProviderGames] = useState([]);
+  const handleProvidersLoaded = useCallback((hasRail) => setProviderRail(hasRail), []);
   const [providerGamesLoading, setProviderGamesLoading] = useState(false);
 
   useEffect(() => {
@@ -206,6 +211,8 @@ export default function HomePage() {
     { name: t('games.baccarat.title'),  path: '/games/baccarat', accent: '#eab308', image: '/images/games/baccarat.png' },
     { name: t('games.keno.title'),      path: '/games/keno', accent: '#2dd4bf', image: '/images/games/keno.png' },
     { name: t('games.hilo.title'),      path: '/games/hilo', accent: '#818cf8', image: '/images/games/hilo.png' },
+    // 13. oyun: kayıtli in-house oyunlari arasinda vardi, lobide gorunmuyordu (2026-10-08).
+    { name: t('games.videopoker.title'), path: '/games/videopoker', accent: '#c084fc', image: '/images/games/videopoker.png' },
     { name: t('games.dragontiger.title'), path: '/games/dragontiger', accent: '#fb923c', image: '/images/games/dragontiger.png' },
     { name: t('games.coinflip.title'), path: '/games/coinflip', accent: '#facc15', image: '/images/games/coinflip.png' },
   ];
@@ -278,7 +285,7 @@ export default function HomePage() {
         <div className="lg:grid lg:grid-cols-[1fr_260px] lg:gap-4 lg:items-start">
           <div className="min-w-0">
             <PromoHeroSlider />
-            <ProviderRow selectedId={selectedProvider?.id} onSelect={setSelectedProvider} />
+            <ProviderRow selectedId={selectedProvider?.id} onSelect={setSelectedProvider} onLoaded={handleProvidersLoaded} />
             {/* Bir sağlayıcı seçiliyken diğer kürasyonlu satırlar (Popüler/
                 Özel/Slot/Yeni) gizlenir — aşağıdaki "Tüm Oyunlar" alanı
                 yalnızca seçilen sağlayıcının oyunlarını gösterir. */}
@@ -289,6 +296,7 @@ export default function HomePage() {
               loading={selectedProvider ? providerGamesLoading : false}
               providerFilter={selectedProvider}
               onClearFilter={() => setSelectedProvider(null)}
+              searchTrigger={providerRail === false}
             />
           </div>
 

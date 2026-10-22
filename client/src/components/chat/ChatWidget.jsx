@@ -1,5 +1,7 @@
 import { useState } from 'react';
+import { useLocation } from 'react-router-dom';
 import { useTranslation } from '../../i18n';
+import { isBottomNavHidden } from '../../utils/bottomNav';
 
 const SYSTEM_META = {
   system: { icon: 'ℹ️', cls: 'text-text-3' },
@@ -64,7 +66,12 @@ export default function ChatWidget({
   onlineCount,
 }) {
   const { t, locale } = useTranslation();
+  const { pathname } = useLocation();
   const [draft, setDraft] = useState('');
+
+  // Nav görünürken (mobil, ~75px) buton onun üstüne demirler — aksi halde bir
+  // sekmenin tıklanabilir alanının %85'ini kapatıyordu. Nav yoksa dibe iner.
+  const dockCls = isBottomNavHidden(pathname) ? 'bottom-5' : 'bottom-[5rem] lg:bottom-5';
 
   const list = Array.isArray(messages) ? messages : [];
   const canSend = draft.trim().length > 0;
@@ -89,7 +96,7 @@ export default function ChatWidget({
       <button
         onClick={onToggle}
         aria-label={t('chat.title')}
-        className="fixed bottom-5 left-5 z-50 w-14 h-14 rounded-full bg-primary text-white text-2xl shadow-lg shadow-black/40 flex items-center justify-center transition hover:scale-105 active:scale-95"
+        className={`fixed ${dockCls} left-5 z-50 w-14 h-14 rounded-full bg-primary text-white text-2xl shadow-lg shadow-black/40 flex items-center justify-center transition hover:scale-105 active:scale-95`}
       >
         💬
         {showOnline && (
@@ -102,7 +109,7 @@ export default function ChatWidget({
   }
 
   return (
-    <div className="fixed bottom-5 left-5 z-50 w-[340px] h-[480px] max-w-[calc(100vw-2rem)] flex flex-col rounded-xl bg-bg-card border border-white/10 shadow-2xl shadow-black/50 overflow-hidden animate-slide-up">
+    <div className={`fixed ${dockCls} left-5 z-50 w-[340px] h-[480px] max-h-[calc(100dvh-6.5rem)] max-w-[calc(100vw-2rem)] flex flex-col rounded-xl bg-bg-card border border-white/10 shadow-2xl shadow-black/50 overflow-hidden animate-slide-up`}>
       <div className="flex items-center justify-between gap-2 px-4 py-3 border-b border-white/10 shrink-0">
         <h2 className="text-sm font-bold text-text-1">{t('chat.title')}</h2>
         {showOnline && (

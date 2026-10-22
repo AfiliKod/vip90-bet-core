@@ -5,6 +5,7 @@ import LoginAttempt from '../models/LoginAttempt.js';
 import CasinoSession from '../models/CasinoSession.js';
 import CasinoRound from '../models/CasinoRound.js';
 import { createError } from '../middleware/error.js';
+import { hasAgeConsent, isAdultDateOfBirth } from '../middleware/ageGate.js';
 import { resolveUniquePhone, isDuplicatePhoneError, phoneExistsError } from '../services/userPhone.js';
 import { invalidateTokenVersionCache } from '../middleware/auth.js';
 import { renderBuiltinTemplate } from '../services/email.js';
@@ -76,7 +77,7 @@ export async function register(req, res, next) {
     const {
       username, email, password, referredBy,
       phone, dateOfBirth,
-      acceptedTerms, acceptedKvkk, consentVersion,
+      acceptedTerms, acceptedKvkk, consentVersion, ageConfirmed,
     } = req.validated;
 
     if (await User.findOne({ $or: [{ username }, { email }] }))
@@ -95,6 +96,12 @@ export async function register(req, res, next) {
     const emailVerificationExpires = new Date(Date.now() + EMAIL_VERIFY_TTL_HOURS * 3600 * 1000);
 
     const now = new Date();
+    // 18+ beyanı: beyan → ageConfirmedAt, doğum tarihi 18+ kanıtlıyorsa
+    // ayrıca ageVerifiedAt (2026-10-08; daha önce hiç yazılmıyordu).
+    const dobAdult = dateOfBirth ? isAdultDateOfBirth(dateOfBirth, now) : null;
+    if (dobAdult === false) {
+      throw createError(422, 'AGE_NOT_ELIGIBLE', '18 yaşından küçük oyuncular kaydolamaz');
+    }
     const user = await User.create({
       username, email, password, referredBy: referredById,
       // Slikair payment için opsiyonel alanlar
@@ -103,6 +110,8 @@ export async function register(req, res, next) {
       // KVKK + Terms consent (Phase A4)
       acceptedTermsAt:  acceptedTerms ? now : null,
       acceptedKvkkAt:   acceptedKvkk ? now : null,
+      ageConfirmedAt:   ageConfirmed ? now : null,
+      ageVerifiedAt:    dobAdult === true ? now : null,
       consentVersion:   consentVersion || '1.0.0',
       // Email verification (Phase D1)
       emailVerified: false,
@@ -264,6 +273,43 @@ export async function refresh(req, res, next) {
 export function logout(req, res) {
   res.clearCookie('refreshToken', { path: '/' });
   res.json({ message: 'Çıkış yapıldı' });
+}
+
+/**
+ * 18+ kapısının açılması (2026-10-08).
+ *
+ * Kayıtta beyan (`ageConfirmed`) ya da doğum tarihi göndermeyen hesaplar
+ * casino oyunlarına erişemez (middleware/ageGate.js → 403
+ * AGE_CONFIRMATION_REQUIRED); burada tek tıkla kayıt yazılır. Doğum tarihi
+ * 18 yaş altını kanıtlıyorsa beyan YAZILMAZ (422) — 18+ kapısı atlanamaz.
+ */
+export async function ageConfirm(req, res, next) {
+  try {
+    const { confirmed, dateOfBirth } = req.validated || {};
+    const now = new Date();
+
+    const dobAdult = dateOfBirth ? isAdultDateOfBirth(dateOfBirth, now) : null;
+    if (dobAdult === false) {
+      return next(createError(422, 'AGE_NOT_ELIGIBLE', '18 yaşından küçük oyuncular casino oyunlarına erişemez'));
+    }
+
+    const update = { ageConfirmedAt: now };
+    if (dobAdult === true) update.ageVerifiedAt = now;
+    if (dateOfBirth) update.dateOfBirth = new Date(dateOfBirth);
+
+    const user = await User.findByIdAndUpdate(req.user.id, update, { new: true })
+      .select('-password');
+
+    if (!user) return next(createError(404, 'USER_NOT_FOUND', 'Kullanıcı bulunamadı'));
+
+    res.json({
+      message: '18 yaş onayı kaydedildi',
+      ageConfirmedAt: user.ageConfirmedAt,
+      ageVerifiedAt: user.ageVerifiedAt,
+      verified: Boolean(user.ageVerifiedAt),
+      ageConsent: hasAgeConsent(user),
+    });
+  } catch (e) { next(e); }
 }
 
 // ─── Email doğrulama (Phase D1) ────────────────────────────────

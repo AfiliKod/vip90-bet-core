@@ -5,6 +5,7 @@ import { useGameActivityStore } from '../../store/gameActivityStore';
 import { useAuthStore } from '../../store/authStore';
 import { HOME_CARD, HOME_BORDER } from '../../pages/home/homeTheme';
 import { Icon, FavoriteButton } from './HomeUI';
+import MobileSearchTrigger from '../search/MobileSearchTrigger';
 
 const PAGE_SIZE = 40; // 8 sütun × 5 satır — diğer GameRowSection satırlarındaki gibi bir satırda 8 oyun
 
@@ -53,7 +54,7 @@ function GridGameCard({ game }) {
  *   `games` yalnızca o sağlayıcının oyunlarıdır, başlıkta sağlayıcı adı +
  *   filtreyi temizleme butonu gösterilir.
  */
-export default function AllGamesSection({ games, loading, providerFilter, onClearFilter }) {
+export default function AllGamesSection({ games, loading, providerFilter, onClearFilter, searchTrigger }) {
   const { t } = useTranslation();
   const [visibleCount, setVisibleCount] = useState(PAGE_SIZE);
 
@@ -76,15 +77,23 @@ export default function AllGamesSection({ games, loading, providerFilter, onClea
               {providerFilter ? t('home.providers.filteredDesc') : t('home.games.allGamesDesc')}
             </p>
           </div>
-          {providerFilter && (
-            <button
-              type="button"
-              onClick={onClearFilter}
-              className="inline-flex items-center gap-1 text-xs font-bold font-ui text-[#c8ced2] hover:text-white"
-            >
-              <Icon name="close" className="!text-[15px]" />
-              {t('home.providers.clearFilter')}
-            </button>
+          {(providerFilter || searchTrigger) && (
+            <div className="flex items-center gap-3 shrink-0">
+              {providerFilter && (
+                <button
+                  type="button"
+                  onClick={onClearFilter}
+                  className="inline-flex items-center gap-1 text-xs font-bold font-ui text-[#c8ced2] hover:text-white"
+                >
+                  <Icon name="close" className="!text-[15px]" />
+                  {t('home.providers.clearFilter')}
+                </button>
+              )}
+              {/* Sağlayıcı rayı boşsa (casino add-on'suz kurulum) ProviderRow
+                  null döner ve mobil arama pill'i orada kayboluyordu — o
+                  durumda giriş bu başlığa taşınır (bkz. ProviderRow `onLoaded`). */}
+              {searchTrigger && <MobileSearchTrigger />}
+            </div>
           )}
         </div>
 

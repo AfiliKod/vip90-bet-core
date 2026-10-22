@@ -4,6 +4,7 @@ import api from '../../services/api';
 import { useTranslation } from '../../i18n';
 import { HOME_CARD, HOME_BORDER } from '../../pages/home/homeTheme';
 import ScrollHintArrow from './ScrollHintArrow';
+import MobileSearchTrigger from '../search/MobileSearchTrigger';
 
 // Igames'ın kendi provider API'si (`getProviders()`) `provider_logo` alanını
 // güvenilir doldurmuyor (çoğu sağlayıcıda boş dönüyor) — bu yüzden logolar
@@ -29,7 +30,7 @@ function providerLogo(p) {
  * HomePage.jsx `selectedProviderId`). Tam katalog/filtre sayfasına gitmek
  * isteyenler için "Tümünü Gör" linki hâlâ `/casino`'ya gidiyor.
  */
-export default function ProviderRow({ selectedId, onSelect }) {
+export default function ProviderRow({ selectedId, onSelect, onLoaded }) {
   const { t } = useTranslation();
   const [providers, setProviders] = useState([]);
   const scrollRef = useRef(null);
@@ -37,10 +38,15 @@ export default function ProviderRow({ selectedId, onSelect }) {
   useEffect(() => {
     let cancelled = false;
     api.post('/igames/providers', { lang: 'tr' }).then(({ data }) => {
-      if (!cancelled) setProviders(data?.data || []);
-    }).catch(() => {});
+      if (cancelled) return;
+      const list = data?.data || [];
+      setProviders(list);
+      // Ray boşsa bileşen null dönüyor; HomePage o durumda mobil arama
+      // pill'ini "Tüm Oyunlar" başlığına taşır (bkz. AllGamesSection).
+      onLoaded?.(list.length > 0);
+    }).catch(() => { if (!cancelled) onLoaded?.(false); });
     return () => { cancelled = true; };
-  }, []);
+  }, [onLoaded]);
 
   if (providers.length === 0) return null;
 
@@ -52,9 +58,14 @@ export default function ProviderRow({ selectedId, onSelect }) {
             <span className="material-symbols-outlined !text-[19px]" style={{ color: 'var(--color-primary)' }} aria-hidden="true">apartment</span>
             {t('home.providers.title')}
           </h2>
-          <Link to="/casino" className="hidden sm:inline-flex items-center gap-1 text-xs font-bold font-ui text-[#c8ced2] hover:text-white">
-            {t('home.games.viewAll')}
-          </Link>
+          <div className="flex items-center gap-2 shrink-0">
+            <Link to="/casino" className="hidden sm:inline-flex items-center gap-1 text-xs font-bold font-ui text-[#c8ced2] hover:text-white">
+              {t('home.games.viewAll')}
+            </Link>
+            {/* sm altında "Tümünü Gör" gizli, navbar arama ikonu de yok —
+                mobil arama bu satırın sağında başlar (metin solda, ikon sağda). */}
+            <MobileSearchTrigger />
+          </div>
         </div>
         <div className="relative">
           <div ref={scrollRef} className="flex gap-3 sm:gap-4 overflow-x-auto no-scrollbar pb-1">

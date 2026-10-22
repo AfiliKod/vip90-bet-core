@@ -43,13 +43,16 @@ const TTL_MS = 30 * 1000;
 export function createModuleStore({ load, now = Date.now, ttlMs = TTL_MS } = {}) {
   let cache = null;
   let loadedAt = 0;
+  let failed = false; // son okuma başarısız: durum "bilinmiyor"
 
   async function snapshot() {
     if (cache && now() - loadedAt < ttlMs) return cache;
     try {
       cache = await load();
+      failed = false;
     } catch {
       cache = {}; // fail-closed: bilinmeyen durumda hiçbir modül açık sayılmaz
+      failed = true;
     }
     loadedAt = now();
     return cache;
@@ -59,6 +62,17 @@ export function createModuleStore({ load, now = Date.now, ttlMs = TTL_MS } = {})
     /** Modül tanımsızsa ya da DB'de kaydı yoksa false döner (throw etmez). */
     async isEnabled(moduleId) {
       const flags = await snapshot();
+      return flags[moduleId] === true;
+    },
+
+    /**
+     * Açık (true) / kapalı (false) / okunamadı (null). isEnabled okunamayan
+     * durumu "kapalı" sayar; bir kontrol, kapalı ile bilinmeyeni ayırmak
+     * zorundaysa (ör. KYC çekim kapısının hata politikası) bunu kullanır.
+     */
+    async enabledState(moduleId) {
+      const flags = await snapshot();
+      if (failed) return null;
       return flags[moduleId] === true;
     },
 

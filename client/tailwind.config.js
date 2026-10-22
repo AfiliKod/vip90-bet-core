@@ -35,6 +35,7 @@ export default {
         'marquee':       'marquee 30s linear infinite',
         'fade-in':       'fadeIn 0.2s ease-out',
         'slide-up':      'slideUp 0.15s ease-out',
+        'slide-down':    'slideDown 0.18s ease-out',
         'crash-shake':   'crashShake 0.55s ease-in-out',
         'mult-tick':     'multTick 0.22s ease-out',
         'pulse-glow':    'pulseGlow 1.4s ease-in-out infinite',
@@ -55,6 +56,7 @@ export default {
         fadeIn:      { from: { opacity: '0', transform: 'translateY(-8px)' }, to: { opacity: '1', transform: 'translateY(0)' } },
         shrink:      { '0%': { width: '100%' }, '100%': { width: '0%' } },
         slideUp:     { from: { opacity: '0', transform: 'translateY(6px) scale(0.97)' }, to: { opacity: '1', transform: 'translateY(0) scale(1)' } },
+        slideDown:   { from: { opacity: '0', transform: 'translateY(-10px)' }, to: { opacity: '1', transform: 'translateY(0)' } },
         crashShake:  {
           '0%,100%': { transform: 'translate(0,0) rotate(0deg)' },
           '15%':     { transform: 'translate(-5px,-2px) rotate(-0.5deg)' },

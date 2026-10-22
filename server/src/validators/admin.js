@@ -126,6 +126,9 @@ export const updateGameSettingsSchema = z.object({
   coinflipPayoutMult: z.number().optional(),
   coinflipMinBet: z.number().positive().optional(),
   coinflipMaxBet: z.number().positive().optional(),
+  // Neon Abyss — yalnız bet aralığı; payoutMult benzeri alan BİLEREK yok (mühür).
+  neonabyssMinBet: z.number().positive().optional(),
+  neonabyssMaxBet: z.number().positive().optional(),
   isActive: z.boolean().optional(),
   reason: z.string().max(300).optional(),
 });

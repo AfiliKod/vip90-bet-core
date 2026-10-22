@@ -8,12 +8,16 @@ const KYC_KEYS = [
   'SUMSUB_SECRET_KEY',
   'SUMSUB_LEVEL_NAME',
   'SUMSUB_WEBHOOK_SECRET',
+  // Çekim kapısı KYC durumunu denetleyemediğinde ne olsun: 'block' (çekim
+  // durur) ya da 'allow' (çekim KYC'siz geçer). Bkz. middleware/kycGate.js.
+  'KYC_FAILURE_POLICY',
 ];
 
 const KYC_DEFAULTS = {
   KYC_ENABLED: 'true',
   KYC_PROVIDER: 'manual',
   SUMSUB_LEVEL_NAME: 'basic-kyc-level',
+  KYC_FAILURE_POLICY: 'block',
 };
 
 const KYC_SECRET_KEYS = new Set(['SUMSUB_APP_TOKEN', 'SUMSUB_SECRET_KEY', 'SUMSUB_WEBHOOK_SECRET']);

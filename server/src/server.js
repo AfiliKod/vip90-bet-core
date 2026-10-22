@@ -19,6 +19,7 @@ import { startCleanupJob } from './jobs/cleanup.js';
 import { startBonusExpiryJob } from './jobs/bonusExpiry.js';
 import { startCloseStaleGameSessionsJob } from './jobs/closeStaleGameSessions.js';
 import { startKycExpiryJob } from './jobs/kycExpiry.js';
+import { startCryptoWithdrawalReconcileJob } from './jobs/cryptoWithdrawalReconcile.js';
 import Setting from './models/Setting.js';
 import { initSentry } from './services/sentry.js';
 import { errorLogger } from './services/errorLogger.js';
@@ -203,6 +204,7 @@ connectDB()
     startBonusExpiryJob();
     startCloseStaleGameSessionsJob();
     startKycExpiryJob();
+    startCryptoWithdrawalReconcileJob();
     // Demo veri canlı simülasyonu — sunucu restart sonrası önceki durumu geri yükler
     const demoDataLiveRow = await Setting.findOne({ key: 'demoData.live.config' }).lean();
     if (demoDataLiveRow?.value) {

@@ -1,6 +1,12 @@
+import { expect } from '@playwright/test';
 import { getDb, getUserByEmail } from './db-helpers.js';
 
-export async function login(page, usernameOrEmail = 'testuser', password = 'password123') {
+// tests/e2e/global-setup.js kullanıcıyı `testuser-<workerId>` olarak ekiyor;
+// sabit 'testuser' varsayılanı o kayıtla eşleşmiyordu ve hiçbir spec oturum
+// açamıyordu (guest kalıyordu). Varsayılanı ekiciyle aynı türetmekten alıyoruz.
+const SEEDED_USERNAME = `testuser-${process.env.TEST_WORKER_ID || 'default'}`;
+
+export async function login(page, usernameOrEmail = SEEDED_USERNAME, password = 'password123') {
   await page.goto('/login');
   await page.waitForLoadState('networkidle');
 

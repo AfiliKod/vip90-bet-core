@@ -97,11 +97,12 @@ describe('KYC Config Store', () => {
   it('should return all KYC keys with correct structure', async () => {
     const all = await kycConfig.getAll();
     assert.ok(Array.isArray(all));
-    assert.equal(all.length, 6);
+    assert.equal(all.length, 7);
 
     const keys = all.map(s => s.key);
     assert.ok(keys.includes('KYC_ENABLED'));
     assert.ok(keys.includes('KYC_PROVIDER'));
+    assert.ok(keys.includes('KYC_FAILURE_POLICY'));
     assert.ok(keys.includes('SUMSUB_APP_TOKEN'));
     assert.ok(keys.includes('SUMSUB_SECRET_KEY'));
     assert.ok(keys.includes('SUMSUB_LEVEL_NAME'));

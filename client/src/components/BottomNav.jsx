@@ -1,6 +1,7 @@
 import { NavLink, useLocation } from 'react-router-dom';
 import { useModuleStore } from '../store/moduleStore';
 import { useTranslation } from '../i18n';
+import { isBottomNavHidden } from '../utils/bottomNav';
 
 const TABS = [
   { to: '/bahis',     icon: '⚽', label: 'nav.sports', end: true,  module: 'betting' },
@@ -16,7 +17,7 @@ export default function BottomNav() {
   const { t } = useTranslation();
   // M4 — kapalı modülün sekmesi menüde görünmez (undefined = bilinmiyor → göster)
   const visibleTabs = TABS.filter(tab => available[tab.module] !== false);
-  if (location.pathname.startsWith('/games/') || /^\/casino(-v2)?\/[^/]+/.test(location.pathname)) return null;
+  if (isBottomNavHidden(location.pathname)) return null;
 
   return (
     <nav

@@ -30,7 +30,7 @@ describe('Game Settings', () => {
       await initDefaultGameSettings();
 
       const count = await GameSettings.countDocuments();
-      assert.equal(count, 14);
+      assert.equal(count, 15);
 
       const crash = await GameSettings.findOne({ gameId: 'inhouse-crash' });
       assert.ok(crash);
@@ -179,11 +179,11 @@ describe('Game Settings', () => {
       await initDefaultGameSettings();
       
       const settings = await getAllGameSettings();
-      assert.equal(settings.length, 14);
+      assert.equal(settings.length, 15);
       assert.deepEqual(settings.map(s => s.gameId), [
         'inhouse-baccarat', 'inhouse-blackjack', 'inhouse-coinflip', 'inhouse-crash', 'inhouse-dice',
         'inhouse-dragontiger', 'inhouse-hilo', 'inhouse-keno', 'inhouse-limbo',
-        'inhouse-mines', 'inhouse-plinko', 'inhouse-roulette', 'inhouse-videopoker',
+        'inhouse-mines', 'inhouse-neonabyss', 'inhouse-plinko', 'inhouse-roulette', 'inhouse-videopoker',
         'inhouse-wheel',
       ]);
     });
@@ -560,14 +560,24 @@ describe('Game Settings', () => {
         await updateGameSettings('inhouse-coinflip', { coinflipPayoutMult: 2.01 }, admin._id);
         assert.fail('Should have thrown error');
       } catch (err) {
-        assert.ok(err.message.includes('1.8-2.0'));
+        assert.ok(err.message.includes('1.8-1.96'));
+      }
+
+      // Tavan-düzeltmesi regresyonu (Burak onayı 2026-10-22, madde 7): 1.98 eski
+      // tavanın (2.0) altında ama yeni tavanın (1.96) ÜSTÜNDE — asıl yeni reddedilen
+      // vak'a bu; 2.01 hem eskide hem yenide reddedilirdi.
+      try {
+        await updateGameSettings('inhouse-coinflip', { coinflipPayoutMult: 1.98 }, admin._id);
+        assert.fail('Should have thrown error');
+      } catch (err) {
+        assert.ok(err.message.includes('1.8-1.96'));
       }
 
       try {
         await updateGameSettings('inhouse-coinflip', { coinflipPayoutMult: 1.79 }, admin._id);
         assert.fail('Should have thrown error');
       } catch (err) {
-        assert.ok(err.message.includes('1.8-2.0'));
+        assert.ok(err.message.includes('1.8-1.96'));
       }
     });
 
@@ -629,10 +639,10 @@ describe('Game Settings', () => {
       const operatorId = new mongoose.Types.ObjectId();
 
       try {
-        await updateOperatorGameSettings(operatorId, 'inhouse-coinflip', { coinflipPayoutMult: 2.5 });
+        await updateOperatorGameSettings(operatorId, 'inhouse-coinflip', { coinflipPayoutMult: 1.98 });
         assert.fail('Should have thrown error');
       } catch (err) {
-        assert.ok(err.message.includes('coinflipPayoutMult 1.8-2'));
+        assert.ok(err.message.includes('coinflipPayoutMult 1.8-1.96'));
       }
     });
 

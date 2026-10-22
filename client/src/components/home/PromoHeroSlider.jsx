@@ -67,7 +67,7 @@ export default function PromoHeroSlider() {
   const slideIcon = SLIDE_ICONS[slide.id] || 'stars';
 
   return (
-    <section className="relative w-full h-[420px] sm:h-[380px] overflow-hidden lg:rounded-xl" style={{ background: HOME_BG }}>
+    <section className="relative mx-4 lg:mx-0 h-[420px] sm:h-[380px] overflow-hidden rounded-xl" style={{ background: HOME_BG }}>
       {ALL_SLIDES.map((s, i) => (
         <img key={s.id} src={s.image} className={`absolute inset-0 w-full h-full object-cover transition-opacity duration-700 ${i === current ? 'opacity-100' : 'opacity-0'}`} alt="" loading={i === 0 ? 'eager' : 'lazy'} />
       ))}
