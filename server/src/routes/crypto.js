@@ -10,13 +10,13 @@ import { requireKycForWithdrawal } from '../middleware/kycGate.js';
 import { withdrawRequestSchema } from '../validators/crypto.js';
 import User from '../models/User.js';
 import CryptoDeposit from '../models/CryptoDeposit.js';
-import { deriveDepositAddress, fetchIncomingUSDT, transferUSDT, getHotWalletBalance } from '../services/cryptoService.js';
+import { deriveDepositAddress, fetchIncomingUSDT, getHotWalletBalance } from '../services/cryptoService.js';
+import { sendWithdrawal } from '../services/cryptoWithdrawal.js';
 import { getSpendableBreakdown } from '../services/wagering.js';
 import { formatMoney } from '../currency/index.js';
 import { CRYPTO_SETTINGS, shouldAutoCredit, shouldAutoProcessWithdraw } from '../config/crypto.js';
 import { updateDailyStats } from '../services/responsibleGaming.js';
 import { createTransaction, adjustBalance } from '../services/ledger.js';
-import Transaction from '../models/Transaction.js';
 import { withTransactionRetry } from '../utils/transactionRetry.js';
 
 const r = Router();
@@ -253,7 +253,7 @@ r.post('/withdraw-request', requireKycForWithdrawal(), enforceRiskCheck('withdra
           balanceAfter: adjusted.balanceAfter,
           note: autoProcess ? `${usdtAmount} USDT → ${address} — gönderiliyor` : `${usdtAmount} USDT → ${address} — Admin onayı bekliyor`,
           status: autoProcess ? 'processing' : 'pending',
-          metadata: { toAddress: address, usdtAmount, rate },
+          metadata: { toAddress: address, usdtAmount, rate, flow: autoProcess ? 'auto' : 'admin' },
           idempotencyKey: `crypto_withdraw_pending_${req.user.id}_${crypto.randomUUID()}`,
           source: 'player',
         }, { session });
@@ -283,59 +283,23 @@ r.post('/withdraw-request', requireKycForWithdrawal(), enforceRiskCheck('withdra
       return;
     }
 
-    // Otomatik: hot wallet'tan gönder
-    let result;
-    try {
-      result = await transferUSDT(address, usdtAmount);
-    } catch (e) {
-      // Sonuç belirsiz (ağ hatası): kayıt "processing"te kalır, iade edilmez;
-      // admin zinciri kontrol edip sonuçlandırır.
-      console.error(`[crypto] withdraw transfer belirsiz: tx=${reserved.tx._id}`, e.message);
-      return res.status(502).json({ error: 'Transfer sonucu alınamadı; talebiniz incelemeye alındı', newBalance: reserved.balanceAfter });
+    // Otomatik: hot wallet'tan gönder. txID yayından önce kaydedilir; sonuç
+    // belirsiz kalırsa uzlaştırma işi zincirden sorar (services/cryptoWithdrawal.js).
+    const sent = await sendWithdrawal(reserved.tx._id);
+    if (sent.outcome === 'not_sent') {
+      const fresh = await User.findById(req.user.id).select('balance').lean();
+      return res.status(500).json({ error: `Transfer başarısız: ${sent.error}`, newBalance: fresh?.balance });
     }
-
-    if (!result.success) {
-      // Transfer gitmedi: kayıt "failed", bakiye ve iade satırı tek işlemde.
-      const refundSession = await mongoose.startSession();
-      let refundedBalance = reserved.balanceAfter;
-      try {
-        refundedBalance = await withTransactionRetry(refundSession, async () => {
-          const claimed = await Transaction.findOneAndUpdate(
-            { _id: reserved.tx._id, status: 'processing' },
-            { $set: { status: 'failed', note: `${usdtAmount} USDT → ${address} — transfer başarısız, iade edildi` } },
-            { new: true, session: refundSession },
-          );
-          if (!claimed) return reserved.balanceAfter;
-          const adj = await adjustBalance(req.user.id, tryNeeded, { session: refundSession });
-          await createTransaction({
-            userId: req.user.id,
-            type: 'refund',
-            amount: tryNeeded,
-            balanceBefore: adj.balanceBefore,
-            balanceAfter: adj.balanceAfter,
-            referenceId: reserved.tx._id,
-            note: 'Kripto çekim transferi başarısız, bakiye iade edildi',
-            idempotencyKey: `crypto_withdraw_refund_${reserved.tx._id}`,
-            source: 'system',
-          }, { session: refundSession });
-          return adj.balanceAfter;
-        });
-      } finally {
-        await refundSession.endSession();
-      }
-      return res.status(500).json({ error: `Transfer başarısız: ${result.error}`, newBalance: refundedBalance });
+    if (sent.outcome === 'unknown') {
+      console.error(`[crypto] withdraw yayın sonucu belirsiz: tx=${reserved.tx._id} chainTx=${sent.txId}`, sent.error);
+      return res.status(502).json({ error: 'Transfer sonucu alınamadı; zincirden doğrulanıyor', newBalance: reserved.balanceAfter, txHash: sent.txId });
     }
-
-    await Transaction.updateOne({ _id: reserved.tx._id }, { $set: {
-      status: 'completed',
-      note: `${usdtAmount} USDT → ${address} (tx: ${result.txHash.slice(0, 12)}...)`,
-      'metadata.txHash': result.txHash,
-    } });
     res.json({
       newBalance: reserved.balanceAfter,
       autoProcessed: true,
-      txHash: result.txHash,
-      message: `${usdtAmount} USDT gönderildi`,
+      txHash: sent.txId,
+      status: 'processing',
+      message: `${usdtAmount} USDT gönderildi; zincir onayı bekleniyor`,
     });
   } catch (e) { next(e); }
 });

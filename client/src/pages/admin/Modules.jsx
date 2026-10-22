@@ -569,6 +569,7 @@ function KycSettingsBody() {
 
   const kycEnabled = byKey.KYC_ENABLED?.rawValue !== 'false';
   const provider = byKey.KYC_PROVIDER?.rawValue || 'manual';
+  const failurePolicy = byKey.KYC_FAILURE_POLICY?.rawValue === 'allow' ? 'allow' : 'block';
 
   return (
     <>
@@ -587,6 +588,23 @@ function KycSettingsBody() {
         >
           <span className={`absolute top-0.5 left-0.5 w-5 h-5 rounded-full bg-white transition-transform ${kycEnabled ? 'translate-x-6' : ''}`} />
         </button>
+      </div>
+
+      <div className="mb-4">
+        <div className="text-[10px] uppercase tracking-wide text-text-3 mb-1">{t('admin.moduleCards.kycFailurePolicy')}</div>
+        <div className="text-xs text-text-3 mb-2">{t('admin.moduleCards.kycFailurePolicyHelp')}</div>
+        <div className="flex gap-3">
+          {[['block', t('admin.moduleCards.kycFailureBlock')], ['allow', t('admin.moduleCards.kycFailureAllow')]].map(([val, label]) => (
+            <label key={val} className="flex-1 flex items-center gap-2 cursor-pointer p-3 bg-bg-hover rounded-xl border border-white/10 has-[:checked]:border-primary/50">
+              <input type="radio" name="kycFailurePolicy" value={val}
+                checked={failurePolicy === val}
+                onChange={() => saveSetting('KYC_FAILURE_POLICY', val)}
+                disabled={saving}
+                className="w-4 h-4 accent-primary" />
+              <span className="text-sm text-text-2">{label}</span>
+            </label>
+          ))}
+        </div>
       </div>
 
       <div className="mb-4">

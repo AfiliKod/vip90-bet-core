@@ -3,8 +3,9 @@ import { validate } from '../middleware/validate.js';
 import {
   registerSchema, loginSchema,
   emailVerifySchema, passwordResetRequestSchema, passwordResetConfirmSchema,
-  resendVerificationSchema,
+  resendVerificationSchema, ageConfirmSchema,
 } from '../validators/auth.js';
+import { requireAuth } from '../middleware/auth.js';
 import * as ctrl from '../controllers/auth.js';
 import { registerLimiter, loginLimiter, emailFlowLimiter } from '../middleware/rateLimit.js';
 import { guestOnly } from '../middleware/guestOnly.js';
@@ -25,6 +26,10 @@ r.get('/turnstile-config', (req, res) => {
 
 r.post('/register', guestOnly, skipInTest(registerLimiter), turnstile, validate(registerSchema), ctrl.register);
 r.post('/login', guestOnly, skipInTest(loginLimiter), turnstile, validate(loginSchema), ctrl.login);
+// 18+ kapısı (2026-10-08): oturum açık olmayı gerektirir, çünkü kayıt
+// edilecek kişi o oyuncunun kendisidir.
+r.post('/age-confirm', requireAuth, validate(ageConfirmSchema), ctrl.ageConfirm);
+
 r.post('/refresh', ctrl.refresh);
 r.post('/logout', ctrl.logout);
 

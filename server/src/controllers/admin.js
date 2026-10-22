@@ -1261,6 +1261,7 @@ const PROVIDER_GAME_SHORT_IDS = {
   'inhouse-videopoker': 'videopoker',
   'inhouse-dragontiger': 'dragontiger',
   'inhouse-coinflip': 'coinflip',
+  'inhouse-neonabyss': 'neonabyss',
 };
 
 export async function updateGameSettings(req, res, next) {
@@ -1577,6 +1578,9 @@ export async function updateKycSettings(req, res, next) {
     if (!settings || typeof settings !== 'object') {
       throw createError(400, 'INVALID_BODY', 'settings nesnesi gerekli');
     }
+    if (settings.KYC_FAILURE_POLICY !== undefined && !['block', 'allow'].includes(settings.KYC_FAILURE_POLICY)) {
+      throw createError(400, 'INVALID_KYC_FAILURE_POLICY', "KYC_FAILURE_POLICY 'block' ya da 'allow' olmalı");
+    }
     for (const [key, value] of Object.entries(settings)) {
       await kycConfig.set(key, value, req.user.id);
     }
@@ -1651,7 +1655,8 @@ export async function getKycStatsAdmin(req, res, next) {
 import CryptoDeposit from '../models/CryptoDeposit.js';
 import BankDepositRequest from '../models/BankDepositRequest.js';
 import { CRYPTO_SETTINGS } from '../config/crypto.js';
-import { transferUSDT, getHotWalletBalance } from '../services/cryptoService.js';
+import { getHotWalletBalance } from '../services/cryptoService.js';
+import { sendWithdrawal, reconcileWithdrawal, resolveWithdrawalManually } from '../services/cryptoWithdrawal.js';
 
 export async function getCryptoPendingDeposits(req, res, next) {
   try {
@@ -1947,12 +1952,10 @@ export async function rejectCryptoDeposit(req, res, next) {
 export async function approveCryptoWithdrawal(req, res, next) {
   try {
     // Talep koşullu ve atomik "processing"e alınır: aynı çekime eşzamanlı iki
-    // onay (ya da onay + red) gelirse yalnız biri geçer. Önceden ikisi de
-    // "pending" görüp USDT'yi iki kez gönderebiliyor, red de aynı anda
-    // bakiyeyi iade edebiliyordu.
+    // onay (ya da onay + red) gelirse yalnız biri geçer.
     const tx = await Transaction.findOneAndUpdate(
       { _id: req.params.id, type: 'crypto_withdraw', status: 'pending' },
-      { $set: { status: 'processing' } },
+      { $set: { status: 'processing', 'metadata.flow': 'admin', 'metadata.approvedBy': req.user?.id || null } },
       { new: true },
     );
     if (!tx) {
@@ -1961,9 +1964,8 @@ export async function approveCryptoWithdrawal(req, res, next) {
         ? res.status(400).json({ error: 'Bu çekim zaten işlenmiş' })
         : res.status(404).json({ error: 'Çekim bulunamadı' });
     }
-    const release = () => Transaction.updateOne({ _id: tx._id, status: 'processing' }, { $set: { status: 'pending' } });
 
-    // Demo kaydı: zincire ASLA gitme (gerçek transferUSDT hot wallet'tan para gönderir).
+    // Demo kaydı: zincire ASLA gitme (gerçek transfer hot wallet'tan para gönderir).
     if (tx.isSeed) {
       tx.status = 'completed';
       tx.note = `${tx.note} — demo kaydı, zincir transferi yapılmadı`;
@@ -1972,39 +1974,37 @@ export async function approveCryptoWithdrawal(req, res, next) {
       return res.json({ ok: true, txHash: null, demo: true });
     }
 
-    // Adres/miktar metadata'dan; eski kayıtlar (metadata öncesi) için nottan.
-    const meta = tx.metadata || {};
-    const addrMatch = tx.note?.match(/→ ([T][A-Za-z0-9]{33})/);
-    const amtMatch = tx.note?.match(/([\d.]+) USDT/);
-    const toAddress = meta.toAddress || addrMatch?.[1];
-    const usdtAmount = Number(meta.usdtAmount ?? (amtMatch ? parseFloat(amtMatch[1]) : NaN));
-    if (!toAddress || !/^T[A-Za-z0-9]{33}$/.test(toAddress) || !Number.isFinite(usdtAmount) || usdtAmount <= 0) {
-      await release();
-      return res.status(400).json({ error: 'Çekim detayları okunamadı' });
-    }
-
-    let result;
-    try {
-      result = await transferUSDT(toAddress, usdtAmount);
-    } catch (e) {
-      // Ağ hatası: transferin gidip gitmediği bilinmiyor. "processing"te
-      // bırakılır; admin zinciri kontrol etmeden yeniden onaylayamaz.
-      console.error(`[crypto] approve transfer belirsiz: tx=${tx._id}`, e.message);
-      return res.status(502).json({ error: 'Transfer sonucu alınamadı; zincirde kontrol edin (çekim işlemde bırakıldı)' });
-    }
-    if (!result.success) {
-      await release();
-      return res.status(500).json({ error: `Transfer başarısız: ${result.error}` });
-    }
-
-    tx.status = 'completed';
-    tx.note = `${tx.note} — txHash: ${result.txHash}`;
-    tx.metadata = { ...meta, toAddress, usdtAmount, txHash: result.txHash };
-    tx.markModified('metadata');
-    await tx.save();
-
+    // txID yayından önce kaydedilir; sonuç zincirden uzlaştırılır
+    // (services/cryptoWithdrawal.js). Gönderilmediği kesinleşirse çekim
+    // yeniden "pending" olur.
+    const sent = await sendWithdrawal(tx._id);
     broadcastAdminCounts();
-    res.json({ ok: true, txHash: result.txHash });
+    if (sent.outcome === 'not_sent') return res.status(500).json({ error: `Transfer başarısız: ${sent.error}` });
+    if (sent.outcome === 'unknown') {
+      return res.status(502).json({ error: 'Transfer sonucu alınamadı; zincirden doğrulanıyor (çekim işlemde)', txHash: sent.txId });
+    }
+    res.json({ ok: true, txHash: sent.txId, status: 'processing' });
+  } catch (e) { next(e); }
+}
+
+/** "processing" çekimi hemen zincirle uzlaştırır (uzlaştırma işini beklemeden). */
+export async function reconcileCryptoWithdrawalNow(req, res, next) {
+  try {
+    const result = await reconcileWithdrawal(req.params.id);
+    broadcastAdminCounts();
+    res.json(result);
+  } catch (e) { next(e); }
+}
+
+/** İşlem kimliği kayıtlı olmayan "processing" çekimi admin elle sonuçlandırır. */
+export async function resolveCryptoWithdrawal(req, res, next) {
+  try {
+    const { sent, txHash } = req.body || {};
+    if (typeof sent !== 'boolean') throw createError(400, 'INVALID_BODY', "'sent' (true/false) gerekli");
+    const result = await resolveWithdrawalManually(req.params.id, { sent, txHash, adminId: req.user?.id });
+    if (!result.ok) return res.status(409).json({ error: result.error });
+    broadcastAdminCounts();
+    res.json(result);
   } catch (e) { next(e); }
 }
 

@@ -123,9 +123,11 @@ Admin balance adjustment — RESOLVED 2026-10-08: `PATCH /api/admin/users/:id/ba
 
 Every balance change goes through one of two safe shapes: inside a DB transaction (`withTransactionRetry`, jittered retries) or as a single atomic update (`adjustBalance` in `server/src/services/ledger.js`: server-side `balance + delta`, rounded to 2 decimals, optional "only if the balance covers it" guard). Read-modify-`save()` outside a transaction is no longer used for balances. Inside a transaction, `createTransaction` throws `DUPLICATE_TRANSACTION` instead of returning an existing ledger row with the same `idempotencyKey`, so a concurrent duplicate rolls back its balance change. Status changes that release money (bank/crypto approve and reject, Slikair payin credit, referral commission approval, bonus forfeit, VIP level reward) are conditional atomic claims, so only one of two parallel requests wins. Igames callbacks are de-duplicated by a persistent unique key (`round_id` + transaction type) instead of an in-memory map. Covered by `server/test/moneyConcurrency.test.js` (17), `cryptoWithdrawConcurrency.test.js` (4) and `rgConcurrency.test.js` (15).
 
+KYC: see the withdrawal gate policy in [`docs/providers/local-kyc.md`](../providers/local-kyc.md) (an unreadable module/licence state now stops withdrawals by default instead of silently skipping KYC).
+
 What remains:
 - **Bank withdrawals are not reserved at request time.** The balance is checked when the player creates the request and again (atomically) when the admin approves it; if the player spent it in between, approval answers `409 INSUFFICIENT_BALANCE`.
-- **Unknown transfer results.** When the hot wallet transfer or the Igames deposit fails with a network error, the platform cannot know whether the money left. Crypto withdrawals stay `processing` for the admin to check on chain; an Igames launch refunds the local balance (as before).
+- **Unknown transfer results — crypto resolved, Igames remains.** Crypto withdrawals record the signed transaction's ID before broadcasting and are reconciled against the chain (`services/cryptoWithdrawal.js`, job every minute; admin **Verify on chain**): success → `completed`; contract failure, explicit broadcast rejection, or still absent after the transaction's expiration + 2 minutes → automatic withdrawal refunded / approved withdrawal back to `pending`. A withdrawal that has no recorded transaction ID (crash before it was written) asks for manual review after 10 minutes; the admin checks the chain and marks it sent (txHash) or not sent. An Igames launch whose deposit call fails with a network error still refunds the local balance, so the money may exist twice until Igames' session is closed.
 - **Side effects inside transactions.** Deposit/withdrawal mails and SMS are triggered from `createTransaction`; if the surrounding transaction later rolls back, the notification may already be on its way.
 
 ## RG audit log — RESOLVED 2026-09-17
@@ -187,3 +189,106 @@ Two related production incidents were fixed the same day this was merged: `getWe
 - **Date range is now required when creating a job** (added 2026-09-17, after a job created without one was found to trigger an unconstrained fetch of an entire collection) — plus a 5,000-record hard cap as a second safety layer. A job whose match exceeds the cap fails loudly with an explanatory error rather than silently reconciling a truncated set.
 - A resolve action's outcome (`resolved`/`dismissed`/`escalated`) is stored in a separate `resolutionStatus` field, not the item's diagnostic `status` field (which classifies *what kind* of discrepancy it is — `matched`/`missing_internally`/`amount_mismatch`/etc). This split was added 2026-09-17 after the two were found merged into one field, which made every resolve action fail with a validation error.
 
+
+## In-house oyun uyum denetimi (2026-10-08)
+
+13 in-house oyunun (`server/src/premium/inhouse-provider`) para ve uyum zinciri
+2026-10-08'de uçtan uca tarandı. Aşağıdakiler **düzeltildi**; kapanmayanlar
+"hâlâ açık" olarak duruyor ve operatör kararı gerektiriyor.
+
+### Düzeltilenler
+
+- **18+ kapısı hiç uygulanmıyordu — RESOLVED.** `User.ageConfirmedAt` ve
+  `ageVerifiedAt` alanları şemada vardı ama **hiçbir yere yazılmıyordu**
+  (kayıt yalnız `acceptedTermsAt`/`acceptedKvkkAt` yazıyordu) ve hiçbir uç
+  denetlemiyordu; 18+ beyanı yalnız istemcide bir kutu idi.
+  `server/src/middleware/ageGate.js` artık `enforceAgeGate()` olarak
+  `/api/inhouse-provider` (`/launch`) ve `/api/igames` mount'larında çalışır:
+  kaydı olmayan hesap `403 AGE_CONFIRMATION_REQUIRED` alır, istemci tek tıkla
+  `client/src/components/games/AgeGateScreen.jsx` ekranını gösterir ve
+  `POST /api/auth/age-confirm` (`requireAuth`) kaydı yazar. Doğum tarihi
+  18 yaş üstünü kanıtlıyorsa `ageVerifiedAt` de yazılır; 18 yaş altını
+  kanıtlıyorsa kayıt **yazılmaz** (`422 AGE_NOT_ELIGILE`). Kayıtta
+  `ageConfirmed: true` gönderen istemciler için `ageConfirmedAt` doğrudan
+  `User.create` sırasında yazılır (daha önce hiç yazılmıyordu).
+  **Migration yok:** alanlar zaten şemada vardı, sadece doldurulmuyordu; eski
+  hesaplar bir kez onayladığında açılır. Kullanıcı sayısını görmek için
+  `node server/scripts/inhouse-audit-report.mjs` (R7).
+- **Sorumlu oyuncu limitleri her turda ölçülmüyordu — RESOLVED.**
+  `enforceResponsibleGaming` yalnız `/launch` ucunda (`action: 'play'`)
+  çalışıyordu; bir oyuncu günlük kayıp limitini **doldurduktan sonra da**
+  aynı oturumda in-house oyunlarına bahis koyabiliyordu.
+  `server/src/middleware/inhouseRoundLimits.js` artık `/callback` **debit**
+  gövdesinde her tur `checkPlayerEligibility(userId, 'bet', { amount })`
+  çağırır; `RESTRICT`/`BLOCK` → `403 { approved:false, reason }`
+  (engine `BET_REJECTED` üretir, retry yok, para zaten hareket etmemiştir).
+  `settle`/`balance` gövdeleri denetlenmez — kabul/ödeme yolu kapanmaz.
+  `updateDailyStats` zaten her debit'te `wager` yazdığı için limit verisi
+  tur tur birikiyor.
+- **`sessionTimeoutMin` hiç okunmuyordu — RESOLVED.** `setSessionLimit()` /
+  `PUT /api/users/limits` alanı yazıyor, **hiçbir kod okumuyordu**: oyuncunun
+  kendi koyduğu oturum limiti sessizce uygulanmıyordu. Artık
+  `server/src/models/InhousePlaySession.js` + `server/src/services/inhouseSession.js`
+  oturum tavanını sunucu tarafında uygular: `enforceInhouseSessionLimit()`
+  `/launch`'da oturumu açar/devam ettirir, `/callback` debit'inde her tur tavanı
+  denetler. **Tavan: oyuncunun kendi limiti varsa o kazanır, yoksa
+  `INHOUSE_SESSION_MAX_MINUTES` (default 120 dk)**; 5–1440 dk arasına kırpılır.
+  Tavan aşılınca oturum `closeReason: 'max_duration'` ile kapanır ve yeni
+  launch yeni oturum açar. Oturum kaydı fail-open'dur (Mongo düşerse oyun akışı
+  durmaz); limit çözümü DB hatasında platform varsayılanına düşer.
+  **Sadece launch'a bakmak yetmezdi:** crash/roulette gibi uzun ömürlü soket
+  oyunları oyuncu ekrandan çıkmadan açık kalabiliyor; tavan ancak her turda
+  denetlenince gerçekten sınırlar. Turn sayacı (`rounds`, `totalBet`)
+  denetim raporunun girdisidir.
+- **Bağımsız denetim raporu yoktu — RESOLVED.** Para hareketi dört koleksiyona
+  dağılmıştı (`ProviderRound`, `Transaction`, `CasinoRound`,
+  `InhouseCallbackReceipt`) ve karşılaştıran tek bir çıktı yoktu.
+  `node server/scripts/inhouse-audit-report.mjs` (salt-okunur, `--days`,
+  `--out`, `--strict`) R1–R7'ı raporlar: sonuçlanmış turda ledger `bet`
+  Transaction'ı yok, ledger'da bilinmeyen tur, `payout>0` turda `win`
+  Transaction'ı yok (ödeme kaybı), oyun başına tur sayısı farkı, askıda outbox,
+  tavanı aşmış oturum, 18+ kaydı olmayan hesap.
+  **Kısıt (bilinçli):** `CasinoRound` `roundId` tutmadığı için R4 tur sayısı ve
+  toplam bazlıdır; dayanıklı birleştirme anahtarı
+  `Transaction.note = inhouse:<gameId>:<roundId>`'dir. Satır bazında tam denetim
+  için `CasinoRound`'a `roundId` eklenmesi gerekir — şema değişikliği, ayrı iş
+  kalemi olarak bırakıldı.
+- **In-house oyunların e2e kapsamı yoktu — RESOLVED.** `tests/e2e/specs/inhouse-game.spec.js`
+  18+ kapısının istemciye taşınmasını uçtan uca doğrular (launch 403 → onay
+  ekranı → `POST /auth/age-confirm` → launch tekrar → iframe), yetersiz bakiye
+  ekranının bozulmadığını ve bilinmeyen oyun yolunun gerçek 404 döndürdüğünü
+  kontrol eder. Sağlayıcı yanıtı `page.route` ile taklit edilir; **gerçek para
+  hareketi çalıştırılmaz** (test DB'de bilinçli olarak).
+- **Lobide 13. oyun (videopoker) görünmüyordu — RESOLVED.** `HomePage.jsx`'in
+  `INHOUSE_GAMES` listesinde 12 oyun vardı; `videopoker` yalnız doğrudan
+  `/games/videopoker` rotasından erişilebiliyordu (rota `App.jsx`'te mevcuttu).
+
+### Hâlâ açık (operatör/hukuk kararı veya submodule işi)
+
+- **Casino launch/bet KYC kapısı yok.** `server/src/middleware/kycGate.js`
+  yalnız **withdrawal**'ı kapatıyor ve açıkça "deposit ve oyunlar bu kapıdan
+  geçmez" diyor; `enforceRiskCheck` yalnız `/launch`'a bağlı. KYC'yi casino
+  açılışına zorunlu yapmak **ürün politikası değişikliğidir** (lisans/jurisdiksiyon
+  ve KYC sağlayıcısı maliyeti). Karar verilirse: `kycGate.js`'e
+  `requireKycForPlay` + mount'a ekleme (mekanizma hazır değil, bilinçli olarak
+  yazılmadı — kullanılmayan/bir daha çalıştırılmayacak kod bırakmamak için).
+- **Jurisdiksiyon/geo kısıtı yok.** Oyun açılışında ülke/IP kısıtı uygulanmıyor
+  (`Jurisdiction` modeli var, `isBlocked`-benzeri bir oyun kapısı yok).
+  İzinli ülke listesi hukuki karardır; uydurulmamalı.
+- **RNG'de modulo bias (submodule).** `engine/provablyFair.js`, HMAC çıktısını
+  `hash % n` ile örnekliyor → modülasyon yanlılığı. Doğru yöntem
+  **rejection sampling** (kalan aralık dışıysa tekrar çekim). Aynı düzeltme
+  istemci tarafında `game-host/src/utils/verifyRound.js` içinde de yapılmalı,
+  yoksa oyuncu "adil oyun" doğrulamasını kendi istemcisiyle tekrar reddeder.
+  Bu para yolunda olduğu için `vip90-bet-inhouse` submodule'unda, ayrı PR ile.
+- **Engine'de oturum tavanı yok (submodule).** `instantGameEngine`/`crash`/
+  `roulette` sunucu belleğinde (`Map`) oturum tutuyor; process-local, limit
+  yok. Platform tarafındaki tavan her turda reddediyor, ama motorun kendi
+  oturumu kapanmıyor (soket açık kalıyor, yeni bahis reddediliyor).
+  Kalıcı/hard limit submodule işidir.
+- **Bağımsız RTP/RNG denetim raporu yok (submodule).** `math/` altında yalnız
+  blackjack ve videopoker için simülatör var; 13 oyunun tamamı için
+  yayınlanabilir RTP tablosu + RNG denetimi üretilmiyor. `math/` submodule'da.
+- **`Bet` modeli round başına tutmuyor (submodule).** In-house turları
+  `CasinoRound`'a yazılıyor, `Bet`'e değil; oyuncu "bahis geçmişi" ekranı
+  in-house için ayrı bir yol kullanıyor.

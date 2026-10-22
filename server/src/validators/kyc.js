@@ -17,6 +17,7 @@ export const adminRejectKycSchema = z.object({
 export const adminKycSettingsSchema = z.object({
   settings: z.object({
     KYC_ENABLED: z.enum(['true', 'false']).optional(),
+    KYC_FAILURE_POLICY: z.enum(['block', 'allow']).optional(),
     KYC_PROVIDER: z.enum(['manual', 'sumsub']).optional(),
     SUMSUB_APP_TOKEN: z.string().optional(),
     SUMSUB_SECRET_KEY: z.string().optional(),

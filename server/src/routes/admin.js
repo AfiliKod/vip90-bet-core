@@ -250,6 +250,8 @@ r.post('/crypto/deposits/:id/approve', requirePermission('admin:transactions:wri
 r.post('/crypto/deposits/:id/reject',  requirePermission('admin:transactions:write'), ctrl.rejectCryptoDeposit);
 r.post('/crypto/withdrawals/:id/approve', requirePermission('admin:transactions:write'), ctrl.approveCryptoWithdrawal);
 r.post('/crypto/withdrawals/:id/reject',  requirePermission('admin:transactions:write'), ctrl.rejectCryptoWithdrawal);
+r.post('/crypto/withdrawals/:id/reconcile', requirePermission('admin:transactions:write'), ctrl.reconcileCryptoWithdrawalNow);
+r.post('/crypto/withdrawals/:id/resolve', requirePermission('admin:transactions:write'), ctrl.resolveCryptoWithdrawal);
 
 // Referans Komisyonu Ayarları
 r.get('/referral/settings',  requirePermission('admin:referral:read'), ctrl.getReferralSettings);

@@ -18,6 +18,176 @@ Madde formatı ve kategoriler için `docs/CHANGELOG_GUIDE.md`'ye bakın —
 
 ## [Yayınlanmadı]
 
+### In-house oyunlar: Coin Flip
+**Değiştirildi (oyun-güvenliği — regülasyon tavanı)**
+- Coin Flip ödeme çarpanının yazılabilir üst sınırı 2.0 → 1.96'ya indirildi
+  (`models/GameSettings.js` şema `max` + `services/gameSettings.js` multField
+  validasyonu ve admin legacy dalı; üç yüzey birlikte, tek commit). Gerekçe:
+  RTP = %50 × mult olduğundan mult 2.0 TAM %100 RTP / sıfır house edge, üstü
+  negatif house edge demekti. Tavan = varsayılan (1.96 = RTP %98.00) olduğundan
+  operatör artık yalnız AŞAĞI oynayabilir: yazılabilir RTP aralığı %90.00–98.00,
+  alt sınır 1.8 değişmedi.
+- Eski kayıtlar: tavan diskteki eski yazımları susturmaz
+  (Mongoose validasyonu yalnız save()'de koşar; bant-dışı disk değeri okumada
+  olduğu gibi hydrate olur ve ödemede kullanılmaya devam eder), bu yüzden
+  deploy-öncesi SADECE-OKUMA denetimi: `server/src/scripts/migrations/audit-coinflip-mult-band.mjs`
+  — bant-dışı kayıt bulursa çıkış 1 ile DEPLOY DURUR; onarım (clamp/bildirim)
+  CM + Game Math kararıdır, script hiçbir şey yazmaz.
+### In-house oyun: NEON ABYSS (neonabyss) provably-fair slot
+**Eklendi**
+- `inhouse-neonabyss` anlık slot oyunu çekirdek kaydı: 5×3 grid, 20 payline,
+  çarpanlı bedava-dönüş zinciri; outcome matematiği tek evaluator
+  `math/neonAbyssMath.js` içinde mühürlüdür — ölçülen RTP %95.932 ±0.093 pp
+  (100M round × 2 yol, 6/6 gate PASS; dağılım sertifikası). `GAME_FIELD_META`
+  girdisi yalnız `neonabyssMinBet`/`neonabyssMaxBet` taşır; `percentField`/
+  `multField` BİLEREK yok (coinflipPayoutMult'un karşısı tanısız — admin'e
+  açılan her çarpan mührü kırar ve yeniden sim ister). Operatör yetkisi:
+  aç/kapat + bet aralığı (0.20–100, onaylı literal).
+- Doğrulama sayfası slot round'unu açıklanan seed'lerden uçtan uca bağımsız
+  yeniden üretir (pfslot-v1 zinciri + strips-rev4 sürüm kapısı; eksik/yabancı
+  sürüm damgasıysa doğrulama reddedilir). Coinflip oyun ekranı ve Santa Crash
+  arayüz güncellemesi aynı sürümle gelir; para-yolu düzeltmeleri (Keno tekrarlı
+  seçim, Dragon Tiger tie hükmü, Roulette stake) in-house provider'ın güncel
+  sürümüyle dahil.
+**Değiştirildi**
+- In-house provider, neonabyss route'larını (launch/games/operatorSettings) ve
+  oyunun matematik belgelerini içeren sürüme güncellendi. Kurulum sırası:
+  çekirdek kayıt ve migration önce, provider güncellemesi sonra (aşağıdaki
+  Kırılan Değişiklikler).
+**Kırılan Değişiklikler**
+- Yeni oyun id'si mevcut operatörlerde otomatik görünmez: migration koşusu
+  gerekir (`server/src/scripts/migrations/add-neonabyss-to-operators.mjs`,
+  coinflip kalıbının devamı). Sıra ZORUNLU: migration + çekirdek kayıt
+  (şema+meta+defaults, tek atomik commit) üretime inmeden provider rotaları
+  açılmaz — rota önce inerse her spin 500 (fail-closed). Kayıt BÖLÜNÜRSE
+  (meta var, şema alanı yok/ada uymuyor) bet aralığı SESSİZCE devre dışı kalır
+  (fail-open); bu sınıf tek atomik commit + statik alan-adı bekçisiyle kapatılır.
+  Not (2026-10-20 throwaway-Mongo ölçümü): migration'ın kendisi fail-open kapısı
+  DEĞİLDİR — `$setOnInsert` upsert şema-default'larını yazar, şema indikten sonra
+  okuma eksik yolları hydration'da doldurur; hükmün eski "kalıcı çıplak doc"
+  gerekçesi ölçümle çürütüldüğü için düzeltildi.
+- `server/test/instantGamesSeed.test.js`: handler listesi assert'i tam-liste
+  `deepEqual` yerine içerme + üst-sınır biçimine alındı (gitlink bump'la
+  atomiklik tuzağı kapatıldı) ve izole-olmayan `MONGODB_URI` altında koşmak
+  artık `before()`da REDDEDİLİYOR (suite `deleteMany({})` koşar).
+
+### In-house oyunlar: açık turlar
+**Düzeltildi**
+- Mines, HiLo, Blackjack ve Video Poker'da bağlantı kopunca ya da sunucu yeniden
+  başlayınca tur kayboluyordu: bahsi çekilmiş, hiç ödeme yapılmıyordu ve oyuncu
+  "önceki oturumunuzu kapatın" uyarısıyla oyuna giremiyordu. Artık açık tur veritabanında
+  tutuluyor; ekran açıldığında turu geri getiriyor ve oyuncu kaldığı yerden devam ediyor.
+- Hareketsiz kalan tur artık oyuncunun lehine otomatik kapanıyor: açılan kareler mevcut
+  çarpanla toplanıyor, Blackjack'te krupiye normal kurallarla oynuyor, Video Poker'da beş
+  kart da tutuluyor. Hiçbir şey açılmadıysa bahis iade ediliyor — oyuncu zaman aşımından
+  zarar görmüyor. Eşik `INHOUSE_IDLE_SETTLE_MINUTES` ile ayarlanır (varsayılan 20 dakika).
+- Çekilmiş ama hiç ödenmemiş, sahipsiz kalmış turlar (sunucu çökmesi ya da eski sürüm)
+  aynı süpürme ile iade ediliyor. İade edilen turun işlem kimliği tur kimliğinden türetildiği için
+  süpürme kaç kez çalışırsa çalışsın bakiye bir kez artıyor.
+
+### In-house oyunlar: Blackjack
+**Güvenlik**
+- Blackjack'te ikiye katlanan (double) el, çekilen kartla 21'i geçtiğinde kaybetmesi
+  gerekirken krupiyeyle karşılaştırılıp kazanç olarak ödenebiliyordu. Artık 21'i geçen
+  el kaybeder (ödeme 0) ve krupiye oynamaz; normal eller değişmedi.
+
+### In-house oyunlar: Keno, Rulet ve Dragon Tiger
+**Düzeltildi**
+- Keno ekranındaki ödeme tablosu, oyunun gerçekte ödediği tablodan yüksekti
+  (1 seçim 1 isabet 3,8× yerine 3,0×; 10 seçim 10 isabet 10.000× yerine
+  7.900×). Ekran artık motorun tablosunu gösteriyor; ödemeler değişmedi.
+- Dragon Tiger beraberlik bahsi "8:1" yazıyordu, varsayılan ayar 13× (12:1)
+  öder; etiket 12:1 oldu.
+- Ekranlar varsayılan ayarların tablosunu gösterir: panelden `kenoPayoutScale`
+  ya da Dragon Tiger çarpanları değiştirilirse ekran bunu henüz yansıtmaz.
+
+**Güvenlik**
+- Keno, Rulet ve Dragon Tiger'da bahis doğrulamasındaki üç hata kapatıldı; bu hatalar
+  oyuncunun yatırmadığı tutar üzerinden ya da kendi lehine oranla kazanmasına izin
+  veriyordu. Normal oyun akışı değişmedi; kurallara uymayan istekler artık hata koduyla
+  reddediliyor (`KENO_DUPLICATE_PICK`, `KENO_INVALID_PICK`, `BET_TOTAL_MISMATCH`,
+  `INVALID_BET_AMOUNT`, `INVALID_BET_TYPE`).
+
+**Değişti**
+- Dragon Tiger kartları artık A (1)'dan K (13)'ya sıralanarak karşılaştırılıyor; 10, J, Q
+  ve K birbiriyle berabere sayılmıyor. Beraberlik olasılığı 3/51'e düştü: varsayılan
+  ayarlarla Dragon/Tiger bahsi ~%97,1, beraberlik bahsi (13×) ~%76,5 geri dönüş verir.
+  Beraberlik çarpanı panelden ayarlanabilir.
+
+### Mobil yerleşim: kenar boşluğu, sohbet butonu ve mobil arama
+**Düzeltildi**
+- Hero slider mobilde ekranın kenarına yapışıyordu (`w-full`, köşeler yalnız
+  `lg:`de yuvarlıktı); artık `mx-4 lg:mx-0` + `rounded-xl`, üstündeki "Son
+  Kazananlar" rayıyla aynı 16px ritmi yakalar. Anasayfa, Spor ve Canlı
+  sayfalarında aynı bileşen kullanıldığı için üçünde de düzeldi
+  (`PromoHeroSlider.jsx`).
+- Sohbet butonu (`bottom-5 left-5`, 62px) mobil bottom nav'ın (75px) üstünde
+  kaldığı için ⚽Bahis sekmesinin tıklanabilir alanının ~%85'ini kapatıyordu;
+  artık nav görünürken `bottom-[5rem]` ile onun üstüne demirliyor, nav'ın hiç
+  olmadığı yollarda (`/games/*`, `/casino/:id`) dibe iniyor. Nav'ın hangi
+  yollarda olmadığı artık `utils/bottomNav.js` içinde tek kaynak.
+- Navbar'daki arama ikonu `hidden sm:flex` yüzünden mobilde tamamen
+  kayboluyordu. Mobilde arama tek girişe indi: anasayfada section başlığının
+  sağındaki pill, diğer sayfalarda navbar ikonu (anasayfanın mobilinde navbar
+  ikonu gizli — aynı sayfada iki buton olmaz).
+- Sağlayıcı rayı olmayan (casino add-on'suz) kurulumlarda `ProviderRow` null
+  döndüğü için mobil anasayfada arama girişi hiç kalmıyordu; pill artık o
+  durumda her zaman render edilen "Tüm Oyunlar" başlığına taşınıyor
+  (`ProviderRow` → `onLoaded`, `HomePage.providerRail`, `AllGamesSection`
+  `searchTrigger`). Her kurulumda mobil anasayfada tam bir giriş var, ikiden
+  fazla değil.
+**Eklendi**
+- `MobileSearchPanel`: üstten inen, megamenu benzeri tam genişlikte mobil arama
+  katmanı — otomatik odaklanan büyük input ve temizleme düğmesi, hızlı geçiş
+  kısayolları, gruplanmış canlı sonuçlar, ESC/dışarı tıklama ile kapanma, body
+  scroll kilidi, safe-area boşlukları. Masaüstü dropdown ile aynı aramayı
+  paylaşır (`useSiteSearch.js`, `SearchResults.jsx`); yeni i18n anahtarı
+  gerekmedi.
+
+
+### Santa Crash oyun ekranı yenilendi
+**Değişti**
+- Crash oyununun ekranı onaylı Santa Crash tasarımına geçirildi: fotoğraf
+  gökyüzü arka planı (gece/patlama), sprite tabanlı kar, eğri boyunca bükülen
+  kızak izi, patlamada enkaz, masaüstünde sahne + 340px panel, 920px altında
+  tek kolon. Oyun mantığı, socket akışı, provably fair davranışı ve çeviriler
+  değişmedi; yalnızca görsel katman yenilendi.
+- Görsel varlıklar `game-host` JS bundle'ının içine base64 olarak gömülüyor
+  ve her yeni tasarım için bundle şişiyordu; artık
+  `game-host/public/images/games/crash/` altına ayrı dosya olarak
+  servis ediliyor (sunucu gzip/etag önbelleği çalışır, bundle boyutu
+  değişmez).
+- `game-host` deploy workflow'unun dışında olduğu için bu değişiklik yalnızca
+  repoya girer; canlıya yansıması için `npm run build:game-host` ile derlenip
+  sunucudaki kendi origin'üne yüklenmesi gerekir (bkz. `docs/RUNBOOK.md`).
+
+### KYC hata politikası ve kripto çekim uzlaştırması
+**Kırılan Değişiklikler**
+- KYC çekim kapısı, modül ya da lisans durumu okunamadığında veya modül
+  açıkken lisans geçersizse artık çekimi durduruyor (`503
+  KYC_CHECK_UNAVAILABLE`). Önceden bu durumlarda kapı sessizce açılıyor,
+  çekim KYC'siz geçiyordu. Eski davranışı isteyen operatör, **Ayarlar →
+  Modüller → KYC** kartında "Doğrulama yapılamazsa" seçeneğini "KYC'siz
+  geçir" yapar (`KYC_FAILURE_POLICY=allow`).
+- KYC kartındaki "KYC aktif" anahtarı kapalıyken çekim artık onaylı KYC
+  istemiyor (oyuncu başvuru yapamadığı için çekimi kilitlemek anlamsızdı).
+- Otomatik kripto çekimi başarılı yanıtta artık `status: 'processing'` döner;
+  çekim zincirde doğrulanınca `completed` olur. Yayın sonucu bilinemezse
+  `502` yanıtı işlem kimliğini (`txHash`) de içerir.
+
+- **Yeni:** Kripto çekimleri yayından önce imzalanıp işlem kimliği
+  kaydediliyor; dakikada bir çalışan uzlaştırma işi zincirden sonucu
+  soruyor: başarılıysa tamamlıyor, gönderilmediği kesinleşirse (açık red,
+  zincirde başarısız ya da süresi dolduğu halde zincirde yok) otomatik
+  çekimi iade ediyor, admin onaylı çekimi yeniden onaya açıyor. Admin
+  panelinde "İşlemde" sekmesi, **Zincirde doğrula** ve işlem kimliği
+  kaydedilmemiş kayıtlar için **Gönderildi / Gönderilmedi** işaretleme
+  (`POST /api/admin/crypto/withdrawals/:id/reconcile`, `/resolve`).
+- **Düzeltme (kritik):** `transferUSDT` yayından sonraki ağ hatalarını da
+  "başarısız" döndürüyordu; çekim akışı bunu kesin red sayıp, gönderilmiş
+  olabilecek bir çekimi iade edebiliyordu. Artık yalnız kesin yanıtlar
+  "gönderilmedi" sayılıyor.
+
 ### Para hareketlerinde eşzamanlılık güvencesi
 **Kırılan Değişiklikler**
 - `POST /api/crypto/withdraw-request`: bakiye artık USDT gönderilmeden önce
@@ -140,6 +310,87 @@ Madde formatı ve kategoriler için `docs/CHANGELOG_GUIDE.md`'ye bakın —
     `game/play@46b84fa` (sunucu baytları QA'nın test ettiği `game/math@6530607` ile
     blob-bazında birebir; fark yalnız game-host UI + docs). Eski engine pin'iyle
     platform tek başına coinflip rotasını sunamaz.
+### In-house oyunlarda 18+ kapısı, tur başına sorumlu oyuncu denetimi ve oturum tavanı
+
+#### 18+ kapısı artık gerçekten uygulanıyor
+
+- **Düzeltildi:** `User.ageConfirmedAt` / `ageVerifiedAt` alanları şemada vardı
+  ama **hiçbir yere yazılmıyordu** ve hiçbir uç denetlemiyordu — 18+ beyanı
+  yalnız istemcide bir kutu idi. `server/src/middleware/ageGate.js`
+  (`enforceAgeGate`) artık `/api/inhouse-provider` (`/launch`) ve `/api/igames`
+  mount'larında çalışır.
+- **Davranış değişti (Kırılan Değişiklikler):** 18+ onay kaydı olmayan
+  hesaplar `/api/igames/game/launch` ve `/api/inhouse-provider/launch`
+  isteklerinde artık `403 { code: 'AGE_CONFIRMATION_REQUIRED' }` alır.
+  Yeni uç: `POST /api/auth/age-confirm` (oturum zorunlu), gövde
+  `{ confirmed: true, dateOfBirth? }`. Doğum tarihi 18 yaş altını kanıtlıyorsa
+  kayıt **yazılmaz**: `422 AGE_NOT_ELIGIBLE`. İstemcide tek tıkla açılan onay
+  ekranı 8 dilde (`ageGate.*`).
+- **Şema:** değişiklik yok. `ageConfirmedAt`/`ageVerifiedAt` alanları zaten
+  vardı, yalnız doldurulmuyordu; **migration gerekmez**. Mevcut hesaplar bir kez
+  onayladığında açılır — kalan hesap sayısını `node
+  server/scripts/inhouse-audit-report.mjs` (R7) raporlar.
+- **Geriye uyum:** `POST /api/auth/register` gövdesine isteğe bağlı
+  `ageConfirmed: true` eklenebilir; gönderilmeyen istemciler önceki gibi
+  kaydolur (yalnız oyun açamaz). `dateOfBirth` 18 yaş altını kanıtlıyorsa
+  kayıt `422 AGE_NOT_ELIGIBLE` ile reddedilir (yeni davranış).
+
+#### Sorumlu oyuncu limitleri artık her turda ölçülüyor
+
+- **Düzeltildi:** limitler yalnız oyun açılışında (`/launch`, `action: 'play'`)
+  ölçülüyordu; limitini dolduran oyuncu aynı oturumda oynamaya devam
+  edebiliyordu. `server/src/middleware/inhouseRoundLimits.js` artık her
+  in-house **debit** turunda `checkPlayerEligibility(userId, 'bet', { amount })`
+  çağırır. `RESTRICT`/`BLOCK` → `403 { approved: false, reason:
+  'RESPONSIBLE_GAMING_LIMIT' | 'ACCOUNT_RESTRICTED' }` (motor `BET_REJECTED`
+  döner, para hareketi yok, retry yok).
+- `settle`/`balance` gövdeleri denetlenmez; kabul ve ödeme yolu kapanmaz.
+  Kimliği çözülemeyen oyuncu bu katmanda engellenmez (HMAC zaten doğrulandı).
+
+#### `sessionTimeoutMin` artık uygulanıyor
+
+- **Düzeltildi:** `PUT /api/users/limits` ile yazılan
+  `responsibleLimits.sessionTimeoutMin` **hiç okunmuyordu** — oyuncunun kendi
+  koyduğu oturum limiti sessizce uygulanmıyordu.
+- Oturum tavanı sunucu tarafında uygulanır (`InhousePlaySession` +
+  `server/src/services/inhouseSession.js`): **oyuncunun limiti varsa o kazanır,
+  yoksa `INHOUSE_SESSION_MAX_MINUTES` (varsayılan 120 dk)**, 5–1440 dk
+  arasına kırpılır. Tavan aşılınca oturum `closeReason: 'max_duration'` ile
+  kapanır, `POST /api/inhouse-provider/launch` yeni oturum açar ve sonraki
+  turlar `403 { approved: false, reason: 'SESSION_LIMIT_REACHED' }` alır.
+- **Ortam değişkeni (yeni, isteğe bağlı):** `INHOUSE_SESSION_MAX_MINUTES`
+  (varsayılan `120`). Davranış değişmezse oyuncuların varsayılan tavanı 120
+  dakikadır.
+- **Şema (yeni koleksiyon):** `inhouseplaysessions`. Doldurma/migration yok;
+  ilk oyunda kendiliğinden oluşur.
+
+#### Bağımsız denetim raporu (yeni, elle çalıştırılır)
+
+- `node server/scripts/inhouse-audit-report.mjs` — `ProviderRound`,
+  `Transaction`, `CasinoRound`, `InhouseCallbackReceipt` kayıtlarını
+  çapraz karşılaştırır (R1–R7: eksik ledger kaydı, bilinmeyen tur,
+  ödenmemiş kazanç, tur sayısı farkı, askıda outbox, tavanı aşmış oturum,
+  18+ kaydı olmayan hesap). Salt-okunur; `--days N`, `--out <dosya>`,
+  `--strict` (KRİTİK bulguda çıkış kodu 1). Hiçbir deploy adımı çağırmaz.
+
+#### Lobide 13. oyun görünür oldu
+
+- **Düzeltildi:** `videopoker` kayıtlı oyunlar arasındaydı ama ana sayfa
+  listesinde yoktu; yalnız `/games/videopoker` rotasından açılabiliyordu.
+- Yeni e2e kapsamı: `tests/e2e/specs/inhouse-game.spec.js` (18+ kapısının
+  uçtan uca akışı, yetersiz bakiye ekranı, bilinmeyen oyun yolunda gerçek 404).
+  Testler: `server/test/ageGate.test.js`, `server/test/inhouseRoundLimits.test.js`,
+  `server/test/inhouseSession.test.js`, `server/test/inhouseSessionLimit.test.js`.
+
+#### Hâlâ açık (düzeltilmedi)
+
+- Casino launch/bet için KYC kapısı **yok** — ürün politikası kararı gerektiriyor
+  (`kycGate.js` yalnız withdrawal'ı kapatıyor).
+- Oyun açılışında **jurisdiksiyon/geo kısıtı yok** — izinli ülke listesi hukuki
+  karardır.
+- **RNG modulo bias** (`engine/provablyFair.js`), motor içi **session limit** ve
+  eksik oyunlar için **RTP simülatörleri** `vip90-bet-inhouse` submodule'ında;
+  ayrı PR ile ele alınacak. Ayrıntı: `docs/product/09-bilinen-kisitlar.md`.
 
 ## [1.0.0] — 2026-10-09
 

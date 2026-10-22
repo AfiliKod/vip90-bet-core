@@ -234,6 +234,129 @@ export async function getWalletBalance(address) {
   return { address, usdt: usdtBalance, trx: trxBalance };
 }
 
+// ── Sonucu izlenebilir transfer (2026-10-12) ──────────────────────────────
+//
+// Çekim akışları transferi üç adımda yapar: hazırla (imzala, yayınlama) →
+// işlem kimliğini (txID) veritabanına yaz → yayınla. Yayının yanıtı ağ
+// hatasıyla kaybolsa bile txID bilindiği için sonuç zincirden sorgulanabilir
+// (services/cryptoWithdrawal.js uzlaştırması). TRON işlemleri raw_data.expiration
+// geçtikten sonra bloğa alınamaz; o andan sonra zincirde bulunmayan işlem
+// kesin olarak gönderilmemiştir.
+
+const FEE_LIMIT = 100_000_000;
+
+/** Bir sonraki adımı belirsiz bırakmayan, yayın öncesi kesin hata. */
+function notSent(message) {
+  const e = new Error(message);
+  e.notSent = true;
+  return e;
+}
+
+/**
+ * USDT transferini hazırlar ve imzalar; YAYINLAMAZ.
+ * @returns {Promise<{ txId: string, expiresAt: number, signedTx: object }>}
+ * @throws hata.notSent = true (hiçbir şey yayınlanmadı)
+ */
+export async function prepareUSDTTransfer(toAddress, usdtAmount) {
+  const cfg = getNetworkConfig();
+  const amountRaw = Math.round(usdtAmount * 1_000_000);
+  const pk = process.env.HOT_WALLET_PRIVATE_KEY;
+  try {
+    if (pk) {
+      const tronWeb = new TronWeb({ fullHost: cfg.tronGrid, privateKey: pk });
+      const fromAddress = getHotWalletAddress();
+      const built = await tronWeb.transactionBuilder.triggerSmartContract(
+        cfg.usdtContract, 'transfer(address,uint256)', { feeLimit: FEE_LIMIT },
+        [{ type: 'address', value: toAddress }, { type: 'uint256', value: amountRaw }],
+        fromAddress,
+      );
+      if (!built?.result?.result || !built.transaction) throw new Error(`İşlem oluşturulamadı: ${JSON.stringify(built?.result || built).slice(0, 200)}`);
+      const signedTx = await tronWeb.trx.sign(built.transaction);
+      return { txId: signedTx.txID, expiresAt: signedTx.raw_data.expiration, signedTx };
+    }
+
+    const signer = getHotWalletSigner();
+    const fromAddress = ethToTron(signer.address);
+    const selector = 'a9059cbb';
+    const addrHex = tronToHex(toAddress).slice(2);
+    const amountHex = BigInt(amountRaw).toString(16).padStart(64, '0');
+    const createResp = await fetch(`${cfg.tronGrid}/wallet/triggersmartcontract`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        visible: true, owner_address: fromAddress, contract_address: cfg.usdtContract,
+        data: selector + addrHex.padStart(64, '0') + amountHex, fee_limit: FEE_LIMIT, call_value: 0,
+      }),
+      signal: AbortSignal.timeout(15000),
+    });
+    if (!createResp.ok) throw new Error(`İşlem oluşturulamadı: ${createResp.status}`);
+    const created = await createResp.json();
+    const tx = created.transaction || created;
+    if (!tx?.txID || !tx.raw_data_hex) throw new Error(`txID yok: ${JSON.stringify(created).slice(0, 200)}`);
+    const { keccak256 } = await import('ethers');
+    const sig = signer.signingKey.sign(keccak256(Buffer.from(tx.raw_data_hex, 'hex')));
+    const signature = sig.r.slice(2) + sig.s.slice(2) + sig.v.toString(16).padStart(2, '0');
+    return { txId: tx.txID, expiresAt: tx.raw_data.expiration, signedTx: { ...tx, signature: [signature] } };
+  } catch (e) {
+    throw notSent(e.message);
+  }
+}
+
+/**
+ * İmzalı işlemi yayınlar.
+ * @returns {Promise<{ status: 'accepted'|'rejected'|'unknown', error?: string }>}
+ *   accepted: düğüm kabul etti (ya da zaten biliyordu) — sonuç zincirden doğrulanır
+ *   rejected: düğüm açıkça reddetti — işlem gönderilmedi
+ *   unknown : yanıt alınamadı — gönderilip gönderilmediği bilinmiyor
+ */
+export async function broadcastUSDTTransfer(signedTx) {
+  const cfg = getNetworkConfig();
+  let resp;
+  try {
+    resp = await fetch(`${cfg.tronGrid}/wallet/broadcasttransaction`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(signedTx),
+      signal: AbortSignal.timeout(15000),
+    });
+  } catch (e) {
+    return { status: 'unknown', error: e.message };
+  }
+  if (!resp.ok) return { status: 'unknown', error: `HTTP ${resp.status}` };
+  let data;
+  try { data = await resp.json(); } catch (e) { return { status: 'unknown', error: 'yanıt okunamadı' }; }
+  if (data?.result === true || data?.code === 'DUP_TRANSACTION_ERROR') return { status: 'accepted' };
+  if (data?.code) {
+    let message = data.message;
+    try { message = Buffer.from(String(data.message || ''), 'hex').toString('utf8') || data.message; } catch { /* ham mesaj */ }
+    return { status: 'rejected', error: `${data.code}: ${message || ''}`.trim() };
+  }
+  return { status: 'unknown', error: `beklenmeyen yanıt: ${JSON.stringify(data).slice(0, 200)}` };
+}
+
+/**
+ * İşlemin zincirdeki sonucu.
+ * @returns {Promise<'success'|'failed'|'not_found'>}
+ *   success: USDT transferi bloğa girdi ve başarılı
+ *   failed : bloğa girdi ama sözleşme çağrısı başarısız (USDT gitmedi)
+ *   not_found: zincirde yok (henüz bloğa girmedi ya da hiç gönderilmedi)
+ * @throws ağ hatasında (sonuç bilinmiyor; sonra tekrar sorulur)
+ */
+export async function getUSDTTransferStatus(txId) {
+  const cfg = getNetworkConfig();
+  const resp = await fetch(`${cfg.tronGrid}/wallet/gettransactioninfobyid`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ value: txId }),
+    signal: AbortSignal.timeout(15000),
+  });
+  if (!resp.ok) throw new Error(`gettransactioninfobyid HTTP ${resp.status}`);
+  const info = await resp.json();
+  if (!info || !info.id) return 'not_found';
+  if (info.result === 'FAILED') return 'failed';
+  return info.receipt?.result === 'SUCCESS' ? 'success' : 'failed';
+}
+
 /**
  * TRC20 USDT transferi imzalar ve broadcast eder.
  * TronWeb kullanarak doğru TRON imzası atar.

@@ -12,6 +12,7 @@ const STATUS_TABS = [
   { key: 'all', labelKey: 'admin.crypto.tabAll' },
   { key: 'completed', labelKey: 'admin.crypto.tabCompleted' },
   { key: 'pending', labelKey: 'admin.crypto.tabPending' },
+  { key: 'processing', labelKey: 'admin.crypto.tabProcessing' },
   { key: 'rejected', labelKey: 'admin.crypto.tabRejected' },
 ];
 
@@ -334,12 +335,50 @@ export default function AdminCrypto() {
     }
   }
 
+  // "İşlemde" çekim: transfer yayınlandı ama sonucu zincirden doğrulanacak.
+  // Uzlaştırma işi dakikada bir çalışır; admin beklemeden de sorabilir.
+  async function reconcile(tx) {
+    setSaving(true);
+    try {
+      const { data } = await api.post(`/admin/crypto/withdrawals/${tx._id}/reconcile`);
+      addToast(t(`admin.crypto.reconcile_${data.state}`), ['completed', 'refunded', 'pending'].includes(data.state) ? 'success' : 'info');
+      load();
+    } catch (e) {
+      addToast(e.response?.data?.error || t('admin.crypto.actionFailed'), 'error');
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  // İşlem kimliği hiç kaydedilmemiş çekim: admin zinciri kontrol edip sonuçlandırır.
+  async function resolveManually(tx, sent) {
+    let body = { sent };
+    if (sent) {
+      const txHash = window.prompt(t('admin.crypto.enterTxHash'));
+      if (!txHash) return;
+      body = { sent, txHash: txHash.trim() };
+    } else if (!window.confirm(t('admin.crypto.confirmNotSent'))) {
+      return;
+    }
+    setSaving(true);
+    try {
+      await api.post(`/admin/crypto/withdrawals/${tx._id}/resolve`, body);
+      addToast(t('admin.crypto.resolved'), 'success');
+      load();
+    } catch (e) {
+      addToast(e.response?.data?.error || t('admin.crypto.actionFailed'), 'error');
+    } finally {
+      setSaving(false);
+    }
+  }
+
   const totalPages = Math.ceil(total / 30);
 
   const statusColor = (s) => {
     if (s === 'completed') return { tone: 'bg-success/15 text-success', dot: 'bg-success' };
     if (s === 'pending') return { tone: 'bg-warning/15 text-warning', dot: 'bg-warning' };
-    if (s === 'rejected') return { tone: 'bg-danger/15 text-danger', dot: 'bg-danger' };
+    if (s === 'rejected' || s === 'failed') return { tone: 'bg-danger/15 text-danger', dot: 'bg-danger' };
+    if (s === 'processing') return { tone: 'bg-info/15 text-info', dot: 'bg-info' };
     return { tone: 'bg-white/10 text-text-2', dot: 'bg-white/40' };
   };
 
@@ -347,6 +386,8 @@ export default function AdminCrypto() {
     if (s === 'completed') return t('admin.crypto.statusCompleted');
     if (s === 'pending') return t('admin.crypto.statusPending');
     if (s === 'rejected') return t('admin.crypto.statusRejected');
+    if (s === 'processing') return t('admin.crypto.statusProcessing');
+    if (s === 'failed') return t('admin.crypto.statusFailed');
     return s;
   };
 
@@ -432,6 +473,8 @@ export default function AdminCrypto() {
           const initials = name.slice(0, 2).toUpperCase();
           const st = statusColor(tx.status);
           const isPending = tx.status === 'pending';
+          const isProcessing = tx.status === 'processing' && tx.type === 'crypto_withdraw';
+          const noChainTx = isProcessing && !tx.metadata?.chainTxId;
           const open = expanded === tx._id;
           return (
             <Fragment key={tx._id}>
@@ -477,6 +520,12 @@ export default function AdminCrypto() {
                       { key: 'approve', label: t('admin.crypto.approve'), icon: 'check', tone: 'success', disabled: saving, onClick: () => handleAction(tx, 'approve') },
                       { key: 'reject', label: t('admin.crypto.reject'), icon: 'close', tone: 'danger', disabled: saving, onClick: () => handleAction(tx, 'reject') },
                       { key: 'detail', label: t('admin.crypto.detail'), icon: open ? 'expand_less' : 'expand_more', onClick: () => setExpanded(open ? null : tx._id) },
+                    ] : isProcessing ? [
+                      { key: 'reconcile', label: t('admin.crypto.reconcile'), icon: 'sync', disabled: saving, onClick: () => reconcile(tx) },
+                      ...(noChainTx ? [
+                        { key: 'sent', label: t('admin.crypto.markSent'), icon: 'task_alt', tone: 'success', disabled: saving, onClick: () => resolveManually(tx, true) },
+                        { key: 'notSent', label: t('admin.crypto.markNotSent'), icon: 'undo', tone: 'danger', disabled: saving, onClick: () => resolveManually(tx, false) },
+                      ] : []),
                     ] : []}
                   />
                 </AdminTableActionsCell>

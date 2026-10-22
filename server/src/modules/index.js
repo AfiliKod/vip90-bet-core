@@ -14,9 +14,9 @@ const dbKey = id => `${KEY_PREFIX}${id}${KEY_SUFFIX}`;
 
 export const moduleStore = createModuleStore({
   load: async () => {
-    // DB bağlı değilse mongoose sorguyu buffer'da tutar; fail-closed davranış
-    // zaten "hepsi kapalı" ile sonuçlanır, burada erkenden aynı sonuca düş.
-    if (mongoose.connection.readyState !== 1) return {};
+    // DB bağlı değilse mongoose sorguyu buffer'da tutar; erkenden "okunamadı"
+    // de (isEnabled bunu kapalı sayar, enabledState bilinmiyor döner).
+    if (mongoose.connection.readyState !== 1) throw new Error('DB bağlı değil');
     const keys = MODULE_DEFINITIONS.map(m => dbKey(m.id));
     const rows = await Setting.find({ key: { $in: keys } }).lean();
     const flags = {};

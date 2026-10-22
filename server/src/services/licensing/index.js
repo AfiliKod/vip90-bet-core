@@ -65,6 +65,26 @@ export const invalidateLicenses = () => licenseStore.invalidate();
 /** Bir modülün gerçekten kullanılabilir olması için iki kapı da açık olmalı:
  *  admin anahtarı (modules) VE lisans (licensing). DB yoksa modules zaten
  *  fail-closed olduğundan sorguya girmeye gerek yok. */
+/**
+ * Bir modülün kullanılabilirliği, nedeniyle birlikte:
+ *   'usable'     açık ve lisanslı
+ *   'disabled'   operatör kapattı (bilinçli seçim)
+ *   'unlicensed' açık ama lisans geçersiz/dolmuş
+ *   'unknown'    modül ya da lisans durumu okunamadı
+ * isModuleUsable bunlardan yalnız 'usable'ı true sayar.
+ */
+export async function getModuleUsability(id) {
+  try {
+    const { moduleStore } = await import('../../modules/index.js');
+    const enabled = await moduleStore.enabledState(id);
+    if (enabled === null) return 'unknown';
+    if (!enabled) return 'disabled';
+    return (await licenseStore.isLicensed(id)) ? 'usable' : 'unlicensed';
+  } catch {
+    return 'unknown';
+  }
+}
+
 export async function isModuleUsable(id) {
   if (mongoose.connection.readyState !== 1) return false;
   const { moduleStore } = await import('../../modules/index.js');

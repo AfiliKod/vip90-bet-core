@@ -1,9 +1,16 @@
 import { defineConfig, devices } from '@playwright/test';
 import dotenv from 'dotenv';
 import path from 'path';
+import { fileURLToPath } from 'node:url';
 
-dotenv.config({ path: path.resolve('../../.env.test') });
-dotenv.config({ path: path.resolve('../../.env') });
+// Bu paket "type": "module" (b01e984d, 2026-10-11) — config ESM'de `require`
+// yok, `path.resolve` ise process.cwd()'ye göre çözülüyor ve `npm run test:e2e`
+// repo kökünden koşulduğunda ../../ .env.test reponun DIŞINA düşüyordu
+// (dotenv "injected env (0)" logluyordu). Yolları config dosyasına bağladık.
+const HERE = path.dirname(fileURLToPath(import.meta.url));
+
+dotenv.config({ path: path.resolve(HERE, '../../.env.test') });
+dotenv.config({ path: path.resolve(HERE, '../../.env') });
 
 const isCI = !!process.env.CI;
 const BASE_URL = process.env.E2E_BASE_URL || 'http://localhost:5173';
@@ -54,8 +61,8 @@ export default defineConfig({
     },
   },
 
-  globalSetup: require.resolve('./global-setup.js'),
-  globalTeardown: require.resolve('./global-teardown.js'),
+  globalSetup: path.resolve(HERE, 'global-setup.js'),
+  globalTeardown: path.resolve(HERE, 'global-teardown.js'),
 
   metadata: {
     testEnv: process.env.NODE_ENV || 'development',

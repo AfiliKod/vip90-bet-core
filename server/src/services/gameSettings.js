@@ -129,6 +129,17 @@ export async function initDefaultGameSettings() {
       coinflipMinBet: 1,
       coinflipMaxBet: 1000,
     },
+    {
+      // Neon Abyss (15. oyun, provably-fair slot) — temalı adı UI'da "NEON
+      // ABYSS". MÜHÜRLÜ: ödeme matematiği provider math/neonAbyssMath.js
+      // sabitlerinde (measured RTP %95.932 ±0.093, 6/6 gate); burada yalnız
+      // bet aralığı + aç/kapat yaşar — RTP knobu TANIMSIZ (coinflipPayoutMult
+      // satırının kasıtlı karşılığı yok).
+      gameId: 'inhouse-neonabyss',
+      gameTitle: 'Neon Abyss',
+      neonabyssMinBet: 0.20,
+      neonabyssMaxBet: 100,
+    },
   ];
 
   // find+create yerine atomik upsert: eşzamanlı çağrılar (crashGame.js ve
@@ -211,6 +222,8 @@ export async function updateGameSettings(gameId, updates, adminId, options = {})
     'vpMinBet', 'vpMaxBet',
     // Coin Flip — RTP = 0.5 × mult (kazanma olasılığı sabit %50)
     'coinflipPayoutMult', 'coinflipMinBet', 'coinflipMaxBet',
+    // Neon Abyss — mühürlü: yalnız bet aralığı (RTP knobu TANIMSIZ)
+    'neonabyssMinBet', 'neonabyssMaxBet',
     // Common
     'isActive',
   ];
@@ -234,13 +247,15 @@ export async function updateGameSettings(gameId, updates, adminId, options = {})
       throw createError(400, 'INVALID_RANGE', 'Roulette house edge 0-10 aralığında olmalı');
     }
   }
-  // Coin Flip — ödeme çarpanı koruması: RTP = %50 × mult, bu yüzden mult > 2.0
-  // matematiksel olarak %100+ RTP demek (house edge negatif). Sert tavan 2.0;
-  // ONAYLI değer 1.96 (RTP %98.00) ve spec toleransı ±0.01 mult = ∓0.5 pp RTP
-  // — bunun ötesindeki değişiklik Game Math yeniden onayı gerektirir.
+  // Coin Flip — ödeme çarpanı koruması: RTP = %50 × mult. Tavan 2.0 → 1.96
+  // (Burak onayı 2026-10-22, madde 7): tavan = default ⇒ operatör yalnız AŞAĞI
+  // oynayabilir; mult > 1.96 yazılamaz olduğu için %100+ RTP (house edge
+  // negatif) vak'ası kapandı. ONAYLI değer 1.96 (RTP %98.00) — tavan değişikliği
+  // dışında spec toleransı hükmü saklı: tabana doğru ∓0.5 pp RTP'lik hareketler
+  // Game Math yeniden onayı gerektirmez.
   if (updateData.coinflipPayoutMult !== undefined) {
-    if (updateData.coinflipPayoutMult < 1.8 || updateData.coinflipPayoutMult > 2) {
-      throw createError(400, 'INVALID_RANGE', 'Coin Flip ödeme çarpanı 1.8-2.0 aralığında olmalı');
+    if (updateData.coinflipPayoutMult < 1.8 || updateData.coinflipPayoutMult > 1.96) {
+      throw createError(400, 'INVALID_RANGE', 'Coin Flip ödeme çarpanı 1.8-1.96 aralığında olmalı');
     }
   }
   if (updateData.crashMinBet !== undefined && updateData.crashMinBet <= 0) {
@@ -254,7 +269,7 @@ export async function updateGameSettings(gameId, updates, adminId, options = {})
   // Tekil alan aralıkları (ör. payoutFactor 0.5-0.99) zaten şema seviyesinde
   // (models/GameSettings.js) min/max ile korunuyor; burada yalnızca
   // şemanın ifade edemediği çapraz alan kısıtı (max >= min) kontrol ediliyor.
-  for (const prefix of ['mines', 'dice', 'limbo', 'hilo', 'dragonTiger', 'plinko', 'wheel', 'keno', 'baccarat', 'blackjack', 'vp', 'coinflip']) {
+  for (const prefix of ['mines', 'dice', 'limbo', 'hilo', 'dragonTiger', 'plinko', 'wheel', 'keno', 'baccarat', 'blackjack', 'vp', 'coinflip', 'neonabyss']) {
     const minKey = `${prefix}MinBet`;
     const maxKey = `${prefix}MaxBet`;
     if (updateData[minKey] !== undefined && updateData[minKey] <= 0) {
@@ -409,6 +424,13 @@ const OPERATOR_GAME_DEFAULTS = {
     coinflipMinBet: 1,
     coinflipMaxBet: 1000,
   },
+  // Neon Abyss — mühürlü matematik (math/neonAbyssMath.js), yalnız bet aralığı
+  // + isActive; 0.20–100 onaylı literal. percentField/multField BİLEREK yok.
+  'inhouse-neonabyss': {
+    gameTitle: 'Neon Abyss',
+    neonabyssMinBet: 0.20,
+    neonabyssMaxBet: 100,
+  },
 };
 
 /** operatorId + gameId scoped ayar — yoksa o oyunun varsayılanlarıyla lazy-seed. */
@@ -444,7 +466,8 @@ export async function getGameSettingsForOperator(operatorId, gameId) {
 // için. percentField: varsa [alan, min, max] — house-edge tipi tekil yüzde
 // alanlarının aralık kontrolü. multField: aynı mekanik, ödeme ÇARPANI alanları
 // için (Coin Flip): RTP = kazanma olasılığı × mult olduğundan çarpanın
-// güvenlik aralığı (mult > 2.0 = %100+ RTP) burada tutulur.
+// güvenlik aralığı (tavan 1.96 = RTP tavanı %98.00; Burak onayı 2026-10-22)
+// burada tutulur.
 const GAME_FIELD_META = {
   'inhouse-crash':       { minKey: 'crashMinBet', maxKey: 'crashMaxBet', percentField: ['crashHouseEdgePercent', 0, 50] },
   'inhouse-roulette':    { minKey: 'rouletteMinBet', maxKey: 'rouletteMaxBet', percentField: ['rouletteHouseEdgePercent', 0, 10] },
@@ -459,7 +482,10 @@ const GAME_FIELD_META = {
   'inhouse-baccarat':    { minKey: 'baccaratMinBet', maxKey: 'baccaratMaxBet' },
   'inhouse-blackjack':   { minKey: 'blackjackMinBet', maxKey: 'blackjackMaxBet' },
   'inhouse-videopoker':  { minKey: 'vpMinBet', maxKey: 'vpMaxBet' },
-  'inhouse-coinflip':    { minKey: 'coinflipMinBet', maxKey: 'coinflipMaxBet', multField: ['coinflipPayoutMult', 1.8, 2.0] },
+  'inhouse-coinflip':    { minKey: 'coinflipMinBet', maxKey: 'coinflipMaxBet', multField: ['coinflipPayoutMult', 1.8, 1.96] },
+  // MÜHÜR: percentField/multField BİLEREK YOK — neonabyss'in ödemesi modül
+  // sabitlerinde mühürlü (measured %95.932 ±0.093 o sabitlerle geçerli).
+  'inhouse-neonabyss':   { minKey: 'neonabyssMinBet', maxKey: 'neonabyssMaxBet' },
 };
 
 export function getGameFieldMeta(gameId) {
@@ -500,6 +526,8 @@ const OPERATOR_ALLOWED_FIELDS = {
     'vpMinBet', 'vpMaxBet', 'isActive',
   ],
   'inhouse-coinflip': ['coinflipPayoutMult', 'coinflipMinBet', 'coinflipMaxBet', 'isActive'],
+  // Operatör yetkisi = aç/kapat + bet aralığı, BU KADAR (mühür: üç anahtar).
+  'inhouse-neonabyss': ['neonabyssMinBet', 'neonabyssMaxBet', 'isActive'],
 };
 
 function validateOperatorUpdate(gameId, updateData) {

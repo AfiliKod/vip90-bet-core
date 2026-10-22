@@ -11,9 +11,22 @@ export const registerSchema = z.object({
   // KVKK + Terms consent
   acceptedTerms:  z.literal(true, { errorMap: () => ({ message: 'Kullanım koşullarını kabul etmelisiniz' }) }),
   acceptedKvkk:   z.literal(true, { errorMap: () => ({ message: 'KVKK aydınlatma metnini kabul etmelisiniz' }) }),
+  // 18+ beyanı (2026-10-08). Opsiyonel: üçüncü taraf istemciler (API) eski
+  // gövde gönderebiliyor; beyan yoksa hesap yine açılır ama casino oyunlarına
+  // erişemez (bkz. middleware/ageGate.js + POST /auth/age-confirm).
+  ageConfirmed:   z.boolean().optional(),
   consentVersion: z.string().min(1).max(20).optional(),
   // Turnstile (Phase B8)
   turnstileToken: z.string().optional(),
+});
+
+/**
+ * 18+ kapısının açılması (2026-10-08). `confirmed` beyan, `dateOfBirth`
+ * ise doğrulamadır: 18 yaş altını kanıtlıyorsa 422 AGE_NOT_ELIGIBLE.
+ */
+export const ageConfirmSchema = z.object({
+  confirmed:   z.literal(true, { errorMap: () => ({ message: '18 yaşından büyük olduğunu onaylamalısın' }) }),
+  dateOfBirth: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, 'Tarih YYYY-AA-GG olmalı').optional().nullable(),
 });
 
 export const loginSchema = z.object({

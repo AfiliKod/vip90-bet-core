@@ -162,10 +162,13 @@ POST /api/crypto/withdraw-request
     │  YES → AUTO-PROCESS
     │       │  Deduct from balance first (atomic, only if the balance
     │       │  still covers it) + ledger row status 'processing' → commit
-    │       │  Then send USDT from hot wallet to user
-    │       │    sent     → status 'completed', return txHash
+    │       │  Sign the transfer, store its txID, then broadcast
+    │       │    accepted → stays 'processing', return txHash
     │       │    rejected → status 'failed', balance refunded (refund row)
-    │       │    unknown  → stays 'processing' (network error); admin checks the chain
+    │       │    unknown  → stays 'processing' (502, txHash returned)
+    │       │  Reconciliation (every minute) asks the chain by txID:
+    │       │    SUCCESS  → 'completed'
+    │       │    FAILED / absent after expiration + 2 min → refunded
     │       │
     │  NO → SEND TO ADMIN APPROVAL
     │       │  status: 'pending'
@@ -179,8 +182,9 @@ POST /api/crypto/withdraw-request
     │       │
     │  APPROVE → claim: 'pending' → 'processing' (atomic; a second
     │         approval or a parallel reject gets 400)
-    │         Send USDT from hot wallet, return txHash
-    │         status: 'completed' (transfer failed → back to 'pending')
+    │         Sign, store txID, broadcast; reconciliation confirms
+    │         SUCCESS → 'completed'; not sent → back to 'pending'
+    │         (approve again = new transaction, new txID)
     │       │
     │  REJECT → Refund balance
     │           status: 'rejected'
@@ -190,9 +194,9 @@ POST /api/crypto/withdraw-request
 | Status | Meaning |
 |--------|---------|
 | `pending` | Awaiting admin approval |
-| `processing` | Transfer in progress, or its result is unknown (network error) — check the chain before acting |
+| `processing` | Transfer signed/broadcast; waiting for chain confirmation (reconciled every minute, or **Verify on chain** in the admin panel). Without a recorded txID for 10 minutes → manual review: check the chain, then **Mark as sent** (txHash) or **Mark as not sent** |
 | `completed` | Transfer completed, txHash available |
-| `failed` | Automatic transfer rejected by the chain, balance refunded |
+| `failed` | Automatic transfer not sent (rejected, failed on chain, or expired unseen); balance refunded |
 | `rejected` | Admin rejected, balance refunded |
 
 ### Bonus Forfeit Flow

@@ -23,6 +23,11 @@ import transactionsRoutes from './routes/transactions.js';
 import promotionsRoutes from './routes/promotions.js';
 import adminRoutes from './routes/admin.js';
 import casinoRoutes from './routes/casino.js';
+import User from './models/User.js';
+import { enforceAgeGate } from './middleware/ageGate.js';
+import { enforceInhouseSessionLimit } from './middleware/inhouseSessionLimit.js';
+import { enforceInhouseRoundLimits } from './middleware/inhouseRoundLimits.js';
+import { checkPlayerEligibility } from './services/responsibleGaming.js';
 import helpRoutes from './routes/help.js';
 import inhouseRoutes from './routes/inhouse.js';
 import cryptoRoutes from './routes/crypto.js';
@@ -229,7 +234,8 @@ export function createApp() {
   app.use('/api/promotions', promotionsRoutes);
   app.use('/api/admin', adminRoutes);
   if (igamesRoutes) {
-    app.use('/api/igames', igamesRoutes);
+    // 18+ kapısı, Igames (Slikair) launch ucunda da geçerli (2026-10-08).
+    app.use('/api/igames', enforceAgeGate(), igamesRoutes);
   } else {
     app.use('/api/igames', (req, res) => res.status(503).json({ error: 'MODULE_NOT_INSTALLED', message: 'Igames Casino entegrasyonu bu kurulumda mevcut değil.' }));
   }
@@ -281,7 +287,25 @@ export function createApp() {
   app.use('/api/bets', requireBetting, betsRoutes);
   app.use('/api/casino', requireCasinoContent, casinoRoutes);
   if (inhouseProviderProxyRoutes) {
-    app.use('/api/inhouse-provider', requireInhouseGames, inhouseProviderProxyRoutes);
+    // Katman sırası önemli:
+    //  1. enforceAgeGate            18+ onay kaydı yoksa oyun açılmaz
+    //                              (oturumsuz /callback HMAC'ten geçer → atlanır)
+    //  2. enforceInhouseSessionLimit her turda oturum tavanı + tur sayacı
+    //  3. enforceInhouseRoundLimits her turda sorumlu oyuncu limitleri
+    //                              (daha önce YALNIZCA launch'ta ölçülüyordu)
+    app.use(
+      '/api/inhouse-provider',
+      requireInhouseGames,
+      enforceAgeGate(),
+      enforceInhouseSessionLimit(),
+      enforceInhouseRoundLimits({
+        checkEligibility: checkPlayerEligibility,
+        findUser: (externalPlayerId) => User.findOne({
+          $or: [{ _id: externalPlayerId }, { username: externalPlayerId }],
+        }).select('_id').lean(),
+      }),
+      inhouseProviderProxyRoutes,
+    );
   } else {
     app.use('/api/inhouse-provider', (req, res) => res.status(503).json({ error: 'MODULE_NOT_INSTALLED', message: 'In-house oyun provider\'ı bu kurulumda mevcut değil.' }));
   }

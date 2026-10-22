@@ -58,6 +58,10 @@ pp-visual-test.png
 # Claude Code / tooling
 .superpowers/
 .claude/
+# QoderWake waker context (IDENTITY/BIBLE/PERSONA/MEMORY) — her waker kendi
+# workspace'inde bu klasörü yazar; ajan çıktısı değil, commit edilmez.
+.qoder/
+.qoder-plugin/
 
 # Playwright e2e test çıktıları (kod değil, üretilen raporlar)
 tests/playwright-report/

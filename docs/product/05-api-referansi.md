@@ -90,7 +90,7 @@ Additionally, `/auth/login` returns `429 TOO_MANY_ATTEMPTS` after 5 failed attem
 
 | Method + Path | Auth | Body schema | Notes / error codes |
 |---|---|---|---|
-| `POST /register` | Guest (`guestOnly`) + `registerLimiter` | `registerSchema`: `username` (3-30, `[a-zA-Z0-9_]`), `email`, `password` (8-128, ≥1 uppercase + ≥1 digit), `referredBy?`, `phone?` (7-20), `dateOfBirth?` (`YYYY-MM-DD`), **`acceptedTerms: true` (required)**, **`acceptedKvkk: true` (required)**, `consentVersion?`, `turnstileToken?` (verified only when Turnstile is enabled via `TURNSTILE_SECRET_KEY` + `TURNSTILE_SITE_KEY`, off by default — `400 TURNSTILE_REQUIRED`/`TURNSTILE_FAILED`, see [02](02-yapilandirma.md); `GET /api/auth/turnstile-config` returns `{ enabled, siteKey }`) | `409 USER_EXISTS` |
+| `POST /register` | Guest (`guestOnly`) + `registerLimiter` | `registerSchema`: `username` (3-30, `[a-zA-Z0-9_]`), `email`, `password` (8-128, ≥1 uppercase + ≥1 digit), `referredBy?`, `phone?` (7-20), `dateOfBirth?` (`YYYY-MM-DD`), **`acceptedTerms: true` (required)**, **`acceptedKvkk: true` (required)**, `ageConfirmed?` (boolean; `true` writes `ageConfirmedAt`, omitted = account registers but cannot open casino games until `POST /auth/age-confirm`), `consentVersion?`, `turnstileToken?` (verified only when Turnstile is enabled via `TURNSTILE_SECRET_KEY` + `TURNSTILE_SITE_KEY`, off by default — `400 TURNSTILE_REQUIRED`/`TURNSTILE_FAILED`, see [02](02-yapilandirma.md); `GET /api/auth/turnstile-config` returns `{ enabled, siteKey }`) | `409 USER_EXISTS`, `422 AGE_NOT_ELIGIBLE` (`dateOfBirth` is under 18) |
 | `POST /login` | Guest + `loginLimiter` | `loginSchema`: `username`, `password`, `turnstileToken?` | `429 TOO_MANY_ATTEMPTS`, `401 INVALID_CREDENTIALS`, `403 ACCOUNT_BANNED`, `403 EMAIL_NOT_VERIFIED` |
 | `POST /refresh` | Public (refresh cookie) | — | `401 NO_REFRESH_TOKEN` / `USER_NOT_FOUND` / `TOKEN_REVOKED` / `INVALID_REFRESH_TOKEN` |
 | `POST /logout` | Public | — | Clears refresh cookie |
@@ -99,6 +99,7 @@ Additionally, `/auth/login` returns `429 TOO_MANY_ATTEMPTS` after 5 failed attem
 | `POST /resend-verification` | `emailFlowLimiter` | `resendVerificationSchema`: `email` | |
 | `POST /forgot-password` | Guest + `emailFlowLimiter` | `passwordResetRequestSchema`: `email`, `turnstileToken?` (checked only when Turnstile is enabled) | |
 | `POST /reset-password` | Guest + `emailFlowLimiter` | `passwordResetConfirmSchema`: `token`, `newPassword` (8-128, uppercase+digit) | `400 INVALID_TOKEN` |
+| `POST /age-confirm` | User login | `ageConfirmSchema`: `confirmed: true` (required), `dateOfBirth?` (`YYYY-MM-DD`) | Writes `ageConfirmedAt`, and `ageVerifiedAt` as well when `dateOfBirth` proves 18+. `422 AGE_NOT_ELIGIBLE` when `dateOfBirth` is under 18 (nothing is written). Response: `{ message, ageConfirmedAt, ageVerifiedAt, verified, ageConsent }`. Until this succeeds, `POST /api/igames/game/launch` and `POST /api/inhouse-provider/launch` return `403 AGE_CONFIRMATION_REQUIRED` (see [09](09-bilinen-kisitlar.md)) |
 
 ### Web3 wallet login — `/api/auth/wallet` (`routes/web3Auth.js`)
 
@@ -263,8 +264,8 @@ The 13 games' logic no longer lives in the core. The core keeps one public endpo
 
 | Method + Path | Auth | Notes |
 |---|---|---|
-| `POST /launch` | User + risk check + responsible-gaming check | Body `{ gameId, currency?, language? }`; proxies to the provider with the server-side API secret and returns `{ url }` (60-second launch token to the game host). `400 INSUFFICIENT_BALANCE` when the balance is 0 |
-| `POST /callback` | Provider (HMAC `x-signature` + `x-timestamp` headers; persistent idempotency) | Wallet callback (`debit` / `settle` / `balance`); updates `User.balance`, writes `Transaction` + `CasinoRound` |
+| `POST /launch` | User + age gate + risk check + responsible-gaming check | Body `{ gameId, currency?, language? }`; proxies to the provider with the server-side API secret and returns `{ url }` (60-second launch token to the game host). `400 INSUFFICIENT_BALANCE` when the balance is 0. `403 AGE_CONFIRMATION_REQUIRED` when the account has no age consent yet (open it with `POST /api/auth/age-confirm`). Also opens or continues the play session and sets `req.inhouseSessionRestarted` when the session cap was reached |
+| `POST /callback` | Provider (HMAC `x-signature` + `x-timestamp` headers; persistent idempotency) | Wallet callback (`debit` / `settle` / `balance`); updates `User.balance`, writes `Transaction` + `CasinoRound`. A `debit` also runs the **session cap** and the **per-round responsible-gaming** check before the money moves: `403 { approved: false, reason: 'SESSION_LIMIT_REACHED' \| 'RESPONSIBLE_GAMING_LIMIT' \| 'ACCOUNT_RESTRICTED' }` (`settle` and `balance` are never blocked). The provider turns these into `400 BET_REJECTED`; there is no retry, so no retry storm |
 
 **Add-on — provider side, `/api/provider/v1` (`engine/routes/*`) — used by the game host and by operators, no module gate**
 
@@ -315,7 +316,7 @@ Crash and Roulette are multiplayer games and run over Socket.IO namespaces, not 
 |---|---|---|
 | `GET /deposit-address` | — | User-specific TRC20 USDT address; returns `503` if `CRYPTO_SEED_PHRASE` not set |
 | `POST /check-deposit` | — | Queries TronGrid, converts incoming USDT to the site currency at `USDT_TRY_RATE`; small amounts (default under 100 USDT) are credited automatically, larger ones wait for admin approval. Risk and responsible-gaming checks apply |
-| `POST /withdraw-request` | `withdrawRequestSchema`: `{ address, usdtAmount, confirmForfeit? }` (min 5 USDT; address `T` + 33 characters) | Creates a withdrawal; small amounts (default under 15 USDT) are processed automatically, larger ones wait for admin approval. The balance is deducted atomically before any USDT leaves the hot wallet. `409 ACTIVE_BONUS_LOCK` when an active bonus locks part of the balance and `confirmForfeit` is not sent; `400 INSUFFICIENT_BALANCE` when concurrent requests already used the balance; `500` when the chain rejects an automatic transfer (balance refunded); `502` when the transfer result is unknown (request stays `processing` for admin review) |
+| `POST /withdraw-request` | `withdrawRequestSchema`: `{ address, usdtAmount, confirmForfeit? }` (min 5 USDT; address `T` + 33 characters) | Creates a withdrawal; small amounts (default under 15 USDT) are processed automatically, larger ones wait for admin approval. The balance is deducted atomically before any USDT leaves the hot wallet. `409 ACTIVE_BONUS_LOCK` when an active bonus locks part of the balance and `confirmForfeit` is not sent; `400 INSUFFICIENT_BALANCE` when concurrent requests already used the balance; `500` when the transfer could not be sent (balance refunded); `502` when the broadcast result is unknown (`txHash` returned, the request stays `processing` and is reconciled against the chain). A successful automatic withdrawal answers with `status: 'processing'`; it becomes `completed` once the transaction is confirmed on chain |
 | `GET /withdraw-preview` | — | Withdrawable/locked balance breakdown, hot-wallet balance, `minWithdraw` |
 | `GET /settings` | — | **Admin only** — current `CRYPTO_SETTINGS` |
 | `GET /hot-wallet-balance` | — | **Admin only** — hot wallet USDT/TRX balance (`503 CRYPTO_WALLET_NOT_CONFIGURED` without wallet keys) |
@@ -500,7 +501,7 @@ Destructive/financial endpoints additionally apply `blockDemoAdmin` (marked belo
 **Wallet — crypto, bank, Slikair, referral** (`admin:transactions:*`)
 - `GET /crypto/pending-deposits`, `/crypto/pending-withdrawals`, `/crypto/all-deposits`, `/crypto/all-withdrawals`, `/crypto/stats`, `/crypto/tx-detail/:id`, `/crypto/tx-verify/:txHash`, `GET /bank/stats`
 - `PUT /crypto/settings` (`updateCryptoSettingsSchema`)
-- `POST /crypto/deposits/:id/approve`, `/reject`; `POST /crypto/withdrawals/:id/approve`, `/reject`
+- `POST /crypto/deposits/:id/approve`, `/reject`; `POST /crypto/withdrawals/:id/approve`, `/reject`, `/reconcile` (check a `processing` withdrawal against the chain now), `/resolve` (`{ sent, txHash? }` — only for a `processing` withdrawal without a recorded transaction ID)
 - `GET /slikair/payments`, `/slikair/payments/:id`, `/slikair/payouts`, `/slikair/payouts/:id`, `/slikair/stats`; `POST /slikair/payouts` (also behind the `slikair-payment` module gate)
 - `GET /referral/settings`, `PUT /referral/settings` (`admin:referral:*`)
 
