@@ -407,6 +407,7 @@ export default {
     'games.coinflip.title': '코인 플립',
     'games.coinflip.subtitle': '앞면 아니면 뒷면 — 동전을 예측하고 배당을 두 배로',
     'games.coinflip.cta': '코인 던지기',
+    'games.kingofmoney.title': '킹 오브 머니',
 
     // Game UI
     'game.betAmount': '베팅 금액',
@@ -743,6 +744,8 @@ export default {
   'admin.gameSettings.field.minesPayoutFactor': 'RTP (%)',
   'admin.gameSettings.field.minesMinBet': '최소 베팅',
   'admin.gameSettings.field.minesMaxBet': '최대 베팅',
+  'admin.gameSettings.field.kingofmoneyMinBet': '최소 베팅',
+  'admin.gameSettings.field.kingofmoneyMaxBet': '최대 베팅',
   'admin.gameSettings.field.dicePayoutFactor': 'RTP (%)',
   'admin.gameSettings.field.diceMinBet': '최소 베팅',
   'admin.gameSettings.field.diceMaxBet': '최대 베팅',
@@ -1828,7 +1831,7 @@ export default {
 
   // ─── Admin: Modül Kartları (Modules.jsx, 2026-09-10) ───
   "admin.moduleCards.inhouseTitle": "인하우스 게임 프로바이더",
-  "admin.moduleCards.inhouseDesc": "13개 인하우스 카지노 게임(Crash, Mines, Blackjack 등)의 중앙 프로바이더 연결. RTP/min-max/timing 설정은 여기에 없습니다 — 게임 설정 페이지를 참조하세요.",
+  "admin.moduleCards.inhouseDesc": "15개 인하우스 카지노 게임(Crash, Mines, Blackjack 등)의 중앙 프로바이더 연결. RTP/min-max/timing 설정은 여기에 없습니다 — 게임 설정 페이지를 참조하세요.",
   "admin.moduleCards.inhouseLoadFailed": "인하우스 프로바이더 설정을 불러올 수 없습니다.",
   "admin.moduleCards.inhouseUpdated": "인하우스 프로바이더 설정이 업데이트되었습니다.",
   "admin.moduleCards.updateFailed": "업데이트에 실패했습니다.",

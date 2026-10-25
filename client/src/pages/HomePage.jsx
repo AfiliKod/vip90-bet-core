@@ -215,6 +215,8 @@ export default function HomePage() {
     { name: t('games.videopoker.title'), path: '/games/videopoker', accent: '#c084fc', image: '/images/games/videopoker.png' },
     { name: t('games.dragontiger.title'), path: '/games/dragontiger', accent: '#fb923c', image: '/images/games/dragontiger.png' },
     { name: t('games.coinflip.title'), path: '/games/coinflip', accent: '#facc15', image: '/images/games/coinflip.png' },
+    // 15. oyun: KING OF MONEY — kart görseli oyunun onaylı kapak görselinin kırpımı.
+    { name: t('games.kingofmoney.title'), path: '/games/kingofmoney', accent: '#f3c04b', image: '/images/games/kingofmoney.png' },
   ];
 
   const SECTIONS = {

@@ -22,7 +22,7 @@ live betting, casino, wallet, bonuses, affiliate and admin management.**
 Kendi altyapınızda çalışan, kendi markanızı taşıyan online casino + spor
 bahisleri platformu. **Çekirdek platform** (hesap, cüzdan, bonus/çevrim, KYC,
 risk, admin paneli) temel üründür ve tek başına açılır. **In-house Games
-(13 oyun), Sports Betting ve Casino Content ayrı ücretli eklentilerdir**;
+(15 oyun), Sports Betting ve Casino Content ayrı ücretli eklentilerdir**;
 çekirdeğe sonradan eklenir — tek kod tabanı, tek admin panel.
 **Live Casino** (canlı krupiyeli masalar) planlanan gelecek bir güncellemedir,
 bu sürümde yoktur.
@@ -67,7 +67,7 @@ olgunlaşmadığını gizlemiyoruz — bkz. [Yol Haritası](#yol-haritası) ve
 | ✉️ **E-posta ve SMS iletişimi** | Olaya bağlı sistem e-postaları ve SMS'leri, zamanlanmış kampanyalar, segment hedefleme ve gönderim günlükleri tek bir **İletişim** sayfasında; e-posta için SMTP/Mailgun, SMS için Twilio |
 | 💱 **Para birimi, marka, jurisdiction yöneticileri** | Settings altında Currencies / Brands / Jurisdictions sekmeleri; site tek bir görüntüleme para birimiyle çalışır, marka verisi izolasyonu uygulanmaz ([Bilinen Kısıtlar](docs/product/09-bilinen-kisitlar.md)) |
 | 🚀 **Kurulum sihirbazı** | `docker compose up -d` sonrası tarayıcıdan `/install` (İngilizce/Türkçe) — ilk yönetici hesabı ve site ayarları; sunucunun açılması için önceden bir `.env` (JWT anahtarları, veritabanı) gerekir |
-| 🎰 **13 in-house oyun (ücretli eklenti)** | Crash, Mines, Plinko, Dice, Limbo, Wheel, Hi-Lo, Keno, Blackjack, Roulette, Baccarat, Video Poker, Dragon Tiger — hepsi HMAC-SHA256 **provably fair**, house edge her oyun için panelden ayarlanabilir |
+| 🎰 **15 in-house oyun (ücretli eklenti)** | Crash, Mines, Plinko, Dice, Limbo, Wheel, Hi-Lo, Keno, Blackjack, Roulette, Baccarat, Video Poker, Dragon Tiger, Coin Flip ile King of Money slotu — hepsi HMAC-SHA256 **provably fair**, house edge her oyun için panelden ayarlanabilir (slotun matematiği mühürlüdür) |
 | ⚽ **Spor & Canlı Bahis (ücretli eklenti)** | 30 spor tanımı, canlı oran akışı, kupon (tekli/kombine), otomatik sonuçlandırma |
 | 🃏 **Casino İçeriği (ücretli eklenti)** | Aggregator entegrasyonu ile slot ve masa oyunları — iGaming içerik sağlayıcısı entegrasyonu (bugün tek adaptör) |
 
@@ -109,12 +109,13 @@ eklentiler sağlar.
 - **KYC** — yerel belge inceleme (onay/red kuyruğu) veya **Sumsub**
   entegrasyonu, ikisinden biri panelden seçilir.
 
-### 🎰 13 In-House Oyun (ücretli eklenti)
+### 🎰 15 In-House Oyun (ücretli eklenti)
 
 Hiçbir üçüncü taraf sözleşmesi gerektirmeyen, size ait oyun kütüphanesi:
 
 **Crash · Mines · Plinko · Dice · Limbo · Wheel · Hi-Lo · Keno ·
-Blackjack · Roulette · Baccarat · Video Poker · Dragon Tiger**
+Blackjack · Roulette · Baccarat · Video Poker · Dragon Tiger · Coin Flip ·
+King of Money**
 
 - Her round, round'dan **önce** taahhüt edilmiş (hash'i yayınlanmış) bir
   `serverSeed`'in HMAC-SHA256 türetiminden çıkar — oyuncunun
@@ -125,6 +126,8 @@ Blackjack · Roulette · Baccarat · Video Poker · Dragon Tiger**
 - House edge ve bahis limitleri oyun bazında admin panelinden
   (**Products → In-house Games**) ayarlanır — tek bir soyut "RTP" alanı
   değil, her oyunun gerçek matematiğini oluşturan değişkenler doğrudan açılır.
+  King of Money slotu istisnadır: matematiği mühürlü ve simülasyonla
+  ölçülmüştür; yalnız bahis aralığı ve aç/kapat ayarlanır.
 - Oyun arayüzü (`game-host`) ayrı bir uygulamadır, ayrı barındırılır; motor
   ana sunucu sürecine dahil olur.
 
@@ -204,7 +207,7 @@ kartı modül değildir, çekirdeğe aittir ve hep açıktır: e-posta sağlayı
 |---|---|---|---|
 | **Bahis** (`betting`) | Oran akışı, kupon, otomatik sonuçlandırma | **Ücretli eklenti** (`server/src/premium/betting`) | Spor verisi sağlayıcısıyla sözleşme |
 | **Casino İçeriği** (`casino-content`) | Slot/masa oyunları aggregator konektörü | **Ücretli eklenti** (`server/src/premium/igames`) | Aggregator sözleşmesi |
-| **In-house Oyunlar** (`inhouse-games`) | 13 provably-fair oyun, ayrı bir oyun sunucusundan (JWT+origin korumalı) servis edilir | **Ücretli eklenti** (`server/src/premium/inhouse-provider`) | Yok — üçüncü taraf sözleşmesi gerekmez |
+| **In-house Oyunlar** (`inhouse-games`) | 15 provably-fair oyun, ayrı bir oyun sunucusundan (JWT+origin korumalı) servis edilir | **Ücretli eklenti** (`server/src/premium/inhouse-provider`) | Yok — üçüncü taraf sözleşmesi gerekmez |
 | **Crypto Ödeme Ağ Geçidi** (`crypto-payment`) | USDT-TRC20 yatırma/çekme | Çekirdekle birlikte | Yok |
 | **Slikair Ödeme Ağ Geçidi** (`slikair-payment`) | Kart ve alternatif yöntemlerle yatırma | Çekirdekle birlikte; lisans kontrolünden muaf | Slikair merchant hesabı |
 | **KYC Kimlik Doğrulama** (`kyc-verification`) | Yerel belge inceleme veya Sumsub | Çekirdekle birlikte | Sumsub seçilirse üçüncü taraf sözleşmesi |

@@ -366,6 +366,9 @@ export default {
   'games.coinflip.title': 'Coin Flip',
   'games.coinflip.subtitle': 'Heads or Tails — call the coin and double your bet',
   'games.coinflip.cta': 'Flip the Coin',
+  // 15. oyun: KING OF MONEY — marka adı Latin harfle kalır ('games.inhouseExclusive'
+  // brand-token emsali); yalnız ja/ko yerel okunuşla yazılır.
+  'games.kingofmoney.title': 'King of Money',
 
   // Game UI
   'game.betAmount': 'Bet Amount',
@@ -780,6 +783,8 @@ export default {
   'admin.gameSettings.field.coinflipPayoutMult.help': 'Total return when the guessed side lands. The approved value is 1.96 (RTP 98.00%): each ±0.01 moves RTP by ∓0.50 pp. The hard range 1.8–2.0 prevents a multiplier above 2.0, which would mean an RTP over 100%.',
   'admin.gameSettings.field.coinflipMinBet': 'Min. Bet',
   'admin.gameSettings.field.coinflipMaxBet': 'Max. Bet',
+  'admin.gameSettings.field.kingofmoneyMinBet': 'Min. Bet',
+  'admin.gameSettings.field.kingofmoneyMaxBet': 'Max. Bet',
   'admin.gameSettings.coinflip.rtpMain': 'Coin Flip RTP',
   'admin.gameSettings.coinflip.info': "Coin Flip is a single fair coin — the win probability is fixed at exactly 50%, so RTP is fully determined by the multiplier: RTP = 50% × multiplier. The approved value is 1.96 (RTP 98.00%, house edge 2.00%). Per the game math spec, a change of ±0.01 in the multiplier shifts RTP by ∓0.50 pp; anything beyond the ±0.10 pp tolerance requires re-approval from Game Math. Maximum win per round: 1,000.00 × 1.96 = 1,960.00 TRY.",
 
@@ -1870,7 +1875,7 @@ export default {
 
   // ─── Admin: Modül Kartları (Modules.jsx, 2026-09-10) ───
   "admin.moduleCards.inhouseTitle": "In-house Games Provider",
-  "admin.moduleCards.inhouseDesc": "Central provider connection for the 13 in-house casino games (Crash, Mines, Blackjack, etc.). RTP/min-max/timing settings are NOT here — see the Game Settings page.",
+  "admin.moduleCards.inhouseDesc": "Central provider connection for the 15 in-house casino games (Crash, Mines, Blackjack, etc.). RTP/min-max/timing settings are NOT here — see the Game Settings page.",
   "admin.moduleCards.inhouseLoadFailed": "Could not load in-house provider settings.",
   "admin.moduleCards.inhouseUpdated": "In-house provider settings updated.",
   "admin.moduleCards.updateFailed": "Update failed.",

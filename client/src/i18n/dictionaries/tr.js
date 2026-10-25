@@ -367,6 +367,7 @@ export default {
     'games.coinflip.title': 'Coin Flip',
     'games.coinflip.subtitle': 'Yazı mı Tura mı — paradan tarafını seç, bahsini ikiye katla',
     'games.coinflip.cta': 'Parayı At',
+    'games.kingofmoney.title': 'King of Money',
 
     // Game UI
     'game.betAmount': 'Bahis Miktarı',
@@ -781,6 +782,8 @@ export default {
   'admin.gameSettings.field.coinflipPayoutMult.help': 'Tahmin edilen taraf geldiğinde toplam iade. ONAYLI değer 1.96 (RTP %98.00): her ±0.01 değişim RTP\'yi ∓0,50 pp oynatır. 1.8-2.0 sert aralığı, 2.0 üzeri çarpanın (RTP %100+\') engellenmesi içindir.',
   'admin.gameSettings.field.coinflipMinBet': 'Min. Bahis',
   'admin.gameSettings.field.coinflipMaxBet': 'Maks. Bahis',
+  'admin.gameSettings.field.kingofmoneyMinBet': 'Min. Bahis',
+  'admin.gameSettings.field.kingofmoneyMaxBet': 'Maks. Bahis',
   'admin.gameSettings.coinflip.rtpMain': 'Coin Flip RTP',
   'admin.gameSettings.coinflip.info': "Coin Flip tek bir adil paradır — kazanma olasılığı tam olarak %50 sabittir, RTP'yi yalnızca kazanç çarpanı belirler: RTP = %50 × çarpan. ONAYLI değer 1.96 (RTP %98.00, house edge %2.00). Oyun matematiği spec'ine göre çarpanda ±0.01 değişiklik RTP'yi ∓0,50 pp kaydırır; ±0,10 pp toleransının ötesindeki her değişiklik Game Math yeniden onayı gerektirir. Tur başına maksimum kazanç: 1.000,00 × 1.96 = 1.960,00 TRY.",
 
@@ -1871,7 +1874,7 @@ export default {
 
   // ─── Admin: Modül Kartları (Modules.jsx, 2026-09-10) ───
   "admin.moduleCards.inhouseTitle": "In-house Oyunlar Provider'ı",
-  "admin.moduleCards.inhouseDesc": "13 in-house casino oyununun (Crash, Mines, Blackjack vb.) merkezi provider bağlantısı. RTP/min-max/timing ayarları burada DEĞİL — Oyun Ayarları sayfasında.",
+  "admin.moduleCards.inhouseDesc": "15 in-house casino oyununun (Crash, Mines, Blackjack vb.) merkezi provider bağlantısı. RTP/min-max/timing ayarları burada DEĞİL — Oyun Ayarları sayfasında.",
   "admin.moduleCards.inhouseLoadFailed": "In-house provider ayarları alınamadı.",
   "admin.moduleCards.inhouseUpdated": "In-house provider ayarları güncellendi.",
   "admin.moduleCards.updateFailed": "Güncelleme başarısız.",

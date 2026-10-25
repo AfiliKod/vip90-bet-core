@@ -399,6 +399,7 @@ export default {
     'games.coinflip.title': 'Coin Flip',
     'games.coinflip.subtitle': 'Kopf oder Zahl — tippe auf die Seite und verdopple deinen Einsatz',
     'games.coinflip.cta': 'Münze werfen',
+    'games.kingofmoney.title': 'King of Money',
     // Game UI
     'game.betAmount': 'Einsatz',
     'game.autoBet': 'Automatische Wette',
@@ -719,6 +720,8 @@ export default {
   'admin.gameSettings.field.minesPayoutFactor': 'RTP (%)',
   'admin.gameSettings.field.minesMinBet': 'Min. Einsatz',
   'admin.gameSettings.field.minesMaxBet': 'Max. Einsatz',
+  'admin.gameSettings.field.kingofmoneyMinBet': 'Min. Einsatz',
+  'admin.gameSettings.field.kingofmoneyMaxBet': 'Max. Einsatz',
   'admin.gameSettings.field.dicePayoutFactor': 'RTP (%)',
   'admin.gameSettings.field.diceMinBet': 'Min. Einsatz',
   'admin.gameSettings.field.diceMaxBet': 'Max. Einsatz',
@@ -1754,7 +1757,7 @@ export default {
   'admin.crypto.yatirmaBulunamadi': 'Einzahlung nicht gefunden',
   // ─── Admin: Modül Kartları (Modules.jsx, 2026-09-10) ───
   "admin.moduleCards.inhouseTitle": "Interner Spieleanbieter",
-  "admin.moduleCards.inhouseDesc": "Zentrale Anbieterverbindung für die 13 internen Casino-Spiele (Crash, Mines, Blackjack usw.). RTP/Min-Max/Timing-Einstellungen sind HIER NICHT — siehe die Seite Spieleinstellungen.",
+  "admin.moduleCards.inhouseDesc": "Zentrale Anbieterverbindung für die 15 internen Casino-Spiele (Crash, Mines, Blackjack usw.). RTP/Min-Max/Timing-Einstellungen sind HIER NICHT — siehe die Seite Spieleinstellungen.",
   "admin.moduleCards.inhouseLoadFailed": "Einstellungen des internen Anbieters konnten nicht geladen werden.",
   "admin.moduleCards.inhouseUpdated": "Einstellungen des internen Anbieters aktualisiert.",
   "admin.moduleCards.updateFailed": "Aktualisierung fehlgeschlagen.",

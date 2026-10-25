@@ -236,6 +236,16 @@ const COINFLIP_FIELDS = [
   { key: 'coinflipMaxBet', type: 'number', step: '1' },
 ];
 
+// KING OF MONEY — mühürlü: ödeme tablosu/ağırlıklar/çarpanlar provider
+// math/kingOfMoneyMath.js (lk-rev1) sabitlerinde; GAME_FIELD_META kingofmoney
+// yalnız minKey/maxKey taşır (percentField/multField YOK): operatör bandı +
+// isActive (jenerik toggle) dışında düzenlenebilir alan yok. Alan adları server
+// GameSettings şemasıyla birebir — drift bekçisi client/src/i18n/kingofmoneySettingsParity.test.js.
+const KINGOFMONEY_FIELDS = [
+  { key: 'kingofmoneyMinBet', type: 'number', step: '0.01' },
+  { key: 'kingofmoneyMaxBet', type: 'number', step: '1' },
+];
+
 const FIELDS_BY_GAME = {
   'inhouse-crash': CRASH_FIELDS,
   'inhouse-roulette': ROULETTE_FIELDS,
@@ -251,6 +261,7 @@ const FIELDS_BY_GAME = {
   'inhouse-blackjack': BLACKJACK_FIELDS,
   'inhouse-videopoker': VIDEOPOKER_FIELDS,
   'inhouse-coinflip': COINFLIP_FIELDS,
+  'inhouse-kingofmoney': KINGOFMONEY_FIELDS,
 };
 
 const RISK_LABEL_KEYS = {

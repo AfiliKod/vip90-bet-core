@@ -114,15 +114,14 @@ const schema = new mongoose.Schema({
   coinflipMinBet: { type: Number, default: 1, min: 0.01 },
   coinflipMaxBet: { type: Number, default: 1000, min: 1 },
 
-  // Neon Abyss (provably-fair slot, 15. oyun) — MÜHÜRLÜ matematik: ödeme
-  // çarpanları provider'ın math/neonAbyssMath.js sabitlerinde, ölçülen RTP
-  // %95.932 ±0.093 (100M×2, 6/6 gate) o sabitlerle sertifikalı. Operatör
-  // yetkisi YALNIZ aç/kapat + bet aralığı — payoutMult/paytable benzeri hiçbir
-  // RTP knobu bilinçli olarak TANIMSIZ (coinflipPayoutMult'un karşılığı yok;
-  // Admin'e açılan her çarpan mührü kırar + yeniden sim ister). Bet aralığı
-  // 0.20–100 onaylı literal (v1.9 spec; Burak onayı 2026-10-20).
-  neonabyssMinBet: { type: Number, default: 0.20, min: 0.01 },
-  neonabyssMaxBet: { type: Number, default: 100, min: 1 },
+  // King of Money (provably-fair 6x5 yuvarlanma slot'u, 15. oyun) — MÜHÜRLÜ matematik:
+  // paytable/ağırlık/çarpan/FS kuralları provider'ın math/kingOfMoneyMath.js
+  // sabitlerinde (lk-rev1), ölçülen RTP %95.878 ±0.107 (300M round) o sabitlerle
+  // geçerli. Operatör yetkisi YALNIZ aç/kapat + bet aralığı; payoutMult/paytable
+  // benzeri hiçbir RTP knobu bilinçli olarak TANIMSIZ (admin'e açılan her çarpan
+  // mührü kırar + yeniden sim ister). Bet aralığı 0.20–100.
+  kingofmoneyMinBet: { type: Number, default: 0.20, min: 0.01 },
+  kingofmoneyMaxBet: { type: Number, default: 100, min: 1 },
 
   // Common
   isActive: { type: Boolean, default: true },

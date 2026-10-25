@@ -130,15 +130,13 @@ export async function initDefaultGameSettings() {
       coinflipMaxBet: 1000,
     },
     {
-      // Neon Abyss (15. oyun, provably-fair slot) — temalı adı UI'da "NEON
-      // ABYSS". MÜHÜRLÜ: ödeme matematiği provider math/neonAbyssMath.js
-      // sabitlerinde (measured RTP %95.932 ±0.093, 6/6 gate); burada yalnız
-      // bet aralığı + aç/kapat yaşar — RTP knobu TANIMSIZ (coinflipPayoutMult
-      // satırının kasıtlı karşılığı yok).
-      gameId: 'inhouse-neonabyss',
-      gameTitle: 'Neon Abyss',
-      neonabyssMinBet: 0.20,
-      neonabyssMaxBet: 100,
+      // King of Money (15. oyun, 6x5 yuvarlanma slot'u). MÜHÜRLÜ: ödeme matematiği
+      // provider math/kingOfMoneyMath.js sabitlerinde (lk-rev1, measured RTP
+      // %95.878 ±0.107); burada yalnız bet aralığı + aç/kapat — RTP knobu TANIMSIZ.
+      gameId: 'inhouse-kingofmoney',
+      gameTitle: 'King of Money',
+      kingofmoneyMinBet: 0.20,
+      kingofmoneyMaxBet: 100,
     },
   ];
 
@@ -222,8 +220,8 @@ export async function updateGameSettings(gameId, updates, adminId, options = {})
     'vpMinBet', 'vpMaxBet',
     // Coin Flip — RTP = 0.5 × mult (kazanma olasılığı sabit %50)
     'coinflipPayoutMult', 'coinflipMinBet', 'coinflipMaxBet',
-    // Neon Abyss — mühürlü: yalnız bet aralığı (RTP knobu TANIMSIZ)
-    'neonabyssMinBet', 'neonabyssMaxBet',
+    // King of Money — mühürlü: yalnız bet aralığı (RTP knobu TANIMSIZ)
+    'kingofmoneyMinBet', 'kingofmoneyMaxBet',
     // Common
     'isActive',
   ];
@@ -269,7 +267,7 @@ export async function updateGameSettings(gameId, updates, adminId, options = {})
   // Tekil alan aralıkları (ör. payoutFactor 0.5-0.99) zaten şema seviyesinde
   // (models/GameSettings.js) min/max ile korunuyor; burada yalnızca
   // şemanın ifade edemediği çapraz alan kısıtı (max >= min) kontrol ediliyor.
-  for (const prefix of ['mines', 'dice', 'limbo', 'hilo', 'dragonTiger', 'plinko', 'wheel', 'keno', 'baccarat', 'blackjack', 'vp', 'coinflip', 'neonabyss']) {
+  for (const prefix of ['mines', 'dice', 'limbo', 'hilo', 'dragonTiger', 'plinko', 'wheel', 'keno', 'baccarat', 'blackjack', 'vp', 'coinflip', 'kingofmoney']) {
     const minKey = `${prefix}MinBet`;
     const maxKey = `${prefix}MaxBet`;
     if (updateData[minKey] !== undefined && updateData[minKey] <= 0) {
@@ -424,12 +422,12 @@ const OPERATOR_GAME_DEFAULTS = {
     coinflipMinBet: 1,
     coinflipMaxBet: 1000,
   },
-  // Neon Abyss — mühürlü matematik (math/neonAbyssMath.js), yalnız bet aralığı
-  // + isActive; 0.20–100 onaylı literal. percentField/multField BİLEREK yok.
-  'inhouse-neonabyss': {
-    gameTitle: 'Neon Abyss',
-    neonabyssMinBet: 0.20,
-    neonabyssMaxBet: 100,
+  // King of Money — mühürlü matematik (math/kingOfMoneyMath.js), yalnız bet aralığı
+  // + isActive; 0.20–100. percentField/multField BİLEREK yok.
+  'inhouse-kingofmoney': {
+    gameTitle: 'King of Money',
+    kingofmoneyMinBet: 0.20,
+    kingofmoneyMaxBet: 100,
   },
 };
 
@@ -483,9 +481,9 @@ const GAME_FIELD_META = {
   'inhouse-blackjack':   { minKey: 'blackjackMinBet', maxKey: 'blackjackMaxBet' },
   'inhouse-videopoker':  { minKey: 'vpMinBet', maxKey: 'vpMaxBet' },
   'inhouse-coinflip':    { minKey: 'coinflipMinBet', maxKey: 'coinflipMaxBet', multField: ['coinflipPayoutMult', 1.8, 1.96] },
-  // MÜHÜR: percentField/multField BİLEREK YOK — neonabyss'in ödemesi modül
-  // sabitlerinde mühürlü (measured %95.932 ±0.093 o sabitlerle geçerli).
-  'inhouse-neonabyss':   { minKey: 'neonabyssMinBet', maxKey: 'neonabyssMaxBet' },
+  // MÜHÜR: percentField/multField BİLEREK YOK — kingofmoney'nin ödemesi
+  // math/kingOfMoneyMath.js sabitlerinde mühürlü (lk-rev1, ölçülen RTP o sabitlerle geçerli).
+  'inhouse-kingofmoney':    { minKey: 'kingofmoneyMinBet', maxKey: 'kingofmoneyMaxBet' },
 };
 
 export function getGameFieldMeta(gameId) {
@@ -527,7 +525,7 @@ const OPERATOR_ALLOWED_FIELDS = {
   ],
   'inhouse-coinflip': ['coinflipPayoutMult', 'coinflipMinBet', 'coinflipMaxBet', 'isActive'],
   // Operatör yetkisi = aç/kapat + bet aralığı, BU KADAR (mühür: üç anahtar).
-  'inhouse-neonabyss': ['neonabyssMinBet', 'neonabyssMaxBet', 'isActive'],
+  'inhouse-kingofmoney': ['kingofmoneyMinBet', 'kingofmoneyMaxBet', 'isActive'],
 };
 
 function validateOperatorUpdate(gameId, updateData) {

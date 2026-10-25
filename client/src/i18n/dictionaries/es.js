@@ -407,6 +407,7 @@ export default {
     'games.coinflip.title': 'Coin Flip',
     'games.coinflip.subtitle': 'Cara o cruz — elige el lado de la moneda y duplica tu apuesta',
     'games.coinflip.cta': 'Lanzar Moneda',
+    'games.kingofmoney.title': 'King of Money',
 
     // Game UI
     'game.betAmount': 'Monto de Apuesta',
@@ -743,6 +744,8 @@ export default {
   'admin.gameSettings.field.minesPayoutFactor': 'RTP (%)',
   'admin.gameSettings.field.minesMinBet': 'Apuesta Mín.',
   'admin.gameSettings.field.minesMaxBet': 'Apuesta Máx.',
+  'admin.gameSettings.field.kingofmoneyMinBet': 'Apuesta Mín.',
+  'admin.gameSettings.field.kingofmoneyMaxBet': 'Apuesta Máx.',
   'admin.gameSettings.field.dicePayoutFactor': 'RTP (%)',
   'admin.gameSettings.field.diceMinBet': 'Apuesta Mín.',
   'admin.gameSettings.field.diceMaxBet': 'Apuesta Máx.',
@@ -1828,7 +1831,7 @@ export default {
 
   // ─── Admin: Modül Kartları (Modules.jsx, 2026-09-10) ───
   "admin.moduleCards.inhouseTitle": "Proveedor de Juegos Internos",
-  "admin.moduleCards.inhouseDesc": "Conexión central del proveedor para los 13 juegos de casino internos (Crash, Mines, Blackjack, etc.). La configuración de RTP/mín-máx/temporización NO está aquí — consulte la página de Configuración de Juegos.",
+  "admin.moduleCards.inhouseDesc": "Conexión central del proveedor para los 15 juegos de casino internos (Crash, Mines, Blackjack, etc.). La configuración de RTP/mín-máx/temporización NO está aquí — consulte la página de Configuración de Juegos.",
   "admin.moduleCards.inhouseLoadFailed": "No se pudieron cargar la configuración del proveedor interno.",
   "admin.moduleCards.inhouseUpdated": "Configuración del proveedor interno actualizada.",
   "admin.moduleCards.updateFailed": "Error al actualizar.",

@@ -407,6 +407,7 @@ export default {
     'games.coinflip.title': 'เหรียญหัวหรือก้อย',
     'games.coinflip.subtitle': 'หัวหรือก้อย — เลือกหน้าเหรียญแล้วคูณเงินเดิมพันสองเท่า',
     'games.coinflip.cta': 'โยนเหรียญ',
+    'games.kingofmoney.title': 'King of Money',
 
     // Game UI
     'game.betAmount': 'จำนวนเดิมพัน',
@@ -743,6 +744,8 @@ export default {
   'admin.gameSettings.field.minesPayoutFactor': 'RTP (%)',
   'admin.gameSettings.field.minesMinBet': 'เดิมพันขั้นต่ำ',
   'admin.gameSettings.field.minesMaxBet': 'เดิมพันสูงสุด',
+  'admin.gameSettings.field.kingofmoneyMinBet': 'เดิมพันขั้นต่ำ',
+  'admin.gameSettings.field.kingofmoneyMaxBet': 'เดิมพันสูงสุด',
   'admin.gameSettings.field.dicePayoutFactor': 'RTP (%)',
   'admin.gameSettings.field.diceMinBet': 'เดิมพันขั้นต่ำ',
   'admin.gameSettings.field.diceMaxBet': 'เดิมพันสูงสุด',
@@ -1828,7 +1831,7 @@ export default {
 
   // ─── Admin: Modül Kartları (Modules.jsx, 2026-09-10) ───
   "admin.moduleCards.inhouseTitle": "ผู้ให้บริการเกมภายใน",
-  "admin.moduleCards.inhouseDesc": "การเชื่อมต่อผู้ให้บริการส่วนกลางสำหรับเกมคาสิโนภายใน 13 เกม (Crash, Mines, Blackjack ฯลฯ) การตั้งค่า RTP/min-max/timing ไม่ได้อยู่ที่นี่ — ดูหน้าการตั้งค่าเกม",
+  "admin.moduleCards.inhouseDesc": "การเชื่อมต่อผู้ให้บริการส่วนกลางสำหรับเกมคาสิโนภายใน 15 เกม (Crash, Mines, Blackjack ฯลฯ) การตั้งค่า RTP/min-max/timing ไม่ได้อยู่ที่นี่ — ดูหน้าการตั้งค่าเกม",
   "admin.moduleCards.inhouseLoadFailed": "ไม่สามารถโหลดการตั้งค่าผู้ให้บริการภายในได้",
   "admin.moduleCards.inhouseUpdated": "อัปเดตการตั้งค่าผู้ให้บริการ内部แล้ว",
   "admin.moduleCards.updateFailed": "การอัปเดตล้มเหลว",

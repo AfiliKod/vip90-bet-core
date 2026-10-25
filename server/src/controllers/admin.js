@@ -1261,7 +1261,7 @@ const PROVIDER_GAME_SHORT_IDS = {
   'inhouse-videopoker': 'videopoker',
   'inhouse-dragontiger': 'dragontiger',
   'inhouse-coinflip': 'coinflip',
-  'inhouse-neonabyss': 'neonabyss',
+  'inhouse-kingofmoney': 'kingofmoney',
 };
 
 export async function updateGameSettings(req, res, next) {
