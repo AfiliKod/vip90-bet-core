@@ -280,7 +280,7 @@ The 15 games' logic no longer lives in the core. The core keeps one public endpo
 | `POST /games/hilo/start`, `/guess`, `/cashout` | Provider session | Hi-Lo |
 | `POST /games/blackjack/deal`, `/hit`, `/stand`, `/double` | Provider session | Blackjack |
 | `POST /games/videopoker/deal`, `/draw` | Provider session | Video Poker |
-| `GET /fairness/active`, `POST /fairness/rotate`, `GET /fairness/round/:roundId`, `GET /fairness/rounds` | Provider session | Provably-fair seed state, rotation and round verification |
+| `GET /fairness/active`, `POST /fairness/rotate`, `GET /fairness/round/:roundId`, `GET /fairness/rounds` | Provider session | Provably-fair seed state, rotation and round verification (`/fairness/rounds` lists `roundId, gameId, bet, payout, nonce, seedHash, createdAt, verifiable`, plus `mode` and `x` for King of Money) |
 
 Crash and Roulette are multiplayer games and run over Socket.IO namespaces, not REST. These paths were `/api/inhouse/<game>/*` in earlier versions and were moved to `/api/provider/v1/games/<game>/*`.
 
