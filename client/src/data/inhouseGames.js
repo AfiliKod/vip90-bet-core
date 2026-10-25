@@ -20,5 +20,6 @@ export function getInhouseGames(t) {
     { id: 'dragontiger', name: t('games.dragontiger.title'), path: '/games/dragontiger', accent: '#fb923c', image: '/images/games/dragontiger.png' },
     { id: 'videopoker',  name: t('games.videopoker.title'),  path: '/games/videopoker',  accent: '#c084fc', image: '/images/games/videopoker.png' },
     { id: 'coinflip',    name: t('games.coinflip.title'),    path: '/games/coinflip',    accent: '#facc15', image: '/images/games/coinflip.png' },
+    { id: 'kingofmoney',    name: t('games.kingofmoney.title'),    path: '/games/kingofmoney',    accent: '#f3c04b', image: '/images/games/kingofmoney.png' },
   ];
 }

@@ -182,8 +182,8 @@ describe('Game Settings', () => {
       assert.equal(settings.length, 15);
       assert.deepEqual(settings.map(s => s.gameId), [
         'inhouse-baccarat', 'inhouse-blackjack', 'inhouse-coinflip', 'inhouse-crash', 'inhouse-dice',
-        'inhouse-dragontiger', 'inhouse-hilo', 'inhouse-keno', 'inhouse-limbo',
-        'inhouse-mines', 'inhouse-neonabyss', 'inhouse-plinko', 'inhouse-roulette', 'inhouse-videopoker',
+        'inhouse-dragontiger', 'inhouse-hilo', 'inhouse-keno', 'inhouse-kingofmoney', 'inhouse-limbo',
+        'inhouse-mines', 'inhouse-plinko', 'inhouse-roulette', 'inhouse-videopoker',
         'inhouse-wheel',
       ]);
     });
@@ -671,6 +671,38 @@ describe('Game Settings', () => {
       } catch (err) {
         assert.ok(err.message.includes('geçerli alan yok'));
       }
+    });
+  });
+
+  // King of Money — mühürlü matematik: operatör yalnız bet aralığı + aç/kapat yazar.
+  describe('kingofmoney operator settings (sealed math)', () => {
+    it('should lazy-seed operator-scoped kingofmoney settings with the 0.20–100 band', async () => {
+      const operatorId = new mongoose.Types.ObjectId();
+      const settings = await getGameSettingsForOperator(operatorId, 'inhouse-kingofmoney');
+      assert.equal(settings.gameId, 'inhouse-kingofmoney');
+      assert.equal(settings.gameTitle, 'King of Money');
+      assert.equal(settings.kingofmoneyMinBet, 0.2);
+      assert.equal(settings.kingofmoneyMaxBet, 100);
+      assert.equal(settings.isActive, true);
+    });
+
+    it('should accept a bet band and reject max below min', async () => {
+      const operatorId = new mongoose.Types.ObjectId();
+      const { settings } = await updateOperatorGameSettings(operatorId, 'inhouse-kingofmoney', { kingofmoneyMinBet: 0.5, kingofmoneyMaxBet: 50 });
+      assert.equal(settings.kingofmoneyMinBet, 0.5);
+      assert.equal(settings.kingofmoneyMaxBet, 50);
+      await assert.rejects(
+        updateOperatorGameSettings(operatorId, 'inhouse-kingofmoney', { kingofmoneyMinBet: 10, kingofmoneyMaxBet: 5 }),
+        (err) => err.code === 'INVALID_RANGE' || /min/i.test(err.message),
+      );
+    });
+
+    it('should refuse any payout knob (no RTP field is writable)', async () => {
+      const operatorId = new mongoose.Types.ObjectId();
+      await assert.rejects(
+        updateOperatorGameSettings(operatorId, 'inhouse-kingofmoney', { coinflipPayoutMult: 1.9, kingofmoneyPayoutMult: 2 }),
+        (err) => err.message.includes('geçerli alan yok'),
+      );
     });
   });
 });

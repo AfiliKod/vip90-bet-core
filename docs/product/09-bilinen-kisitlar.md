@@ -8,7 +8,7 @@ This document lists features that are **defined but not end-to-end connected** o
 
 ## Commercial scope: what is core and what is a paid add-on
 
-The core platform (accounts, wallet, bonus/wagering, KYC, risk, admin) is the base product. **In-house Games (13 games), Sports Betting and Casino Content are separate paid add-ons** (private submodules under `server/src/premium/`); the core starts without them (`503 MODULE_NOT_INSTALLED` on their routes). Installation steps: [01 — Installation § Add-on modules](01-kurulum.md#add-on-modules-in-house-games-sports-betting-casino-content). The game front end (`game-host`) is a separate app, not in Docker Compose; it is built, deployed and restarted on its own, independently of the main application.
+The core platform (accounts, wallet, bonus/wagering, KYC, risk, admin) is the base product. **In-house Games (15 games), Sports Betting and Casino Content are separate paid add-ons** (private submodules under `server/src/premium/`); the core starts without them (`503 MODULE_NOT_INSTALLED` on their routes). Installation steps: [01 — Installation § Add-on modules](01-kurulum.md#add-on-modules-in-house-games-sports-betting-casino-content). The game front end (`game-host`) is a separate app, not in Docker Compose; it is built, deployed and restarted on its own, independently of the main application.
 
 ## SMS sender screen — RESOLVED 2026-10-08
 

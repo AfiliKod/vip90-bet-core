@@ -22,7 +22,7 @@ live betting, casino, wallet, bonuses, affiliate and admin management.**
 An online casino and sports betting platform that runs on your own
 infrastructure under your own brand. The **core platform** (accounts, wallet,
 bonus/wagering, KYC, risk, admin panel) is the base product and runs on its
-own. **In-house Games (13 games), Sports Betting and Casino Content are
+own. **In-house Games (15 games), Sports Betting and Casino Content are
 separate paid add-ons** that plug into the core: one codebase, one admin
 panel. **Live Casino** (live dealer tables) is a planned future update and is
 not part of this release.
@@ -66,7 +66,7 @@ yet; see the [Roadmap](#roadmap) and [Known Limitations](docs/product/09-bilinen
 | ✉️ **Email and SMS communication** | Event-triggered system emails and SMS, scheduled campaigns, segment targeting and delivery logs on a single **Communication** page; SMTP/Mailgun for email, Twilio for SMS |
 | 💱 **Currency, brand and jurisdiction managers** | Currencies / Brands / Jurisdictions tabs under Settings; the site runs with one display currency and brand data isolation is not enforced ([Known Limitations](docs/product/09-bilinen-kisitlar.md)) |
 | 🚀 **Setup wizard** | After `docker compose up -d`, open `/install` in the browser (English/Turkish) for the first admin account and site settings; a `.env` (JWT keys, database) is needed beforehand for the server to start |
-| 🎰 **13 in-house games (paid add-on)** | Crash, Mines, Plinko, Dice, Limbo, Wheel, Hi-Lo, Keno, Blackjack, Roulette, Baccarat, Video Poker, Dragon Tiger; all HMAC-SHA256 **provably fair**, house edge adjustable per game in the panel |
+| 🎰 **15 in-house games (paid add-on)** | Crash, Mines, Plinko, Dice, Limbo, Wheel, Hi-Lo, Keno, Blackjack, Roulette, Baccarat, Video Poker, Dragon Tiger, Coin Flip and the King of Money slot; all HMAC-SHA256 **provably fair**, house edge adjustable per game in the panel (the slot's math is sealed) |
 | ⚽ **Sports and live betting (paid add-on)** | 30 sport definitions, live odds feed, single/combo bet slip, automatic settlement |
 | 🃏 **Casino Content (paid add-on)** | Slots and table games through an aggregator integration (one iGaming content provider adapter today) |
 
@@ -109,12 +109,13 @@ the paid add-ons.
 - **KYC**: local document review (approve/reject queue) or the **Sumsub**
   integration, one of them selected in the panel.
 
-### 🎰 13 In-House Games (paid add-on)
+### 🎰 15 In-House Games (paid add-on)
 
 A game library you own, with no third-party contract required:
 
 **Crash · Mines · Plinko · Dice · Limbo · Wheel · Hi-Lo · Keno ·
-Blackjack · Roulette · Baccarat · Video Poker · Dragon Tiger**
+Blackjack · Roulette · Baccarat · Video Poker · Dragon Tiger · Coin Flip ·
+King of Money**
 
 - Every round comes from an HMAC-SHA256 derivation of a `serverSeed` that is
   committed (its hash published) **before** the round, combined with a
@@ -124,7 +125,9 @@ Blackjack · Roulette · Baccarat · Video Poker · Dragon Tiger**
   trusting the server.
 - House edge and bet limits are set per game in the admin panel
   (**Products → In-house Games**): not a single abstract "RTP" field, but the
-  variables that actually make up each game's maths.
+  variables that actually make up each game's maths. The King of Money slot
+  is the exception: its maths is sealed and measured by simulation, so only its
+  bet range and on/off switch are adjustable.
 - The game front end (`game-host`) is a separate application hosted on its
   own; the engine runs inside the main server process.
 
@@ -203,7 +206,7 @@ always on, and is where the email provider (SMTP/Mailgun) is configured.
 |---|---|---|---|
 | **Betting** (`betting`) | Odds feed, bet slip, automatic settlement | **Paid add-on** (`server/src/premium/betting`) | Contract with a sports data provider |
 | **Casino Content** (`casino-content`) | Aggregator connector for slots/table games | **Paid add-on** (`server/src/premium/igames`) | Aggregator contract |
-| **In-house Games** (`inhouse-games`) | 13 provably fair games served from a separate game server (JWT + origin protected) | **Paid add-on** (`server/src/premium/inhouse-provider`) | None, no third-party contract |
+| **In-house Games** (`inhouse-games`) | 15 provably fair games served from a separate game server (JWT + origin protected) | **Paid add-on** (`server/src/premium/inhouse-provider`) | None, no third-party contract |
 | **Crypto Payment Gateway** (`crypto-payment`) | USDT-TRC20 deposits/withdrawals | Included with the core | None |
 | **Slikair Payment Gateway** (`slikair-payment`) | Card and alternative-method deposits | Included with the core; exempt from the license check | Slikair merchant account |
 | **KYC Identity Verification** (`kyc-verification`) | Local document review or Sumsub | Included with the core | Third-party contract if Sumsub is chosen |

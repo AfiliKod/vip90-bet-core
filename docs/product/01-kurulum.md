@@ -169,7 +169,7 @@ If site settings (`Setting` collection) have never been written, `healthcheck.js
 
 ## Add-on modules (In-house Games, Sports Betting, Casino Content)
 
-The core platform is the base product. **In-house Games (13 games), Sports Betting and Casino Content are separate paid add-ons.** In the code they live in three **private git submodules** under `server/src/premium/` (see `.gitmodules`):
+The core platform is the base product. **In-house Games (15 games), Sports Betting and Casino Content are separate paid add-ons.** In the code they live in three **private git submodules** under `server/src/premium/` (see `.gitmodules`):
 
 | Add-on | Submodule path | Repository | What it contains |
 |---|---|---|---|

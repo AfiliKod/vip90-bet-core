@@ -8,7 +8,7 @@ Three **paid add-ons** are sold/licensed separately and live in private git subm
 |---|---|---|---|---|
 | **Sports & Live Betting** | `betting` | Paid add-on (`premium/betting`) | Odds feed, coupon, automatic settlement | `/api/events`, `/api/bets` |
 | **Casino Content** | `casino-content` | Paid add-on (`premium/igames`) | Slot and table games via an aggregator | `/api/casino` (the aggregator's own `/api/igames` routes are **not** behind this gate, see below) |
-| **In-house Games** | `inhouse-games` | Paid add-on (`premium/inhouse-provider`) | 13 provably fair games served from a separate game host | `/api/inhouse-provider` (launch and wallet callback) |
+| **In-house Games** | `inhouse-games` | Paid add-on (`premium/inhouse-provider`) | 15 provably fair games served from a separate game host | `/api/inhouse-provider` (launch and wallet callback) |
 | **Crypto Payment Gateway** | `crypto-payment` | Core | USDT-TRC20 deposits and withdrawals | `/api/crypto` |
 | **Slikair Payment Gateway** | `slikair-payment` | Core, exempt from the licence check | Card and alternative-method deposits via Slikair | `POST /api/slikair/deposit` (webhooks and payment history are not gated) |
 | **KYC Identity Verification** | `kyc-verification` | Core | Manual document review or Sumsub | `/api/kyc` |

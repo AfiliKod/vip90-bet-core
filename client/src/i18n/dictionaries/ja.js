@@ -407,6 +407,7 @@ export default {
     'games.coinflip.title': 'コインフリップ',
     'games.coinflip.subtitle': '表か裏か — コインを予想してベットを2倍に',
     'games.coinflip.cta': 'コインを投げる',
+    'games.kingofmoney.title': 'キング・オブ・マネー',
 
     // Game UI
     'game.betAmount': 'ベット金額',
@@ -743,6 +744,8 @@ export default {
   'admin.gameSettings.field.minesPayoutFactor': 'RTP（%）',
   'admin.gameSettings.field.minesMinBet': '最小ベット',
   'admin.gameSettings.field.minesMaxBet': '最大ベット',
+  'admin.gameSettings.field.kingofmoneyMinBet': '最小ベット',
+  'admin.gameSettings.field.kingofmoneyMaxBet': '最大ベット',
   'admin.gameSettings.field.dicePayoutFactor': 'RTP（%）',
   'admin.gameSettings.field.diceMinBet': '最小ベット',
   'admin.gameSettings.field.diceMaxBet': '最大ベット',
@@ -1827,7 +1830,7 @@ export default {
 
   // ─── Admin: Modül Kartları (Modules.jsx, 2026-09-10) ───
   "admin.moduleCards.inhouseTitle": "自社ゲームプロバイダー",
-  "admin.moduleCards.inhouseDesc": "13の自社カジノゲーム（Crash、Mines、Blackjackなど）の中央プロバイダー接続。RTP/最小-最大/タイミング設定はここではありません — ゲーム設定ページをご参照ください。",
+  "admin.moduleCards.inhouseDesc": "15の自社カジノゲーム（Crash、Mines、Blackjackなど）の中央プロバイダー接続。RTP/最小-最大/タイミング設定はここではありません — ゲーム設定ページをご参照ください。",
   "admin.moduleCards.inhouseLoadFailed": "自社プロバイダー設定を読み込めませんでした。",
   "admin.moduleCards.inhouseUpdated": "自社プロバイダー設定を更新しました。",
   "admin.moduleCards.updateFailed": "更新に失敗しました。",

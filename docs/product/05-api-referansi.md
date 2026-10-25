@@ -16,9 +16,9 @@ All endpoints are grouped under `/api` (except the setup wizard, which is under 
 | Promotions | `/api/promotions` | Bonus claiming, active promotions, wagering conversion |
 | Casino | `/api/casino` | Aggregator-agnostic spin endpoint (currently always rejects, see below) — **casino-content module gate** |
 | Igames | `/api/igames` | Casino aggregator-specific endpoints (game list, session, callback) — paid Casino Content add-on, **no module gate**; `503 MODULE_NOT_INSTALLED` if the add-on is absent |
-| In-house games (core) | `/api/inhouse` | Only `GET /recent-winners` (public) — the 13 games' own endpoints moved out of the core |
+| In-house games (core) | `/api/inhouse` | Only `GET /recent-winners` (public) — the 15 games' own endpoints moved out of the core |
 | In-house provider proxy | `/api/inhouse-provider` | Launch and wallet callback of the In-house Games add-on — **inhouse-games module gate**; `503 MODULE_NOT_INSTALLED` if the add-on is absent |
-| In-house provider API | `/api/provider/v1` | The game host's own API (launch token, session, the 13 games, fairness) — add-on, no module gate |
+| In-house provider API | `/api/provider/v1` | The game host's own API (launch token, session, the 15 games, fairness) — add-on, no module gate |
 | KYC | `/api/kyc` | User KYC status, Sumsub session, document upload — **kyc-verification module gate** |
 | Slikair | `/api/slikair` | Deposit initiation, own payment history, provider webhooks |
 | Help | `/api/help` | AI support assistant (chatbot) |
@@ -252,7 +252,7 @@ If the add-on is absent, every path answers `503 { error: 'MODULE_NOT_INSTALLED'
 
 ### In-house games
 
-The 13 games' logic no longer lives in the core. The core keeps one public endpoint; everything else belongs to the paid In-house Games add-on (`server/src/premium/inhouse-provider`).
+The 15 games' logic no longer lives in the core. The core keeps one public endpoint; everything else belongs to the paid In-house Games add-on (`server/src/premium/inhouse-provider`).
 
 **Core — `/api/inhouse` (`routes/inhouse.js`)**
 
@@ -443,7 +443,7 @@ Destructive/financial endpoints additionally apply `blockDemoAdmin` (marked belo
 - `GET /pages/home`, `PATCH /pages/home` (`updateHomeContentSchema`: `sectionOrder[]`, `banners[]`)
 - `GET /games/featured`, `PATCH /games/featured` (`updateFeaturedGamesSchema`: `codes[]`, max 60)
 
-**Game settings (RTP/limit/house edge — the 13 in-house games)**
+**Game settings (RTP/limit/house edge — the 15 in-house games; the King of Money slot accepts only `*MinBet`/`*MaxBet` and `isActive`)**
 - `GET /game-settings`
 - `PATCH /game-settings/:gameId` **[demo blocked]** (`updateGameSettingsSchema` — game-dependent `*MinBet`/`*MaxBet`/`*HouseEdgePercent`/`*PayoutFactor`/`*Mult` fields, `isActive?`, `reason?`)
 - `POST /game-settings/:gameId/simulate-rtp` (`simulateRtpSchema` — only blackjack/video poker fields + `hands?` 20000-500000)

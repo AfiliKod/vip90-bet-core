@@ -18,6 +18,45 @@ Madde formatı ve kategoriler için `docs/CHANGELOG_GUIDE.md`'ye bakın —
 
 ## [Yayınlanmadı]
 
+### In-house oyunlar: NEON ABYSS kaldırıldı (15 oyun)
+**Kaldırıldı**
+- NEON ABYSS (`inhouse-neonabyss`) slotu oyunlardan kaldırıldı: lobi kartı ve
+  `/games/neonabyss` rotası, admin oyun-ayarları alan bloğu, GameSettings şema
+  alanları (`neonabyssMinBet`/`neonabyssMaxBet`), seed ve meta kayıtları, 8 dilde
+  oyun adı ve alan etiketleri. In-house Games eklentisinin güncel sürümü oyunun
+  motorunu ve ekranını içermez. Oynanmış round'lar ve işlemler silinmez.
+- `add-neonabyss-to-operators.mjs` migration'ı kaldırıldı.
+**Değiştirildi**
+- Oyun sayısı belgelerde ve admin panelindeki In-house modül açıklamasında
+  (8 dil) 15 olarak düzeltildi.
+**Kırılan Değişiklikler**
+- Mevcut kurulumlarda güncellemeden sonra eklentiyle gelen
+  `remove-neonabyss-from-operators.mjs` migration'ı `server/` dizininden bir kez
+  koşulmalıdır: operatörlerin izinli oyun listesinden `neonabyss` çıkarılır ve
+  `inhouse-neonabyss` ayar dokümanları silinir. Koşulmazsa admin oyun-ayarları
+  listesinde alanı olmayan bir satır kalır; oyun yine de açılmaz. Oyun arayüzü
+  (game-host) yeniden build edilmelidir.
+
+### In-house oyun: KING OF MONEY (kingofmoney) provably-fair slot
+**Eklendi**
+- `inhouse-kingofmoney` anlık slot oyunu çekirdek kaydı: 6×5 tahta, her yerde öder
+  (8+ aynı sembol), yuvarlanma (tumble), çarpan küreleri ve bedava dönüşlerde
+  biriken Kral Çarpanı; round başına tavan 10.000× bahis. Matematik eklentide
+  mühürlüdür — ölçülen RTP %95.88 ±0.11 pp (300M round simülasyonu; dağılım
+  iddiası, tek round garantisi değildir). Admin ve operatör yalnız bahis aralığını
+  (varsayılan 0.20–100) ve aç/kapat'ı ayarlar; RTP alanı yoktur.
+- Lobi kartı (`images/games/kingofmoney.png`) ve `/games/kingofmoney` rotası, admin
+  oyun-ayarları alan bloğu, 8 dilde oyun adı ve alan etiketleri; şema/meta ad
+  hizası için bekçi testi (`client/src/i18n/kingofmoneySettingsParity.test.js`).
+- v1 yalnız normal modu sunar; başka bir `mode` isteği
+  `KINGOFMONEY_MODE_UNAVAILABLE` ile reddedilir.
+**Kırılan Değişiklikler**
+- Yeni oyun mevcut operatörlerde otomatik görünmez: güncellemeden sonra eklentiyle
+  gelen `add-kingofmoney-to-operators.mjs` migration'ı `server/` dizininden bir kez
+  koşulmalıdır (idempotent); koşulmazsa launch `UNKNOWN_GAME` döner. Oyun arayüzü
+  (game-host) yeniden build edilmelidir. Şema değişikliği yalnız ekleme (iki
+  opsiyonel alan); mevcut dokümanlar etkilenmez.
+
 ### In-house oyunlar: Coin Flip
 **Değiştirildi (oyun-güvenliği — regülasyon tavanı)**
 - Coin Flip ödeme çarpanının yazılabilir üst sınırı 2.0 → 1.96'ya indirildi
