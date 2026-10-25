@@ -18,6 +18,19 @@ Madde formatı ve kategoriler için `docs/CHANGELOG_GUIDE.md`'ye bakın —
 
 ## [Yayınlanmadı]
 
+### In-house oyun: King of Money — Çifte Şans, Bonus Satın Al, Oto ve yeni oyun ekranı
+**Eklendi**
+- Çifte Şans (bahsin 1,25 katı tahsil edilir, hazine sandığı daha sık düşer; ölçülen RTP
+  %95,94) ve Bonus Satın Al (bahsin 100 katına doğrudan 15 bedava dönüş; ölçülen RTP
+  %96,93, hedef bandın üstünde). Kazançlar ve bahis aralığı temel bahis üzerinden.
+- Otomatik oyun ve yeni oyun ekranı (In-house Games eklentisinin güncel sürümüyle).
+- Oyuncu tohum geçmişi listesi (`GET /fairness/rounds`) `nonce`, `seedHash` ve King of
+  Money için `mode` / `x` alanlarını da döner.
+**Kırılan Değişiklikler**
+- `POST /games/kingofmoney/spin` artık `mode: 'ante' | 'buy'` kabul eder; yanıttaki
+  `amount` tahsil edilen tutardır, temel bahis outcome'daki `baseBet`'tir. Migration
+  gerekmez; oyun arayüzü (game-host) yeniden build edilmelidir.
+
 ### In-house oyunlar: NEON ABYSS kaldırıldı (15 oyun)
 **Kaldırıldı**
 - NEON ABYSS (`inhouse-neonabyss`) slotu oyunlardan kaldırıldı: lobi kartı ve
