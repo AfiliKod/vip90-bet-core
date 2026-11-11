@@ -3,6 +3,8 @@ import mongoose from 'mongoose';
 import crypto from 'crypto';
 import { requireAuth, requireAdmin } from '../middleware/auth.js';
 import { createError } from '../middleware/error.js';
+import { assertNoOpenIgamesSession } from '../services/igamesSessionGuard.js';
+import { requirePermission } from '../services/permissions.js';
 import { validate } from '../middleware/validate.js';
 import { enforceResponsibleGaming } from '../middleware/responsibleGaming.js';
 import { enforceRiskCheck } from '../middleware/risk.js';
@@ -18,25 +20,27 @@ import { CRYPTO_SETTINGS, shouldAutoCredit, shouldAutoProcessWithdraw } from '..
 import { updateDailyStats } from '../services/responsibleGaming.js';
 import { createTransaction, adjustBalance } from '../services/ledger.js';
 import { withTransactionRetry } from '../utils/transactionRetry.js';
+import { hydrateCryptoSettings, nextDepositIndex } from '../services/cryptoSettings.js';
 
 const r = Router();
 r.use(requireAuth);
 
-// Kullanıcı başına index sayacı — DB'de sequential sayaç için
-// Index 0 hot wallet'a ait, kullanıcı deposit adresleri 1'den başlar
-async function assignDepositIndex(user) {
+// Deposit index per user (HD wallet). Index 0 is the hot wallet; users start at 1.
+// The atomic counter (services/cryptoSettings.js) never repeats an index, and the
+// conditional update keeps an already assigned index if two requests race.
+export async function assignDepositIndex(user) {
   if (user.cryptoDepositIndex !== null && user.cryptoDepositIndex !== undefined) {
     return user.cryptoDepositIndex;
   }
-  const last = await User.findOne(
-    { cryptoDepositIndex: { $ne: null } },
-    { cryptoDepositIndex: 1 }
-  ).sort({ cryptoDepositIndex: -1 });
-  // Hot wallet index 0'ı kullanır, kullanıcı adresleri 1'den başlar
-  const nextIndex = Math.max(1, (last?.cryptoDepositIndex ?? 0) + 1);
-  user.cryptoDepositIndex = nextIndex;
-  await user.save();
-  return nextIndex;
+  const nextIndex = await nextDepositIndex();
+  const updated = await User.findOneAndUpdate(
+    { _id: user._id, cryptoDepositIndex: null },
+    { $set: { cryptoDepositIndex: nextIndex } },
+    { new: true, projection: { cryptoDepositIndex: 1 } },
+  ).lean();
+  if (updated) return updated.cryptoDepositIndex;
+  const current = await User.findById(user._id).select('cryptoDepositIndex').lean();
+  return current?.cryptoDepositIndex;
 }
 
 // ── GET /api/crypto/deposit-address ──────────────────────────────────────────
@@ -56,6 +60,7 @@ r.get('/deposit-address', async (req, res, next) => {
 // Otomatik yatırma: $100 altı otomatik hesaba eklenir, $100+ admin onayı bekler
 r.post('/check-deposit', enforceRiskCheck('deposit'), async (req, res, next) => {
   try {
+    await hydrateCryptoSettings(); // TTL-gated, never throws: admin limit changes reach every instance
     if (!process.env.CRYPTO_SEED_PHRASE) {
       return res.status(503).json({ error: 'Kripto ödemesi henüz aktif değil' });
     }
@@ -181,6 +186,8 @@ r.post('/check-deposit', enforceRiskCheck('deposit'), async (req, res, next) => 
 // Çekim: withdrawable bakiye kontrolü + hot wallet transfer
 r.post('/withdraw-request', requireKycForWithdrawal(), enforceRiskCheck('withdraw'), enforceResponsibleGaming('withdraw'), validate(withdrawRequestSchema), async (req, res, next) => {
   try {
+    await assertNoOpenIgamesSession(req.user.id);
+    await hydrateCryptoSettings(); // TTL-gated, never throws
     const { address, usdtAmount, confirmForfeit } = req.validated;
     if (usdtAmount < CRYPTO_SETTINGS.minWithdraw) {
       return res.status(400).json({ error: `Miktar minimum ${CRYPTO_SETTINGS.minWithdraw} USDT olmalı` });
@@ -320,13 +327,16 @@ r.get('/withdraw-preview', async (req, res, next) => {
 
 // ── GET /api/crypto/settings ─────────────────────────────────────────────────
 // SECURITY FIX (H3): Admin-only endpoint
-r.get('/settings', requireAdmin, (req, res) => {
-  res.json(CRYPTO_SETTINGS);
+r.get('/settings', requireAdmin, requirePermission('admin:settings:read'), async (req, res, next) => {
+  try {
+    await hydrateCryptoSettings();
+    res.json(CRYPTO_SETTINGS);
+  } catch (e) { next(e); }
 });
 
 // ── GET /api/crypto/hot-wallet-balance ────────────────────────────────────────
 // SECURITY FIX (H3): Admin-only endpoint
-r.get('/hot-wallet-balance', requireAdmin, async (req, res, next) => {
+r.get('/hot-wallet-balance', requireAdmin, requirePermission('admin:settings:read'), async (req, res, next) => {
   try {
     const balance = await getHotWalletBalance();
     res.json(balance);

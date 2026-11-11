@@ -33,14 +33,13 @@ export const BOT_PRESETS = {
 // Bot'un oynayabileceği basit/tek-istekli oyunlar (Mines/Blackjack/HiLo/
 // VideoPoker gibi çok adımlı, oturum gerektiren oyunlar bilerek dışarıda
 // bırakıldı — bot mantığını gereksiz karmaşıklaştırmamak için).
-const BOT_GAMES = ['dice', 'limbo', 'plinko', 'wheel', 'keno', 'roulette', 'baccarat', 'dragontiger'];
+const BOT_GAMES = ['dice', 'limbo', 'plinko', 'crazywheel', 'keno', 'roulette', 'baccarat', 'dragontiger'];
 
 function randomBetBody(gameId, betAmount) {
   switch (gameId) {
     case 'dice': return { amount: betAmount, target: 20 + Math.floor(Math.random() * 60), over: Math.random() > 0.5 };
     case 'limbo': return { amount: betAmount, target: (1.2 + Math.random() * 3).toFixed(2) };
     case 'plinko': return { amount: betAmount, risk: ['low', 'medium', 'high'][Math.floor(Math.random() * 3)], rows: 16 };
-    case 'wheel': return { amount: betAmount, risk: ['low', 'medium', 'high'][Math.floor(Math.random() * 3)] };
     case 'keno': return { amount: betAmount, picks: [1, 2, 3, 4, 5].map(() => 1 + Math.floor(Math.random() * 40)) };
     case 'roulette': return { amount: betAmount, bets: [{ type: Math.random() > 0.5 ? 'red' : 'black', amount: betAmount }] };
     case 'baccarat': return { amount: betAmount, bet: ['player', 'banker', 'tie'][Math.floor(Math.random() * 3)] };
@@ -50,7 +49,7 @@ function randomBetBody(gameId, betAmount) {
 }
 
 const BOT_GAME_PATH = {
-  dice: '/dice/roll', limbo: '/limbo/play', plinko: '/plinko/drop', wheel: '/wheel/spin',
+  dice: '/dice/roll', limbo: '/limbo/play', plinko: '/plinko/drop', crazywheel: '/crazywheel/spin',
   keno: '/keno/play', roulette: '/roulette/spin', baccarat: '/baccarat/deal', dragontiger: '/dragontiger/deal',
 };
 

@@ -84,6 +84,10 @@ export const PERMISSION_DEFS = [
   // Reconciliation
   { key: 'admin:reconciliation:read', name: 'Mutabakat Görüntüle', category: 'reconciliation', description: 'Mutabakat işleri, kalemler' },
   { key: 'admin:reconciliation:write', name: 'Mutabakat Yönet', category: 'reconciliation', description: 'Mutabakat işi oluşturma, çözme' },
+
+  // Integrations (V5): provider connection settings, API keys, credentials
+  { key: 'admin:integrations:read', name: 'Entegrasyonları Görüntüle', category: 'integrations', description: 'Sağlayıcı bağlantı ayarları ve kimlik bilgisi durumu' },
+  { key: 'admin:integrations:write', name: 'Entegrasyonları Yönet', category: 'integrations', description: 'Sağlayıcı ayarları, API anahtarı ve kimlik bilgisi değiştirme' },
 ];
 
 /**
@@ -249,6 +253,11 @@ export async function syncMissingPermissions() {
 export async function migrateOrphanedAdminRoles() {
   const superAdminRole = await Role.findOne({ name: 'super_admin' });
   if (!superAdminRole) return { migrated: 0 };
+  // V5: only the legacy bootstrap case (nobody holds super_admin yet) is
+  // promoted. Once a super_admin exists, a role-less admin is a stripped
+  // account (e.g. its last role was deleted) and must not become super_admin
+  // on the next boot; it stays fail-closed (no permissions).
+  if (await User.exists({ roles: superAdminRole._id })) return { migrated: 0 };
 
   const orphaned = await User.find({
     role: 'admin',
@@ -348,11 +357,107 @@ export async function getUserPermissions(userId) {
  * Bilerek super_admin değil: kullanıcı açma yetkisi olan biri, rol yönetimi
  * yetkisi olmadan süper admin üretememeli.
  */
+/**
+ * V21: permission keys the actor holds, loaded once. `null` = super_admin
+ * (holds everything).
+ */
+async function loadActorPermissionKeys(actorId) {
+  const user = await User.findById(actorId).populate({ path: 'roles', populate: { path: 'permissions' } });
+  if (!user) return new Set();
+  const roles = user.roles || [];
+  if (user.role === 'admin' && roles.some((r) => r?.name === 'super_admin')) return null;
+  const keys = new Set();
+  for (const r of roles) for (const p of r?.permissions || []) keys.add(p.key);
+  return keys;
+}
+
+const SUBSET_MESSAGES = {
+  grant: 'Yetkiniz olmayan izin atanamaz',
+  delete: 'Yetkiniz olmayan izin içeren rol silinemez',
+  update: 'Yetkiniz olmayan izin içeren rol değiştirilemez',
+};
+
+function assertSubset(held, keys, action = 'grant') {
+  if (held === null) return;
+  for (const k of keys) {
+    if (!held.has(k)) {
+      throw createError(403, 'ROLE_GRANT_FORBIDDEN', `${SUBSET_MESSAGES[action] || SUBSET_MESSAGES.grant}: ${k}`);
+    }
+  }
+}
+
+/**
+ * V21: every permission in `permissionIds` must be held by the actor.
+ */
+export async function assertCanGrantPermissions(actorId, permissionIds) {
+  const ids = [...new Set((permissionIds || []).map(String))];
+  const perms = ids.length ? await Permission.find({ _id: { $in: ids } }).select('key') : [];
+  if (perms.length !== ids.length) throw createError(400, 'PERMISSION_NOT_FOUND', 'Geçersiz izin');
+  assertSubset(await loadActorPermissionKeys(actorId), perms.map((p) => p.key));
+}
+
+/**
+ * V21: a role may only be granted by an actor who already holds every
+ * permission in it (super_admin passes).
+ */
+export async function assertCanGrantRole(actorId, roleId, action = 'grant') {
+  const role = await Role.findById(roleId).populate('permissions');
+  if (!role) throw createError(404, 'ROLE_NOT_FOUND', 'Rol bulunamadı');
+  assertSubset(await loadActorPermissionKeys(actorId), (role.permissions || []).map((p) => p.key), action);
+}
+
+/**
+ * V5 (I3): a staff target (role 'admin' or any Role) may only be modified by
+ * an actor who holds every permission the target holds; a super_admin target
+ * therefore needs a super_admin actor. Players pass.
+ */
+export async function assertCanManageUser(actorId, targetId) {
+  const target = await User.findById(targetId).select('role roles').lean();
+  if (!target) return;
+  if (target.role !== 'admin' && !(target.roles || []).length) return;
+  if (String(actorId) === String(targetId)) return;
+  const held = await loadActorPermissionKeys(actorId);
+  if (held === null) return;
+  const targetKeys = await loadActorPermissionKeys(targetId);
+  const deny = () => createError(403, 'STAFF_MANAGE_FORBIDDEN', 'Bu yönetici hesabını değiştirmek için onun tüm yetkilerine sahip olmalısınız');
+  if (targetKeys === null) throw deny();
+  for (const k of targetKeys) if (!held.has(k)) throw deny();
+}
+
+/**
+ * V5 (I3): refuse a change that would leave no active super_admin.
+ * `change` is 'deactivate' or { removeRoleId }.
+ */
+export async function assertKeepsActiveSuperAdmin(targetId, change) {
+  const sup = await Role.findOne({ name: 'super_admin' }).select('_id').lean();
+  if (!sup) return;
+  if (change?.removeRoleId && String(change.removeRoleId) !== String(sup._id)) return;
+  const active = { role: 'admin', roles: sup._id, isActive: { $ne: false }, deletedAt: null };
+  if (!(await User.exists({ _id: targetId, ...active }))) return;
+  const others = await User.countDocuments({ _id: { $ne: targetId }, ...active });
+  if (others === 0) throw createError(409, 'LAST_SUPER_ADMIN', 'Son aktif süper admin devre dışı bırakılamaz veya rolü alınamaz');
+}
+
+/**
+ * V5: post-write half of the last-super_admin guard. The pre-check above can
+ * race between two super_admins; after the write, if no active super_admin is
+ * left, `revert` undoes the change and 409 is thrown (before tokens are revoked).
+ */
+export async function ensureActiveSuperAdminRemains(revert) {
+  const sup = await Role.findOne({ name: 'super_admin' }).select('_id').lean();
+  if (!sup) return;
+  const left = await User.countDocuments({ role: 'admin', roles: sup._id, isActive: { $ne: false }, deletedAt: null });
+  if (left > 0) return;
+  await revert();
+  throw createError(409, 'LAST_SUPER_ADMIN', 'Son aktif süper admin devre dışı bırakılamaz veya rolü alınamaz');
+}
+
 export async function assignDefaultAdminRole(userId, actorId = null) {
   const adminRole = await Role.findOne({ name: 'admin' });
   if (!adminRole) return null;
   const user = await User.findById(userId).select('role roles');
   if (!user || user.role !== 'admin' || (user.roles || []).length > 0) return null;
+  if (actorId) await assertCanGrantRole(actorId, adminRole._id);
   return assignRoleToUser(userId, adminRole._id, actorId);
 }
 
@@ -377,9 +482,11 @@ export async function assignRoleToUser(userId, roleId, adminId) {
 /**
  * Remove role from user (admin)
  */
-export async function removeRoleFromUser(userId, roleId) {
+export async function removeRoleFromUser(userId, roleId, { afterWrite } = {}) {
   const user = await User.findById(userId);
   if (!user) throw new Error('User not found');
+  const prevRole = user.role;
+  const hadRole = user.roles.some((r) => r.equals(roleId));
 
   user.roles = user.roles.filter(r => !r.equals(roleId));
   // Son rol de alındıysa kullanıcı artık panel girişi için `role: 'admin'`
@@ -390,6 +497,13 @@ export async function removeRoleFromUser(userId, roleId) {
     user.role = 'user';
   }
   await user.save();
+  // V5: post-write check (e.g. last active super_admin) runs before tokens
+  // are revoked; it gets a revert that restores the removed role.
+  if (afterWrite) {
+    await afterWrite(async () => {
+      if (hadRole) await User.updateOne({ _id: userId }, { $addToSet: { roles: roleId }, $set: { role: prevRole } });
+    });
+  }
   // Invalidate JWT — role change must take effect within 30s
   await invalidateUserTokens(userId);
 
@@ -399,12 +513,13 @@ export async function removeRoleFromUser(userId, roleId) {
 /**
  * Create custom role (admin)
  */
-export async function createRole(data) {
+export async function createRole(data, actorId = null) {
   const { name, displayName, description, permissions = [], priority = 0 } = data;
 
   if (await Role.findOne({ name })) {
     throw new Error('Role name already exists');
   }
+  if (actorId) await assertCanGrantPermissions(actorId, permissions);
 
   const role = await Role.create({
     name,
@@ -421,18 +536,26 @@ export async function createRole(data) {
 /**
  * Update role (admin)
  */
-export async function updateRole(roleId, updates) {
+export async function updateRole(roleId, updates, actorId = null) {
   const allowedUpdates = ['displayName', 'description', 'permissions', 'priority'];
   const updateData = Object.fromEntries(
     Object.entries(updates).filter(([k]) => allowedUpdates.includes(k))
   );
 
-  const role = await Role.findByIdAndUpdate(roleId, updateData, { new: true, runValidators: true });
-  if (!role) throw new Error('Role not found');
-
-  if (role.isSystem) {
-    throw new Error('System roles cannot be modified');
+  // V21: refuse system roles and unauthorized permission lists BEFORE any write.
+  const existing = await Role.findById(roleId);
+  if (!existing) throw new Error('Role not found');
+  if (existing.isSystem) throw new Error('System roles cannot be modified');
+  if (actorId && updateData.permissions) {
+    // V5: changing a role's permission list also needs every permission it
+    // holds now — otherwise an actor could strip holders of what they lack.
+    await assertCanGrantRole(actorId, roleId, 'update');
+    await assertCanGrantPermissions(actorId, updateData.permissions);
   }
+
+  const role = await Role.findOneAndUpdate(
+    { _id: roleId, isSystem: { $ne: true } }, updateData, { new: true, runValidators: true });
+  if (!role) throw new Error('System roles cannot be modified');
 
   return role;
 }
@@ -448,13 +571,23 @@ export async function deleteRole(roleId) {
     throw new Error('System roles cannot be deleted');
   }
 
-  // Remove from all users
+  // Remove from all users. V5: like removeRoleFromUser, a holder left with no
+  // role drops back to role 'user' — otherwise migrateOrphanedAdminRoles()
+  // would treat it as an orphaned admin — and every holder's tokens are revoked.
+  const holders = (await User.find({ roles: roleId }).select('_id').lean()).map((u) => u._id);
   await User.updateMany(
     { roles: roleId },
     { $pull: { roles: roleId } }
   );
+  if (holders.length) {
+    await User.updateMany(
+      { _id: { $in: holders }, role: 'admin', roles: { $size: 0 } },
+      { $set: { role: 'user' } }
+    );
+  }
 
   await Role.findByIdAndDelete(roleId);
+  for (const id of holders) await invalidateUserTokens(id);
   return true;
 }
 

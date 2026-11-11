@@ -14,7 +14,7 @@ async function call(id, body) {
   if (!parsed.success) return { status: 400 };
   const res = { body: null, json(b) { this.body = b; return this; } };
   let err = null;
-  await updateUser({ params: { id: String(id) }, body, validated: parsed.data }, res, (e) => { err = e; });
+  await updateUser({ params: { id: String(id) }, body, validated: parsed.data, user: { id: String(new mongoose.Types.ObjectId()) } }, res, (e) => { err = e; });
   return { status: err ? err.status : 200, body: res.body };
 }
 

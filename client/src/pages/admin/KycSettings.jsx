@@ -24,7 +24,7 @@ export default function AdminKycSettings() {
     api.get('/admin/kyc-settings')
       .then(r => {
         setSettings(r.data.settings);
-        const map = Object.fromEntries(r.data.settings.map(s => [s.key, s.rawValue || s.value || '']));
+        const map = Object.fromEntries(r.data.settings.map(s => [s.key, s.secret ? '' : (s.rawValue || s.value || '')]));
         setKyEnabled(map.KYC_ENABLED !== 'false');
         setProvider(map.KYC_PROVIDER || 'manual');
       })

@@ -32,7 +32,8 @@ describe('liveGameStream', () => {
       const all = getRecentWinners(100);
       assert.equal(all.length, 50);
       // En son eklenen en başta olmalı (unshift)
-      assert.equal(all[0].username, 'player54');
+      assert.equal(all[0].username, 'pl***'); // V13: masked
+      assert.equal(all[0].userId, undefined);
     });
 
     it('should default currency to TRY and stamp a timestamp', () => {

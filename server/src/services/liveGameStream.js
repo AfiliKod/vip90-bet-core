@@ -1,3 +1,4 @@
+import crypto from 'node:crypto';
 import { getIO } from './socketEmitter.js';
 
 /**
@@ -9,7 +10,7 @@ import { getIO } from './socketEmitter.js';
 const activeStreams = new Map(); // gameId -> { subscribers: Set<socketId>, lastUpdate: number }
 
 // Store recent winners
-const recentWinners = []; // Array of { userId, username, gameId, gameTitle, amount, currency, timestamp }
+const recentWinners = []; // Array of { id, username (masked), gameId, gameTitle, amount, currency, timestamp }
 const MAX_WINNERS = 50;
 
 /**
@@ -62,13 +63,22 @@ export function emitSpinResult(gameId, result) {
   }
 }
 
+/** Public display mask: first 2 chars + `***`; empty/short -> `***`. */
+export function maskUsername(username) {
+  const clean = String(username || '').trim();
+  if (clean.length < 3) return '***';
+  return `${clean.slice(0, 2)}***`;
+}
+
 /**
- * Add a winner to the recent winners ticker
+ * Add a winner to the recent winners ticker. The entry is public (socket
+ * broadcast + REST): never carries userId, username is always masked
+ * (real and synthetic winners look identical).
  */
 export function addRecentWinner(winner) {
   const entry = {
-    userId: winner.userId,
-    username: winner.username,
+    id: crypto.randomUUID(),
+    username: maskUsername(winner.username),
     gameId: winner.gameId,
     gameTitle: winner.gameTitle,
     amount: winner.amount,

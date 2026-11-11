@@ -69,3 +69,43 @@ export function createAdminIpAllowlist({ env = process.env } = {}) {
     return res.status(403).json({ error: { code: 'ADMIN_IP_NOT_ALLOWED', message: 'Bu IP adresinden yönetim paneline erişilemez' } });
   };
 }
+
+// F2: the same rules for another allowlist variable (igames provider callbacks).
+// Returns check(req) → { configured, allowed, ip }. The variable is read on each
+// call. Unset/empty → not configured (allowed). Invalid entries are ignored and
+// reported once per value through onInvalid(invalid); a list with no valid
+// entry allows nothing (fail closed, as ADMIN_ALLOWED_IPS). The client IP is
+// clientIp() (CF-Connecting-IP only with ADMIN_IP_TRUST_CF_HEADER=true).
+export function createIpAllowlistCheck(envVar, { env = process.env, onInvalid } = {}) {
+  let cachedRaw; let cachedParsed;
+  return (req) => {
+    const ip = clientIp(req, env);
+    const raw = (env[envVar] || '').trim();
+    if (!raw) return { configured: false, allowed: true, ip };
+    if (raw !== cachedRaw) {
+      cachedRaw = raw;
+      cachedParsed = parseAllowList(raw);
+      if (cachedParsed.invalid.length && onInvalid) onInvalid(cachedParsed.invalid);
+    }
+    return { configured: true, allowed: cachedParsed.count > 0 && isIpAllowed(ip, cachedParsed), ip };
+  };
+}
+
+// Saf IP kontrolü: middleware olmayan çağrı yerleri için (aynı kurallar, yanıt yazmaz).
+export function adminIpAllowed(req, env = process.env) {
+  const raw = (env.ADMIN_ALLOWED_IPS || '').trim();
+  if (!raw) return true;
+  const parsed = parseAllowList(raw);
+  return parsed.count > 0 && isIpAllowed(clientIp(req, env), parsed);
+}
+
+// Socket.IO el sıkışması için aynı kontrol. Express `trust proxy 1` ile aynı
+// kural: XFF varsa son girdi (güvenilen tek proxy'nin eklediği), yoksa bağlantı adresi.
+export function adminIpAllowedForSocket(socket, env = process.env) {
+  const headers = socket?.handshake?.headers || {};
+  const xff = typeof headers['x-forwarded-for'] === 'string' ? headers['x-forwarded-for'].split(',').pop().trim() : '';
+  return adminIpAllowed({ headers, ip: xff || socket?.handshake?.address || '' }, env);
+}
+
+// createAdminIpAllowlist() singleton'ı; V6 bunu requireAdmin'e bağlar.
+export const enforceAdminIp = createAdminIpAllowlist();

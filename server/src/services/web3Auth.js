@@ -2,7 +2,8 @@ import crypto from 'crypto';
 import { ethers } from 'ethers';
 import User from '../models/User.js';
 import { createError } from '../middleware/error.js';
-import { signAccess, signRefresh } from '../controllers/auth.js';
+import { issueSession } from './session.js';
+import { createProviderUser, providerUsernameCandidates } from './providerUsername.js';
 
 /**
  * EVM wallet signature verification and authentication service
@@ -105,25 +106,29 @@ export async function authenticateWithWallet({ address, signature, message, opti
   let isNewUser = false;
   
   if (!user) {
-    // Create new user with wallet
-    const username = `web3_${normalizedAddress.slice(2, 10)}`;
-    // DÜZELTME: User.create(docs, options) docs bir array verildiğinde HER ZAMAN
-    // bir array döner (session null olsa bile) — önceden `user` bu array'in
-    // kendisiydi, `.toSafeObject()`/`.walletAddress` vb. hep undefined dönerdi.
-    // Bu, hiçbir route bu fonksiyonu çağırmadığı için (izole kod) fark
-    // edilmemişti; P6'nın gerçek mutlu-yol testiyle ortaya çıktı.
-    const [created] = await User.create([{
-      username,
-      email: `${normalizedAddress}@web3.vip90.local`, // Synthetic email
-      password: crypto.randomBytes(32).toString('hex'), // Random password, wallet auth only
-      walletAddress: normalizedAddress,
-      walletType,
-      walletConnectedAt: new Date(),
-      walletChainId: chainId,
-      emailVerified: true, // Wallet auth bypasses email verification
-    }], { session });
+    // Create new user with wallet. F1: web3_ is a reserved prefix, but the
+    // base (first 8 hex digits) can still be taken by another wallet sharing
+    // them: bounded candidates like the Telegram/Google logins.
+    const { user: created, created: isCreated } = await createProviderUser(
+      providerUsernameCandidates(`web3_${normalizedAddress.slice(2, 10)}`, normalizedAddress),
+      (username) => ({
+        username,
+        email: `${normalizedAddress}@web3.vip90.local`, // Synthetic email
+        password: crypto.randomBytes(32).toString('hex'), // Random password, wallet auth only
+        walletAddress: normalizedAddress,
+        walletType,
+        walletConnectedAt: new Date(),
+        walletChainId: chainId,
+        emailVerified: true, // Wallet auth bypasses email verification
+      }),
+      {
+        session,
+        // Concurrent first login with the same wallet: the winner.
+        findWinner: (e) => (e?.keyPattern?.walletAddress || e?.keyPattern?.email ? User.findOne({ walletAddress: normalizedAddress }) : null),
+      },
+    );
     user = created;
-    isNewUser = true;
+    isNewUser = isCreated;
   } else {
     // Update wallet info if changed
     if (user.walletType !== walletType) user.walletType = walletType;
@@ -136,10 +141,9 @@ export async function authenticateWithWallet({ address, signature, message, opti
   // dönüyordu, refreshToken hiç üretilmiyordu (normal login/sosyal giriş
   // ile tutarsızlık — cüzdanla giren kullanıcı access token süresi (15dk)
   // dolunca sessizce çıkışa düşerdi).
-  const accessToken = signAccess(user);
-  const refreshToken = signRefresh(user);
+  const sessionResult = await issueSession(user, { method: 'wallet' });
 
-  return { user, accessToken, refreshToken, isNewUser };
+  return { user, ...sessionResult, isNewUser };
 }
 
 /**

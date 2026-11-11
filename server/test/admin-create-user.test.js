@@ -147,16 +147,26 @@ describe('Admin — createUser', () => {
     assert.equal(created, null, 'İzin yoksa kullanıcı hiç oluşturulmamalı');
   });
 
-  it('roles verilmezse (normal admin oluşturma) eskisi gibi çalışır', async () => {
-    const caller = await User.create({ username: 'caller5', email: 'caller5@test.com', password: 'x', role: 'admin' });
+  it('roles verilmezse: yetkisiz çağıran admin açamaz (V21), super_admin açar ve varsayılan admin rolü atanır', async () => {
+    await initDefaultPermissions();
+    await initDefaultRoles();
+    const superAdminRole = await Role.findOne({ name: 'super_admin' });
+    const plain = await User.create({ username: 'caller5', email: 'caller5@test.com', password: 'x', role: 'admin' });
 
+    const denied = await callCreateUser({
+      username: 'deniedadmin', email: 'deniedadmin@test.com', password: 'password1', role: 'admin',
+    }, plain._id.toString());
+    assert.equal(denied.nextErr?.status, 403);
+    assert.equal(await User.findOne({ username: 'deniedadmin' }), null);
+
+    const caller = await User.create({ username: 'caller6', email: 'caller6@test.com', password: 'x', role: 'admin', roles: [superAdminRole._id] });
     const { res, nextErr } = await callCreateUser({
       username: 'plainadmin', email: 'plainadmin@test.com', password: 'password1', role: 'admin',
     }, caller._id.toString());
 
     assert.equal(nextErr, null, nextErr?.message);
     assert.equal(res.statusCode, 201);
-    const fresh = await User.findById(res.body.user._id);
-    assert.equal(fresh.roles.length, 0);
+    const fresh = await User.findById(res.body.user._id).populate('roles');
+    assert.deepEqual(fresh.roles.map((r) => r.name), ['admin']);
   });
 });

@@ -8,8 +8,9 @@ import {
   setAuthNonce, generateAuthMessage,
   authenticateWithWallet, linkWalletToUser, unlinkWallet,
 } from '../services/web3Auth.js';
+import { setRefreshCookie } from '../services/session.js';
 import {
-  signRefresh, setRefreshCookie, enrichWithIgamesBalance, enrichWithLockedBalance,
+  enrichWithIgamesBalance, enrichWithLockedBalance,
 } from '../controllers/auth.js';
 import { getSiteName } from '../branding/index.js';
 
@@ -28,14 +29,16 @@ r.post('/nonce', conditionalAuthLimiter, validate(walletNonceSchema), async (req
 r.post('/login', guestOnly, testMode ? (req, res, next) => next() : loginLimiter, validate(walletAuthSchema), async (req, res, next) => {
   try {
     const { address, signature, message, walletType, chainId } = req.validated;
-    const { user, accessToken, refreshToken } = await authenticateWithWallet({
+    const { user, requires2fa, challengeToken, accessToken, refreshToken, amr } = await authenticateWithWallet({
       address, signature, message, options: { walletType, chainId },
     });
+    // 2FA'lı hesap: cookie/token yok, kullanıcı nesnesi yok — yalnız challenge.
+    if (requires2fa) return res.json({ requires2fa: true, challengeToken });
     setRefreshCookie(res, refreshToken);
     const obj = user.toSafeObject();
     await enrichWithIgamesBalance(user, obj);
     await enrichWithLockedBalance(user, obj);
-    res.json({ accessToken, user: obj });
+    res.json({ accessToken, user: obj, amr });
   } catch (e) { next(e); }
 });
 

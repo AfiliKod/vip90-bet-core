@@ -11,7 +11,7 @@ export function getInhouseGames(t) {
     { id: 'plinko',      name: t('games.plinko.title'),      path: '/games/plinko',      accent: '#a78bfa', image: '/images/games/plinko.png' },
     { id: 'dice',        name: t('games.dice.title'),        path: '/games/dice',        accent: '#22d3ee', image: '/images/games/dice.png' },
     { id: 'limbo',       name: t('games.limbo.title'),       path: '/games/limbo',       accent: '#f472b6', image: '/images/games/limbo.png' },
-    { id: 'wheel',       name: t('games.wheel.title'),       path: '/games/wheel',       accent: '#fbbf24', image: '/images/games/wheel.png' },
+    { id: 'crazywheel',  name: t('games.crazywheel.title'),  path: '/games/crazywheel',  accent: '#fbbf24', image: '/images/games/crazywheel.png' },
     { id: 'roulette',    name: t('games.roulette.title'),    path: '/games/roulette',    accent: '#f87171', image: '/images/games/roulette.png' },
     { id: 'blackjack',   name: t('games.blackjack.title'),   path: '/games/blackjack',   accent: '#4ade80', image: '/images/games/blackjack.png' },
     { id: 'baccarat',    name: t('games.baccarat.title'),    path: '/games/baccarat',    accent: '#eab308', image: '/images/games/baccarat.png' },

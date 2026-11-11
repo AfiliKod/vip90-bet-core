@@ -10,10 +10,19 @@ import { resolveUniquePhone, isDuplicatePhoneError, phoneExistsError } from '../
 import { invalidateTokenVersionCache } from '../middleware/auth.js';
 import { renderBuiltinTemplate } from '../services/email.js';
 import { sendActionMail } from '../services/systemMail.js';
+import { hashToken } from '../utils/tokenHash.js';
+import { signAccess, signRefresh, setRefreshCookie, issueSession, reserveTwoFactorAttempt, assertAccountCanSession } from '../services/session.js';
+import { claimChallenge, markChallengeUsed, recordChallengeFailure, acquireChallenge, releaseChallenge } from '../services/twoFactorChallenge.js';
+import { verifySecondFactor, writeBackupCodes } from '../services/twoFactorAuth.js';
 
 async function enrichWithIgamesBalance(user, obj) {
   try {
-    const activeSession = await CasinoSession.findOne({ userId: user._id, status: 'active' });
+    // A closing igames session (V19b) still holds the player's casino money.
+    // F3: a stray_deposit session (a refunded launch whose late deposit is
+    // being recovered) holds no player money: its transfer was refunded.
+    const activeSession = await CasinoSession.findOne({
+      userId: user._id, status: { $in: ['active', 'closing'] }, reconciliationReason: { $ne: 'stray_deposit' },
+    });
     if (activeSession) {
       const roundAgg = await CasinoRound.aggregate([
         { $match: { userId: user._id, provider: 'igames', createdAt: { $gte: activeSession.transferredAt } } },
@@ -34,37 +43,10 @@ async function enrichWithLockedBalance(user, obj) {
   } catch {}
 }
 
-function signAccess(user) {
-  return jwt.sign(
-    { id: user._id, role: user.role, tokenVersion: user.tokenVersion || 0 },
-    process.env.JWT_SECRET,
-    { expiresIn: '15m' }
-  );
-}
+export { enrichWithIgamesBalance, enrichWithLockedBalance };
 
-export { signAccess, enrichWithIgamesBalance, enrichWithLockedBalance };
-
-function signRefresh(user) {
-  return jwt.sign(
-    { id: user._id, family: user.tokenVersion || 0 },
-    process.env.JWT_REFRESH_SECRET,
-    { expiresIn: '7d' }
-  );
-}
-
-function setRefreshCookie(res, token) {
-  res.cookie('refreshToken', token, {
-    httpOnly: true,
-    secure: process.env.NODE_ENV === 'production',
-    sameSite: 'lax',
-    path: '/',
-    maxAge: 7 * 24 * 60 * 60 * 1000,
-  });
-}
-
-// P5/P6 — sosyal/web3 giriş route'ları da normal login'le aynı token
-// çiftini (access + refresh cookie) üretmeli.
-export { signRefresh, setRefreshCookie };
+// Token üretimi services/session.js'e taşındı; mevcut importlar kırılmasın diye re-export.
+export { signAccess, signRefresh, setRefreshCookie };
 
 const EMAIL_VERIFY_TTL_HOURS = 24;
 const PASSWORD_RESET_TTL_HOURS = 1;
@@ -92,7 +74,9 @@ export async function register(req, res, next) {
     }
 
     // Email verification token üret
-    const emailVerificationToken = crypto.randomBytes(32).toString('hex');
+    // E-postaya ham token gider; DB'ye yalnız SHA-256 hash'i yazılır (V1).
+    const rawVerificationToken = crypto.randomBytes(32).toString('hex');
+    const emailVerificationToken = hashToken(rawVerificationToken);
     const emailVerificationExpires = new Date(Date.now() + EMAIL_VERIFY_TTL_HOURS * 3600 * 1000);
 
     const now = new Date();
@@ -122,7 +106,7 @@ export async function register(req, res, next) {
     // Email doğrulama maili gönder (best-effort). İçerik admin panelindeki
     // "Sistem E-postaları" sayfasından düzenlenir; şablon pasif/yoksa gömülü
     // şablonla aynı içerik gönderilir (davranış değişmez).
-    const verifyUrl = `${getBaseUrl(req)}/verify-email?token=${emailVerificationToken}`;
+    const verifyUrl = `${getBaseUrl(req)}/verify-email?token=${rawVerificationToken}`;
     let emailResult;
     try {
       emailResult = await sendActionMail('user.emailVerify', {
@@ -223,20 +207,84 @@ export async function login(req, res, next) {
       return next(createError(403, 'EMAIL_NOT_VERIFIED', 'Email adresinizi doğrulamanız gerekiyor. Gelen kutunuzu kontrol edin.', { email: user.email }));
     }
 
-    // Successful login
+    // Başarılı parola. 2FA'lı hesapta oturum + tokenVersion artışı + lastLogin
+    // ikinci faktör doğrulanana kadar ertelenir; yanıtta kullanıcı nesnesi YOK.
+    const session = await issueSession(user, { method: 'pwd' });
+    if (session.requires2fa) {
+      return res.json({ requires2fa: true, challengeToken: session.challengeToken });
+    }
     await LoginAttempt.create({ userId: user._id, username, ip, userAgent, success: true });
     user.lastLoginAt = new Date();
     user.lastLoginIp = ip;
-    user.tokenVersion = (user.tokenVersion || 0) + 1; // eski token'ları geçersiz kıl
     await user.save();
-    invalidateTokenVersionCache(user._id); // bkz. refresh()'teki not — aynı 30sn önbellek riski
 
-    const accessToken = signAccess(user);
-    setRefreshCookie(res, signRefresh(user));
+    setRefreshCookie(res, session.refreshToken);
     const obj = user.toSafeObject();
     await enrichWithIgamesBalance(user, obj);
     await enrichWithLockedBalance(user, obj);
-    res.json({ accessToken, user: obj });
+    res.json({ accessToken: session.accessToken, user: obj, amr: session.amr });
+  } catch (e) { next(e); }
+}
+
+/**
+ * POST /auth/2fa/login — challenge + TOTP/yedek kod → oturum.
+ * Challenge 5 dk ömürlü, tek kullanımlık, 5 denemede kilitlenir.
+ */
+export async function verifyLogin2fa(req, res, next) {
+  try {
+    const { challengeToken, token } = req.validated;
+    const ip = req.ip || req.headers['x-forwarded-for']?.split(',')[0]?.trim() || 'unknown';
+    const userAgent = req.headers['user-agent'] || 'unknown';
+    const payload = claimChallenge(challengeToken);
+    // Eşzamanlı ikinci gönderim: ilki bitene kadar reddedilir (await'ten önce).
+    if (!acquireChallenge(payload.jti)) {
+      return next(createError(409, 'CHALLENGE_USED', 'Doğrulama anahtarı kullanılmış'));
+    }
+    try {
+      const user = await User.findById(payload.id).select('+twoFactorSecret +twoFactorBackupCodes');
+      const invalid = () => createError(401, 'INVALID_2FA', 'Doğrulama kodu hatalı');
+      if (!user || user.isSeed || !user.twoFactorEnabled
+        || (user.tokenVersion || 0) !== (payload.tokenVersion || 0)) {
+        markChallengeUsed(payload.jti);
+        return next(createError(401, 'INVALID_CHALLENGE', 'Geçersiz doğrulama anahtarı'));
+      }
+      if (!user.isActive) {
+        markChallengeUsed(payload.jti);
+        return next(createError(403, 'ACCOUNT_BANNED', 'Hesabınız askıya alınmıştır'));
+      }
+
+      // Atomik rezervasyon: bekleyen wrong_2fa satırı doğrulamadan önce yazılır.
+      const attemptId = await reserveTwoFactorAttempt(user, { ip, userAgent });
+      const result = await verifySecondFactor(user, token);
+      if (!result.ok) {
+        recordChallengeFailure(payload.jti);
+        return next(invalid());
+      }
+      await LoginAttempt.deleteOne({ _id: attemptId });
+      markChallengeUsed(payload.jti);
+      if (result.usedBackupCode) {
+        // Koşullu güncelleme: aynı yedek kod iki kez tüketilemez.
+        const next2 = writeBackupCodes(result.remainingBackupCodes);
+        const upd = await User.updateOne({ _id: user._id, twoFactorBackupCodes: user.twoFactorBackupCodes }, { $set: { twoFactorBackupCodes: next2 } });
+        if (upd.modifiedCount !== 1) {
+          recordChallengeFailure(payload.jti);
+          return next(createError(401, 'INVALID_2FA', 'Doğrulama kodu hatalı'));
+        }
+      }
+
+      await LoginAttempt.create({ userId: user._id, username: user.username, ip, userAgent, success: true });
+      user.lastLoginAt = new Date();
+      user.lastLoginIp = ip;
+      const session = await issueSession(user, { method: payload.amr?.[0] || 'pwd', verified2fa: true });
+
+      setRefreshCookie(res, session.refreshToken);
+      const obj = user.toSafeObject();
+      await enrichWithIgamesBalance(user, obj);
+      await enrichWithLockedBalance(user, obj);
+      res.json({ accessToken: session.accessToken, user: obj, amr: session.amr });
+    } finally {
+      releaseChallenge(payload.jti);
+    }
   } catch (e) { next(e); }
 }
 
@@ -253,6 +301,8 @@ export async function refresh(req, res, next) {
     if (payload.family !== undefined && user.tokenVersion !== payload.family) {
       return next(createError(401, 'TOKEN_REVOKED', 'Token iptal edilmiş. Lütfen tekrar giriş yapın.'));
     }
+    // Askıya alınmış/silinmiş hesabın refresh cookie'si artık dönmez.
+    assertAccountCanSession(user);
     // Rotation: her refresh'te tokenVersion artır (Phase B9)
     user.tokenVersion = (user.tokenVersion || 0) + 1;
     await user.save();
@@ -261,7 +311,7 @@ export async function refresh(req, res, next) {
     // basılan bu YENİ (geçerli) access token bile "tokenVersion uyuşmazlığı"
     // ile reddedilir (bkz. invalidateTokenVersionCache'in üstündeki not).
     invalidateTokenVersionCache(user._id);
-    const accessToken = signAccess(user);
+    const accessToken = signAccess(user, ['refresh']);
     setRefreshCookie(res, signRefresh(user));
     const obj = user.toSafeObject();
     await enrichWithIgamesBalance(user, obj);
@@ -317,9 +367,9 @@ export async function verifyEmail(req, res, next) {
   try {
     const { token } = req.validated;
     const user = await User.findOne({
-      emailVerificationToken: token,
+      emailVerificationToken: hashToken(token),
       emailVerificationExpires: { $gt: new Date() },
-    });
+    }).select('+emailVerificationToken');
     if (!user) return next(createError(400, 'INVALID_TOKEN', 'Geçersiz veya süresi dolmuş doğrulama linki'));
     user.emailVerified = true;
     user.emailVerificationToken = null;
@@ -343,7 +393,7 @@ export async function resendVerification(req, res, next) {
     let verifyUrl = '';
     if (user && !user.emailVerified) {
       const token = crypto.randomBytes(32).toString('hex');
-      user.emailVerificationToken = token;
+      user.emailVerificationToken = hashToken(token);
       user.emailVerificationExpires = new Date(Date.now() + EMAIL_VERIFY_TTL_HOURS * 3600 * 1000);
       await user.save();
       verifyUrl = `${getBaseUrl(req)}/verify-email?token=${token}`;
@@ -378,7 +428,7 @@ export async function forgotPassword(req, res, next) {
     let resetUrl = '';
     if (user) {
       const token = crypto.randomBytes(32).toString('hex');
-      user.passwordResetToken = token;
+      user.passwordResetToken = hashToken(token);
       user.passwordResetExpires = new Date(Date.now() + PASSWORD_RESET_TTL_HOURS * 3600 * 1000);
       await user.save();
       resetUrl = `${getBaseUrl(req)}/reset-password?token=${token}`;
@@ -405,9 +455,9 @@ export async function resetPassword(req, res, next) {
   try {
     const { token, newPassword } = req.validated;
     const user = await User.findOne({
-      passwordResetToken: token,
+      passwordResetToken: hashToken(token),
       passwordResetExpires: { $gt: new Date() },
-    }).select('+password');
+    }).select('+password +passwordResetToken');
     if (!user) return next(createError(400, 'INVALID_TOKEN', 'Geçersiz veya süresi dolmuş token'));
     user.password = newPassword;
     user.passwordResetToken = null;

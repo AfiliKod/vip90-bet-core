@@ -1,17 +1,10 @@
-import jwt from 'jsonwebtoken';
+import { adminIpAllowedForSocket } from '../middleware/adminIpAllowlist.js';
 import User from '../models/User.js';
+import { userHasPermission } from '../services/permissions.js';
 import { subscribeToGameStream, unsubscribeFromGameStream, initializeGameStream, getRecentWinners } from '../services/liveGameStream.js';
+import { verifySocketUser, socketAuthMiddleware } from '../services/socketAuth.js';
 import { initChatSocket } from '../services/chat.js';
 import { broadcastOnlineCount, getOnlineCount } from '../services/onlineCount.js';
-
-function verifySocketToken(token) {
-  if (typeof token !== 'string' || !token) return null;
-  try {
-    return jwt.verify(token, process.env.JWT_SECRET);
-  } catch {
-    return null;
-  }
-}
 
 export function initSocket(io) {
   // Ana namespace — mevcut event/user subscription'ları
@@ -34,8 +27,8 @@ export function initSocket(io) {
     // bilen herkes 'role:admin' odasına katılıp tüm yatırma/çekme ve KYC
     // olaylarını (kullanıcı adı + tutarla), herhangi bir oyuncunun id'siyle
     // de onun bakiye olaylarını dinleyebiliyordu (2026-10-03 denetimi).
-    socket.on('subscribe:user', ({ token } = {}) => {
-      const payload = verifySocketToken(token);
+    socket.on('subscribe:user', async ({ token } = {}) => {
+      const payload = await verifySocketUser(token);
       if (payload?.id) socket.join(`user:${payload.id}`);
     });
     socket.on('unsubscribe:user', ({ userId } = {}) => {
@@ -45,11 +38,16 @@ export function initSocket(io) {
     // Ticket/KYC/aktivite gibi admin-only bildirimler. Rol, token'daki
     // kimlik üzerinden DB'den doğrulanır (client'ın beyanına güvenilmez).
     socket.on('subscribe:admin', async ({ token } = {}) => {
-      const payload = verifySocketToken(token);
+      const payload = await verifySocketUser(token);
       if (!payload?.id) return;
       try {
         const user = await User.findById(payload.id).select('role isSeed').lean();
-        if (user?.role === 'admin' && !user.isSeed) socket.join('role:admin');
+        // V5: the room carries the activity feed, KYC/ticket events and queue
+        // counts — same permission as GET /api/admin/activity, not just "staff".
+        // V6: ADMIN_ALLOWED_IPS applies to the live admin room as well.
+        if (user?.role === 'admin' && !user.isSeed && adminIpAllowedForSocket(socket) && await userHasPermission(payload.id, 'admin:activity:read')) {
+          socket.join('role:admin');
+        }
       } catch { /* geçersiz id vb. — sessizce yok say */ }
     });
   });
@@ -57,16 +55,7 @@ export function initSocket(io) {
   // /live namespace — Canlı oyun akışı ve son kazananlar
   const liveNS = io.of('/live');
 
-  liveNS.use((socket, next) => {
-    const token = socket.handshake.auth?.token;
-    if (!token) return next(new Error('auth'));
-    try {
-      socket.user = jwt.verify(token, process.env.JWT_SECRET);
-      next();
-    } catch {
-      next(new Error('auth'));
-    }
-  });
+  liveNS.use(socketAuthMiddleware);
 
   liveNS.on('connection', (socket) => {
     // Subscribe to game stream

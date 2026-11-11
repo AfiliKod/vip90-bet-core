@@ -64,10 +64,10 @@ olgunlaşmadığını gizlemiyoruz — bkz. [Yol Haritası](#yol-haritası) ve
 | 👑 **VIP & gerçek zamanlı cashback** | Varsayılan 5 seviyeli VIP programı (Bronze–Diamond, panelden düzenlenir); her sonuçlanan bahis/rounddan sonra seviyeye göre anlık cashback bakiyeye işler |
 | 🌍 **Çok dilli altyapı & PWA** | 8 dil sözlüğü (oyuncu ekranları 8 dilde çevrili; TR ve EN'de admin paneli de tam, diğer 6 dilde admin panelinin bir kısmı İngilizce) + global dil değiştirici, kurulabilir Progressive Web App, iOS Capacitor kabuğu |
 | 🧩 **Modüler lisanslama** | Çekirdek her zaman açık; Bahis / Casino İçeriği / In-house Oyunlar / Kripto Ödeme / Slikair / KYC / SMS Gateway panelden yönetilir; ilk üçü ayrı ücretli eklentidir |
-| ✉️ **E-posta ve SMS iletişimi** | Olaya bağlı sistem e-postaları ve SMS'leri, zamanlanmış kampanyalar, segment hedefleme ve gönderim günlükleri tek bir **İletişim** sayfasında; e-posta için SMTP/Mailgun, SMS için Twilio |
+| ✉️ **E-posta ve SMS iletişimi** | Olaya bağlı sistem e-postaları ve SMS'leri, zamanlanmış kampanyalar, segment hedefleme ve gönderim günlükleri tek bir **İletişim** sayfasında; e-posta için Mailtrap Email API veya herhangi bir SMTP sağlayıcısı, SMS için Twilio |
 | 💱 **Para birimi, marka, jurisdiction yöneticileri** | Settings altında Currencies / Brands / Jurisdictions sekmeleri; site tek bir görüntüleme para birimiyle çalışır, marka verisi izolasyonu uygulanmaz ([Bilinen Kısıtlar](docs/product/09-bilinen-kisitlar.md)) |
 | 🚀 **Kurulum sihirbazı** | `docker compose up -d` sonrası tarayıcıdan `/install` (İngilizce/Türkçe) — ilk yönetici hesabı ve site ayarları; sunucunun açılması için önceden bir `.env` (JWT anahtarları, veritabanı) gerekir |
-| 🎰 **15 in-house oyun (ücretli eklenti)** | Crash, Mines, Plinko, Dice, Limbo, Wheel, Hi-Lo, Keno, Blackjack, Roulette, Baccarat, Video Poker, Dragon Tiger, Coin Flip ile King of Money slotu — hepsi HMAC-SHA256 **provably fair**, house edge her oyun için panelden ayarlanabilir (slotun matematiği mühürlüdür) |
+| 🎰 **15 in-house oyun (ücretli eklenti)** | Crash, Mines, Plinko, Dice, Limbo, Çılgın Çark (Crazy Wheel), Hi-Lo, Keno, Blackjack, Roulette, Baccarat, Video Poker, Dragon Tiger, Coin Flip ile King of Money slotu — hepsi HMAC-SHA256 **provably fair**, house edge her oyun için panelden ayarlanabilir (Çılgın Çark ve slot matematiği mühürlüdür) |
 | ⚽ **Spor & Canlı Bahis (ücretli eklenti)** | 30 spor tanımı, canlı oran akışı, kupon (tekli/kombine), otomatik sonuçlandırma |
 | 🃏 **Casino İçeriği (ücretli eklenti)** | Aggregator entegrasyonu ile slot ve masa oyunları — iGaming içerik sağlayıcısı entegrasyonu (bugün tek adaptör) |
 
@@ -98,7 +98,7 @@ eklentiler sağlar.
   moderasyonlu canlı sohbet.
 - Tema/marka/SEO ayarları, statik sayfalar, çok dilli arayüz.
 - İletişim: düzenlenebilir sistem e-postası ve SMS şablonları, zamanlanmış
-  kampanyalar ve otomasyonlar, gönderim günlükleri (e-posta SMTP/Mailgun,
+  kampanyalar ve otomasyonlar, gönderim günlükleri (e-posta Mailtrap veya SMTP,
   SMS Twilio).
 
 ### 💳 Ödeme ve KYC modülleri (çekirdekle birlikte gelir)
@@ -113,7 +113,7 @@ eklentiler sağlar.
 
 Hiçbir üçüncü taraf sözleşmesi gerektirmeyen, size ait oyun kütüphanesi:
 
-**Crash · Mines · Plinko · Dice · Limbo · Wheel · Hi-Lo · Keno ·
+**Crash · Mines · Plinko · Dice · Limbo · Çılgın Çark · Hi-Lo · Keno ·
 Blackjack · Roulette · Baccarat · Video Poker · Dragon Tiger · Coin Flip ·
 King of Money**
 
@@ -201,7 +201,7 @@ Yedi modül admin panelinden (**Settings → Modules**) tek bir anahtarla
 açılıp kapatılır; lisans sunucusu tanımlıysa lisans durumu da kontrol edilir
 (`server/src/modules/registry.js`). Aynı ekranın sonundaki **Email Gateway**
 kartı modül değildir, çekirdeğe aittir ve hep açıktır: e-posta sağlayıcısı
-(SMTP/Mailgun) orada ayarlanır.
+(Mailtrap Email API veya SMTP) orada ayarlanır.
 
 | Modül | Sağlar | Nasıl gelir | Bağımlılık |
 |---|---|---|---|

@@ -1,9 +1,10 @@
 import { Router } from 'express';
 import { requireAuth, requireAdmin } from '../middleware/auth.js';
+import { requirePermission } from '../services/permissions.js';
 import * as ctrl from '../controllers/audit.js';
 
 const r = Router();
-r.use(requireAuth, requireAdmin);
+r.use(requireAuth, requireAdmin, requirePermission('admin:audit:read'));
 
 // List audit logs
 r.get('/logs', ctrl.listLogs);
@@ -12,7 +13,7 @@ r.get('/logs', ctrl.listLogs);
 r.get('/stats', ctrl.getStats);
 
 // Export audit logs
-r.get('/export', ctrl.exportLogs);
+r.get('/export', requirePermission('admin:reports:export'), ctrl.exportLogs);
 
 // Get audit logs for a specific target
 r.get('/target/:targetType/:targetId', ctrl.getTargetLogs);

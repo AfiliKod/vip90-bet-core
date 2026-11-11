@@ -11,7 +11,7 @@ import 'dotenv/config';
 import { createServer } from 'http';
 import { Server } from 'socket.io';
 import mongoose from 'mongoose';
-import { createApp, corsOptions } from './app.js';
+import { createApp, providerCorsOptions } from './app.js';
 import { connectDB } from './db.js';
 import { initSocket } from './socket/handler.js';
 import { startMonitor } from './services/syncHealth.js';
@@ -21,6 +21,7 @@ import { startCloseStaleGameSessionsJob } from './jobs/closeStaleGameSessions.js
 import { startKycExpiryJob } from './jobs/kycExpiry.js';
 import { startCryptoWithdrawalReconcileJob } from './jobs/cryptoWithdrawalReconcile.js';
 import Setting from './models/Setting.js';
+import { hydrateCryptoSettings } from './services/cryptoSettings.js';
 import { initSentry } from './services/sentry.js';
 import { errorLogger } from './services/errorLogger.js';
 import { initDefaultPermissions, initDefaultRoles, migrateOrphanedAdminRoles, syncMissingPermissions } from './services/permissions.js';
@@ -77,7 +78,7 @@ const app = createApp();
 await initSentry(app);
 
 const httpServer = createServer(app);
-export const io = new Server(httpServer, { cors: corsOptions });
+export const io = new Server(httpServer, { cors: providerCorsOptions });
 import { setIO } from './services/socketEmitter.js';
 setIO(io);
 
@@ -158,6 +159,8 @@ process.on('uncaughtException', (err) => {
 
 connectDB()
   .then(async () => {
+    // Admin-adjusted crypto limits/rate/network survive a restart (V17); never throws.
+    await hydrateCryptoSettings({ force: true });
     httpServer.listen(PORT, () => console.log(`Server running on :${PORT}`));
     // O4 — kademeli yönetici yetkileri: varsayılan izin/rol setini oluşturur
     // (idempotent, koleksiyon boşsa doldurur). Daha önce hiçbir yerden

@@ -1,10 +1,9 @@
-import crypto from 'crypto';
 import BonusWagering from '../models/BonusWagering.js';
 import User from '../models/User.js';
 import Transaction from '../models/Transaction.js';
 import mongoose from 'mongoose';
-import { createTransaction, adjustBalance } from './ledger.js';
-import { withTransactionRetry } from '../utils/transactionRetry.js';
+import { createTransaction } from './ledger.js';
+import { withTransactionRetry, runInTransaction } from '../utils/transactionRetry.js';
 
 const DEFAULT_WEIGHTS = {
   sports: 1.0,
@@ -155,62 +154,73 @@ export async function previewForfeitAmount(userId) {
  * bir havuzdaydı, forfeit yalnızca "vaadi" iptal ediyordu). Kalan wagering
  * oranına göre kısmi forfeit (tamamlanan kısım feda edilmez).
  *
- * UYARI: Bu fonksiyon geri dönüşsüzdür ve mongoose session almaz (kendi
- * ayrı commit'leriyle yazar). Çağıran taraf (withdraw akışları) bunu
- * çağırmadan ÖNCE previewForfeitAmount ile "işe yarayacak mı" diye
- * doğrulamalıdır — aksi halde başarısız bir çekim, hiçbir faydası olmadan
- * kullanıcının bonusunu yok edebilir.
+ * V19a: the status change, the balance debit and the ledger row of every
+ * wagering are written in ONE transaction; any failure aborts all of them and
+ * the wagering stays `active` (locked). Each wagering gets its own
+ * `bonus_forfeit` row keyed `forfeit_<wageringId>`, so the same wagering can
+ * never be debited twice. Like expireWagering, the balance never goes below 0:
+ * only what is left is taken (`deducted`), and no row is written when nothing
+ * is taken (the wagering is still forfeited). When the caller passes a session that is in a
+ * transaction, the forfeit joins it (commits or aborts with the caller's
+ * withdrawal); otherwise it opens its own.
+ *
+ * Forfeit is still irreversible once committed: callers (withdraw flows) must
+ * check with previewForfeitAmount first that it will help.
  *
  * @returns {Array} forfeit edilen wagering'ler + toplam düşülen tutar
  */
-export async function forfeitActiveWagerings(userId) {
-  const active = await BonusWagering.find({
-    userId,
-    status: 'active',
-  });
+export async function forfeitActiveWagerings(userId, { session = null } = {}) {
+  const inTxn = Boolean(session?.inTransaction?.());
+  return runInTransaction(inTxn ? session : null, (s) => forfeitInner(userId, s));
+}
 
-  if (active.length === 0) return { items: [], totalForfeitedAmount: 0 };
-
+// Transaction body: re-reads everything through the session on every attempt.
+async function forfeitInner(userId, session) {
+  const active = await BonusWagering.find({ userId, status: 'active' }).session(session);
   const forfeited = [];
   let totalForfeitedAmount = 0;
 
   for (const w of active) {
-    // Koşullu ve atomik: eşzamanlı iki çekim aynı bonusu iki kez feshedip
-    // bakiyeden iki kez düşmesin. Yalnız "active"ten çevirebildiğimiz sayılır.
+    // Koşullu: eşzamanlı iki çekim aynı bonusu iki kez feshedip bakiyeden iki
+    // kez düşmesin. Yalnız "active"ten çevirebildiğimiz sayılır.
     const claimed = await BonusWagering.findOneAndUpdate(
       { _id: w._id, status: 'active' },
       { $set: { status: 'forfeited' } },
-      { new: true },
+      { new: true, session },
     );
     if (!claimed) continue;
-    const forfeitAmount = computeForfeitAmount(w);
-    totalForfeitedAmount += forfeitAmount;
-    forfeited.push({ wagering: claimed, forfeitAmount });
+    const forfeitAmount = computeForfeitAmount(claimed);
+    let deducted = 0;
+    if (forfeitAmount > 0) {
+      // Same rule as expireWagering: the balance never goes below 0. If the
+      // bonus was already played away, only what is left is taken back.
+      const before = await User.findOneAndUpdate(
+        { _id: userId },
+        [{ $set: { balance: { $max: [0, { $round: [{ $subtract: ['$balance', forfeitAmount] }, 2] }] } } }],
+        { new: false, session },
+      );
+      if (!before) throw new Error('forfeitActiveWagerings: user not found');
+      const balanceBefore = before.balance;
+      const balanceAfter = Math.max(0, parseFloat((balanceBefore - forfeitAmount).toFixed(2)));
+      deducted = parseFloat((balanceBefore - balanceAfter).toFixed(2));
+      if (deducted > 0) {
+        await createTransaction({
+          userId,
+          type: 'bonus_forfeit',
+          amount: -deducted,
+          balanceBefore,
+          balanceAfter,
+          idempotencyKey: `forfeit_${claimed._id}`,
+          source: 'system',
+          metadata: { reason: 'forfeit', wageringId: claimed._id, forfeitAmount, deducted },
+        }, { session });
+      }
+    }
+    totalForfeitedAmount += deducted;
+    forfeited.push({ wagering: claimed, forfeitAmount, deducted });
   }
-  totalForfeitedAmount = parseFloat(totalForfeitedAmount.toFixed(2));
 
-  if (totalForfeitedAmount > 0) {
-    // SECURITY FIX (C6): Use atomic $inc instead of read-modify-write
-    const adjusted = await adjustBalance(userId, -totalForfeitedAmount);
-    const balanceBefore = adjusted?.balanceBefore ?? 0;
-    const user = { balance: adjusted?.balanceAfter ?? 0 };
-
-    // SECURITY FIX (C5): Use UUID instead of Date.now() for idempotency key
-    const idempotencyKey = `forfeit_${userId}_${crypto.randomUUID()}`;
-
-    await createTransaction({
-      userId,
-      type: 'bonus_forfeit',
-      amount: -(balanceBefore - user.balance),
-      balanceBefore,
-      balanceAfter: user.balance,
-      idempotencyKey,
-      source: 'system',
-      metadata: { forfeitedWagerings: forfeited.length, totalForfeitedAmount },
-    });
-  }
-
-  return { items: forfeited, totalForfeitedAmount };
+  return { items: forfeited, totalForfeitedAmount: parseFloat(totalForfeitedAmount.toFixed(2)) };
 }
 
 /**

@@ -1,7 +1,13 @@
 import { z } from 'zod';
 
+// F1: tg_/google_/web3_ önekleri harici giriş hesaplarına ayrılmıştır (admin ve yerel kayıt ortak).
+export const RESERVED_USERNAME_PREFIXES = ['tg_', 'google_', 'web3_'];
+export const notReservedUsername = (v) => !RESERVED_USERNAME_PREFIXES.some((p) => String(v).toLowerCase().startsWith(p));
+export const RESERVED_USERNAME_MESSAGE = 'Kullanıcı adı "tg_", "google_" veya "web3_" ile başlayamaz (ayrılmış önek)';
+
 export const registerSchema = z.object({
-  username:   z.string().min(3).max(30).regex(/^[a-zA-Z0-9_]+$/, 'Kullanıcı adı sadece harf, rakam ve _ içerebilir'),
+  username:   z.string().min(3).max(30).regex(/^[a-zA-Z0-9_]+$/, 'Kullanıcı adı sadece harf, rakam ve _ içerebilir')
+    .refine(notReservedUsername, RESERVED_USERNAME_MESSAGE),
   email:      z.string().email().max(100),
   password:   z.string().min(8).max(128).regex(/[A-Z]/, 'En az 1 büyük harf').regex(/[0-9]/, 'En az 1 rakam'),
   referredBy: z.string().min(3).max(30).optional(),
@@ -33,6 +39,11 @@ export const loginSchema = z.object({
   username:       z.string().min(1).max(100),
   password:       z.string().min(1).max(200),
   turnstileToken: z.string().optional(),
+});
+
+export const twoFactorLoginSchema = z.object({
+  challengeToken: z.string().min(20),
+  token:          z.string().min(6).max(20),
 });
 
 export const emailVerifySchema = z.object({

@@ -7,6 +7,7 @@
 import { Router } from 'express';
 import { requireAuth, requireAdmin } from '../middleware/auth.js';
 import { auditLog } from '../middleware/audit.js';
+import { requirePermission } from '../services/permissions.js';
 import { validate } from '../middleware/validate.js';
 import {
   updateInhouseProviderSettingsSchema,
@@ -63,13 +64,13 @@ function requireInhouseProvider(req, res, next) {
   next();
 }
 
-r.get('/inhouse-provider/settings', requireInhouseProvider, async (req, res, next) => {
+r.get('/inhouse-provider/settings', requirePermission('admin:integrations:read'), requireInhouseProvider, async (req, res, next) => {
   try {
     res.json(await inhouseProviderSettings.getInhouseProviderSettings());
   } catch (e) { next(e); }
 });
 
-r.patch('/inhouse-provider/settings', requireInhouseProvider, validate(updateInhouseProviderSettingsSchema), async (req, res, next) => {
+r.patch('/inhouse-provider/settings', requirePermission('admin:integrations:write'), requireInhouseProvider, validate(updateInhouseProviderSettingsSchema), async (req, res, next) => {
   try {
     res.json(await inhouseProviderSettings.updateInhouseProviderSettings(req.body));
   } catch (e) {
@@ -78,7 +79,7 @@ r.patch('/inhouse-provider/settings', requireInhouseProvider, validate(updateInh
   }
 });
 
-r.post('/inhouse-provider/rotate-key', requireInhouseProvider, async (req, res, next) => {
+r.post('/inhouse-provider/rotate-key', requirePermission('admin:integrations:write'), requireInhouseProvider, async (req, res, next) => {
   try {
     const { apiKeyId, apiKeySecret } = await inhouseProviderSettings.rotateInhouseProviderApiKey();
     res.json({
@@ -98,7 +99,7 @@ function requireOddsProvider(req, res, next) {
   next();
 }
 
-r.get('/odds-provider/settings', requireOddsProvider, async (req, res, next) => {
+r.get('/odds-provider/settings', requirePermission('admin:integrations:read'), requireOddsProvider, async (req, res, next) => {
   try {
     const [settings, display] = await Promise.all([
       oddsProviderSettings.getOddsProviderSettings(),
@@ -113,7 +114,7 @@ r.get('/odds-provider/settings', requireOddsProvider, async (req, res, next) => 
   } catch (e) { next(e); }
 });
 
-r.patch('/odds-provider/settings', requireOddsProvider, validate(updateOddsProviderSettingsSchema), async (req, res, next) => {
+r.patch('/odds-provider/settings', requirePermission('admin:integrations:write'), requireOddsProvider, validate(updateOddsProviderSettingsSchema), async (req, res, next) => {
   try {
     const { prioritySport, priorityCountry, ...providerPatch } = req.body;
     const [updated, display] = await Promise.all([
@@ -134,7 +135,7 @@ r.patch('/odds-provider/settings', requireOddsProvider, validate(updateOddsProvi
   }
 });
 
-r.post('/odds-provider/suggest-token', requireOddsProvider, (req, res) => {
+r.post('/odds-provider/suggest-token', requirePermission('admin:integrations:write'), requireOddsProvider, (req, res) => {
   res.json({ suggestedToken: randomBytes(32).toString('hex') });
 });
 
@@ -145,7 +146,7 @@ r.post('/odds-provider/suggest-token', requireOddsProvider, (req, res) => {
  * olur ama kayıt kalır — `pushed:false` + `message` ile admin'e bildirilir,
  * "Yeniden Gönder" (retry-push) ile tekrar denenebilir.
  */
-r.post('/odds-provider/token', requireOddsProvider, validate(oddsProviderTokenSchema), async (req, res, next) => {
+r.post('/odds-provider/token', requirePermission('admin:integrations:write'), requireOddsProvider, validate(oddsProviderTokenSchema), async (req, res, next) => {
   try {
     const { token } = req.validated;
     await oddsProviderToken.saveOddsProviderToken(token, req.user?.id);
@@ -154,7 +155,7 @@ r.post('/odds-provider/token', requireOddsProvider, validate(oddsProviderTokenSc
   } catch (e) { next(e); }
 });
 
-r.post('/odds-provider/token/retry-push', requireOddsProvider, async (req, res, next) => {
+r.post('/odds-provider/token/retry-push', requirePermission('admin:integrations:write'), requireOddsProvider, async (req, res, next) => {
   try {
     const current = await oddsProviderToken.getOddsProviderToken();
     if (!current) return res.status(400).json({ error: 'Henüz kaydedilmiş bir token yok' });
@@ -173,7 +174,7 @@ function requireIgames(req, res, next) {
   next();
 }
 
-r.get('/igames/module-settings', requireIgames, async (req, res, next) => {
+r.get('/igames/module-settings', requirePermission('admin:settings:read'), requireIgames, async (req, res, next) => {
   try {
     const [language, popularGameCodes] = await Promise.all([
       igamesModuleSettings.getIgamesDefaultLanguage(),
@@ -183,7 +184,7 @@ r.get('/igames/module-settings', requireIgames, async (req, res, next) => {
   } catch (e) { next(e); }
 });
 
-r.patch('/igames/module-settings', requireIgames, validate(updateIgamesModuleSettingsSchema), async (req, res, next) => {
+r.patch('/igames/module-settings', requirePermission('admin:settings:write'), requireIgames, validate(updateIgamesModuleSettingsSchema), async (req, res, next) => {
   try {
     const { language, popularGameCodes } = req.body;
     if (language !== undefined) await igamesModuleSettings.setIgamesDefaultLanguage(language, req.user?.id);
@@ -198,13 +199,13 @@ r.patch('/igames/module-settings', requireIgames, validate(updateIgamesModuleSet
   }
 });
 
-r.get('/igames/credentials', requireIgames, async (req, res, next) => {
+r.get('/igames/credentials', requirePermission('admin:integrations:read'), requireIgames, async (req, res, next) => {
   try {
     res.json(await igamesCredentials.getIgamesCredentialsStatus());
   } catch (e) { next(e); }
 });
 
-r.patch('/igames/credentials', requireIgames, validate(updateIgamesCredentialsSchema), async (req, res, next) => {
+r.patch('/igames/credentials', requirePermission('admin:integrations:write'), requireIgames, validate(updateIgamesCredentialsSchema), async (req, res, next) => {
   try {
     res.json(await igamesCredentials.saveIgamesCredentials(req.body, req.user?.id));
   } catch (e) { next(e); }

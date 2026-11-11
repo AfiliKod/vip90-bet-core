@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { Link, useNavigate, useSearchParams } from 'react-router-dom';
+import { Link, useLocation, useNavigate, useSearchParams } from 'react-router-dom';
 import { useForm, Controller } from 'react-hook-form';
 import BirthDatePicker from '../components/form/BirthDatePicker.jsx';
 import PhoneInput from '../components/form/PhoneInput.jsx';
@@ -35,7 +35,12 @@ export default function Login() {
   }, []);
   const [resendStatus, setResendStatus] = useState('idle'); // idle | sending | sent
   const [devVerifyUrl, setDevVerifyUrl] = useState(null); // sadece dev: local'de SMTP yokken mail linkini göster
-  const { login, register: registerFn, loginWithWallet } = useAuthStore();
+  const { login, register: registerFn, loginWithWallet, completeTwoFactor } = useAuthStore();
+  // İkinci faktör adımı: challenge URL'de değil bellekte / router state'inde taşınır.
+  const location = useLocation();
+  const [challenge, setChallenge] = useState(location.state?.challenge || null);
+  const [twoFactorCode, setTwoFactorCode] = useState('');
+  const [twoFactorBusy, setTwoFactorBusy] = useState(false);
   const [walletLoading, setWalletLoading] = useState(false);
   const addToast = useToastStore(s => s.add);
   const navigate = useNavigate();
@@ -49,6 +54,7 @@ export default function Login() {
     try {
       if (tab === 'login') {
         const user = await login(data.username, data.password, turnstile.token);
+        if (user.requires2fa) { setChallenge(user.challengeToken); return; }
         const redirect = searchParams.get('redirect');
         navigate(user.role === 'admin' ? '/admin' : (redirect || '/'));
       } else {
@@ -125,10 +131,30 @@ export default function Login() {
     }
   };
 
+  async function onTwoFactorSubmit(e) {
+    e.preventDefault();
+    if (twoFactorBusy) return;
+    setTwoFactorBusy(true);
+    try {
+      const user = await completeTwoFactor(challenge, twoFactorCode.trim());
+      const redirect = searchParams.get('redirect');
+      navigate(user.role === 'admin' ? '/admin' : (redirect || '/'));
+    } catch (err) {
+      const code = err.response?.data?.error?.code;
+      addToast(code === 'TOO_MANY_ATTEMPTS' ? t('auth.tooManyAttempts') : t('auth.invalidTwoFactor'), 'error');
+      // Challenge tükendi/kilitlendi/süresi doldu: parola adımına dön.
+      if (['TOO_MANY_ATTEMPTS', 'CHALLENGE_USED', 'INVALID_CHALLENGE'].includes(code)) setChallenge(null);
+      setTwoFactorCode('');
+    } finally {
+      setTwoFactorBusy(false);
+    }
+  }
+
   async function handleWalletLogin() {
     setWalletLoading(true);
     try {
       const user = await loginWithWallet();
+      if (user.requires2fa) { setChallenge(user.challengeToken); return; }
       navigate(user.role === 'admin' ? '/admin' : '/');
     } catch (e) {
       if (e.code === 'WALLET_NOT_FOUND') {
@@ -172,7 +198,23 @@ export default function Login() {
           <p className="text-text-2 text-sm mt-1">{t('auth.sportsBettingPlatform')}</p>
         </div>
 
-        {unverifiedEmail ? (
+        {challenge ? (
+          <form onSubmit={onTwoFactorSubmit} className="space-y-4">
+            <p className="text-text-2 text-sm">{t('auth.twoFactorPrompt')}</p>
+            <input value={twoFactorCode} onChange={e => setTwoFactorCode(e.target.value)}
+              autoFocus autoComplete="one-time-code" inputMode="numeric" maxLength={20}
+              placeholder={t('auth.twoFactorCode')}
+              className="w-full bg-bg-base border border-white/10 rounded-lg px-4 py-3 text-text-1 placeholder-text-3 focus:outline-none focus:border-primary transition" />
+            <button type="submit" disabled={twoFactorBusy || twoFactorCode.trim().length < 6}
+              className="w-full bg-accent text-white py-3 rounded-lg font-medium disabled:opacity-50">
+              {twoFactorBusy ? t('common.wait') : t('auth.verify')}
+            </button>
+            <button type="button" onClick={() => { setChallenge(null); setTwoFactorCode(''); }}
+              className="text-xs underline" style={{ color: '#7c8aae' }}>
+              {t('common.backToLogin')}
+            </button>
+          </form>
+        ) : unverifiedEmail ? (
           <div className="space-y-4">
             <div className="p-4 rounded-lg text-sm" style={{ background: 'rgba(239,68,68,0.08)', border: '1px solid rgba(239,68,68,0.3)', color: '#c8d8f0' }}>
               <strong style={{ color: '#f0f4ff' }}>{unverifiedEmail}</strong> {t('auth.emailNotVerified')}

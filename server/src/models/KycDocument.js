@@ -12,8 +12,10 @@ const schema = new mongoose.Schema({
   fileName: { type: String, required: true },
   fileSize: { type: Number, required: true },
   mimeType: { type: String, required: true },
-  // Storage path/URL
-  fileUrl: { type: String, required: true },
+  // Dosya, kimlik doğrulamalı GET /api/kyc/documents/:id ile sunulur; storageKey
+  // KYC_UPLOAD_DIR altındaki dosya adıdır. fileUrl yalnız eski kayıtlar içindir.
+  fileUrl: { type: String, default: null },
+  storageKey: { type: String, default: null },
   // Verification status
   status: { type: String, enum: ['pending', 'approved', 'rejected'], default: 'pending' },
   // Admin review

@@ -7,6 +7,8 @@ import ChatMessage from '../src/models/ChatMessage.js';
 import ChatTip from '../src/models/ChatTip.js';
 import ChatRain from '../src/models/ChatRain.js';
 import Transaction from '../src/models/Transaction.js';
+import Role from '../src/models/Role.js';
+import Permission from '../src/models/Permission.js';
 import { setIO } from '../src/services/socketEmitter.js';
 import {
   createRoom, getRoomBySlug, updateRoom, sendMessage, getRoomMessages,
@@ -47,8 +49,23 @@ async function makeUser(username, balance = 0) {
   return User.create({ username, email: `${username}@x.com`, password: 'password123', balance });
 }
 
+/** V8: rain is admin-only (admin:users:balance) and funded from the creator's balance. */
+async function makeRainAdmin(username, balance) {
+  const perm = await Permission.findOneAndUpdate(
+    { key: 'admin:users:balance' },
+    { $setOnInsert: { key: 'admin:users:balance', name: 'balance', category: 'users' } },
+    { upsert: true, new: true },
+  );
+  const role = await Role.findOneAndUpdate(
+    { name: 'chat_test_balance' },
+    { $setOnInsert: { name: 'chat_test_balance', displayName: 'balance', permissions: [perm._id] } },
+    { upsert: true, new: true },
+  );
+  return User.create({ username, email: `${username}@x.com`, password: 'password123', balance, role: 'admin', roles: [role._id] });
+}
+
 describe('Bug fix — require/import (ESM)', () => {
-  it('initChatSocket auth middleware jwt.verify çağırırken "require is not defined" hatası fırlatmaz', () => {
+  it('initChatSocket auth middleware jwt.verify çağırırken "require is not defined" hatası fırlatmaz', async () => {
     // Regresyon testi: services/chat.js'te önceden `const jwt = require('jsonwebtoken')`
     // kullanılıyordu — server "type":"module" olduğu için bu satır ReferenceError
     // fırlatırdı ve /chat namespace'inin auth middleware'i HER bağlantıda patlardı.
@@ -57,9 +74,7 @@ describe('Bug fix — require/import (ESM)', () => {
 
     let calledNext = null;
     const socket = { handshake: { auth: { token: 'not-a-real-token' } } };
-    assert.doesNotThrow(() => {
-      fakeIo._middleware(socket, (err) => { calledNext = err; });
-    });
+    await assert.doesNotReject(() => fakeIo._middleware(socket, (err) => { calledNext = err; }));
     // Geçersiz token → auth hatası ile next çağrılmalı, ama ReferenceError değil.
     assert.ok(calledNext instanceof Error);
     assert.equal(calledNext.message, 'auth');
@@ -75,8 +90,8 @@ describe('Bug fix — sendTip atomic bakiye kontrolü', () => {
 
     // Bakiye 100, her ikisi de 100 istiyor — yalnızca biri başarılı olmalı.
     const results = await Promise.allSettled([
-      sendTip(from._id, to1._id, room._id, 100, ''),
-      sendTip(from._id, to2._id, room._id, 100, ''),
+      sendTip(from._id, to1._id, room._id, 100, '', { requestId: 'c1' }),
+      sendTip(from._id, to2._id, room._id, 100, '', { requestId: 'c2' }),
     ]);
 
     const succeeded = results.filter(r => r.status === 'fulfilled');
@@ -93,7 +108,7 @@ describe('Bug fix — sendTip atomic bakiye kontrolü', () => {
     const to = await makeUser('zengin');
     const room = await createRoom({ name: 'Genel2', description: '', icon: '💬', color: '#000' }, from._id);
 
-    await assert.rejects(() => sendTip(from._id, to._id, room._id, 50, ''));
+    await assert.rejects(() => sendTip(from._id, to._id, room._id, 50, '', { requestId: 'p1' }));
 
     assert.equal((await User.findById(from._id)).balance, 10);
     assert.equal((await User.findById(to._id)).balance, 0);
@@ -104,7 +119,7 @@ describe('Bug fix — sendTip atomic bakiye kontrolü', () => {
     const to = await makeUser('alici3');
     const room = await createRoom({ name: 'Genel3', description: '', icon: '💬', color: '#000' }, from._id);
 
-    const tip = await sendTip(from._id, to._id, room._id, 30, 'iyi oyun');
+    const tip = await sendTip(from._id, to._id, room._id, 30, 'iyi oyun', { requestId: 's1' });
 
     assert.equal((await User.findById(from._id)).balance, 70);
     assert.equal((await User.findById(to._id)).balance, 30);
@@ -119,7 +134,7 @@ describe('Bug fix — sendTip atomic bakiye kontrolü', () => {
   it('kendine bahşiş gönderilemez', async () => {
     const user = await makeUser('kendine', 100);
     const room = await createRoom({ name: 'Genel4', description: '', icon: '💬', color: '#000' }, user._id);
-    await assert.rejects(() => sendTip(user._id, user._id, room._id, 10, ''));
+    await assert.rejects(() => sendTip(user._id, user._id, room._id, 10, '', { requestId: 'k1' }));
   });
 });
 
@@ -176,7 +191,7 @@ describe('sendMessage — moderasyon', () => {
 
 describe('Bug fix — createRain array-create (Model.create([{...}]) döner)', () => {
   it('yeterli aktif kullanıcıyla yağmur dağıtımı tamamlanır, alıcıların bakiyesi artar', async () => {
-    const admin = await makeUser('rainadmin');
+    const admin = await makeRainAdmin('rainadmin', 10);
     const r1 = await makeUser('rainrecipient1', 0);
     const r2 = await makeUser('rainrecipient2', 0);
     const room = await createRoom({ name: 'Yağmur Odası', description: '', icon: '💬', color: '#000' }, admin._id);
@@ -187,22 +202,23 @@ describe('Bug fix — createRain array-create (Model.create([{...}]) döner)', (
     // Regresyon testi: önceki bug'da `rain.recipients.push(...)` satırı
     // "Cannot read properties of undefined (reading 'push')" ile patlıyordu
     // çünkü rain bir array'di (Model.create([{...}]) deseni).
-    const rain = await createRain(room._id, admin._id, { totalAmount: 10 });
+    const rain = await createRain(room._id, admin._id, { totalAmount: 10, requestId: 'rain1' });
 
     assert.equal(rain.status, 'completed');
     assert.equal(rain.recipients.length, 2);
 
     const total = (await User.findById(r1._id)).balance + (await User.findById(r2._id)).balance;
     assert.equal(total, 10);
+    assert.equal((await User.findById(admin._id)).balance, 0, 'rain is funded by the creator');
   });
 
   it('yetersiz aktif kullanıcıda yağmur reddedilir', async () => {
-    const admin = await makeUser('rainadmin2');
+    const admin = await makeRainAdmin('rainadmin2', 10);
     const room = await createRoom({ name: 'Yağmur Odası2', description: '', icon: '💬', color: '#000' }, admin._id);
     await updateRoom(room._id, { rainMinUsers: 3 });
 
     setIO(createMockIoWithActiveUsers([String(admin._id)])); // yalnızca 1 aktif kullanıcı, 3 gerekli
 
-    await assert.rejects(() => createRain(room._id, admin._id, { totalAmount: 10 }));
+    await assert.rejects(() => createRain(room._id, admin._id, { totalAmount: 10, requestId: 'rain2' }));
   });
 });

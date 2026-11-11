@@ -1,11 +1,13 @@
 /**
- * SMTP ayarları: DB (şifre şifreli) > env. email.js transport'u ayar
- * değişince yeniden kurar.
+ * E-posta ayarları: DB (gizli alanlar şifreli) > env. email.js göndericisini
+ * ayar değişince yeniden kurar. DB anahtar öneki `smtp.*`tır (2026-10-03'teki
+ * ilk SMTP kurulumundan kalma; Mailtrap alanları da aynı store'u kullanır).
  *
  * İki alan (2026-10-03, Communication Providers kartı):
- *  - provider: panelde hazır değerler (Mailgun/SES/Postmark/özel) doldurur;
- *    transport etkisi yok — sadece "hangi hizmet" bilgisidir. Üretim ortam
- *    değişkeni yoksa panel host'tan çıkarır (`smtp.mailgun.org` → mailgun).
+ *  - provider: panelde hazır değerler (Mailtrap/Mailgun/SES/Postmark/özel) doldurur;
+ *    SMTP için transport etkisi yok — sadece "hangi hizmet" bilgisidir. Mailtrap
+ *    için BİLTEREK etkilidir: `resolveEmailMode` API mi SMTP mi seçer. Üretim
+ *    ortam değişkeni yoksa panel host'tan çıkarır (`smtp.mailgun.org` → mailgun).
  *  - fromName: From başlığındaki görünen ad; boşsa site adı kullanılır
  *    (email.js `formatFrom`).
  *
@@ -14,10 +16,15 @@
  *    (DB > env, eski davranış); `false` → transport YALNIZCA sunucu .env
  *    değerlerini kullanır (`emailEnvView`) — paneldeki DB değerleri
  *    bilerek yok sayılır.
+ *
+ * Dördüncü alan grubu (2026-10-30, Mailtrap Email API):
+ *  - token: Mailtrap Sending API anahtarı (gizli).
+ *  - useSandbox: `true` → Sandbox'a gönderir, gerçek alıcıya çıkmaz.
+ *  - sandboxInboxId: Sandbox inbox sayısı; `useSandbox=true` ile zorunlu.
  */
 import { createSecretSettingsStore, mongoLoad, mongoSave } from './secretSettingsStore.js';
 
-export const EMAIL_PROVIDERS = ['mailgun', 'ses', 'postmark', 'custom'];
+export const EMAIL_PROVIDERS = ['mailtrap', 'mailgun', 'ses', 'postmark', 'custom'];
 
 export const EMAIL_FIELDS = [
   { name: 'host', env: 'SMTP_HOST' },
@@ -29,11 +36,31 @@ export const EMAIL_FIELDS = [
   { name: 'fromName', env: 'SMTP_FROM_NAME' },
   { name: 'provider', env: 'SMTP_PROVIDER' },
   { name: 'gatewayEnabled', env: 'SMTP_GATEWAY_ENABLED', default: 'true' },
+  { name: 'token', env: 'MAILTRAP_TOKEN', secret: true },
+  { name: 'useSandbox', env: 'MAILTRAP_SANDBOX', default: 'false' },
+  { name: 'sandboxInboxId', env: 'MAILTRAP_INBOX_ID' },
 ];
 
+/** Gönderim mekanizmaları (email.js bu üçünden birini seçer). */
+export const EMAIL_MODES = ['mailtrap', 'smtp', 'none'];
+
 /**
- * Sunucu SMTP görünümü — Email Gateway anahtarı KAPALIYKEN email.js
- * transport'u bunu kullanır: yalnız .env (+ alan varsayılanları), panel DB'si
+ * Hangi mekanizma kullanılır?
+ *  - `mailtrap`: token çözülmüş VE sağlayıcı mailtrap seçili — ya da SMTP
+ *    host'u hiç yok (token-only kurulum).
+ *  - `smtp`: host var ve sağlayıcı mailtrap DEĞİL (eski operatör kurulumları
+ *    token olsa bile SMTP'de kalır).
+ *  - `none`: ikisi de yok → email.js mock'a düşer (geliştirme davranışı).
+ */
+export function resolveEmailMode(c = {}) {
+  if (c.token && (c.provider === 'mailtrap' || !c.host)) return 'mailtrap';
+  if (c.host) return 'smtp';
+  return 'none';
+}
+
+/**
+ * Sunucu .env görünümü — Email Gateway anahtarı KAPALIYKEN email.js
+ * göndericisi bunu kullanır: yalnız .env (+ alan varsayılanları), panel DB'si
  * bilerek girmez. `secret` alan burada çözülmez (env değeri zaten düz metin).
  */
 export function emailEnvView(env = process.env) {

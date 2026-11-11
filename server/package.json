@@ -17,6 +17,7 @@
     "dev": "node --watch src/server.js",
     "start": "node src/server.js",
     "test": "node scripts/run-all-tests.cjs",
+    "test:security": "node --test test/security/*.test.js",
     "test:bonus": "node scripts/test-bonus-wagering.cjs",
     "test:promo": "node scripts/test-promotion-claim.cjs",
     "test:callbacks": "node scripts/test-casino-callbacks.mjs"
@@ -35,6 +36,7 @@
     "express-rate-limit": "^7.3.1",
     "helmet": "^7.1.0",
     "jsonwebtoken": "^9.0.2",
+    "mailtrap": "6.0.0",
     "mongoose": "^8.4.0",
     "multer": "^2.3.0",
     "nodemailer": "^10.0.16",

@@ -25,6 +25,7 @@ import { errorHandler } from '../src/middleware/error.js';
 
 const URI = process.env.MONGODB_URI || 'mongodb://127.0.0.1:27017/betzone_test_rg_conc?replicaSet=rs0';
 process.env.JWT_SECRET ||= 'rg-concurrency-test-secret';
+process.env.DEMO_INSTANT_DEPOSIT = 'true'; // the deposit route is demo-only (V4)
 
 const IBAN = 'TR330006100519786457841326';
 let server, base, event, seq = 0;

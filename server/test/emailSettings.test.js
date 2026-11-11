@@ -3,8 +3,8 @@ import assert from 'node:assert';
 import { createEmailSettingsHandlers } from '../src/controllers/integrationSettings.js';
 import { createEmailConfigStore, emailEnvView } from '../src/config/emailConfig.js';
 import { updateEmailSettingsSchema, testEmailSchema } from '../src/validators/admin.js';
-import { sendTestEmail, formatFrom, _setCreateTransport } from '../src/services/email.js';
-import { emailConfig } from '../src/config/emailConfig.js';
+import { sendTestEmail, sendEmail, formatFrom, fromParts, _setCreateTransport, _setCreateMailtrapClient } from '../src/services/email.js';
+import { emailConfig, resolveEmailMode } from '../src/config/emailConfig.js';
 
 function mockRes() {
   return {
@@ -42,7 +42,7 @@ describe('POST /admin/settings/email/test (handler)', () => {
   test('SMTP tanımsızsa 400, gönderim hatasında 502', async () => {
     let err;
     const mk = sendTest => createEmailSettingsHandlers({ store: {}, getAdminEmail: async () => 'a@x.co', sendTest });
-    await mk(async () => { const e = new Error('x'); e.code = 'SMTP_NOT_CONFIGURED'; throw e; })
+    await mk(async () => { const e = new Error('x'); e.code = 'MAIL_PROVIDER_NOT_CONFIGURED'; throw e; })
       .test({ user: { id: 'a' } }, mockRes(), e => { err = e; });
     assert.strictEqual(err.status, 400);
     await mk(async () => { throw new Error('auth failed'); })
@@ -184,7 +184,7 @@ describe('email.js transport (mock) — ayar değişince yeniden kurulur', () =>
       assert.strictEqual(created[1].host, 'h2');
       assert.strictEqual(created[1].secure, true);
       cfg = { ...cfg, host: '' };
-      await assert.rejects(() => sendTestEmail('a@x.co'), e => e.code === 'SMTP_NOT_CONFIGURED');
+      await assert.rejects(() => sendTestEmail('a@x.co'), e => e.code === 'MAIL_PROVIDER_NOT_CONFIGURED');
     } finally {
       emailConfig.getAll = savedGetAll;
       _setCreateTransport(null);
@@ -213,8 +213,10 @@ describe('email.js transport — Email Gateway anahtarı (gatewayEnabled)', () =
     const created = [];
     _setCreateTransport(opts => { created.push(opts); return { sendMail: async () => ({}) }; });
     const savedGetAll = emailConfig.getAll;
-    const ENV_KEYS = ['SMTP_HOST', 'SMTP_PORT', 'SMTP_SECURE', 'SMTP_USER', 'SMTP_PASS', 'SMTP_FROM', 'SMTP_FROM_NAME', 'SMTP_PROVIDER', 'SMTP_GATEWAY_ENABLED'];
+    const ENV_KEYS = ['SMTP_HOST', 'SMTP_PORT', 'SMTP_SECURE', 'SMTP_USER', 'SMTP_PASS', 'SMTP_FROM', 'SMTP_FROM_NAME', 'SMTP_PROVIDER', 'SMTP_GATEWAY_ENABLED', 'MAILTRAP_TOKEN', 'MAILTRAP_SANDBOX', 'MAILTRAP_INBOX_ID'];
     const savedEnv = Object.fromEntries(ENV_KEYS.map(k => [k, process.env[k]]));
+    // Token'ın kendisi modu değiştirir: bu test SMTP'yi ölçer, env'de token kalmasın.
+    delete process.env.MAILTRAP_TOKEN;
     try {
       process.env.SMTP_HOST = 'env.host.example';
       process.env.SMTP_FROM = 'env@x.co';
@@ -228,10 +230,10 @@ describe('email.js transport — Email Gateway anahtarı (gatewayEnabled)', () =
       await sendTestEmail('a@x.co');
       assert.strictEqual(created.length, 2, 'mod değişince transport yeniden kurulmalı');
       assert.strictEqual(created[1].host, 'db.host.example');
-      // Gateway kapalı + env host yok → SMTP_NOT_CONFIGURED
+      // Gateway kapalı + env host/token yok → MAIL_PROVIDER_NOT_CONFIGURED
       delete process.env.SMTP_HOST;
       emailConfig.getAll = async () => ({ host: 'db.host.example', gatewayEnabled: 'false' });
-      await assert.rejects(() => sendTestEmail('a@x.co'), e => e.code === 'SMTP_NOT_CONFIGURED');
+      await assert.rejects(() => sendTestEmail('a@x.co'), e => e.code === 'MAIL_PROVIDER_NOT_CONFIGURED');
     } finally {
       emailConfig.getAll = savedGetAll;
       _setCreateTransport(null);
@@ -240,5 +242,155 @@ describe('email.js transport — Email Gateway anahtarı (gatewayEnabled)', () =
         else process.env[k] = v;
       }
     }
+  });
+});
+
+describe('resolveEmailMode — gönderme mekanizması seçimi', () => {
+  test('token + provider mailtrap → mailtrap API', () => {
+    assert.strictEqual(resolveEmailMode({ token: 't', provider: 'mailtrap' }), 'mailtrap');
+  });
+
+  test('token var, SMTP host yok → mailtrap API (token-only kurulum)', () => {
+    assert.strictEqual(resolveEmailMode({ token: 't' }), 'mailtrap');
+  });
+
+  test('host var ve sağlayıcı mailtrap DEĞİL → SMTP; token yalnızca yanıltmaca', () => {
+    assert.strictEqual(resolveEmailMode({ host: 'smtp.mailgun.org', provider: 'mailgun', token: 't' }), 'smtp');
+    assert.strictEqual(resolveEmailMode({ host: 'h', token: 't' }), 'smtp');
+  });
+
+  test('mailtrap seçiliyse eski SMTP host değeri de olsa API kazanır', () => {
+    assert.strictEqual(resolveEmailMode({ host: 'smtp.mailgun.org', provider: 'mailtrap', token: 't' }), 'mailtrap');
+  });
+
+  test('ikisi de yok → none (email.js mock\'a düşer)', () => {
+    assert.strictEqual(resolveEmailMode({ host: '', token: '' }), 'none');
+    assert.strictEqual(resolveEmailMode({}), 'none');
+  });
+});
+
+describe('email.js Mailtrap API yolu (mock client)', () => {
+  function withMailtrapClient(cfg, fn) {
+    const created = [];
+    const sent = [];
+    const warns = [];
+    const savedWarn = console.warn;
+    _setCreateMailtrapClient((opts) => {
+      created.push(opts);
+      return {
+        send: async (m) => {
+          sent.push(m);
+          return { messages: [{ email: m.to[0].email }] };
+        },
+      };
+    });
+    const savedGetAll = emailConfig.getAll;
+    emailConfig.getAll = async () => cfg;
+    console.warn = (...a) => warns.push(a.join(' '));
+    return (async () => {
+      try { return await fn({ created, sent, warns }); }
+      finally {
+        emailConfig.getAll = savedGetAll;
+        _setCreateMailtrapClient(null);
+        console.warn = savedWarn;
+      }
+    })();
+  }
+
+  const base = { provider: 'mailtrap', token: 'tok-1', from: 'postmaster@vip90.bet', fromName: 'VIP90 Bet', gatewayEnabled: 'true' };
+
+  test('mesaj biçimi: from {email,name} ve to [{email}] (SMTP düz stringi değil)', () =>
+    withMailtrapClient({ ...base }, async ({ sent }) => {
+      await sendEmail({ to: 'player@x.co', subject: 's', html: '<p>hi</p>' });
+      assert.deepStrictEqual(sent[0].from, { email: 'postmaster@vip90.bet', name: 'VIP90 Bet' });
+      assert.deepStrictEqual(sent[0].to, [{ email: 'player@x.co' }]);
+      assert.strictEqual(sent[0].subject, 's');
+      assert.match(sent[0].html, /<p>hi<\/p>/);
+    }));
+
+  test('fromName boşsa site adı From adına düşer (formatFrom ile aynı kural)', () =>
+    withMailtrapClient({ ...base, fromName: '' }, async ({ sent }) => {
+      await sendEmail({ to: 'player@x.co', subject: 's', html: 'x' });
+      assert.strictEqual(sent[0].from.email, 'postmaster@vip90.bet');
+      assert.ok(sent[0].from.name && sent[0].from.name !== '', 'boş ad gönderilmemeli');
+    }));
+
+  test('token değişince client yeniden kurulur, aynı tokenla kurulmaz', () =>
+    withMailtrapClient({ ...base }, async ({ created, sent }) => {
+      await sendTestEmail('a@x.co');
+      await sendTestEmail('b@x.co');
+      assert.strictEqual(created.length, 1, 'aynı tokenla client yeniden kurulmamalı');
+      assert.strictEqual(created[0].token, 'tok-1');
+      assert.ok(!created[0].sandbox, 'sandbox varsayılanı kapalı');
+      await sendEmail({ to: 'c@x.co', subject: 's', html: 'x', __token: undefined });
+      assert.strictEqual(sent.length, 3);
+    }));
+
+  test('sandbox açık → client sandbox+testInboxId ile kurulur ve uyarı basılır', () =>
+    withMailtrapClient({ ...base, useSandbox: 'true', sandboxInboxId: '42' }, async ({ created, warns }) => {
+      await sendTestEmail('a@x.co');
+      assert.strictEqual(created[0].sandbox, true);
+      assert.strictEqual(created[0].testInboxId, 42);
+      assert.match(warns.join('\n'), /SANDBOX/, 'Sandbox açıkken sessiz kalmamalı');
+    }));
+
+  test('sandbox açık ama inbox yok → MAILTRAP_SANDBOX_INBOX_MISSING (canlı API\'ye düşmez)', () =>
+    withMailtrapClient({ ...base, useSandbox: 'true', sandboxInboxId: '' }, async ({ created }) => {
+      assert.strictEqual(created.length, 0);
+      await assert.rejects(() => sendTestEmail('a@x.co'), e => e.code === 'MAILTRAP_SANDBOX_INBOX_MISSING');
+    }));
+
+  test('Mailtrap yolu SMTP transport\'unu kurmaz (host dolu olsa da)', () =>
+    withMailtrapClient({ ...base, host: 'smtp.mailgun.org', port: '587' }, async ({ sent }) => {
+      const savedCreateTransport = _setCreateTransport;
+      let smtpUsed = 0;
+      _setCreateTransport(() => { smtpUsed += 1; return { sendMail: async () => ({}) }; });
+      try {
+        await sendTestEmail('a@x.co');
+      } finally {
+        _setCreateTransport(null);
+        void savedCreateTransport;
+      }
+      assert.strictEqual(smtpUsed, 0);
+      assert.strictEqual(sent.length, 1);
+    }));
+
+  test('gateway kapalıyken token .env\'den çözülür (DB token\'ı yok sayılır)', async () => {
+    const ENV_KEYS = ['SMTP_HOST', 'SMTP_FROM', 'SMTP_PROVIDER', 'SMTP_GATEWAY_ENABLED', 'MAILTRAP_TOKEN', 'MAILTRAP_SANDBOX', 'MAILTRAP_INBOX_ID'];
+    const saved = Object.fromEntries(ENV_KEYS.map(k => [k, process.env[k]]));
+    const created = [];
+    try {
+      process.env.MAILTRAP_TOKEN = 'env-tok';
+      process.env.SMTP_PROVIDER = 'mailtrap';
+      process.env.SMTP_GATEWAY_ENABLED = 'false';
+      process.env.SMTP_FROM = 'env@x.co';
+      delete process.env.SMTP_HOST;
+      _setCreateMailtrapClient(opts => { created.push(opts); return { send: async () => ({}) }; });
+      const savedGetAll = emailConfig.getAll;
+      // DB'de başka bir token var: gateway kapalı → hiç girmemeli.
+      emailConfig.getAll = async () => ({ token: 'db-tok', provider: 'mailgun', gatewayEnabled: 'false' });
+      try {
+        await sendTestEmail('a@x.co');
+        assert.strictEqual(created.length, 1);
+        assert.strictEqual(created[0].token, 'env-tok');
+      } finally {
+        emailConfig.getAll = savedGetAll;
+      }
+    } finally {
+      _setCreateMailtrapClient(null);
+      for (const [k, v] of Object.entries(saved)) {
+        if (v === undefined) delete process.env[k];
+        else process.env[k] = v;
+      }
+    }
+  });
+});
+
+describe('fromParts — API From nesnesi', () => {
+  test('ad/ adres ayrımı ve tırnak temizliği formatFrom ile aynı kaynaklı', () => {
+    assert.deepStrictEqual(fromParts('VIP"90', 'Site', 'a@b.co'), { name: 'VIP90', email: 'a@b.co' });
+    assert.deepStrictEqual(fromParts('', '', ''), { name: '', email: 'noreply@vip90.bet' });
+    // formatFrom aynı parçalardan türer (tek kaynak bozulmasın)
+    assert.strictEqual(formatFrom('VIP90', 'Site', 'a@b.co'), '"VIP90" <a@b.co>');
   });
 });

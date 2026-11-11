@@ -43,6 +43,9 @@ export default function UserSlideOver({ user, onClose, onUpdated }) {
     casino_return: t('admin.userSlideOver.txCasinoReturn'), bonus_forfeit: t('admin.userSlideOver.txBonusForfeit'), referral_commission: t('admin.userSlideOver.txReferralCommission'),
     bonus_conversion: t('admin.userSlideOver.txBonusConversion'), agent_transfer_in: t('admin.userSlideOver.txAgentTransferIn'), agent_transfer_out: t('admin.userSlideOver.txAgentTransferOut'),
     tip_sent: t('admin.userSlideOver.txTipSent'), tip_received: t('admin.userSlideOver.txTipReceived'), rain: t('admin.userSlideOver.txRain'),
+    casino_bet: t('admin.userSlideOver.txCasinoBet'), casino_win: t('admin.userSlideOver.txCasinoWin'),
+    casino_cancel: t('admin.userSlideOver.txCasinoCancel'), reversal: t('admin.userSlideOver.txReversal'),
+    casino_transfer: t('admin.userSlideOver.txCasinoTransfer'),
   };
 
   useEffect(() => {
@@ -469,7 +472,7 @@ export default function UserSlideOver({ user, onClose, onUpdated }) {
                   {transactions.map((tx, i) => (
                     <div key={i} className="flex items-center justify-between bg-bg-hover rounded-xl p-3">
                       <div>
-                        <div className="text-sm text-text-1 font-medium">{TX_LABELS[tx.type] || tx.type}</div>
+                        <div className="text-sm text-text-1 font-medium">{TX_LABELS[tx.type] || tx.type}{tx.walletId && tx.walletId !== 'main' ? ` · ${tx.walletId}` : ''}</div>
                         {tx.note && <div className="text-xs text-text-3">{tx.note}</div>}
                       </div>
                       <div className="text-right">

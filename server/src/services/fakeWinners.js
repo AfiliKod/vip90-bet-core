@@ -51,7 +51,7 @@ const TR_INITIALS = 'ABCDEFGHIJKLMNOPRSTUVYZ'.split('');
 
 const INHOUSE_GAME_TITLES = {
   crash: 'Crash', mines: 'Mines', plinko: 'Plinko', dice: 'Dice', limbo: 'Limbo',
-  wheel: 'Wheel', roulette: 'Roulette', blackjack: 'Blackjack', baccarat: 'Baccarat',
+  crazywheel: 'Crazy Wheel', roulette: 'Roulette', blackjack: 'Blackjack', baccarat: 'Baccarat',
   keno: 'Keno', hilo: 'HiLo', dragontiger: 'Dragon Tiger', videopoker: 'Video Poker',
 };
 const INHOUSE_GAME_IDS = Object.keys(INHOUSE_GAME_TITLES);
@@ -152,15 +152,11 @@ function randomAmount() {
   return Math.round(amount / 5) * 5; // ₺5'e yuvarla, "525,00" gibi doğal bir sayı
 }
 
-function fakeUserId() {
-  return `fake-${Date.now()}-${randomInt(1000, 9999)}`;
-}
-
 function fireInhouseWin() {
   const username = pool[randomInt(0, pool.length - 1)];
   const gameId = INHOUSE_GAME_IDS[randomInt(0, INHOUSE_GAME_IDS.length - 1)];
   addRecentWinner({
-    userId: fakeUserId(),
+    isSynthetic: true,
     username,
     gameId: `inhouse-${gameId}`,
     gameTitle: INHOUSE_GAME_TITLES[gameId],
@@ -196,7 +192,7 @@ async function fireCasinoWin() {
   const username = pool[randomInt(0, pool.length - 1)];
   const game = games[randomInt(0, games.length - 1)];
   addRecentWinner({
-    userId: fakeUserId(),
+    isSynthetic: true,
     username,
     gameId: `igames-${game.game_code}`,
     gameTitle: game.game_name,
@@ -237,7 +233,7 @@ export function releaseBettingWinsForEvent(event) {
   for (let i = 0; i < count; i++) {
     const username = pool[randomInt(0, pool.length - 1)];
     addRecentWinner({
-      userId: fakeUserId(),
+      isSynthetic: true,
       username,
       gameId: `bet-${key}`,
       gameTitle: eventTitle,

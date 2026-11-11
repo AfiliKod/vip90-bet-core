@@ -14,6 +14,13 @@ const schema = new mongoose.Schema({
   paymentDetails:      { type: mongoose.Schema.Types.Mixed, default: {} },
   webhookReceivedAt:   { type: Date, default: null },
   processedAt:         { type: Date, default: null },
+  // V10: refund of the debited balance when the provider confirms a failure.
+  refundedAt:          { type: Date, default: null },
+  refundTransactionId: { type: mongoose.Schema.Types.ObjectId, ref: 'Transaction', default: null },
+  providerStatus:      { type: String, default: null },
+  needsReconciliation: { type: Boolean, default: false, index: true },
+  reconciliationNote:  { type: String, default: null },
+  metadata:            { type: mongoose.Schema.Types.Mixed, default: {} },
 }, { timestamps: true });
 
 // Indexes

@@ -3,7 +3,7 @@ import { validate } from '../middleware/validate.js';
 import {
   registerSchema, loginSchema,
   emailVerifySchema, passwordResetRequestSchema, passwordResetConfirmSchema,
-  resendVerificationSchema, ageConfirmSchema,
+  resendVerificationSchema, ageConfirmSchema, twoFactorLoginSchema,
 } from '../validators/auth.js';
 import { requireAuth } from '../middleware/auth.js';
 import * as ctrl from '../controllers/auth.js';
@@ -26,6 +26,8 @@ r.get('/turnstile-config', (req, res) => {
 
 r.post('/register', guestOnly, skipInTest(registerLimiter), turnstile, validate(registerSchema), ctrl.register);
 r.post('/login', guestOnly, skipInTest(loginLimiter), turnstile, validate(loginSchema), ctrl.login);
+// İkinci faktör: guestOnly yok (challenge zaten parola adımından geçmiş akışın parçası).
+r.post('/2fa/login', skipInTest(loginLimiter), validate(twoFactorLoginSchema), ctrl.verifyLogin2fa);
 // 18+ kapısı (2026-10-08): oturum açık olmayı gerektirir, çünkü kayıt
 // edilecek kişi o oyuncunun kendisidir.
 r.post('/age-confirm', requireAuth, validate(ageConfirmSchema), ctrl.ageConfirm);

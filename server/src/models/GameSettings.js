@@ -65,11 +65,6 @@ const schema = new mongoose.Schema({
   plinkoMinBet: { type: Number, default: 1, min: 0.01 },
   plinkoMaxBet: { type: Number, default: 50000, min: 1 },
 
-  // Wheel settings — payoutScale, WHEEL_SEGMENTS'teki m değerlerine uygulanır
-  wheelPayoutScale: { type: Number, default: 1.0, min: 0.5, max: 1.3 },
-  wheelMinBet: { type: Number, default: 1, min: 0.01 },
-  wheelMaxBet: { type: Number, default: 50000, min: 1 },
-
   // Keno settings — payoutScale, KENO_PAYOUTS tablosuna uygulanır
   kenoPayoutScale: { type: Number, default: 1.0, min: 0.5, max: 1.3 },
   kenoMinBet: { type: Number, default: 1, min: 0.01 },
@@ -122,6 +117,16 @@ const schema = new mongoose.Schema({
   // mührü kırar + yeniden sim ister). Bet aralığı 0.20–100.
   kingofmoneyMinBet: { type: Number, default: 0.20, min: 0.01 },
   kingofmoneyMaxBet: { type: Number, default: 100, min: 1 },
+
+  // Crazy Wheel (16 dilimli ağırlık çarkı, Wheel'in yerine geçti) — MÜHÜRLÜ
+  // matematik: paytable/ağırlıklar provider'ın math/crazyWheelMath.js sabitlerinde,
+  // RTP %90.00 kapalı formda KESİN (Σ wᵢ·mᵢ / Σwᵢ = 67.5/75). ONAYLI (2026-11-02):
+  // bet aralığı 1–1000, ayrı max-win cap YOK → round başına tavan 25 × maxBet.
+  // `wheelPayoutScale` BENZERİ bir katsayı bilinçli olarak TANIMSIZ: computeRound
+  // settings'ten hiçbir şey okumaz (provider testi bunu kenetler), operatör
+  // yetkisi yalnız aç/kapat + bet aralığı.
+  crazywheelMinBet: { type: Number, default: 1, min: 0.01 },
+  crazywheelMaxBet: { type: Number, default: 1000, min: 1 },
 
   // Common
   isActive: { type: Boolean, default: true },

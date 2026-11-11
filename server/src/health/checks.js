@@ -19,7 +19,9 @@ const REQUIRED_ENV = [
 
 const OPTIONAL_SERVICES = [
   { name: 'service:igames', label: 'Igames Casino', envKey: 'PALACE_API_TOKEN' },
-  { name: 'service:smtp', label: 'SMTP e-posta', envKey: 'SMTP_HOST' },
+  // Ad `service:smtp` kalır (panel/health sözleşmesi); kapsam artık her iki
+  // mekanizmayı da kapsar: Mailtrap API token'ı veya SMTP host'u.
+  { name: 'service:smtp', label: 'E-posta gönderimi', envKey: 'SMTP_HOST' },
 ];
 
 // Panelden (DB) kaydedilen değerler env'e göre önceliklidir. Varsayılan çözücüler
@@ -27,8 +29,12 @@ const OPTIONAL_SERVICES = [
 // Her çözücü "yapılandırılmış mı" (boolean) döner; testte `resolvers` ile enjekte edilir.
 const DEFAULT_RESOLVERS = {
   'service:smtp': async () => {
-    const { emailConfig } = await import('../config/emailConfig.js');
-    return !!(await emailConfig.getAll()).host;
+    const { emailConfig, emailEnvView, resolveEmailMode } = await import('../config/emailConfig.js');
+    const all = await emailConfig.getAll();
+    // Gateway kapalıyken panel DB değerleri yok sayılır → env tek kaynaktır ve
+    // SMTP host'u env'deyse yukarıdaki hızlı yol zaten 'ok' der.
+    if (all.gatewayEnabled !== 'false') return resolveEmailMode(all) !== 'none';
+    return resolveEmailMode(emailEnvView()) !== 'none';
   },
   'service:igames': async () => {
     const { refreshIgamesCredentialsNow } = await import('../premium/igames/igamesCredentials.js');

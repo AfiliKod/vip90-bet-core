@@ -20,6 +20,7 @@ function assert(cond, msg) { if (!cond) throw new Error(msg); }
 await mongoose.connect(TEST_DB_URI);
 const User = (await import('../src/models/User.js')).default;
 const authCtrl = await import('../src/controllers/auth.js');
+const { hashToken } = await import('../src/utils/tokenHash.js');
 
 async function resetDb() {
   await User.deleteMany({ username: /^test_evg_/ });
@@ -93,9 +94,9 @@ await test('register: yeni kayıt accessToken döndürmez, oturum açık başlam
   const result = getResult();
   assert(result.accessToken === undefined, 'register yanıtında accessToken OLMAMALI');
   assert(result.user?.emailVerified === false, 'yeni kullanıcı emailVerified:false olmalı');
-  const created = await User.findOne({ username: 'test_evg_register' });
+  const created = await User.findOne({ username: 'test_evg_register' }).select('+emailVerificationToken');
   assert(created, 'kullanıcı DB\'de oluşturulmuş olmalı');
-  assert(created.emailVerificationToken, 'doğrulama token\'ı üretilmiş olmalı');
+  assert(/^[a-f0-9]{64}$/.test(created.emailVerificationToken || ''), 'doğrulama token\'ı SHA-256 hash olarak saklanmış olmalı');
 });
 
 await test('resendVerification: var olan doğrulanmamış kullanıcı için yeni token üretir', async () => {
@@ -105,10 +106,18 @@ await test('resendVerification: var olan doğrulanmamış kullanıcı için yeni
   });
   const req = { validated: { email: 'evg_resend@test.com' }, headers: {} };
   const { res, getResult } = fakeRes();
-  await authCtrl.resendVerification(req, res, (e) => { throw e; });
+  // Mock e-posta linkini console'a basar; ham token'ı oradan yakala.
+  let logged = '';
+  const origLog = console.log;
+  console.log = (...a) => { logged += a.join(' ') + '\n'; };
+  try { await authCtrl.resendVerification(req, res, (e) => { throw e; }); } finally { console.log = origLog; }
   assert(getResult()?.message, 'generic mesaj dönmeliydi');
-  const updated = await User.findById(user._id);
-  assert(updated.emailVerificationToken !== 'old-token', 'yeni token üretilmeliydi');
+  const updated = await User.findById(user._id).select('+emailVerificationToken');
+  assert(/^[a-f0-9]{64}$/.test(updated.emailVerificationToken || ''), 'yeni token SHA-256 hash olmalıydı');
+  assert(updated.emailVerificationToken !== hashToken('old-token') && updated.emailVerificationToken !== 'old-token', 'yeni token üretilmeliydi');
+  const m = logged.match(/verify-email\?token=([a-f0-9]+)/);
+  assert(m, 'e-postadaki link yakalanamadı');
+  assert(hashToken(m[1]) === updated.emailVerificationToken, 'DB değeri e-postadaki ham token\'ın hash\'i olmalıydı');
   assert(updated.emailVerificationExpires > new Date(), 'yeni son kullanma tarihi ileride olmalıydı');
 });
 

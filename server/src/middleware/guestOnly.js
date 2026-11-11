@@ -51,7 +51,11 @@ export function makeGuestOnly(deps) {
 
 /** Aktif oturumu olan isteği misafir uçlarına sokmayan middleware. */
 export const guestOnly = makeGuestOnly({
-  verifyAccess: token => jwt.verify(token, process.env.JWT_SECRET),
+  verifyAccess: (token) => {
+    const payload = jwt.verify(token, process.env.JWT_SECRET);
+    if (payload.purpose) throw new Error('not a session token');
+    return payload;
+  },
   verifyRefresh: token => jwt.verify(token, process.env.JWT_REFRESH_SECRET),
   findUser: id => User.findById(id).select('tokenVersion'),
 });

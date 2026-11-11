@@ -63,10 +63,10 @@ yet; see the [Roadmap](#roadmap) and [Known Limitations](docs/product/09-bilinen
 | 👑 **VIP and real-time cashback** | Default 5-level VIP programme (Bronze–Diamond, editable in the panel); level-based cashback is credited right after each settled bet or round |
 | 🌍 **Multi-language and PWA** | 8 language dictionaries (player screens translated in all 8; the admin panel is complete in English and Turkish, partly English in the other six) with a global language switcher, installable Progressive Web App, iOS Capacitor shell |
 | 🧩 **Modular licensing** | The core is always on; Betting / Casino Content / In-house Games / Crypto Payment / Slikair / KYC / SMS Gateway are managed in the panel; the first three are separate paid add-ons |
-| ✉️ **Email and SMS communication** | Event-triggered system emails and SMS, scheduled campaigns, segment targeting and delivery logs on a single **Communication** page; SMTP/Mailgun for email, Twilio for SMS |
+| ✉️ **Email and SMS communication** | Event-triggered system emails and SMS, scheduled campaigns, segment targeting and delivery logs on a single **Communication** page; Mailtrap Email API or any SMTP provider for email, Twilio for SMS |
 | 💱 **Currency, brand and jurisdiction managers** | Currencies / Brands / Jurisdictions tabs under Settings; the site runs with one display currency and brand data isolation is not enforced ([Known Limitations](docs/product/09-bilinen-kisitlar.md)) |
 | 🚀 **Setup wizard** | After `docker compose up -d`, open `/install` in the browser (English/Turkish) for the first admin account and site settings; a `.env` (JWT keys, database) is needed beforehand for the server to start |
-| 🎰 **15 in-house games (paid add-on)** | Crash, Mines, Plinko, Dice, Limbo, Wheel, Hi-Lo, Keno, Blackjack, Roulette, Baccarat, Video Poker, Dragon Tiger, Coin Flip and the King of Money slot; all HMAC-SHA256 **provably fair**, house edge adjustable per game in the panel (the slot's math is sealed) |
+| 🎰 **15 in-house games (paid add-on)** | Crash, Mines, Plinko, Dice, Limbo, Crazy Wheel, Hi-Lo, Keno, Blackjack, Roulette, Baccarat, Video Poker, Dragon Tiger, Coin Flip and the King of Money slot; all HMAC-SHA256 **provably fair**, house edge adjustable per game in the panel (Crazy Wheel's and the slot's math is sealed) |
 | ⚽ **Sports and live betting (paid add-on)** | 30 sport definitions, live odds feed, single/combo bet slip, automatic settlement |
 | 🃏 **Casino Content (paid add-on)** | Slots and table games through an aggregator integration (one iGaming content provider adapter today) |
 
@@ -97,7 +97,7 @@ the paid add-ons.
   chat.
 - Theme/brand/SEO settings, static pages, multi-language interface.
 - Communication: editable system email and SMS templates, scheduled
-  campaigns and automations, delivery logs (email via SMTP/Mailgun, SMS via
+  campaigns and automations, delivery logs (email via Mailtrap or SMTP, SMS via
   Twilio).
 
 ### 💳 Payment and KYC modules (included with the core)
@@ -113,7 +113,7 @@ the paid add-ons.
 
 A game library you own, with no third-party contract required:
 
-**Crash · Mines · Plinko · Dice · Limbo · Wheel · Hi-Lo · Keno ·
+**Crash · Mines · Plinko · Dice · Limbo · Crazy Wheel · Hi-Lo · Keno ·
 Blackjack · Roulette · Baccarat · Video Poker · Dragon Tiger · Coin Flip ·
 King of Money**
 
@@ -200,7 +200,7 @@ Seven modules are switched on and off in the admin panel (**Settings →
 Modules**); when a license server is configured, the license state is
 checked as well (`server/src/modules/registry.js`). The **Email Gateway** card
 at the end of the same screen is not a module: it belongs to the core, is
-always on, and is where the email provider (SMTP/Mailgun) is configured.
+always on, and is where the email provider (Mailtrap Email API or SMTP) is configured.
 
 | Module | Provides | How it ships | Dependency |
 |---|---|---|---|

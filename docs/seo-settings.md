@@ -81,7 +81,7 @@ Rules and limits:
   server's response (200 / 404 / JSON) stands. The allowlist is derived at build
   time, so adding a route needs no extra step.
 - Two-phase deployment: first review the logs with `ROUTE_404_REPORT_ONLY=1`,
-  then remove the variable (see `docs/RUNBOOK.md`).
+  then remove the variable.
 
 ## Tests
 

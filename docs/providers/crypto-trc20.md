@@ -74,7 +74,7 @@ const user100Address = deriveDepositAddress(100); // User #100
 ```
 
 **How it works:**
-1. `User.cryptoDepositIndex` is stored in DB (sequential: 0, 1, 2, ...)
+1. `User.cryptoDepositIndex` is stored in DB (sequential: 1, 2, 3, ...; 0 is the hot wallet). It is allocated from an atomic counter (`Counter` `cryptoDepositIndex`, raised to the highest existing index before each allocation), so two concurrent requests never share an address and a user keeps one index. `node server/scripts/migrate-crypto-index.mjs` (dry run, then `--commit`) seeds the counter and adds the partial unique index `cryptoDepositIndex_unique`; it refuses while duplicates exist, and `--fix` moves every holder but the oldest to a new index (their deposit address changes)
 2. Admin knows the index → derives address via `deriveDepositAddress(index)`
 3. Balance can be queried via TronGrid public API
 
@@ -362,11 +362,11 @@ const rate = CRYPTO_SETTINGS.usdtTryRate;
 const tryAmount = usdtAmount * rate;
 ```
 
-> **Not:** Dönüşüm oranı `Settings → Modules → Crypto Payment Gateway` kartından değiştirilebilir. Varsayılan değer `.env` dosyasındaki `USDT_TRY_RATE` değişkenidir.
+> **Not:** Dönüşüm oranı `Settings → Modules → Crypto Payment Gateway` kartından değiştirilebilir ve DB'de saklanır (`Setting` `crypto.settings`); panelden kaydedilen oran `.env`'deki `USDT_TRY_RATE`'in önüne geçer. Panelden hiç kaydedilmediyse `USDT_TRY_RATE` kullanılır.
 
 ## API Endpoints
 
-All `/api/crypto/*` routes require a logged-in user and sit behind the `crypto-payment` module gate (`503 MODULE_DISABLED` until the module is switched on under **Settings → Modules**; new installations start with it disabled). `GET /api/crypto/settings` and `GET /api/crypto/hot-wallet-balance` are admin-only.
+All `/api/crypto/*` routes require a logged-in user and sit behind the `crypto-payment` module gate (`503 MODULE_DISABLED` until the module is switched on under **Settings → Modules**; new installations start with it disabled). `GET /api/crypto/settings` and `GET /api/crypto/hot-wallet-balance` are staff-only (`admin:settings:read`; `ADMIN_ALLOWED_IPS` applies). `POST /api/crypto/withdraw-request` answers `409 IGAMES_SESSION_OPEN` / `IGAMES_SESSION_REVIEW` while the user has an open Igames session.
 
 ### Deposit
 
@@ -387,7 +387,7 @@ All `/api/crypto/*` routes require a logged-in user and sit behind the `crypto-p
 | Endpoint | Method | Description |
 |----------|--------|-------------|
 | `GET /api/crypto/settings` | GET | Return current settings |
-| `PUT /api/admin/crypto/settings` | PUT | Update settings (network, rate, limits) |
+| `PUT /api/admin/crypto/settings` | PUT | Update settings (`admin:settings:write`). Body (strict): `{ deposit?: { autoCreditLimit?, requireApprovalAbove? }, withdraw?: { autoProcessLimit?, requireApprovalAbove? }, usdtTryRate?, network? }`. Only the sent keys are stored and survive restarts |
 
 ## Testnet (Shasta)
 
@@ -453,7 +453,7 @@ TRON_NETWORK=mainnet          # Varsayılan ağ (admin panelinden değiştirileb
 HOT_WALLET_PRIVATE_KEY=optional_separate_hot_wallet_key
 ```
 
-> **Not:** `USDT_TRY_RATE` ve `TRON_NETWORK` artık admin panelinden değiştirilebilir. `.env` değerleri sadece başlangıç (default) olarak kullanılır.
+> **Not:** `USDT_TRY_RATE` ve `TRON_NETWORK` admin panelinden değiştirilebilir. Panelden kaydedilen anahtar DB'de saklanır ve `.env` değerinin **önüne geçer**; o anahtar için `.env`'i sonradan değiştirmek etkisizdir. Panelden hiç kaydedilmemiş anahtarlar `.env` değerini izler. Ayarlar açılışta ve deposit/withdraw yollarında en çok 30 sn'de bir yeniden okunur; tek instance varsayılır. Geçersiz `USDT_TRY_RATE` 1'e düşer (loglanır).
 
 ## Known Limitations
 

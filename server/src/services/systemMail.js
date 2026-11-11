@@ -23,6 +23,7 @@ import SystemMailLog from '../models/SystemMailLog.js';
 import User from '../models/User.js';
 import PlayerSegment from '../models/PlayerSegment.js';
 import { sendEmail, SUPPORT_EMAIL } from './email.js';
+import { isSuppressedRecipient, suppressedDomainPattern } from '../config/mailSuppression.js';
 import { getSiteName } from '../branding/index.js';
 import { localeStore } from './localeLive.js';
 import { buildQueryFromCriteria } from './playerSegment.js';
@@ -56,6 +57,17 @@ const BASE_USER_FILTER = {
   deletedAt: null,
   isBot: { $ne: true },
 };
+
+/**
+ * Kitle seçimi baskılanmış domainleri baştan dışlar: seed/test hesapları
+ * kitleye girmeden elenir, gönderim denemesi ve `SystemMailLog` satırı
+ * üretilmez. Boş liste (`MAIL_SUPPRESS_EMAIL_DOMAINS=`) → filtre eklenmez.
+ */
+function applyDomainSuppression(filter) {
+  const pattern = suppressedDomainPattern();
+  if (!pattern) return filter;
+  return { ...filter, email: { ...filter.email, $not: new RegExp(pattern, 'i') } };
+}
 
 async function commonVars(user) {
   let siteName = 'VIP90.bet';
@@ -150,6 +162,9 @@ export async function sendActionMail(event, { user = null, userId = null, to = n
     const recipient = await resolveRecipient({ user, to, userId });
     if (!recipient.email) return { status: 'skipped', reason: 'no_recipient' };
     if (recipient.user?.isBot) return { status: 'skipped', reason: 'bot_user' };
+    // Demo/seed adresleri olay mailleri için de dışarıda (log satırı yazılmaz —
+    // `bot_user`/`no_recipient` ile aynı aile).
+    if (isSuppressedRecipient(recipient.email)) return { status: 'skipped', reason: 'suppressed_domain' };
 
     const common = await commonVars(recipient.user);
     const merged = { ...common, ...vars };
@@ -194,7 +209,7 @@ export async function sendActionMail(event, { user = null, userId = null, to = n
  */
 export async function resolveAudience(audience = {}, { limit = getBatchLimit() } = {}) {
   const type = audience?.type || 'all';
-  const filter = { ...BASE_USER_FILTER };
+  const filter = applyDomainSuppression({ ...BASE_USER_FILTER });
 
   if (type === 'users') {
     const ids = (audience.userIds || []).filter((id) => mongoose.isValidObjectId(id));

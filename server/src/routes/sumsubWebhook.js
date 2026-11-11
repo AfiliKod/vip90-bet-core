@@ -8,10 +8,17 @@ import { errorLogger } from '../services/errorLogger.js';
 
 const router = Router();
 
-router.post('/webhook/sumsub', expressRawBody(), async (req, res) => {
+router.post('/webhook/sumsub', async (req, res) => {
   try {
     const signature = req.headers['x-app-signature'];
-    const webhookSecret = await kycConfig.get('SUMSUB_WEBHOOK_SECRET');
+    let webhookSecret;
+    try {
+      webhookSecret = await kycConfig.get('SUMSUB_WEBHOOK_SECRET');
+    } catch {
+      // Anahtar yok/yanlış: 503 dön ki Sumsub yeniden denesin (200 olay kaybettirir).
+      errorLogger.error('sumsub_webhook', 'webhook secret unreadable');
+      return res.status(503).json({ error: 'Webhook not configured' });
+    }
 
     // SECURITY FIX (H5): Reject if webhook secret not configured
     if (!webhookSecret) {
@@ -24,8 +31,17 @@ router.post('/webhook/sumsub', expressRawBody(), async (req, res) => {
       return res.status(401).json({ error: 'Missing signature' });
     }
 
-    const rawBody = req.rawBody;
+    // Ham gövde app.js'te express.json verify kancasıyla yakalanır (V11).
+    const rawBody = req.rawBody ?? '';
+    if (!rawBody) {
+      return res.status(401).json({ error: 'Missing body' });
+    }
     const expectedSig = crypto.createHmac('sha256', webhookSecret).update(rawBody).digest('hex');
+    // timingSafeEqual uzunluk farkında fırlatır; catch 200 döneceği için önce kontrol et.
+    if (typeof signature !== 'string' || signature.length !== expectedSig.length) {
+      errorLogger.warn('sumsub_webhook', 'Invalid webhook signature length');
+      return res.status(401).json({ error: 'Invalid signature' });
+    }
     if (!crypto.timingSafeEqual(Buffer.from(signature), Buffer.from(expectedSig))) {
       errorLogger.warn('sumsub_webhook', 'Invalid webhook signature');
       return res.status(401).json({ error: 'Invalid signature' });
@@ -124,22 +140,5 @@ router.post('/webhook/sumsub', expressRawBody(), async (req, res) => {
     res.status(200).json({ ok: true });
   }
 });
-
-function expressRawBody() {
-  return (req, res, next) => {
-    let data = '';
-    req.setEncoding('utf8');
-    req.on('data', chunk => { data += chunk; });
-    req.on('end', () => {
-      req.rawBody = data;
-      try {
-        req.body = JSON.parse(data);
-      } catch {
-        req.body = {};
-      }
-      next();
-    });
-  };
-}
 
 export default router;

@@ -29,7 +29,12 @@ export async function getMe(req, res, next) {
     const obj = user.toSafeObject();
 
     // Aktif Igames oturumu varsa Igames'taki bakiyeyi ek bilgi olarak ekle
-    const activeSession = await CasinoSession.findOne({ userId: user._id, status: 'active' });
+    // A closing igames session (V19b) still holds the player's casino money.
+    // F3: a stray_deposit session (a refunded launch whose late deposit is
+    // being recovered) holds no player money: its transfer was refunded.
+    const activeSession = await CasinoSession.findOne({
+      userId: user._id, status: { $in: ['active', 'closing'] }, reconciliationReason: { $ne: 'stray_deposit' },
+    });
     if (activeSession) {
       const roundAgg = await CasinoRound.aggregate([
         { $match: { userId: user._id, provider: 'igames', createdAt: { $gte: activeSession.transferredAt } } },

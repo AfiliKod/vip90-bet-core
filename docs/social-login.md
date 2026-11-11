@@ -102,7 +102,7 @@ between instances — relevant only when running more than one server process.
 
 | Situation | Result |
 |-----------|--------|
-| No user with that e-mail | New user: username `google_<googleId[0:10]>`, e-mail = the Google e-mail lowercased, random password (no password login with it), `googleId/googleEmail/googleName/googlePicture` written, `emailVerified: true` (Google already verified it) |
+| No user with that e-mail | New user: username `google_<googleId[0:10]>` (taken → `google_<…>_<last 6 of googleId>`, then 8 random hex; at most 30 characters; a concurrent first login with the same Google account returns the winner), e-mail = the Google e-mail lowercased, random password (no password login with it), `googleId/googleEmail/googleName/googlePicture` written, `emailVerified: true` (Google already verified it) |
 | A user with that e-mail exists and has no `googleId` | The existing account is **linked**: `googleId` + profile fields are written and `emailVerified` is set |
 | A user with that e-mail exists and already has a `googleId` | Nothing is changed; the existing password account keeps winning over the OAuth profile |
 
@@ -162,7 +162,7 @@ server   POST /api/auth/wallet/login { address, signature, message, walletType }
 
 | Situation | Result |
 |-----------|--------|
-| No user with that `walletAddress` | New user: username `web3_<address[2:10]>`, synthetic e-mail `<address>@web3.vip90.local`, random password, `walletAddress`, `walletType`, `walletConnectedAt`, `walletChainId`, `emailVerified: true` (the wallet *is* the proof of ownership) |
+| No user with that `walletAddress` | New user: username `web3_<address[2:10]>` (taken → `web3_<…>_<last 6 of the address>`, then 8 random hex; a concurrent first login with the same wallet returns the winner), synthetic e-mail `<address>@web3.vip90.local`, random password, `walletAddress`, `walletType`, `walletConnectedAt`, `walletChainId`, `emailVerified: true` (the wallet *is* the proof of ownership) |
 | A user with that `walletAddress` exists | Existing account; only `walletType`/`walletChainId` are refreshed and `walletConnectedAt` is stamped |
 
 `walletAddress` has a sparse unique index, so one wallet cannot own two accounts.
@@ -217,14 +217,29 @@ Extra provider with the same shape as Google, kept here for completeness.
   `GET /api/auth/telegram/widget-state` → `{ state, botUsername }`.
 - Callback `GET /api/auth/telegram/callback` verifies the state (single use,
   10 min) and the widget payload: the `hash` field is recomputed as
-  `HMAC-SHA256(sha256(botToken), data-check-string)` and compared, and `auth_date`
-  must be younger than 24 hours (`INVALID_TELEGRAM_DATA`, `EXPIRED_TELEGRAM_AUTH`).
-- Find-or-create keys on `telegramId` (sparse unique) instead of the e-mail, since
-  Telegram does not provide one: username `tg_<telegramUsername>` (or
-  `tg_<id[0:10]>` when the user has no username), synthetic e-mail
-  `<id>@telegram.vip90.local`, `emailVerified: true`. A user that already exists
-  under the username `tg_<telegramUsername>` is **linked** instead of creating a
-  second account.
+  `HMAC-SHA256(sha256(botToken), data-check-string)` and compared in constant
+  time (a `hash` that is not 64 hex characters is refused outright), and
+  `auth_date` must be numeric, younger than 24 hours and at most 5 minutes in the
+  future (`INVALID_TELEGRAM_DATA`, `EXPIRED_TELEGRAM_AUTH`). The link callback
+  applies the same checks.
+- Find-or-create keys on `telegramId` (sparse unique) **only**, never on the
+  username or e-mail: Telegram usernames can be released and taken by someone
+  else, and a local account can register a `tg_…` name. A returning
+  `telegramId` gets its profile fields refreshed. With no match a new account is
+  always created: username `tg_<telegramUsername>` (or `tg_<id[0:10]>` when the
+  user has no username; characters outside `[A-Za-z0-9_]` become `_`); if that is
+  taken, `tg_<name>_<last 6 digits of the id>`, then `tg_<name>_<8 random hex>`
+  (at most 30 characters). Synthetic e-mail `<id>@telegram.vip90.local`,
+  `emailVerified: true`. Two simultaneous first logins with the same
+  `telegramId` end on the same account.
+- The login flow never attaches to an existing account. Adding Telegram to an
+  **existing** account is a support task today: there is no client screen, and
+  the link callback (`GET /api/auth/telegram/link/callback`) needs a Bearer
+  token that the Telegram widget redirect does not carry (the operator
+  handles it manually, see the operator notes).
+- The `tg_`, `google_` and `web3_` username prefixes are reserved for these accounts:
+  registration and admin user creation refuse them (`400 VALIDATION_ERROR`,
+  case-insensitive). Existing accounts with such names keep them.
 
 ---
 
@@ -241,7 +256,7 @@ if you build the UI (or call them from your own client).
 | DELETE | `/api/auth/google` | Removes `googleId` + Google profile fields from the account |
 | POST | `/api/auth/wallet/link` | Links a wallet (same `walletAuthSchema` body as login) |
 | DELETE | `/api/auth/wallet` | Removes `walletAddress/walletType/walletConnectedAt/walletChainId` |
-| POST | `/api/auth/telegram/link` | Returns the widget URL with the user id in `state` |
+| POST | `/api/auth/telegram/link` | Returns the widget URL with the user id in `state` (the callback refuses that `state` for any other user: `400 INVALID_STATE`; an account or `telegramId` already linked: `409 TELEGRAM_ALREADY_LINKED`) |
 | GET | `/api/auth/telegram/link/callback` | Links Telegram, then `302 → <CLIENT_URL>/profile?linked=telegram` |
 | DELETE | `/api/auth/telegram` | Removes the Telegram identity |
 | GET | `/api/auth/accounts` | Lists the linked social accounts of the session user |
@@ -294,7 +309,10 @@ NODE_ENV=test node --test server/test/routeWiring.test.js
 The wallet happy path (nonce → sign → verify → create account → tokens) is
 covered end to end by `web3Auth.test.js`; `googleAuthConfig.test.js` covers the
 DB/env/default resolution and `socialAuth.test.js` the OAuth state store, the
-Telegram HMAC check and the find-or-create rules. `web3Auth.test.js` and
+Telegram HMAC check and the find-or-create rules;
+`server/test/security/f1-telegram-link.test.js` covers the telegramId-only
+matching, username collisions, `auth_date` bounds, reserved prefixes and the
+bound link state. `web3Auth.test.js` and
 `socialAuth.test.js` need a local MongoDB (they connect with
 `mongodb://localhost:27017/…` and drop their database at the end); the config
 test needs nothing.

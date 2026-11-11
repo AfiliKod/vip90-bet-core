@@ -42,7 +42,8 @@ export async function submitKycDocuments(userId, documents, options = {}) {
       fileName: doc.fileName,
       fileSize: doc.fileSize,
       mimeType: doc.mimeType,
-      fileUrl: doc.fileUrl,
+      fileUrl: doc.fileUrl || null,
+      storageKey: doc.storageKey || null,
       status: 'pending',
       metadata: doc.metadata || {},
     })),
@@ -72,7 +73,7 @@ export async function getUserKycStatus(userId) {
 
   const documents = await KycDocument.find({ userId })
     .sort({ createdAt: -1 })
-    .select('documentType fileName fileSize mimeType fileUrl status reviewedBy reviewedAt rejectionReason createdAt');
+    .select('documentType fileName fileSize mimeType fileUrl storageKey status reviewedBy reviewedAt rejectionReason createdAt');
 
   return {
     userId: user._id,

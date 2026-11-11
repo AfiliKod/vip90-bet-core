@@ -1,5 +1,5 @@
 {
-  "betCommit": "376624214f5451cdc946d9bb4b596b1cad456fc4",
-  "syncedAt": "2026-10-25",
+  "betCommit": "5a379f3c4b16c4dd6b676f52e3b0ffb5f5bdc1fd",
+  "syncedAt": "2026-11-11",
   "note": "scripts/sync-core.mjs (bet) tarafından yazılır; bir sonraki senkronun 3 yollu birleştirme tabanıdır."
 }

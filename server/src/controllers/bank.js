@@ -4,6 +4,7 @@ import { withTransactionRetry } from '../utils/transactionRetry.js';
 import User from '../models/User.js';
 import BankDepositRequest from '../models/BankDepositRequest.js';
 import { createError } from '../middleware/error.js';
+import { assertNoOpenIgamesSession } from '../services/igamesSessionGuard.js';
 import { formatMoney } from '../currency/index.js';
 import { createTransaction, adjustBalance } from '../services/ledger.js';
 import { updateDailyStats } from '../services/responsibleGaming.js';
@@ -33,6 +34,7 @@ export async function createDeposit(req, res, next) {
 
 export async function createWithdraw(req, res, next) {
   try {
+    await assertNoOpenIgamesSession(req.user.id);
     const { amount, confirmForfeit } = req.validated;
     let user = await User.findById(req.user.id);
     if (user.withdrawalLockUntil && user.withdrawalLockUntil > new Date()) {

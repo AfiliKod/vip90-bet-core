@@ -10,7 +10,8 @@
  * Idempotent — tekrar çalıştırmak güvenlidir. Varsayılan parolayla kullanıcı
  * AÇILMAZ; --admin verilmemişse yalnızca site ayarları tohumlanır.
  */
-import 'dotenv/config';
+import './lib/env.mjs';
+
 import mongoose from 'mongoose';
 import { seedFirstRun } from '../src/health/seed.js';
 import User from '../src/models/User.js';

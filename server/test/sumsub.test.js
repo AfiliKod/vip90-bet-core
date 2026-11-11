@@ -1,3 +1,4 @@
+process.env.OPERATOR_SECRET_ENCRYPTION_KEY ||= 'c'.repeat(64);
 import { describe, it, before, after, beforeEach, mock } from 'node:test';
 import assert from 'node:assert/strict';
 import mongoose from 'mongoose';
@@ -78,11 +79,12 @@ describe('KYC Config Store', () => {
 
     assert.ok(tokenEntry.secret === true);
     assert.ok(tokenEntry.value.includes('…'));
-    assert.equal(tokenEntry.rawValue, 'app_t_1234567890abcdef');
+    assert.equal(tokenEntry.rawValue, null);
 
     assert.ok(secretEntry.secret === true);
     assert.ok(secretEntry.value.includes('…'));
-    assert.equal(secretEntry.rawValue, 'sec_abcdefghijklmnop');
+    assert.equal(secretEntry.rawValue, null);
+    assert.equal(await kycConfig.get('SUMSUB_SECRET_KEY'), 'sec_abcdefghijklmnop');
   });
 
   it('should reject unknown keys', async () => {
@@ -235,6 +237,8 @@ describe('Sumsub webhook route — timestamp enforcement', () => {
     kycConfig.invalidate();
 
     const app = express();
+    // Production captures the raw body in app.js (V11); mirror that here.
+    app.use(express.json({ verify: (req, _res, buf) => { req.rawBody = buf.toString('utf8'); } }));
     app.use(sumsubWebhookRouter);
     server = app.listen(0);
     await new Promise((resolve) => server.once('listening', resolve));
@@ -251,6 +255,23 @@ describe('Sumsub webhook route — timestamp enforcement', () => {
   function signBody(rawBody) {
     return crypto.createHmac('sha256', WEBHOOK_SECRET).update(rawBody).digest('hex');
   }
+
+  it('secret okunamazsa (anahtar yok) 503 döner, 200 değil', async () => {
+    const saved = process.env.OPERATOR_SECRET_ENCRYPTION_KEY;
+    delete process.env.OPERATOR_SECRET_ENCRYPTION_KEY;
+    kycConfig.invalidate();
+    try {
+      const res = await fetch(`${baseUrl}/webhook/sumsub`, {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: '{}',
+      });
+      assert.equal(res.status, 503);
+    } finally {
+      process.env.OPERATOR_SECRET_ENCRYPTION_KEY = saved;
+      kycConfig.invalidate();
+    }
+  });
 
   it('x-app-timestamp header eksikse 401 döner', async () => {
     const rawBody = '{}';

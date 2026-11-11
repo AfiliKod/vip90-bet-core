@@ -19,10 +19,30 @@ CasinoRoundSchema.index({ userId: 1, createdAt: -1 });
 CasinoRoundSchema.index({ gameId: 1, createdAt: -1 });
 CasinoRoundSchema.index({ createdAt: -1 });
 
-// Bet oluşturulduğunda otomatik wagering credit
-CasinoRoundSchema.post('save', async function() {
-  if (!this.bet || this.bet <= 0) return;
-  if (this.provider !== 'igames' && this.provider !== 'inhouse') return;
+/**
+ * Side effects of a saved casino round: bonus wagering credit, VIP XP, and for
+ * inhouse rounds referral commission, VIP cashback and the admin activity feed.
+ * Each step is best-effort (errors are logged, never thrown).
+ *
+ * The post-save hook runs this only for rounds saved WITHOUT a session. A
+ * writer that saves rounds inside a transaction must call this itself after
+ * the transaction commits (V19a): side effects inside the transaction would
+ * either join it (and be retried with it) or run outside it and survive an
+ * abort.
+ *
+ * Contract for such a caller (igames, V18): call it EXACTLY ONCE per committed
+ * round, after commit, never inside the transaction body (withTransactionRetry
+ * may run the body several times) and never for a round whose transaction
+ * aborted. Calling it twice credits wagering, XP, commission and cashback
+ * twice; nothing here deduplicates.
+ */
+export async function applyCasinoRoundSideEffects(round) {
+  if (!round.bet || round.bet <= 0) return;
+  if (round.provider !== 'igames' && round.provider !== 'inhouse') return;
+  await casinoRoundSideEffects.call(round);
+}
+
+async function casinoRoundSideEffects() {
   try {
     const { recordWagering } = await import('../services/wagering.js');
     const gameType = this.provider === 'igames' ? 'casino_slot' : 'inhouse';
@@ -69,6 +89,15 @@ CasinoRoundSchema.post('save', async function() {
       console.error('[activity] CasinoRound post-save error:', e.message);
     }
   }
+}
+
+// Bet oluşturulduğunda otomatik wagering credit. The hook skips on ANY session
+// ($session() set), not only inside a transaction: a writer that passes a
+// session without a transaction must also call applyCasinoRoundSideEffects
+// itself. The transactional writer calls it after commit.
+CasinoRoundSchema.post('save', async function() {
+  if (this.$session()) return;
+  return applyCasinoRoundSideEffects(this);
 });
 
 export default mongoose.model('CasinoRound', CasinoRoundSchema);

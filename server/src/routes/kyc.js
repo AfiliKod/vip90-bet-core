@@ -87,7 +87,7 @@ r.post('/documents', requireAuth, uploadKycDocs.array('documents', 6), async (re
       fileName: file.originalname,
       fileSize: file.size,
       mimeType: file.mimetype,
-      fileUrl: `/uploads/kyc/${file.filename}`,
+      storageKey: file.filename,
       metadata: {
         country: req.body.country,
         documentNumber: req.body.documentNumber,

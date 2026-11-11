@@ -24,8 +24,20 @@ export default function AuthCallback() {
     const token = searchParams.get('token');
     const error = searchParams.get('error');
 
+    // 2FA'lı hesap: challenge URL fragment'inde gelir (sunucuya/log'a gitmez);
+    // hemen okunup adres çubuğundan silinir ve router state ile /login'e taşınır.
+    if (searchParams.get('requires2fa') === '1') {
+      const challenge = new URLSearchParams(window.location.hash.replace(/^#/, '')).get('challenge');
+      window.history.replaceState(null, '', window.location.pathname);
+      navigate('/login', { replace: true, state: challenge ? { challenge } : undefined });
+      return;
+    }
+
     if (error) {
-      addToast(t('auth.walletLoginFailed'), 'error');
+      const key = error === 'google_link_required' ? 'auth.googleLinkRequired'
+        : error === 'google_email_unverified' ? 'auth.googleEmailUnverified'
+        : 'auth.walletLoginFailed';
+      addToast(t(key), 'error');
       navigate('/login', { replace: true });
       return;
     }

@@ -7,12 +7,9 @@
  */
 
 import { chromium } from 'playwright';
-import { config } from 'dotenv';
-import { resolve } from 'path';
+import './lib/env.mjs';
 import mongoose from 'mongoose';
 import User from '../src/models/User.js';
-
-config({ path: resolve('../.env') });
 
 const CLIENT_URL = process.env.CLIENT_URL || 'http://localhost:5173';
 const SERVER_URL = process.env.SERVER_URL || 'http://localhost:3001';
@@ -69,9 +66,15 @@ async function register() {
   // Get verification token from database (dev mode doesn't send real emails)
   const user = await User.findOne({ email: TEST_USER.email });
   console.log('  [DEBUG] User found:', user ? 'yes' : 'no');
-  if (user) console.log('  [DEBUG] Token:', user.emailVerificationToken ? 'yes' : 'no');
-  if (user && user.emailVerificationToken) {
-    verificationToken = user.emailVerificationToken;
+  // Tokens are stored as SHA-256 hashes (V1): the raw one only exists in the e-mail,
+  // so mint a fresh raw token for this test user and store its hash.
+  const crypto = await import('node:crypto');
+  if (user) {
+    verificationToken = crypto.randomBytes(32).toString('hex');
+    await User.updateOne({ _id: user._id }, { $set: {
+      emailVerificationToken: crypto.createHash('sha256').update(verificationToken).digest('hex'),
+      emailVerificationExpires: new Date(Date.now() + 3600 * 1000),
+    } });
     log('Register', 'pass', `User: ${TEST_USER.username}, token: ${verificationToken.slice(0, 12)}...`);
     return true;
   }

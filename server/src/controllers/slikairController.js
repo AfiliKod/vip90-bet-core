@@ -13,8 +13,13 @@ import SlikairPayout from '../models/SlikairPayout.js';
 import * as slikairService from '../services/slikairService.js';
 import { createTransaction, emitDepositRisk, adjustBalance, isDuplicateTransaction } from '../services/ledger.js';
 import { updateDailyStats, checkPlayerEligibility } from '../services/responsibleGaming.js';
+import { assertNoOpenIgamesSession } from '../services/igamesSessionGuard.js';
 import { isSlikairConfigured } from '../config/slikairConfig.js';
 import { errorLogger } from '../services/errorLogger.js';
+import {
+  refundPayout, flagRefundConflict, providerState, isProviderFailed, isProviderSucceeded,
+  isDefinitiveRejection, flagPayoutForReconciliation,
+} from '../services/slikairPayoutRefund.js';
 
 // Testlerin getPaymentStatus/getPayoutStatus'u (gerçek sandbox ağ isteği
 // yapmadan) taklit edebilmesi için — igamesSession.js'teki _setIgamesService
@@ -110,6 +115,7 @@ export async function initiatePayout(req, res, next) {
     const { userId, amount, currency, method, country, paymentDetails } = req.validated;
     const user = await User.findById(userId);
     if (!user) throw createError(404, 'NOT_FOUND', 'Kullanıcı bulunamadı');
+    await assertNoOpenIgamesSession(userId);
     if (user.balance < amount) throw createError(400, 'INSUFFICIENT_BALANCE', 'Kullanıcının bakiyesi yetersiz');
 
     const merchantReference = uuidv4();
@@ -160,9 +166,15 @@ export async function initiatePayout(req, res, next) {
       session.endSession();
     }
 
-    // 2) Slikair'e istek gönder. Başarısız olursa bakiyeyi iade et.
+    // 2) Send to Slikair. V10: only a definitive client rejection (4xx except
+    //    408/409/425/429) refunds, through refundPayout (same helper and key as
+    //    the failed webhook). 5xx, timeouts, network errors and unreadable or
+    //    incomplete answers may mean the payout exists at Slikair: nothing is
+    //    refunded automatically, the payout is flagged for reconciliation. The
+    //    Idempotency-Key is deterministic so a retried create cannot duplicate.
+    let result;
     try {
-      const result = await _slikairService.createPayout({
+      result = await _slikairService.createPayout({
         amount,
         currency,
         method,
@@ -171,36 +183,45 @@ export async function initiatePayout(req, res, next) {
         notificationUrl: undefined,
         customer: payout.customer,
         paymentDetails,
-      });
-
-      payout.payoutId = result.payout_id || result.payoutId || null;
-      payout.status = 'processing';
-      await payout.save();
-
-      res.status(201).json({
-        payoutId: payout._id,
-        slikairPayoutId: payout.payoutId,
-        status: payout.status,
-        slikairResponse: result,
-      });
+      }, { idempotencyKey: `slikair_payout_${merchantReference}` });
     } catch (e) {
-      payout.status = 'failed';
-      await payout.save();
-      const refunded = await adjustBalance(userId, amount);
-      await createTransaction({
-        userId,
-        type: 'refund',
-        amount,
-        balanceBefore: refunded.balanceBefore,
-        balanceAfter: refunded.balanceAfter,
-        referenceId: payout._id,
-        status: 'completed',
-        note: `Slikair çekim başlatılamadı, bakiye iade edildi: ${e.message}`,
-        idempotencyKey: `slikair_payout_refund_${merchantReference}`,
-        source: 'system',
-      }).catch(() => {});
+      if (isDefinitiveRejection(e)) {
+        try {
+          await refundPayout(payout, `createPayout: ${e.message}`, { skipProviderCheck: true });
+        } catch (re) {
+          errorLogger.critical(
+            'slikair_payout_refund_failed',
+            `payout ${payout._id}: refund after rejected createPayout failed: ${re.message}`,
+            { slikairPayoutId: String(payout._id) },
+          );
+        }
+      } else {
+        await flagPayoutForReconciliation(payout,
+          `createPayout outcome unknown (${Number.isInteger(e?.status) ? `HTTP ${e.status}` : 'no HTTP answer'}: ${e?.message}); the payout may exist at Slikair, the debit was not refunded`,
+          'slikair_payout_create_unknown');
+      }
       throw e;
     }
+
+    // The payout may exist at Slikair from here on: never refund on a local error.
+    const slikairPayoutId = (result && typeof result === 'object') ? (result.payout_id || result.payoutId || null) : null;
+    if (!slikairPayoutId || isProviderFailed(providerState(result))) {
+      await flagPayoutForReconciliation(payout,
+        `createPayout answered 2xx without a usable payout (${slikairPayoutId ? `status ${providerState(result).state || providerState(result).code}` : 'no payout_id'}); the debit was not refunded`,
+        'slikair_payout_create_unconfirmed');
+      if (slikairPayoutId) await SlikairPayout.updateOne({ _id: payout._id, payoutId: null }, { $set: { payoutId: slikairPayoutId } });
+      throw createError(502, 'SLIKAIR_PAYOUT_UNCONFIRMED', 'Slikair did not confirm the payout; it is flagged for reconciliation');
+    }
+    payout.payoutId = slikairPayoutId;
+    payout.status = 'processing';
+    await payout.save();
+
+    res.status(201).json({
+      payoutId: payout._id,
+      slikairPayoutId: payout.payoutId,
+      status: payout.status,
+      slikairResponse: result,
+    });
   } catch (e) { next(e); }
 }
 
@@ -378,15 +399,63 @@ export async function handlePayinWebhook(req, res, next) {
 
 // ── Webhook: Payout Notification ────────────────────────────────────────────
 
+async function attachPayoutIdByReference(payoutId, merchantReference) {
+  const candidate = await SlikairPayout.findOne({ merchantReference, payoutId: null });
+  if (!candidate) return null;
+  let check;
+  try {
+    check = await _slikairService.getPayoutStatus(payoutId);
+  } catch (e) {
+    errorLogger.critical('slikair_payout_reference_match_unverified',
+      `payoutId=${payoutId}: matched by merchantReference but get-status failed: ${e.message}`,
+      { payoutId, slikairPayoutId: String(candidate._id) });
+    return null;
+  }
+  const body = check?.data && typeof check.data === 'object' ? { ...check.data, ...check } : (check || {});
+  const providerRef = body.merchantReference || body.merchant_reference || null;
+  // Fail closed: attach only when the provider itself names this payout's
+  // merchantReference. Otherwise the payout stays flagged for reconciliation.
+  if (!providerRef) {
+    errorLogger.warn('slikair_payout_reference_unconfirmed',
+      `payoutId=${payoutId}: get-status returned no merchantReference; payoutId not attached`,
+      { payoutId, slikairPayoutId: String(candidate._id) });
+    return null;
+  }
+  if (String(providerRef) !== merchantReference) {
+    errorLogger.critical('slikair_payout_reference_mismatch',
+      `payoutId=${payoutId}: webhook merchantReference does not match the provider's`,
+      { payoutId, slikairPayoutId: String(candidate._id) });
+    return null;
+  }
+  const attached = await SlikairPayout.findOneAndUpdate(
+    { _id: candidate._id, payoutId: null },
+    { $set: { payoutId } },
+    { new: true },
+  );
+  if (attached) {
+    errorLogger.critical('slikair_payout_id_attached',
+      `payoutId=${payoutId} attached to payout ${candidate._id} by merchantReference (create answer was lost)`,
+      { payoutId, slikairPayoutId: String(candidate._id) });
+  }
+  return attached || SlikairPayout.findOne({ payoutId });
+}
+
 export async function handlePayoutWebhook(req, res, next) {
   try {
-    const { status, payoutId, merchantReference, amount, currency, statusCode, reasonCode } = req.body;
+    const { status, payoutId, amount, currency, statusCode, reasonCode } = req.body;
+    const merchantReference = req.body.merchantReference || req.body.merchant_reference || null;
 
     if (!payoutId) {
       return res.status(400).json({ error: 'Missing payoutId' });
     }
 
-    const payout = await SlikairPayout.findOne({ payoutId });
+    let payout = await SlikairPayout.findOne({ payoutId });
+    if (!payout && merchantReference) {
+      // V10: a payout whose create answer was lost has no payoutId yet. Match
+      // it by merchantReference, but attach the payoutId only after Slikair
+      // confirms it knows that payout (the webhook is unsigned).
+      payout = await attachPayoutIdByReference(payoutId, String(merchantReference));
+    }
     if (!payout) {
       console.warn(`[Slikair] Webhook for unknown payout_id: ${payoutId}`);
       return res.status(200).json({ ok: true });
@@ -411,6 +480,64 @@ export async function handlePayoutWebhook(req, res, next) {
     // haritasından daha güvenilir, öncelik veriyoruz.
     const newStatus = status === 'succeeded' ? 'succeeded' : (statusMap[statusCode] || payout.status);
 
+    // V10: the webhook is unsigned; its body never moves money. A refunded
+    // payout that the provider later confirms as paid is flagged loudly.
+    if (payout.refundTransactionId) {
+      if (newStatus === 'succeeded') {
+        let confirmed = false;
+        try {
+          confirmed = isProviderSucceeded(providerState(await _slikairService.getPayoutStatus(payoutId)));
+        } catch (e) {
+          errorLogger.critical('slikair_payout_webhook_verification_error',
+            `payoutId=${payoutId}: get-status check failed: ${e.message}`, { payoutId });
+        }
+        if (confirmed) {
+          await flagRefundConflict(payout, { webhookStatus: status ?? null, statusCode: statusCode ?? null, reasonCode: reasonCode || null });
+        } else {
+          errorLogger.critical('slikair_payout_webhook_verification_failed',
+            `payoutId=${payoutId}: "succeeded" webhook for a refunded payout not confirmed by get-status`, { payoutId });
+        }
+      }
+      await SlikairPayout.updateOne({ _id: payout._id }, { $set: { webhookReceivedAt: new Date() } });
+      return res.status(200).json({ ok: true });
+    }
+
+    if (newStatus === 'failed') {
+      if (payout.status === 'failed') {
+        // Marked failed before V10 refunds existed: the player may never have
+        // been refunded. Flag it only when the provider confirms the failure;
+        // never move money here. An unconfirmed webhook is only recorded.
+        let confirmed = false;
+        try {
+          confirmed = isProviderFailed(providerState(await _slikairService.getPayoutStatus(payoutId)));
+        } catch (e) {
+          errorLogger.critical('slikair_payout_webhook_verification_error',
+            `payoutId=${payoutId}: get-status check failed: ${e.message}`, { payoutId });
+        }
+        const set = { webhookReceivedAt: new Date() };
+        if (confirmed) {
+          set.needsReconciliation = true;
+          set.reconciliationNote = 'Payout failed without a recorded refund; check whether the player was refunded';
+        } else {
+          set['metadata.unverifiedFailedWebhook'] = { status: status ?? null, statusCode: statusCode ?? null, reason: 'pre_v10_failed_unconfirmed', receivedAt: new Date() };
+        }
+        await SlikairPayout.updateOne({ _id: payout._id, refundTransactionId: null }, { $set: set });
+        return res.status(200).json({ ok: true });
+      }
+      const outcome = await refundPayout(payout, 'provider_failed', {
+        fetchStatus: (id) => _slikairService.getPayoutStatus(id),
+      });
+      const set = { webhookReceivedAt: new Date() };
+      if (outcome.refunded) {
+        set.statusCode = statusCode;
+        set.reasonCode = reasonCode || null;
+      } else {
+        set['metadata.unverifiedFailedWebhook'] = { status: status ?? null, statusCode: statusCode ?? null, reason: outcome.reason, receivedAt: new Date() };
+      }
+      await SlikairPayout.updateOne({ _id: payout._id }, { $set: set });
+      return res.status(200).json({ ok: true });
+    }
+
     // Payin'deki gibi: bu webhook de imzasız. Bir payout için sahte "succeeded"
     // bildirimi kullanıcı bakiyesini doğrudan etkilemiyor (para transferi zaten
     // /payouts/create ile başlatılırken düşülmüştü) ama muhasebe kaydını "para
@@ -421,7 +548,7 @@ export async function handlePayoutWebhook(req, res, next) {
       verifiedSucceeded = false;
       try {
         const statusCheck = await _slikairService.getPayoutStatus(payoutId);
-        verifiedSucceeded = statusCheck?.status === 'succeeded';
+        verifiedSucceeded = isProviderSucceeded(providerState(statusCheck));
         if (!verifiedSucceeded) {
           errorLogger.critical(
             'slikair_payout_webhook_verification_failed',
@@ -443,18 +570,33 @@ export async function handlePayoutWebhook(req, res, next) {
     payout.statusCode = statusCode;
     payout.reasonCode = reasonCode || null;
     payout.webhookReceivedAt = new Date();
-    if (newStatus === 'succeeded' && !verifiedSucceeded) {
-      payout.metadata = {
-        ...(payout.metadata || {}),
-        unverifiedSucceededWebhook: { status, statusCode, amount, currency, receivedAt: new Date() },
-      };
-    }
+    const unverifiedSucceeded = (newStatus === 'succeeded' && !verifiedSucceeded)
+      ? { status, statusCode, amount, currency, receivedAt: new Date() }
+      : null;
 
     if (payout.status === 'succeeded') {
       payout.processedAt = new Date();
     }
 
-    await payout.save();
+    // V10: a refund may have been written since this payout was read; never
+    // overwrite it (a refunded payout that is paid is a reconciliation case).
+    const upd = await SlikairPayout.updateOne(
+      { _id: payout._id, refundTransactionId: null },
+      { $set: {
+        status: payout.status,
+        statusCode: payout.statusCode,
+        reasonCode: payout.reasonCode,
+        webhookReceivedAt: payout.webhookReceivedAt,
+        processedAt: payout.processedAt,
+        ...(unverifiedSucceeded ? { 'metadata.unverifiedSucceededWebhook': unverifiedSucceeded } : {}),
+      } },
+    );
+    if (upd.matchedCount === 0 && payout.status === 'succeeded') {
+      const refunded = await SlikairPayout.findById(payout._id);
+      if (refunded?.refundTransactionId) {
+        await flagRefundConflict(refunded, { webhookStatus: status ?? null, statusCode: statusCode ?? null, reasonCode: reasonCode || null });
+      }
+    }
     res.status(200).json({ ok: true });
   } catch (e) {
     console.error('[Slikair] Payout webhook error:', e);

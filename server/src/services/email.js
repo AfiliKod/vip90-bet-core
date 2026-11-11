@@ -1,59 +1,129 @@
-// Transactional email service — SMTP tabanlı.
-// Production'da gerçek SMTP env'leri tanımlı olmalı.
+// Transactional email service — iki gönderme mekanizması: Mailtrap Email API
+// (token) ve genel SMTP (nodemailer). Hangisi olduğunu emailConfig.resolveEmailMode
+// seçer. Production'da sağlayıcı env'lerinden en az biri tanımlı olmalı.
 
 import nodemailer from 'nodemailer';
+import { MailtrapClient } from 'mailtrap';
 import { getSiteName } from '../branding/index.js';
-import { emailConfig, emailEnvView } from '../config/emailConfig.js';
+import { emailConfig, emailEnvView, resolveEmailMode } from '../config/emailConfig.js';
+import { isSuppressedRecipient } from '../config/mailSuppression.js';
 
-// Transport, ayarlar (host/port/secure/user/pass) değişince yeniden kurulur:
-// imza değişmediği sürece aynı örnek yeniden kullanılır. Ayar kaynağı:
-// Email Gateway AÇIK → DB > env, KAPALI → yalnız sunucu .env (emailEnvView).
+const DEFAULT_FROM = 'noreply@vip90.bet';
+
+// Gönderici, ayarlar değişince yeniden kurulur: imza değişmediği sürece aynı
+// örnek yeniden kullanılır. Ayar kaynağı: Email Gateway AÇIK → DB > env,
+// KAPALI → yalnız sunucu .env (emailEnvView).
 let _transporter = null;
-let _signature = null;
+let _smtpSignature = null;
 let _createTransport = (opts) => nodemailer.createTransport(opts);
+
+let _mailtrap = null;
+let _mailtrapSignature = null;
+let _createMailtrapClient = (opts) => new MailtrapClient(opts);
 
 /** Testler için: gerçek SMTP yerine sahte transport. */
 export function _setCreateTransport(fn) {
   _createTransport = fn || ((opts) => nodemailer.createTransport(opts));
   _transporter = null;
-  _signature = null;
+  _smtpSignature = null;
 }
 
-async function getTransporter() {
-  const all = await emailConfig.getAll();
-  // Modules → Email Gateway kartındaki anahtar: kapalıysa paneldeki DB
-  // değerleri girmez, transport yalnızca sunucu .env SMTP'sine kurulur.
-  const gatewayOn = all.gatewayEnabled !== 'false';
-  const c = gatewayOn ? all : emailEnvView();
-  if (!c.host) {
-    _transporter = null;
-    _signature = null;
-    return { transporter: null, from: c.from, fromName: c.fromName };
-  }
-  // Mod da imzanın parçası: anahtar değişince DB/env kaynağı değişir,
-  // aynı host değeriyle bile olsa transport yeniden kurulur.
+/** Testler için: gerçek Mailtrap API'si yerine sahte client. */
+export function _setCreateMailtrapClient(fn) {
+  _createMailtrapClient = fn || ((opts) => new MailtrapClient(opts));
+  _mailtrap = null;
+  _mailtrapSignature = null;
+}
+
+function getSmtpTransporter(gatewayOn, c) {
   const signature = JSON.stringify([gatewayOn, c.host, c.port, c.secure, c.user, c.pass]);
-  if (!_transporter || signature !== _signature) {
+  if (!_transporter || signature !== _smtpSignature) {
     _transporter = _createTransport({
       host: c.host,
       port: parseInt(c.port || '587', 10),
       secure: c.secure === 'true',
       auth: c.user ? { user: c.user, pass: c.pass } : undefined,
     });
-    _signature = signature;
+    _smtpSignature = signature;
   }
-  return { transporter: _transporter, from: c.from, fromName: c.fromName };
+  return _transporter;
+}
+
+function getMailtrapClient(gatewayOn, c) {
+  const sandbox = c.useSandbox === 'true';
+  const testInboxId = parseInt(c.sandboxInboxId || '', 10) || 0;
+  if (sandbox && !testInboxId) {
+    const err = new Error('Mailtrap Sandbox açık ama Sandbox inbox ID tanımlı değil (MAILTRAP_INBOX_ID)');
+    err.code = 'MAILTRAP_SANDBOX_INBOX_MISSING';
+    throw err;
+  }
+  // Sandbox↔canlı anahtarı imzada: taban URL değişir
+  // (sandbox.api.mailtrap.io / send.api.mailtrap.io), örneği yeniden kurmak şart.
+  const signature = JSON.stringify([gatewayOn, sandbox, testInboxId, c.token]);
+  if (!_mailtrap || signature !== _mailtrapSignature) {
+    if (sandbox) {
+      // Sessiz tuzak: Sandbox açıksayken hiçbir gerçek alıcıya mail çıkmaz.
+      console.warn(`📧 [Mailtrap] SANDBOX modu açık (inbox ${testInboxId}) — mailler yalnız Sandbox'a gidiyor, gerçek kullanıcılara ulaşmıyor.`);
+    }
+    _mailtrap = _createMailtrapClient(
+      sandbox
+        ? { token: c.token, sandbox: true, testInboxId }
+        : { token: c.token },
+    );
+    _mailtrapSignature = signature;
+  }
+  return _mailtrap;
 }
 
 /**
- * From başlığı: `"Görünen Ad" <adres>`. `fromName` panelde tanımlıysa site
- * adını ezer (operatörün sender identity tercihi), tanımlı değilse davranış
+ * Etkin gönderici. `mode` değerleri: 'mailtrap' (API), 'smtp' (nodemailer),
+ * 'none' (ikisi de tanımsız → çağıran mock'a düşer). Email Gateway anahtarı
+ * imzanın parçasıdır: anahtar değişince kaynak (DB/env) değişir, aynı
+ * değerlerle bile gönderici yeniden kurulur.
+ */
+async function getSender() {
+  const all = await emailConfig.getAll();
+  // Modules → Email Gateway kartındaki anahtar: kapalıysa paneldeki DB
+  // değerleri girmez, gönderici yalnızca sunucu .env değerlerinden kurulur.
+  const gatewayOn = all.gatewayEnabled !== 'false';
+  const c = gatewayOn ? all : emailEnvView();
+  const mode = resolveEmailMode(c);
+  const base = { mode, from: c.from, fromName: c.fromName, useSandbox: c.useSandbox };
+  if (mode === 'none') return { ...base, sender: null };
+  if (mode === 'mailtrap') return { ...base, sender: getMailtrapClient(gatewayOn, c) };
+  return { ...base, sender: getSmtpTransporter(gatewayOn, c) };
+}
+
+/**
+ * From görünümü: `{ name, email }`. `fromName` panelde tanımlıysa site adını
+ * ezer (operatörün sender identity tercihi), tanımlı değilse davranış
  * eskisiyle aynı kalır.
  */
-export function formatFrom(fromName, siteName, from) {
+export function fromParts(fromName, siteName, from) {
   const name = (fromName || siteName || '').replace(/["\\]/g, '');
-  const addr = from || 'noreply@vip90.bet';
-  return name ? `"${name}" <${addr}>` : `<${addr}>`;
+  return { name, email: from || DEFAULT_FROM };
+}
+
+/**
+ * From başlığı: `"Görünen Ad" <adres>` (SMTP düz string biçimi).
+ */
+export function formatFrom(fromName, siteName, from) {
+  const { name, email } = fromParts(fromName, siteName, from);
+  return name ? `"${name}" <${email}>` : `<${email}>`;
+}
+
+/** Mekanizmaya göre mesaj gövdesi: Mailtrap API nesne ister, SMTP düz string. */
+function buildMail({ mode, fromName, siteName, from, to, subject, html }) {
+  if (mode === 'mailtrap') {
+    const { name, email } = fromParts(fromName, siteName, from);
+    return {
+      from: name ? { email, name } : { email },
+      to: [{ email: to }],
+      subject,
+      html,
+    };
+  }
+  return { from: formatFrom(fromName, siteName, from), to, subject, html };
 }
 
 // ─── Ortak mail görünümü (mail-güvenli: tablo tabanlı, inline CSS) ──────────
@@ -199,14 +269,21 @@ export async function renderBuiltinTemplate(template, data = {}) {
 }
 
 export async function sendEmail({ to, subject, template, data, html }) {
-  const { transporter, from, fromName } = await getTransporter();
+  // Demo/seed ve ayrik TLDli adreslere hicbir sey gonderilmez — saglayiciya
+  // emisyon bile gitmez (Delivery Logs'ta 'enqueued' satiri uretmez).
+  // `mock: true` korunur: dev'de dogrulama/sifirlama linki yine doner.
+  if (isSuppressedRecipient(to)) {
+    console.log(`📧 [EMAIL SUPPRESSED] → ${to} | ${subject || template || '(şablon)'}`);
+    return { mock: true, suppressed: true };
+  }
+  const { mode, sender, from, fromName } = await getSender();
   const siteName = await getSiteName();
   let body = { subject, html };
   if (template && TEMPLATES[template]) {
     body = TEMPLATES[template]({ ...(data || {}), siteName });
   }
-  if (!transporter) {
-    // SMTP yok — development mode'da console.log + linki bas
+  if (!sender) {
+    // Sağlayıcı yok — development mode'da console.log + linki bas
     console.log(`📧 [EMAIL MOCK] → ${to} | ${body.subject}`);
     const link = data?.verifyUrl
       || data?.resetUrl
@@ -214,30 +291,40 @@ export async function sendEmail({ to, subject, template, data, html }) {
     if (link) console.log(`   🔗 ${link}`);
     return { mock: true, verifyUrl: data?.verifyUrl, resetUrl: data?.resetUrl };
   }
-  return transporter.sendMail({
-    from: formatFrom(fromName, siteName, from),
-    to,
-    subject: body.subject,
-    html: body.html,
-  });
+  const mail = buildMail({ mode, fromName, siteName, from, to, subject: body.subject, html: body.html });
+  return mode === 'mailtrap' ? sender.send(mail) : sender.sendMail(mail);
 }
 
 /**
- * Panelden "test e-postası": SMTP tanımlı DEĞİLSE mock'a düşmez, hata fırlatır
- * (aksi halde admin yanlış bir "gönderildi" izlenimi alırdı).
+ * Panelden "test e-postası": hiçbir sağlayıcı tanımlı DEĞİLSE mock'a düşmez,
+ * hata fırlatır (aksi halde admin yanlış bir "gönderildi" izlenimi alırdı).
  */
 export async function sendTestEmail(to) {
-  const { transporter, from, fromName } = await getTransporter();
-  if (!transporter) {
-    const err = new Error('SMTP sunucusu tanımlı değil');
-    err.code = 'SMTP_NOT_CONFIGURED';
+  if (isSuppressedRecipient(to)) {
+    // Panelden test: 'gönderildi' izlenimi verme — bu adrese gönderilmez.
+    const err = new Error(`Bu adrese mail gönderilmiyor (baskılanmış domain): ${to}`);
+    err.code = 'MAIL_RECIPIENT_SUPPRESSED';
+    throw err;
+  }
+  const { mode, sender, from, fromName } = await getSender();
+  if (!sender) {
+    const err = new Error('E-posta sağlayıcısı tanımlı değil (Mailtrap token veya SMTP host)');
+    err.code = 'MAIL_PROVIDER_NOT_CONFIGURED';
     throw err;
   }
   const siteName = await getSiteName();
-  return transporter.sendMail({
-    from: formatFrom(fromName, siteName, from),
+  const mail = buildMail({
+    mode,
+    fromName,
+    siteName,
+    from,
     to,
-    subject: `${siteName} - SMTP test`,
-    html: layout({ siteName, preheader: 'SMTP test', body: `<p style="font-family:${FONT};font-size:15px;color:#e6ebf5;">SMTP ayarları çalışıyor.</p>` }),
+    subject: `${siteName} - ${mode === 'mailtrap' ? 'Mailtrap' : 'SMTP'} test`,
+    html: layout({
+      siteName,
+      preheader: 'Sağlayıcı testi',
+      body: `<p style="font-family:${FONT};font-size:15px;color:#e6ebf5;">E-posta sağlayıcısı (${mode === 'mailtrap' ? 'Mailtrap Email API' : 'SMTP'}) çalışıyor.</p>`,
+    }),
   });
+  return mode === 'mailtrap' ? sender.send(mail) : sender.sendMail(mail);
 }

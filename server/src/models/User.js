@@ -4,7 +4,7 @@ import bcrypt from 'bcryptjs';
 const schema = new mongoose.Schema({
   username: { type: String, required: true, unique: true, minlength: 3 },
   email:    { type: String, required: true, unique: true, lowercase: true },
-  password: { type: String, required: true },
+  password: { type: String, required: true, select: false },
   role:     { type: String, enum: ['user','admin'], default: 'user' },
   // ─── Role-based access (O4) ──────────────────────────────────────
   roles: [{ type: mongoose.Schema.Types.ObjectId, ref: 'Role' }], // additional roles beyond base role
@@ -61,10 +61,10 @@ const schema = new mongoose.Schema({
   tokenVersion:     { type: Number, default: 0 },
   // ─── Email verification (Phase D1) ────────────────────────────────
   emailVerified:    { type: Boolean, default: false },
-  emailVerificationToken:  { type: String, default: null },
+  emailVerificationToken:  { type: String, default: null, select: false }, // SHA-256 hash (utils/tokenHash.js)
   emailVerificationExpires: { type: Date, default: null },
   // ─── Password reset (Phase D2) ────────────────────────────────────
-  passwordResetToken:    { type: String, default: null },
+  passwordResetToken:    { type: String, default: null, select: false }, // SHA-256 hash
   passwordResetExpires:  { type: Date, default: null },
   // ─── Responsible gambling limits (Phase D4) ───────────────────────
   responsibleLimits: {
@@ -120,8 +120,11 @@ const schema = new mongoose.Schema({
   withdrawalLockUntil: { type: Date, default: null },
   // ─── 2FA / TOTP (Phase B6) ────────────────────────────────────────
   twoFactorEnabled:    { type: Boolean, default: false },
-  twoFactorSecret:     { type: String, default: null },
-  twoFactorBackupCodes: { type: [String], default: [] },
+  twoFactorSecret:     { type: String, default: null, select: false },
+  // Mixed: eski kayıtlar düz dizi, yenileri `enc:v1:` şifreli JSON string.
+  // String'e çevirmek legacy dizilerde Mongoose cast hatası üretirdi; migration
+  // hepsini şifreli string'e taşıyana kadar Mixed iki biçimi de okur.
+  twoFactorBackupCodes: { type: mongoose.Schema.Types.Mixed, default: null, select: false },
   twoFactorVerifiedAt: { type: Date, default: null },
   // ─── VIP / XP (O1) ────────────────────────────────────────────────
   vipLevel: { type: mongoose.Schema.Types.ObjectId, ref: 'VipLevel', default: null },
@@ -218,8 +221,15 @@ schema.pre('save', async function() {
 
 schema.methods.comparePassword = function(p) { return bcrypt.compare(p, this.password); };
 
+// select:false olan her yol (token hash'leri, 2FA sırrı/yedek kodları) ve password
+// hiçbir koşulda dışarı çıkmaz.
 schema.methods.toSafeObject = function() {
-  const o = this.toObject(); delete o.password; return o;
+  const o = this.toObject();
+  for (const [p, def] of Object.entries(this.schema.paths)) {
+    if (def.options?.select === false) delete o[p];
+  }
+  delete o.password;
+  return o;
 };
 
 export default mongoose.model('User', schema);

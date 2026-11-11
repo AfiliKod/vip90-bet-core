@@ -11,7 +11,8 @@
  *   node scripts/ledger-dedupe.mjs            → yalnızca rapor (varsayılan)
  *   node scripts/ledger-dedupe.mjs --commit   → arşivleyip kaldırır
  */
-import 'dotenv/config';
+import './lib/env.mjs';
+
 import mongoose from 'mongoose';
 import { connectDB } from '../src/db.js';
 import { dedupeDoubleWrites, ARCHIVE_COLLECTION } from '../src/services/ledgerDedupe.js';

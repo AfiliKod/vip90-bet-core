@@ -1,8 +1,9 @@
 import crypto from 'crypto';
 import User from '../models/User.js';
 import { createError } from '../middleware/error.js';
-import { signAccess, signRefresh } from '../controllers/auth.js';
+import { issueSession } from './session.js';
 import { getGoogleAuthSettings } from '../config/googleAuthConfig.js';
+import { createProviderUser, providerUsernameCandidates } from './providerUsername.js';
 
 /**
  * Telegram OAuth configuration — DÜZELTME: önceden aynı TELEGRAM_BOT_TOKEN
@@ -118,7 +119,17 @@ export async function getGoogleUserInfo(accessToken) {
     throw new Error('Failed to fetch Google user info');
   }
 
-  return response.json();
+  const data = await response.json();
+  // V14: Google'ın doğrulamadığı e-posta ile giriş/bağlama yapılmaz.
+  const verified = data.verified_email === true || data.email_verified === true;
+  if (!verified) throw createError(403, 'GOOGLE_EMAIL_UNVERIFIED', 'Google e-posta adresi doğrulanmamış');
+  // v2 userinfo kimliği `id` olarak döner (OIDC'de `sub`); ikisini de `sub`a
+  // normalleştir. Kimlik yoksa asla undefined googleId ile sorgu/kayıt yapma.
+  const rawId = data.sub ?? data.id;
+  if (rawId === undefined || rawId === null || String(rawId) === '') {
+    throw createError(502, 'GOOGLE_PROFILE_INVALID', 'Google profilinde kimlik yok');
+  }
+  return { ...data, sub: String(rawId), verified_email: true };
 }
 
 /**
@@ -142,8 +153,11 @@ export function getTelegramAuthUrl(userId = null) {
  * https://core.telegram.org/widgets/login
  */
 export function verifyTelegramWidgetData(queryParams, botToken) {
+  if (!queryParams || typeof botToken !== 'string' || !botToken) return false;
   const { hash, ...data } = queryParams;
-  
+  // F1: eksik/yanlış tipte hash'i erken reddet; karşılaştırma sabit zamanlı.
+  if (typeof hash !== 'string' || !/^[0-9a-fA-F]{64}$/.test(hash)) return false;
+
   // Create data-check-string
   const dataCheckString = Object.keys(data)
     .sort()
@@ -152,11 +166,29 @@ export function verifyTelegramWidgetData(queryParams, botToken) {
 
   // Generate secret key from bot token
   const secretKey = crypto.createHash('sha256').update(botToken).digest();
-  
+
   // Calculate HMAC
-  const hmac = crypto.createHmac('sha256', secretKey).update(dataCheckString).digest('hex');
-  
-  return hmac === hash;
+  const hmac = crypto.createHmac('sha256', secretKey).update(dataCheckString).digest();
+  const given = Buffer.from(hash, 'hex');
+  return given.length === hmac.length && crypto.timingSafeEqual(given, hmac);
+}
+
+const TELEGRAM_MAX_AGE_MS = 24 * 60 * 60 * 1000;
+const TELEGRAM_MAX_FUTURE_MS = 5 * 60 * 1000;
+
+/** F1: auth_date sayısal olmalı, 24 saatten eski veya 5 dk'dan ileri olamaz. */
+function assertTelegramAuthDate(queryParams) {
+  const raw = String(queryParams?.auth_date ?? '');
+  if (!/^\d{1,12}$/.test(raw)) {
+    throw createError(400, 'INVALID_TELEGRAM_DATA', 'Telegram verisi doğrulanamadı');
+  }
+  const diff = Date.now() - Number(raw) * 1000;
+  if (diff > TELEGRAM_MAX_AGE_MS) {
+    throw createError(400, 'EXPIRED_TELEGRAM_AUTH', 'Telegram yetkilendirmesi süresi dolmuş');
+  }
+  if (diff < -TELEGRAM_MAX_FUTURE_MS) {
+    throw createError(400, 'INVALID_TELEGRAM_DATA', 'Telegram verisi doğrulanamadı');
+  }
 }
 
 /**
@@ -178,39 +210,58 @@ export function getTelegramUserInfo(queryParams) {
  */
 export async function findOrCreateGoogleUser(profile, options = {}) {
   const { session = null } = options;
+  if (!profile || typeof profile.sub !== 'string' || !profile.sub) {
+    throw createError(502, 'GOOGLE_PROFILE_INVALID', 'Google profilinde kimlik yok');
+  }
   
   const email = profile.email.toLowerCase();
   
+  // V14: önce googleId ile ara — bağlı hesabın yerel e-postası Google
+  // e-postasından farklı olabilir; e-postayla aramak yeni hesap açmaya
+  // (googleId unique ihlali) götürürdü.
+  const linked = await User.findOne({ googleId: profile.sub }).session(session);
+  if (linked) return linked;
+
   // Try to find existing user by email
   let user = await User.findOne({ email }).session(session);
   
   if (!user) {
-    // Create new user
-    // DÜZELTME: User.create(docs, options) docs bir array verildiğinde HER
-    // ZAMAN array döner (session null olsa bile) — web3Auth.js'teki aynı bug
-    // (bkz. P6 commit'i), aynı sebeple burada da fark edilmemişti.
-    const username = `google_${profile.sub.slice(0, 10)}`;
-    const [created] = await User.create([{
-      username,
-      email,
-      password: crypto.randomBytes(32).toString('hex'),
-      googleId: profile.sub,
-      googleEmail: email,
-      googleName: profile.name,
-      googlePicture: profile.picture,
-      emailVerified: true, // Google verified
-    }], { session });
+    // F1: the base name may be taken (a local account, or another Google
+    // identity with the same sub prefix): bounded candidates like Telegram's.
+    const { user: created } = await createProviderUser(
+      providerUsernameCandidates(`google_${profile.sub.slice(0, 10)}`, profile.sub),
+      (username) => ({
+        username,
+        email,
+        password: crypto.randomBytes(32).toString('hex'),
+        googleId: profile.sub,
+        googleEmail: email,
+        googleName: profile.name,
+        googlePicture: profile.picture,
+        emailVerified: profile.verified_email === true,
+      }),
+      {
+        session,
+        // Concurrent first login with the same Google account: the winner.
+        findWinner: (e) => (e?.keyPattern?.googleId || e?.keyPattern?.email ? User.findOne({ googleId: profile.sub }) : null),
+      },
+    );
     user = created;
   } else {
-    // Update Google info if not set
-    if (!user.googleId) {
-      user.googleId = profile.sub;
-      user.googleEmail = email;
-      user.googleName = profile.name;
-      user.googlePicture = profile.picture;
-      user.emailVerified = true;
-      await user.save({ session });
+    // V14: zaten bu Google hesabına bağlıysa girer (emailVerified fark etmez).
+    // Bağlı olmayan yerel hesap yalnız iki taraf da e-postayı doğruladıysa
+    // otomatik bağlanır; aksi halde şifreyle girip profilden bağlanmalı.
+    if (user.googleId && user.googleId === profile.sub) {
+      return user;
     }
+    if (user.googleId || !(profile.verified_email === true && user.emailVerified === true)) {
+      throw createError(409, 'GOOGLE_LINK_REQUIRED', 'Google hesabını bağlamak için önce şifreyle giriş yapın');
+    }
+    user.googleId = profile.sub;
+    user.googleEmail = email;
+    user.googleName = profile.name;
+    user.googlePicture = profile.picture;
+    await user.save({ session });
   }
   
   return user;
@@ -221,53 +272,45 @@ export async function findOrCreateGoogleUser(profile, options = {}) {
  */
 export async function findOrCreateTelegramUser(profile, options = {}) {
   const { session = null } = options;
-  
+
   const telegramId = String(profile.id);
-  
-  // Try to find existing user by telegramId
-  let user = await User.findOne({ telegramId }).session(session);
-  
-  if (!user) {
-    // Try by username if available
-    if (profile.username) {
-      user = await User.findOne({ username: `tg_${profile.username}` }).session(session);
-    }
-    
-    if (!user) {
-      // Create new user (bkz. findOrCreateGoogleUser'daki aynı array-dönüş notu)
-      const username = profile.username ? `tg_${profile.username}` : `tg_${telegramId.slice(0, 10)}`;
-      const [created] = await User.create([{
-        username,
-        email: `${telegramId}@telegram.vip90.local`,
-        password: crypto.randomBytes(32).toString('hex'),
-        telegramId,
-        telegramUsername: profile.username,
-        telegramFirstName: profile.first_name,
-        telegramLastName: profile.last_name,
-        telegramPhoto: profile.photo_url,
-        emailVerified: true, // Telegram verified
-      }], { session });
-      user = created;
-    } else {
-      // Link telegram to existing user
-      user.telegramId = telegramId;
-      user.telegramUsername = profile.username;
-      user.telegramFirstName = profile.first_name;
-      user.telegramLastName = profile.last_name;
-      user.telegramPhoto = profile.photo_url;
-      await user.save({ session });
-    }
-  } else {
-    // Update Telegram info
-    user.telegramId = telegramId;
+
+  // F1: yalnız telegramId ile eşleşir. Telegram kullanıcı adları serbest
+  // kalıp başkasına geçebilir; yerel bir hesap da `tg_<ad>` önceden kaydedebilir.
+  // Kullanıcı adıyla mevcut hesaba ASLA bağlanmaz (bağlama için
+  // kimlik doğrulamalı linkTelegramAccount akışı).
+  const user = await User.findOne({ telegramId }).session(session);
+  if (user) {
     user.telegramUsername = profile.username;
     user.telegramFirstName = profile.first_name;
     user.telegramLastName = profile.last_name;
     user.telegramPhoto = profile.photo_url;
     await user.save({ session });
+    return user;
   }
-  
-  return user;
+
+  const base = profile.username ? `tg_${profile.username}` : `tg_${telegramId.slice(0, 10)}`;
+  const { user: created } = await createProviderUser(
+    providerUsernameCandidates(base, telegramId),
+    (username) => ({
+      username,
+      email: `${telegramId}@telegram.vip90.local`,
+      password: crypto.randomBytes(32).toString('hex'),
+      telegramId,
+      telegramUsername: profile.username,
+      telegramFirstName: profile.first_name,
+      telegramLastName: profile.last_name,
+      telegramPhoto: profile.photo_url,
+      emailVerified: true, // Telegram verified
+    }),
+    {
+      session,
+      // Concurrent first login with the same telegramId (the clashing key is
+      // telegramId or the derived <id>@telegram.vip90.local email): the winner.
+      findWinner: (e) => (e?.keyPattern?.telegramId || e?.keyPattern?.email ? User.findOne({ telegramId }) : null),
+    },
+  );
+  return created;
 }
 
 /**
@@ -292,10 +335,9 @@ export async function handleGoogleCallback(code, state, options = {}) {
   const user = await findOrCreateGoogleUser(profile, { session });
   
   // Generate tokens
-  const accessToken = signAccess(user);
-  const refreshToken = signRefresh(user);
+  const sessionResult = await issueSession(user, { method: 'google' });
   
-  return { user, accessToken, refreshToken, tokens };
+  return { user, ...sessionResult, tokens };
 }
 
 /**
@@ -315,11 +357,8 @@ export async function handleTelegramCallback(queryParams, state, options = {}) {
     throw createError(400, 'INVALID_TELEGRAM_DATA', 'Telegram verisi doğrulanamadı');
   }
   
-  // Check auth_date is recent (within 24 hours)
-  const authDate = parseInt(queryParams.auth_date);
-  if (Date.now() - authDate * 1000 > 24 * 60 * 60 * 1000) {
-    throw createError(400, 'EXPIRED_TELEGRAM_AUTH', 'Telegram yetkilendirmesi süresi dolmuş');
-  }
+  // auth_date: sayısal, en fazla 24 saat eski, 5 dakikadan ileri değil
+  assertTelegramAuthDate(queryParams);
   
   // Get user info
   const profile = getTelegramUserInfo(queryParams);
@@ -328,10 +367,9 @@ export async function handleTelegramCallback(queryParams, state, options = {}) {
   const user = await findOrCreateTelegramUser(profile, { session });
   
   // Generate tokens
-  const accessToken = signAccess(user);
-  const refreshToken = signRefresh(user);
+  const sessionResult = await issueSession(user, { method: 'telegram' });
   
-  return { user, accessToken, refreshToken };
+  return { user, ...sessionResult };
 }
 
 /**
@@ -352,6 +390,7 @@ export async function linkGoogleAccount(userId, code, state, options = {}) {
   
   const tokens = await exchangeGoogleCode(code);
   const profile = await getGoogleUserInfo(tokens.access_token);
+  if (!profile.sub) throw createError(502, 'GOOGLE_PROFILE_INVALID', 'Google profilinde kimlik yok');
   
   // Check if Google account already linked to another user
   const existingUser = await User.findOne({ googleId: profile.sub }).session(session);
@@ -364,7 +403,10 @@ export async function linkGoogleAccount(userId, code, state, options = {}) {
   user.googleEmail = profile.email;
   user.googleName = profile.name;
   user.googlePicture = profile.picture;
-  user.emailVerified = true;
+  // Yalnız (doğrulanmış) Google e-postası hesap e-postasıyla aynıysa doğrulanır.
+  if (String(profile.email || '').toLowerCase() === String(user.email || '').toLowerCase()) {
+    user.emailVerified = true;
+  }
   await user.save({ session });
   
   return user;
@@ -380,10 +422,15 @@ export async function linkTelegramAccount(userId, queryParams, state, options = 
   if (!stateData || stateData.provider !== 'telegram') {
     throw createError(400, 'INVALID_STATE', 'Geçersiz OAuth state');
   }
+  // F1: kullanıcıya bağlı state yalnız o kullanıcıyla tüketilebilir.
+  if (stateData.userId && String(stateData.userId) !== String(userId)) {
+    throw createError(400, 'INVALID_STATE', 'Geçersiz OAuth state');
+  }
   
   if (!verifyTelegramWidgetData(queryParams, TELEGRAM_LOGIN_BOT_TOKEN)) {
     throw createError(400, 'INVALID_TELEGRAM_DATA', 'Telegram verisi doğrulanamadı');
   }
+  assertTelegramAuthDate(queryParams);
   
   const user = await User.findById(userId).session(session);
   if (!user) throw createError(404, 'USER_NOT_FOUND', 'Kullanıcı bulunamadı');

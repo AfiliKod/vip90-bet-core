@@ -23,6 +23,11 @@ function txLabel(t, type, meta) {
     bonus_conversion: t('profile.bonusConversion'),
     crypto_deposit: t('profile.cryptoDeposit'),
     crypto_withdraw: t('profile.cryptoWithdraw'),
+    casino_bet: t('profile.casinoBet'),
+    casino_win: t('profile.casinoWin'),
+    casino_cancel: t('profile.casinoCancel'),
+    casino_transfer: t('profile.casinoTransfer'),
+    reversal: t('profile.reversal'),
   };
   // Slikair ödeme yöntemi etiketi
   if (type === 'deposit' && meta?.paymentMethod) {
@@ -429,16 +434,6 @@ const handleBankSubmit = async (confirmForfeit = false) => {
    };
 
   const amount = selectedAmount || (customAmount ? parseFloat(customAmount) : 0);
-
-  const onFiatSubmit = async (data) => {
-    try {
-      const endpoint = '/transactions/deposit';
-      const { data: res } = await api.post(endpoint, { amount: parseFloat(data.amount) });
-      onBalanceUpdate(res.newBalance);
-      addToast(res.message, 'success');
-      reset();
-    } catch (e) { addToast(e.response?.data?.error?.message || t('profile.operationFailed'), 'error'); }
-  };
 
   return (
     <div className="px-3 sm:px-4 py-6 max-w-2xl mx-auto">

@@ -8,7 +8,7 @@ import {
   getTelegramAuthUrl, handleTelegramCallback, linkTelegramAccount, unlinkTelegramAccount,
   getUserSocialAccounts, setOAuthState, isGoogleConfigured,
 } from '../services/socialAuth.js';
-import { setRefreshCookie } from '../controllers/auth.js';
+import { setRefreshCookie } from '../services/session.js';
 
 const r = Router();
 const testMode = process.env.NODE_ENV === 'test' || process.env.E2E_TEST === 'true';
@@ -23,6 +23,13 @@ const CLIENT_URL = (process.env.CLIENT_URL || 'http://localhost:5173').split(','
 // authStore'a yazar, ardından zenginleştirilmiş kullanıcı nesnesi normal
 // /auth/refresh akışıyla (authStore.init()) gelir — burada tekrar
 // hesaplamaya gerek yok, yalnızca refresh cookie set edilir.
+
+// 2FA'lı hesap: challenge URL FRAGMENT'inde taşınır (#challenge=...). Fragment
+// sunucuya/proxy log'larına/Referer'a gitmez; query'de taşınmaz. Challenge 5 dk
+// ömürlü, tek kullanımlık ve oturum değildir (requireAuth reddeder).
+function redirectToTwoFactor(res, challengeToken) {
+  res.redirect(`${CLIENT_URL}/auth/callback?requires2fa=1#challenge=${encodeURIComponent(challengeToken)}`);
+}
 
 // ── Google ──────────────────────────────────────────────────────────
 // Giriş ekranı Google butonunu yalnız yapılandırılmışsa gösterir.
@@ -44,11 +51,16 @@ r.get('/google/callback', async (req, res, next) => {
     const parsed = linkGoogleSchema.safeParse(req.query);
     if (!parsed.success) return res.redirect(`${CLIENT_URL}/auth/callback?error=invalid_request`);
     const { code, state } = parsed.data;
-    const { accessToken, refreshToken } = await handleGoogleCallback(code, state);
+    const session = await handleGoogleCallback(code, state);
+    if (session.requires2fa) return redirectToTwoFactor(res, session.challengeToken);
+    const { accessToken, refreshToken } = session;
     setRefreshCookie(res, refreshToken);
     res.redirect(`${CLIENT_URL}/auth/callback?token=${accessToken}`);
   } catch (e) {
-    res.redirect(`${CLIENT_URL}/auth/callback?error=${e.code || 'oauth_failed'}`);
+    const error = e.code === 'GOOGLE_LINK_REQUIRED' ? 'google_link_required'
+      : e.code === 'GOOGLE_EMAIL_UNVERIFIED' ? 'google_email_unverified'
+      : (e.code || 'oauth_failed');
+    res.redirect(`${CLIENT_URL}/auth/callback?error=${error}`);
   }
 });
 
@@ -97,7 +109,9 @@ r.get('/telegram/callback', async (req, res, next) => {
     const parsed = linkTelegramSchema.safeParse(req.query);
     if (!parsed.success) return res.redirect(`${CLIENT_URL}/auth/callback?error=invalid_request`);
     const { state, ...telegramParams } = parsed.data;
-    const { accessToken, refreshToken } = await handleTelegramCallback(telegramParams, state);
+    const session = await handleTelegramCallback(telegramParams, state);
+    if (session.requires2fa) return redirectToTwoFactor(res, session.challengeToken);
+    const { accessToken, refreshToken } = session;
     setRefreshCookie(res, refreshToken);
     res.redirect(`${CLIENT_URL}/auth/callback?token=${accessToken}`);
   } catch (e) {
