@@ -64,7 +64,7 @@ Email → Provider tab was removed on that date.
   (`sendActionMail`, `sendBulk`, `POST /admin/settings/email/test`) apply the
   same choice through `getTransporter()`.
 - Gateway off + no `SMTP_HOST` in `.env` → delivery is rejected with
-  `SMTP_NOT_CONFIGURED` (even if a panel value exists — the gate is deliberate).
+  `MAIL_PROVIDER_NOT_CONFIGURED` (even if a panel value exists — the gate is deliberate).
 
 ## Event (`event`) catalog
 

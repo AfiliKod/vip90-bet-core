@@ -4,6 +4,7 @@ import { useToastStore } from '../../store/toastStore';
 import { useTranslation } from '../../i18n';
 import { connectChatSocket } from '../../services/chatSocket';
 import api from '../../services/api';
+import { newRequestId } from '../../utils/requestId.js';
 import ChatWidget from './ChatWidget';
 import TipModal from './TipModal';
 import RainAnnouncement from './RainAnnouncement';
@@ -23,6 +24,9 @@ export default function ChatWidgetContainer() {
   const [room, setRoom] = useState(null);
   const [messages, setMessages] = useState([]);
   const [tipTarget, setTipTarget] = useState(null); // { userId, username }
+  // V8: one requestId per opened tip; a double click or resend carries the same id
+  // and the server moves the money once.
+  const [tipRequestId, setTipRequestId] = useState(null);
   const [rainEvent, setRainEvent] = useState(null);
   const sockRef = useRef(null);
   const rainTimeoutRef = useRef(null);
@@ -67,6 +71,8 @@ export default function ChatWidgetContainer() {
       setRainEvent({ totalAmount, recipientCount: recipients });
       rainTimeoutRef.current = setTimeout(() => setRainEvent(null), 6000);
     });
+    // Clear only the id that was confirmed; a tip opened meanwhile keeps its own id.
+    sock.on('chat:tipSent', ({ requestId } = {}) => setTipRequestId(cur => (cur === requestId ? null : cur)));
     sock.on('chat:error', ({ message }) => notify(message, 'info'));
 
     return () => {
@@ -87,11 +93,12 @@ export default function ChatWidgetContainer() {
 
   function handleOpenTip(userId, username) {
     setTipTarget({ userId, username });
+    setTipRequestId(newRequestId());
   }
 
   function handleSendTip(amount, message) {
     if (!room || !sockRef.current || !tipTarget) return;
-    sockRef.current.emit('chat:tip', { roomId: room._id, toUserId: tipTarget.userId, amount, message });
+    sockRef.current.emit('chat:tip', { roomId: room._id, toUserId: tipTarget.userId, amount, message, requestId: tipRequestId });
     setTipTarget(null);
   }
 

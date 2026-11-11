@@ -86,8 +86,8 @@ describe('fireFakeWin', () => {
     assert.ok(w.gameId.startsWith('inhouse-'));
     assert.ok(w.amount >= 100 && w.amount <= 200, `beklenen 100-200 arası, gelen: ${w.amount}`);
     assert.equal(w.currency, 'TRY');
-    // Kozmetik kazanan gerçek bir User'a bağlı değil — userId sentetik
-    assert.ok(String(w.userId).startsWith('fake-'));
+    // V13: public yayında userId yok
+    assert.equal(w.userId, undefined);
   });
 
   it('kazanan isimleri havuzdan seçilir', async () => {
@@ -95,7 +95,8 @@ describe('fireFakeWin', () => {
     regeneratePool();
     await fireFakeWin();
     const w = getRecentWinners(1)[0];
-    assert.match(w.username, /^[A-ZÇĞİÖŞÜ][a-zçğıöşü]+ [A-Z]\.$/);
+    // V13: isim maskeli yayınlanır (ilk 2 karakter + ***)
+    assert.match(w.username, /^.{2}\*\*\*$/);
   });
 });
 
@@ -172,7 +173,7 @@ describe('fireFakeWin — kazanç alanları (Çekirdek/Casino/Bahisler)', () => 
       }
       for (const w of bettingWinners) {
         assert.equal(w.gameTitle, 'Ev Sahibi - Deplasman');
-        assert.ok(String(w.userId).startsWith('fake-'));
+        assert.equal(w.userId, undefined);
       }
       // İkinci çağrı aynı etkinlik için tekrar kazanan üretmemeli (sayaç tüketildi).
       const afterFirstRelease = getRecentWinners(50).length;

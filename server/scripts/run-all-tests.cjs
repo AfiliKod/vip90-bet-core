@@ -89,6 +89,25 @@ if (MOCK_SUITES.length > 0) {
   }
 }
 
+// 5. node:test security suites (test/security/*.test.js; DB-backed cases skip themselves without MongoDB)
+console.log('\n━━━ Security Suites (node:test, test/security/) ━━━');
+{
+  const fs = require('fs');
+  const secDir = path.join(__dirname, '..', 'test', 'security');
+  const files = fs.existsSync(secDir)
+    ? fs.readdirSync(secDir).filter((f) => f.endsWith('.test.js')).sort().map((f) => path.join('test', 'security', f))
+    : [];
+  if (files.length) {
+    const start = Date.now();
+    const r = spawnSync('node', ['--test', ...files], {
+      cwd: path.join(__dirname, '..'), stdio: 'inherit', env: { ...process.env, NODE_ENV: 'test' },
+    });
+    const duration = ((Date.now() - start) / 1000).toFixed(1);
+    results.push({ name: 'test/security/*.test.js', label: 'Security', status: r.status, duration, type: 'security' });
+    if (r.status !== 0) allOk = false;
+  }
+}
+
 // Summary
 console.log('\n' + '═'.repeat(60));
 console.log('📊 GENEL ÖZET');
@@ -104,6 +123,7 @@ const typeLabels = {
   'unit': 'Unit Tests (logic)',
   'mock': 'Mock Tests',
   'casino-integration': 'Casino Integration (real DB)',
+  'security': 'Security (node:test)',
 };
 
 for (const [type, suites] of Object.entries(byType)) {

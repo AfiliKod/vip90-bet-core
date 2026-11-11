@@ -1,8 +1,11 @@
 import crypto from 'crypto';
 import mongoose from 'mongoose';
 import { withTransactionRetry } from '../utils/transactionRetry.js';
-import { createTransaction } from '../services/ledger.js';
+import { invalidateUserTokens } from '../middleware/auth.js';
+import { adjustBalance, createTransaction } from '../services/ledger.js';
+import { logAuditEvent } from '../services/audit.js';
 import User from '../models/User.js';
+import Role from '../models/Role.js';
 import Event from '../models/Event.js';
 import Bet from '../models/Bet.js';
 import Transaction from '../models/Transaction.js';
@@ -34,7 +37,7 @@ import * as promoGrants from '../services/casinoPromo/grants.js';
 import { listPromoGrantsQuerySchema } from '../validators/admin.js';
 import {
   getAllRoles, getAllPermissions, createRole, updateRole, deleteRole,
-  assignRoleToUser, assignDefaultAdminRole, removeRoleFromUser, userHasPermission, getUserPermissions,
+  assignRoleToUser, assignDefaultAdminRole, assertCanGrantRole, assertCanManageUser, assertKeepsActiveSuperAdmin, ensureActiveSuperAdminRemains, removeRoleFromUser, userHasPermission, getUserPermissions,
 } from '../services/permissions.js';
 import { getAllVipLevels, upsertVipLevel, deleteVipLevel } from '../services/vip.js';
 import { getReferralTreeView } from '../services/referralTreeView.js';
@@ -107,7 +110,7 @@ export async function getUsers(req, res, next) {
     }
     const [users, total] = await Promise.all([
       User.find(filter)
-        .select('-password')
+        .select('-password -twoFactorSecret -twoFactorBackupCodes -emailVerificationToken -passwordResetToken')
         .populate('referredBy', 'username')
         .populate('roles', 'name displayName')
         .sort({ createdAt: -1 })
@@ -191,8 +194,20 @@ export async function createUser(req, res, next) {
     // roles yalnızca role='admin' iken VE isteği yapanın admin:roles:write
     // izni varsa uygulanır — UI'da zaten gizli, ama sunucu tarafında da
     // ayrıca zorlanıyor (izinsiz biri payload'a elle roles ekleyemez).
-    if (roles?.length && (role !== 'admin' || !(await userHasPermission(req.user.id, 'admin:roles:write')))) {
+    if ((roles?.length || role === 'admin') && (role !== 'admin' || !(await userHasPermission(req.user.id, 'admin:roles:write')))) {
       throw createError(403, 'FORBIDDEN', 'Yetki yok: admin:roles:write');
+    }
+
+    // V21: every grant check runs BEFORE User.create so a 403 never leaves a
+    // half-created admin behind. admin:users:write alone cannot open an admin.
+    if (role === 'admin') {
+      for (const roleId of roles || []) await assertCanGrantRole(req.user.id, roleId);
+      if (!roles?.length) {
+        const defaultAdminRole = await Role.findOne({ name: 'admin' }).select('_id');
+        // Fail closed: never create role:'admin' without a role to give.
+        if (!defaultAdminRole) throw createError(500, 'DEFAULT_ADMIN_ROLE_MISSING', 'Varsayılan admin rolü bulunamadı');
+        await assertCanGrantRole(req.user.id, defaultAdminRole._id);
+      }
     }
 
     const user = await User.create({ username, email, password, role, referredBy: referredById, phone: normalizedPhone, dateOfBirth: dateOfBirth || null });
@@ -217,7 +232,9 @@ export async function deleteUser(req, res, next) {
     const user = await User.findById(req.params.id);
     if (!user) throw createError(404, 'NOT_FOUND', 'Kullanıcı bulunamadı');
     if (user.role === 'admin') throw createError(403, 'FORBIDDEN', 'Admin hesabı silinemez');
+    await assertCanManageUser(req.user.id, req.params.id); // V5: staff with roles but role!=='admin'
     await User.findByIdAndUpdate(req.params.id, { deletedAt: new Date(), isActive: false });
+    await invalidateUserTokens(req.params.id); // açık oturumlar ve refresh cookie'si biter
     res.json({ ok: true });
   } catch(e) { next(e); }
 }
@@ -226,9 +243,18 @@ export async function updateUser(req, res, next) {
   try {
     const allowed = ['isActive', 'kycVerified', 'emailVerified'];
     const update = Object.fromEntries(Object.entries(req.validated ?? req.body).filter(([k]) => allowed.includes(k)));
+    // V5 (I3): a staff target needs an actor holding all of its permissions,
+    // and the last active super_admin is never deactivated.
+    await assertCanManageUser(req.user.id, req.params.id);
+    if (update.isActive === false) await assertKeepsActiveSuperAdmin(req.params.id, 'deactivate');
+    const prev = await User.findById(req.params.id).select('isActive').lean();
     const user = await User.findByIdAndUpdate(req.params.id, update, { new:true }).select('-password');
     if (!user) throw createError(404,'NOT_FOUND','Kullanıcı bulunamadı');
-    res.json({ user });
+    if (update.isActive === false) {
+      await ensureActiveSuperAdminRemains(() => User.updateOne({ _id: req.params.id }, { isActive: prev?.isActive ?? true }));
+    }
+    if (update.isActive === false) await invalidateUserTokens(req.params.id);
+    res.json({ user: user.toSafeObject() });
   } catch(e) { next(e); }
 }
 
@@ -329,7 +355,7 @@ export async function getUserTransactions(req, res, next) {
     const transactions = await Transaction.find({ userId: req.params.id })
       .sort({ createdAt: -1 })
       .limit(20)
-      .select('type amount balanceBefore balanceAfter note createdAt');
+      .select('type amount balanceBefore balanceAfter note createdAt walletId');
     res.json({ transactions });
   } catch(e) { next(e); }
 }
@@ -954,84 +980,205 @@ export async function getIgamesTestUsers(req, res, next) {
   } catch(e) { next(e); }
 }
 
-// Withdraw all Igames test user balances to main casino balance
+const SWEEP_REQUEST_ID = /^[A-Za-z0-9_-]{8,64}$/;
+const SWEEP_ZERO_EPSILON = 0.01;
+
+/**
+ * Withdraw every igames user's provider balance back to the main wallet (F4).
+ * Per user: skip an open session (its close settles that money); skip a user
+ * this request already credited; read the provider balance (unreadable →
+ * error, 0 → skip); a refunded launch whose deposit may still sit at the
+ * provider (possible stray deposit) → needs_review, no withdraw; withdraw-all
+ * and credit EXACTLY the amount in the provider's answer — never the pre-read
+ * — through the ledger (one casino_return row, walletId main, idempotency key
+ * per request id and user). An ambiguous answer, or 0 withdrawn while the
+ * pre-read showed money, credits nothing (critical log, listed in
+ * needsReview); a definite refusal credits nothing. Body `requestId`
+ * (optional, 8-64 [A-Za-z0-9_-]; generated otherwise and returned): a retried
+ * request with the same id neither calls the provider again for a user it
+ * already credited nor credits twice. Every user gets an AuditLog row with
+ * its outcome.
+ */
 export async function withdrawIgamesTestUsers(req, res, next) {
   try {
+    const requestId = req.body?.requestId == null ? crypto.randomUUID() : req.body.requestId;
+    if (typeof requestId !== 'string' || !SWEEP_REQUEST_ID.test(requestId)) {
+      throw createError(400, 'INVALID_REQUEST_ID', 'requestId must be 8-64 characters of A-Z a-z 0-9 _ -');
+    }
     const igames = await getIgames();
+    // The session module owns the withdraw classifier, the provider timeout
+    // and the stray-deposit lookup (same rules as the session close).
+    const sessionMod = await import('../premium/igames/igamesSession.js');
+    const timeout = () => ({ signal: AbortSignal.timeout(sessionMod.PROVIDER_TIMEOUT_MS) });
+    const actor = mongoose.isValidObjectId(req.user?.id) ? await User.findById(req.user.id).select('username').lean() : null;
+    const audit = (user, outcome, success, extra = {}) => logAuditEvent({
+      actorId: actor?._id || null,
+      actorType: 'admin',
+      actorUsername: actor?.username || String(req.user?.id),
+      action: 'igames_test_user_sweep',
+      category: 'casino',
+      targetType: 'user',
+      targetId: String(user._id),
+      ipAddress: req.ip || null,
+      userAgent: req.get?.('user-agent') || null,
+      success,
+      errorMessage: success ? null : String(outcome),
+      metadata: { requestId, palaceUserCode: user.palaceUserCode, outcome, ...extra },
+    }).catch((e) => {
+      errorLogger.critical('igames_test_user_sweep', `Audit write failed for ${user.palaceUserCode}`, { userId: String(user._id), error: e.message });
+    });
 
-    // Find users with palaceUserCode
     const users = await User.find({
       palaceUserCode: { $exists: true, $ne: null }
     })
-    .select('username palaceUserCode balance');
+    .select('username palaceUserCode');
+
+    // V19b: a user with an open igames session (active/closing) is skipped:
+    // that money is settled by the session close, never by this bulk tool.
+    const openSessionUsers = new Set((await CasinoSession.distinct('userId', {
+      userId: { $in: users.map((u) => u._id) },
+      status: { $in: ['active', 'closing'] },
+    })).map(String));
 
     let totalWithdrawn = 0;
     let successCount = 0;
     let errorCount = 0;
     const results = [];
+    const needsReview = [];
+    const row = (user, withdrawn, status, message) => ({
+      username: user.username, palaceUserCode: user.palaceUserCode, withdrawn, status, ...(message ? { message } : {}),
+    });
+    const review = async (user, withdrawn, outcome, reason, extra = {}) => {
+      errorLogger.critical('igames_test_user_sweep', `${user.palaceUserCode}: ${reason}; nothing credited`, {
+        userId: String(user._id), palaceUserCode: user.palaceUserCode, requestId, ...extra,
+      });
+      const r = row(user, withdrawn, 'needs_review', reason);
+      results.push(r);
+      needsReview.push({ ...r, reason: outcome });
+      await audit(user, outcome, false, { reason, ...extra });
+    };
 
     for (const user of users) {
+      if (openSessionUsers.has(String(user._id))) {
+        results.push(row(user, 0, 'skipped', 'Open igames session'));
+        await audit(user, 'skipped_open_session', true);
+        continue;
+      }
+      const idempotencyKey = `igames_sweep_${requestId}_${user._id}`;
+      if (await Transaction.exists({ idempotencyKey })) {
+        results.push(row(user, 0, 'already_credited', 'Already credited by this request'));
+        await audit(user, 'already_credited', true);
+        continue;
+      }
+      let balance = NaN;
+      let readError = null;
       try {
-        // Get current Igames balance
-        const infoResult = await igames.getUserInfo(user.palaceUserCode);
-        const igamesBalance = parseFloat(infoResult.data?.data?.balance || 0);
-
-        if (igamesBalance > 0) {
-          // Withdraw all from Igames
-          const withdrawResult = await igames.withdrawAllUser(user.palaceUserCode);
-          
-          if (withdrawResult.data?.code === 0) {
-            // Add to main casino balance (atomic)
-            await User.findByIdAndUpdate(user._id, { $inc: { balance: igamesBalance } });
-
-            totalWithdrawn += igamesBalance;
-            successCount++;
-            results.push({
-              username: user.username,
-              palaceUserCode: user.palaceUserCode,
-              withdrawn: igamesBalance,
-              status: 'success'
-            });
-            console.log(`✅ ${user.username} (${user.palaceUserCode}): ${igamesBalance} TL withdrawn`);
-          } else {
-            errorCount++;
-            results.push({
-              username: user.username,
-              palaceUserCode: user.palaceUserCode,
-              withdrawn: 0,
-              status: 'error',
-              message: withdrawResult.data?.message || 'Bilinmeyen hata'
-            });
-            console.log(`❌ ${user.username} (${user.palaceUserCode}): ${withdrawResult.data?.message}`);
-          }
+        const info = await igames.getUserInfo(user.palaceUserCode, timeout());
+        if (Number(info?.data?.code) === 0) {
+          const raw = info.data?.data?.balance;
+          balance = typeof raw === 'number' ? raw : (typeof raw === 'string' && /^\d+(\.\d+)?$/.test(raw.trim()) ? Number(raw) : NaN);
+          if (!Number.isFinite(balance)) readError = 'no balance in user/info answer';
         } else {
-          results.push({
-            username: user.username,
-            palaceUserCode: user.palaceUserCode,
-            withdrawn: 0,
-            status: 'skipped',
-            message: 'Bakiye 0'
-          });
+          readError = info?.data?.message || `user/info code ${info?.data?.code}`;
         }
       } catch (e) {
-        errorCount++;
-        results.push({
-          username: user.username,
-          palaceUserCode: user.palaceUserCode,
-          withdrawn: 0,
-          status: 'error',
-          message: e.message
-        });
-        console.log(`❌ ${user.username} (${user.palaceUserCode}): ${e.message}`);
+        readError = e.message;
       }
+      if (readError) {
+        errorCount++;
+        results.push(row(user, 0, 'error', `Provider balance unreadable: ${readError}`));
+        await audit(user, 'balance_unreadable', false, { error: readError });
+        continue;
+      }
+      if (!(balance > SWEEP_ZERO_EPSILON)) {
+        results.push(row(user, 0, 'skipped', 'Bakiye 0'));
+        await audit(user, 'skipped_zero_balance', true, { providerBalanceBefore: balance });
+        continue;
+      }
+      // Narrow the launch race: a session opened since the bulk check above.
+      if (await CasinoSession.exists({ userId: user._id, status: { $in: ['active', 'closing'] } })) {
+        results.push(row(user, 0, 'skipped', 'Open igames session'));
+        await audit(user, 'skipped_open_session', true);
+        continue;
+      }
+      // Part of the provider balance may be a refunded launch's deposit that
+      // reached the provider later: not the player's money, never swept here.
+      const stray = await sessionMod.findPossibleStrayDeposit(user._id);
+      if (stray) {
+        await review(user, 0, 'possible_stray_deposit', 'A refunded launch may have left a stray deposit at the provider', {
+          providerBalanceBefore: balance, refundedSessionId: String(stray._id), refundedAmount: stray.initialBalance,
+        });
+        continue;
+      }
+
+      let outcome;
+      try {
+        outcome = sessionMod.classifyWithdrawResult(await igames.withdrawAllUser(user.palaceUserCode, timeout()));
+      } catch (e) {
+        outcome = { kind: sessionMod.classifyWithdrawError(e), reason: e.message };
+      }
+
+      if (outcome.kind === 'refused') {
+        errorCount++;
+        results.push(row(user, 0, 'error', outcome.reason));
+        await audit(user, 'refused', false, { providerBalanceBefore: balance, reason: outcome.reason });
+        continue;
+      }
+      if (outcome.kind === 'ambiguous') {
+        await review(user, 0, 'ambiguous', `Ambiguous withdraw-all: ${outcome.reason}`, { providerBalanceBefore: balance });
+        continue;
+      }
+
+      const amount = Math.round(outcome.amount * 100) / 100;
+      if (amount <= 0) {
+        // The pre-read showed money but nothing came back: unexplained.
+        await review(user, 0, 'zero_withdrawn', 'withdraw-all returned 0 although the provider balance was above 0', {
+          providerBalanceBefore: balance, withdrawnAmount: 0,
+        });
+        continue;
+      }
+      const session = await mongoose.startSession();
+      try {
+        await withTransactionRetry(session, async () => {
+          const adj = await adjustBalance(user._id, amount, { session });
+          if (!adj) throw new Error('user not found');
+          await createTransaction({
+            userId: user._id,
+            type: 'casino_return',
+            amount,
+            balanceBefore: adj.balanceBefore,
+            balanceAfter: adj.balanceAfter,
+            walletId: 'main',
+            idempotencyKey,
+            note: 'Igames balance withdrawn by the staff sweep',
+            createdBy: actor?._id || null,
+            source: 'admin',
+            metadata: { palaceUserCode: user.palaceUserCode, requestId, providerBalanceBefore: balance },
+          }, { session });
+        });
+      } catch (e) {
+        // The provider already paid out: the amount must not be lost silently.
+        await review(user, amount, 'credit_failed', `Withdrawn ${amount} but not credited: ${e.message}`, {
+          providerBalanceBefore: balance, withdrawnAmount: amount,
+        });
+        continue;
+      } finally {
+        await session.endSession();
+      }
+      totalWithdrawn = Math.round((totalWithdrawn + amount) * 100) / 100;
+      successCount++;
+      results.push(row(user, amount, 'success'));
+      await audit(user, 'ok', true, { providerBalanceBefore: balance, withdrawnAmount: amount });
     }
 
     res.json({
       success: true,
+      requestId,
       totalUsersChecked: users.length,
       successCount,
       errorCount,
       totalWithdrawn,
+      needsReview,
       results
     });
   } catch(e) { next(e); }
@@ -1057,10 +1204,16 @@ export async function getIgamesSummary(req, res, next) {
     }
 
     // Kullanıcı sayıları
-    const [igamesUserCount, activeSessionCount, stuckSessionCount] = await Promise.all([
+    // Flagged (needsReconciliation) sessions are never closed automatically:
+    // they always count as stuck and are also reported on their own.
+    const [igamesUserCount, activeSessionCount, stuckSessionCount, needsReconciliationCount] = await Promise.all([
       User.countDocuments({ palaceUserCode: { $exists: true, $ne: null } }),
-      CasinoSession.countDocuments({ status: 'active' }),
-      CasinoSession.countDocuments({ status: 'active', updatedAt: { $lt: new Date(Date.now() - 30 * 60 * 1000) } }),
+      CasinoSession.countDocuments({ status: { $in: ['active', 'closing'] } }),
+      CasinoSession.countDocuments({
+        status: { $in: ['active', 'closing'] },
+        $or: [{ updatedAt: { $lt: new Date(Date.now() - 30 * 60 * 1000) } }, { needsReconciliation: true }],
+      }),
+      CasinoSession.countDocuments({ needsReconciliation: true, status: { $ne: 'reconciled' } }),
     ]);
 
     // Bugünkü Igames istatistikleri (rounds + GGR)
@@ -1097,6 +1250,7 @@ export async function getIgamesSummary(req, res, next) {
       igamesUserCount,
       activeSessionCount,
       stuckSessionCount,
+      needsReconciliationCount,
       today,
     });
   } catch(e) { next(e); }
@@ -1252,7 +1406,6 @@ const PROVIDER_GAME_SHORT_IDS = {
   'inhouse-mines': 'mines',
   'inhouse-dice': 'dice',
   'inhouse-limbo': 'limbo',
-  'inhouse-wheel': 'wheel',
   'inhouse-plinko': 'plinko',
   'inhouse-keno': 'keno',
   'inhouse-hilo': 'hilo',
@@ -1262,6 +1415,7 @@ const PROVIDER_GAME_SHORT_IDS = {
   'inhouse-dragontiger': 'dragontiger',
   'inhouse-coinflip': 'coinflip',
   'inhouse-kingofmoney': 'kingofmoney',
+  'inhouse-crazywheel': 'crazywheel',
 };
 
 export async function updateGameSettings(req, res, next) {
@@ -1358,20 +1512,22 @@ export async function listPermissions(req, res, next) {
 
 export async function createRoleHandler(req, res, next) {
   try {
-    const role = await createRole(req.validated);
+    const role = await createRole(req.validated, req.user.id);
     res.json({ role });
   } catch (e) { next(e); }
 }
 
 export async function updateRoleHandler(req, res, next) {
   try {
-    const role = await updateRole(req.params.id, req.validated);
+    const role = await updateRole(req.params.id, req.validated, req.user.id);
     res.json({ role });
   } catch (e) { next(e); }
 }
 
 export async function deleteRoleHandler(req, res, next) {
   try {
+    // V5 (I3): deleting a role strips it from every holder — same rule as granting it.
+    await assertCanGrantRole(req.user.id, req.params.id, 'delete');
     await deleteRole(req.params.id);
     res.json({ ok: true });
   } catch (e) { next(e); }
@@ -1379,6 +1535,7 @@ export async function deleteRoleHandler(req, res, next) {
 
 export async function assignUserRole(req, res, next) {
   try {
+    await assertCanGrantRole(req.user.id, req.validated.roleId);
     const user = await assignRoleToUser(req.params.id, req.validated.roleId, req.user.id);
     res.json({ roles: user.roles });
   } catch (e) { next(e); }
@@ -1386,7 +1543,10 @@ export async function assignUserRole(req, res, next) {
 
 export async function removeUserRole(req, res, next) {
   try {
-    const user = await removeRoleFromUser(req.params.id, req.params.roleId);
+    // V5 (I3): same subset rule as for any change to a staff target.
+    await assertCanManageUser(req.user.id, req.params.id);
+    await assertKeepsActiveSuperAdmin(req.params.id, { removeRoleId: req.params.roleId });
+    const user = await removeRoleFromUser(req.params.id, req.params.roleId, { afterWrite: ensureActiveSuperAdminRemains });
     res.json({ roles: user.roles, role: user.role });
   } catch (e) { next(e); }
 }
@@ -1614,7 +1774,7 @@ export async function getKycSubmissionDetail(req, res, next) {
 
     const documents = await KycDocument.find({ userId: req.params.id })
       .sort({ createdAt: -1 })
-      .select('documentType fileName fileSize mimeType fileUrl status reviewedBy reviewedAt rejectionReason metadata createdAt');
+      .select('documentType fileName fileSize mimeType fileUrl storageKey status reviewedBy reviewedAt rejectionReason metadata createdAt');
 
     res.json({ user, documents });
   } catch (e) { next(e); }
@@ -1655,6 +1815,7 @@ export async function getKycStatsAdmin(req, res, next) {
 import CryptoDeposit from '../models/CryptoDeposit.js';
 import BankDepositRequest from '../models/BankDepositRequest.js';
 import { CRYPTO_SETTINGS } from '../config/crypto.js';
+import { updateCryptoSettings as persistCryptoSettings } from '../services/cryptoSettings.js';
 import { getHotWalletBalance } from '../services/cryptoService.js';
 import { sendWithdrawal, reconcileWithdrawal, resolveWithdrawalManually } from '../services/cryptoWithdrawal.js';
 
@@ -1862,22 +2023,9 @@ export async function verifyCryptoTx(req, res, next) {
 
 export async function updateCryptoSettings(req, res, next) {
   try {
-    const { deposit, withdraw, usdtTryRate, network } = req.body;
-    if (deposit) {
-      CRYPTO_SETTINGS.deposit.autoCreditLimit = deposit.autoCreditLimit ?? CRYPTO_SETTINGS.deposit.autoCreditLimit;
-      CRYPTO_SETTINGS.deposit.requireApprovalAbove = deposit.requireApprovalAbove ?? CRYPTO_SETTINGS.deposit.requireApprovalAbove;
-    }
-    if (withdraw) {
-      CRYPTO_SETTINGS.withdraw.autoProcessLimit = withdraw.autoProcessLimit ?? CRYPTO_SETTINGS.withdraw.autoProcessLimit;
-      CRYPTO_SETTINGS.withdraw.requireApprovalAbove = withdraw.requireApprovalAbove ?? CRYPTO_SETTINGS.withdraw.requireApprovalAbove;
-    }
-    if (usdtTryRate !== undefined) {
-      CRYPTO_SETTINGS.usdtTryRate = Math.max(0, Number(usdtTryRate) || 1);
-    }
-    if (network && ['mainnet', 'shasta', 'nile'].includes(network)) {
-      CRYPTO_SETTINGS.network = network;
-    }
-    res.json(CRYPTO_SETTINGS);
+    // Validated by updateCryptoSettingsSchema; persisted so a restart keeps it (V17).
+    const settings = await persistCryptoSettings(req.validated, req.user.id);
+    res.json(settings);
   } catch (e) { next(e); }
 }
 

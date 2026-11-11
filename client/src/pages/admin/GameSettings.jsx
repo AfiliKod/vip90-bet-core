@@ -58,12 +58,14 @@ function dragonTigerRtp(form) {
 }
 
 /**
- * Plinko/Wheel/Keno: gerçek ödeme tablosuna (routes/inhouse.js —
- * PLINKO_MULT/WHEEL_SEGMENTS/KENO_PAYOUTS) doğrudan uygulanan tek bir
+ * Plinko/Keno: gerçek ödeme tablosuna (routes/inhouse.js —
+ * PLINKO_MULT/KENO_PAYOUTS) doğrudan uygulanan tek bir
  * `payoutScale` çarpanı düzenlenebilir (bkz. Faz 2 planı — hücre bazlı
  * tam tablo editörü yerine tercih edilen tasarım). Aşağıdaki tablolar
  * yalnızca CANLI RTP ÖNİZLEMESİ için client'a kopyalandı — routes/
  * inhouse.js'teki gerçek tablolarla senkron tutulmalı.
+ * (Wheel 2026-11'de yayından kalktı; yerine geçen Crazy Wheel'in tablosu
+ * provider'da mühürlü — burada kopyası tutulmaz, RTP önizlemesi de yok.)
  */
 const PLINKO_MULT = {
   // low.16: routes/inhouse.js'teki NaN-bakiye hatası düzeltmesiyle senkron
@@ -71,12 +73,6 @@ const PLINKO_MULT = {
   low: { 16: [22.4, 12.6, 7.1, 1.6, 1.1, 0.9, 0.8, 0.4, 0.2, 0.4, 0.8, 0.9, 1.1, 1.6, 7.1, 12.6, 22.4] },
   medium: { 16: [87, 32, 7.9, 4, 2.4, 1.2, 0.8, 0.4, 0.2, 0.4, 0.8, 1.2, 2.4, 4, 7.9, 32, 87] },
   high: { 16: [789, 102, 20.5, 7.1, 3.2, 1.6, 0.6, 0.2, 0.1, 0.2, 0.6, 1.6, 3.2, 7.1, 20.5, 102, 789] },
-};
-
-const WHEEL_SEGMENTS = {
-  low: [{ m: 0, w: 45 }, { m: 0.75, w: 30 }, { m: 1.5, w: 15 }, { m: 2.5, w: 7 }, { m: 4, w: 2 }, { m: 8, w: 1 }],
-  medium: [{ m: 0, w: 62 }, { m: 0.5, w: 20 }, { m: 1.5, w: 10 }, { m: 4, w: 6 }, { m: 10, w: 1 }, { m: 18, w: 1 }],
-  high: [{ m: 0, w: 87 }, { m: 0.5, w: 6 }, { m: 2, w: 4 }, { m: 8, w: 2 }, { m: 50, w: 1 }],
 };
 
 const KENO_PAYOUTS = {
@@ -96,12 +92,6 @@ function plinkoBaseRtp(risk) {
   let rtp = 0;
   for (let k = 0; k <= n; k++) rtp += (binomCoeff(n, k) / 2 ** n) * table[k];
   return rtp * 100;
-}
-
-function wheelBaseRtp(risk) {
-  const segs = WHEEL_SEGMENTS[risk];
-  const total = segs.reduce((a, s) => a + s.w, 0);
-  return (segs.reduce((a, s) => a + s.w * s.m, 0) / total) * 100;
 }
 
 function kenoBaseRtpRange() {
@@ -185,12 +175,6 @@ const PLINKO_FIELDS = [
   { key: 'plinkoMaxBet', type: 'number', step: '1' },
 ];
 
-const WHEEL_FIELDS = [
-  { key: 'wheelPayoutScale', type: 'number', step: '0.01', min: 0.5, max: 1.3 },
-  { key: 'wheelMinBet', type: 'number', step: '0.01' },
-  { key: 'wheelMaxBet', type: 'number', step: '1' },
-];
-
 const KENO_FIELDS = [
   { key: 'kenoPayoutScale', type: 'number', step: '0.01', min: 0.5, max: 1.3 },
   { key: 'kenoMinBet', type: 'number', step: '0.01' },
@@ -246,6 +230,15 @@ const KINGOFMONEY_FIELDS = [
   { key: 'kingofmoneyMaxBet', type: 'number', step: '1' },
 ];
 
+// CRAZY WHEEL — King of Money ile aynı mühür: 16 dilimli paytable ve ağırlıklar
+// provider math/crazyWheelMath.js sabitlerinde (RTP %90.00 kapalı formda kesin),
+// GAME_FIELD_META yalnız minKey/maxKey taşır. Operatör yetkisi bet aralığı +
+// isActive. Drift bekçisi: client/src/i18n/crazywheelSettingsParity.test.js.
+const CRAZYWHEEL_FIELDS = [
+  { key: 'crazywheelMinBet', type: 'number', step: '0.01' },
+  { key: 'crazywheelMaxBet', type: 'number', step: '1' },
+];
+
 const FIELDS_BY_GAME = {
   'inhouse-crash': CRASH_FIELDS,
   'inhouse-roulette': ROULETTE_FIELDS,
@@ -255,13 +248,13 @@ const FIELDS_BY_GAME = {
   'inhouse-hilo': HILO_FIELDS,
   'inhouse-dragontiger': DRAGONTIGER_FIELDS,
   'inhouse-plinko': PLINKO_FIELDS,
-  'inhouse-wheel': WHEEL_FIELDS,
   'inhouse-keno': KENO_FIELDS,
   'inhouse-baccarat': BACCARAT_FIELDS,
   'inhouse-blackjack': BLACKJACK_FIELDS,
   'inhouse-videopoker': VIDEOPOKER_FIELDS,
   'inhouse-coinflip': COINFLIP_FIELDS,
   'inhouse-kingofmoney': KINGOFMONEY_FIELDS,
+  'inhouse-crazywheel': CRAZYWHEEL_FIELDS,
 };
 
 const RISK_LABEL_KEYS = {
@@ -321,13 +314,6 @@ const RTP_CALC_BY_GAME = {
       value: plinkoBaseRtp(risk) * scale,
     }));
   },
-  'inhouse-wheel': (t, form) => {
-    const scale = Number(form.wheelPayoutScale) || 0;
-    return ['low', 'medium', 'high'].map(risk => ({
-      label: RISK_LABEL_KEYS[risk] ? t(RISK_LABEL_KEYS[risk]) : risk,
-      value: wheelBaseRtp(risk) * scale,
-    }));
-  },
   'inhouse-keno': (t, form) => {
     const scale = Number(form.kenoPayoutScale) || 0;
     const { min, max } = kenoBaseRtpRange();
@@ -356,7 +342,6 @@ const RTP_CALC_BY_GAME = {
 const INFO_NOTE_BY_GAME = {
   'inhouse-dragontiger': 'admin.gameSettings.dragonTiger.info',
   'inhouse-plinko': 'admin.gameSettings.payoutScale.info',
-  'inhouse-wheel': 'admin.gameSettings.payoutScale.info',
   'inhouse-keno': 'admin.gameSettings.payoutScale.info',
   'inhouse-baccarat': 'admin.gameSettings.baccarat.info',
   'inhouse-blackjack': 'admin.gameSettings.simulate.info',

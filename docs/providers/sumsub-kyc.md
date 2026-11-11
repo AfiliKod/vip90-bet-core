@@ -226,7 +226,7 @@ Initialize Sumsub KYC session. Creates applicant and returns SDK token.
 
 #### POST /api/webhook/sumsub
 
-Sumsub webhook endpoint. No auth header — verified via HMAC signature. Not module-gated (Sumsub server calls this directly).
+Sumsub webhook endpoint. No auth header — verified via HMAC signature over the exact raw body bytes. The raw body is captured by a path-scoped JSON parser (100 kb, `Content-Type: application/json`) mounted before the global parser; until this was fixed the request hung and no Sumsub result was processed. Not module-gated (Sumsub server calls this directly). Missing or wrong-length signature, empty body, signature mismatch, missing or stale (> 5 min) `x-app-timestamp` → `401`; unreadable webhook secret → `503` (Sumsub retries).
 
 **Headers:**
 - `X-App-Signature: sha256=<hmac_hex>`

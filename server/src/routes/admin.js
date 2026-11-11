@@ -108,7 +108,8 @@ r.post('/igames/game/list',       requirePermission('admin:casino:read'), ctrl.g
 
 // Igames Casino (admin operations)
 r.get('/igames/test-users',        requirePermission('admin:casino:read'), ctrl.getIgamesTestUsers);
-r.post('/igames/withdraw-test-users', requirePermission('admin:casino:write'), ctrl.withdrawIgamesTestUsers);
+// F4: credits platform balances (ledger), so it needs the balance permission.
+r.post('/igames/withdraw-test-users', requirePermission('admin:users:balance'), ctrl.withdrawIgamesTestUsers);
 r.post('/igames/rtp',              requirePermission('admin:casino:rtp'), blockDemoAdmin, validate(setIgamesRtpSchema), ctrl.setIgamesRtp);
 r.get('/igames/online-plays',      requirePermission('admin:casino:read'), ctrl.getIgamesOnlinePlays);
 r.get('/igames/promo/config',       requirePermission('admin:casino:read'), ctrl.getPromoConfig);

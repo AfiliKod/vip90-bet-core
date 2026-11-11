@@ -7,6 +7,9 @@ const schema = new mongoose.Schema({
   
   amount: { type: Number, required: true, min: 0.01 },
   message: { type: String, maxlength: 500, default: '' },
+  // V8: `<fromUserId>:<client requestId>`; a retry with the same id returns this tip.
+  // No default: a sparse index skips missing fields but would index every null.
+  requestId: { type: String, unique: true, sparse: true },
   
   // Transaction references (double-entry for financial tracking)
   fromTransactionId: { type: mongoose.Schema.Types.ObjectId, ref: 'Transaction', required: true },

@@ -1,6 +1,6 @@
 #!/bin/bash
 # DB Backup Script — Phase C6
-# Günlük çalıştırılır (cron/systemd timer örneği: docs/RUNBOOK.md "Yedekleme Zamanlaması").
+# Günlük çalıştırılır (cron/systemd timer ile).
 # Çıktı: yerel BACKUP_DIR + (opsiyonel) rclone uzak hedefi BACKUP_BUCKET.
 #
 # Saklama süresi:
@@ -9,8 +9,14 @@
 #   DİKKAT: uzak temizlik BACKUP_BUCKET altındaki 90 günden eski TÜM dosyaları
 #   siler — bu yolu yalnız yedekler için ayırın. İlk kullanımda --dry-run deneyin.
 #
+# Dosya dizinleri (opsiyonel):
+#   BACKUP_FILES   iki nokta ile ayrılmış dizin listesi (örn. /var/lib/vip90/kyc-uploads)
+#   Her mevcut dizin, dump'tan sonra ve rclone yüklemesinden ÖNCE
+#   "$BACKUP_DIR/<tarih>/files-<dizin-adı>.tar.gz" olarak arşivlenir (mod 600;
+#   kimlik belgeleri). Olmayan dizin uyarıyla atlanır; tar hatası yedeği başarısız sayar.
+#
 # Kuru çalıştırma:  ./backup-db.sh --dry-run   (veya DRY_RUN=1)
-#   Yedek ALMAZ, yüklemez; yalnız hangi eski yedeklerin silineceğini listeler.
+#   Yedek ALMAZ, yüklemez; yalnız arşivlenecek dizinleri ve hangi eski yedeklerin silineceğini listeler.
 
 set -e
 
@@ -18,7 +24,7 @@ DRY_RUN="${DRY_RUN:-0}"
 for arg in "$@"; do
   case "$arg" in
     --dry-run) DRY_RUN=1 ;;
-    -h|--help) sed -n '2,16p' "$0"; exit 0 ;;
+    -h|--help) sed -n '2,22p' "$0"; exit 0 ;;
     *) echo "Bilinmeyen argüman: $arg"; exit 2 ;;
   esac
 done
@@ -28,6 +34,7 @@ RETENTION_DAYS="${RETENTION_DAYS:-30}"
 REMOTE_RETENTION_DAYS="${REMOTE_RETENTION_DAYS:-90}"
 DATE=$(date +%Y%m%d-%H%M%S)
 BUCKET="${BACKUP_BUCKET:-}"
+FILE_DIRS="${BACKUP_FILES:-}"
 
 for v in RETENTION_DAYS REMOTE_RETENTION_DAYS; do
   case "${!v}" in
@@ -39,6 +46,18 @@ mkdir -p "$BACKUP_DIR"
 
 if [ "$DRY_RUN" = "1" ]; then
   echo "🔎 KURU ÇALIŞTIRMA — yedek alınmayacak, hiçbir şey silinmeyecek"
+  if [ -n "$FILE_DIRS" ]; then
+    IFS=':' read -r -a _dirs <<< "$FILE_DIRS"
+    for d in "${_dirs[@]}"; do
+      [ -n "$d" ] || continue
+      d="${d%/}"
+      if [ -d "$d" ]; then
+        echo "  arşivlenecekti: $d -> $BACKUP_DIR/$DATE/files-$(basename "$d").tar.gz"
+      else
+        echo "⚠️  dizin yok, atlanacaktı: $d"
+      fi
+    done
+  fi
 else
   echo "📦 MongoDB backup başlıyor: $DATE"
 
@@ -53,6 +72,30 @@ else
   # Boyut kontrol
   BACKUP_SIZE=$(du -sh "$BACKUP_DIR/$DATE" | cut -f1)
   echo "✅ Backup tamamlandı: $BACKUP_SIZE"
+
+  # Dosya dizinleri (BACKUP_FILES) — rclone yüklemesinden ÖNCE
+  if [ -n "$FILE_DIRS" ]; then
+    IFS=':' read -r -a _dirs <<< "$FILE_DIRS"
+    for d in "${_dirs[@]}"; do
+      [ -n "$d" ] || continue
+      d="${d%/}"
+      if [ ! -d "$d" ]; then
+        echo "⚠️  dizin yok, atlandı: $d"
+        continue
+      fi
+      base=$(basename "$d")
+      archive="$BACKUP_DIR/$DATE/files-$base.tar.gz"
+      mkdir -p "$BACKUP_DIR/$DATE"
+      if ! (umask 077; tar -czf "$archive" -C "$(dirname "$d")" "$base"); then
+        echo "❌ Dizin arşivlenemedi: $d"
+        rm -f "$archive"
+        exit 1
+      fi
+      chmod 600 "$archive"
+      echo "✅ Dosya arşivi: $archive ($(du -h "$archive" | cut -f1))"
+    done
+    BACKUP_SIZE=$(du -sh "$BACKUP_DIR/$DATE" | cut -f1)
+  fi
 
   # R2/S3 upload (opsiyonel)
   if [ -n "$BUCKET" ] && command -v rclone >/dev/null 2>&1; then

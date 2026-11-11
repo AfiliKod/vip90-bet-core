@@ -1,5 +1,6 @@
 import jwt from 'jsonwebtoken';
 import { createError } from './error.js';
+import { enforceAdminIp } from './adminIpAllowlist.js';
 
 // ── Token version cache (30s TTL) ────────────────────────────────────────────
 // Avoids DB hit on every authenticated request while ensuring revoked tokens
@@ -7,17 +8,19 @@ import { createError } from './error.js';
 const _tokenVersionCache = new Map();
 const TOKEN_VERSION_CACHE_TTL = 30_000;
 
-async function getAuthState(userId) {
+export async function getAuthState(userId) {
   const cached = _tokenVersionCache.get(userId);
   if (cached && Date.now() - cached.ts < TOKEN_VERSION_CACHE_TTL) {
     return cached;
   }
   // Lazy import to avoid circular dependency at module load time
   const { default: User } = await import('../models/User.js');
-  const user = await User.findById(userId).select('tokenVersion isSeed').lean();
+  const user = await User.findById(userId).select('tokenVersion isSeed isActive deletedAt').lean();
   // isSeed: admin demo-veri üreticisinin hesapları — kimlik doğrulaması asla
   // geçmez (login'de de reddedilir). Önceden alınmış token'ları da keser.
-  const state = { version: user?.tokenVersion ?? 0, isSeed: user?.isSeed === true, ts: Date.now() };
+  // revoked: kayıt yok, askıda (isActive false) veya silinmiş — token'lar anında kesilir.
+  const revoked = !user || user.isActive === false || !!user.deletedAt;
+  const state = { version: user?.tokenVersion ?? 0, isSeed: user?.isSeed === true, revoked, ts: Date.now() };
   _tokenVersionCache.set(userId, state);
   return state;
 }
@@ -67,10 +70,13 @@ export async function requireAuth(req, res, next) {
   try {
     const payload = jwt.verify(token, process.env.JWT_SECRET);
 
+    // purpose taşıyan token (örn. 2FA challenge) bir oturum değildir.
+    if (payload.purpose) return next(createError(401, 'INVALID_TOKEN', 'Token geçersiz'));
+
     // Token version check — rejects JWTs issued before last password/email/role change
-    const { version: dbVersion, isSeed } = await getAuthState(payload.id);
-    if (isSeed) {
-      console.warn(`[requireAuth] demo/seed hesabı reddedildi — ${req.method} ${req.originalUrl}, userId=${payload.id}`);
+    const { version: dbVersion, isSeed, revoked } = await getAuthState(payload.id);
+    if (isSeed || revoked) {
+      console.warn(`[requireAuth] demo/seed/askıdaki/silinmiş hesap reddedildi — ${req.method} ${req.originalUrl}, userId=${payload.id}`);
       return next(createError(401, 'INVALID_TOKEN', 'Token geçersiz'));
     }
     if ((payload.tokenVersion ?? 0) !== dbVersion) {
@@ -88,5 +94,6 @@ export async function requireAuth(req, res, next) {
 
 export function requireAdmin(req, res, next) {
   if (req.user?.role !== 'admin') return next(createError(403, 'FORBIDDEN', 'Admin yetkisi gerekli'));
-  next();
+  // V6: ADMIN_ALLOWED_IPS her personel ucunda geçerli (yalnız /api/admin mount'unda değil).
+  return enforceAdminIp(req, res, next);
 }

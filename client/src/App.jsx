@@ -1,6 +1,7 @@
 import { lazy, Suspense, useEffect } from 'react';
 import { BrowserRouter, Routes, Route, Navigate, useLocation } from 'react-router-dom';
 import { useAuthStore } from './store/authStore';
+import { applyBalanceUpdate } from './store/balanceUpdate.js';
 import { useToastStore } from './store/toastStore';
 import { useBetNotificationStore } from './store/betNotificationStore';
 import { useModuleStore } from './store/moduleStore';
@@ -113,8 +114,10 @@ export default function App() {
   useEffect(() => { fetchModules(); }, [fetchModules]);
 
   useEffect(() => {
-    function onBalanceUpdate({ balance }) {
-      if (typeof balance === 'number') useAuthStore.getState().updateBalance(balance);
+    function onBalanceUpdate(payload) {
+      // igames (F3) reports the casino balance apart (activeIgamesBalance);
+      // null clears it after a close.
+      useAuthStore.setState(s => ({ user: applyBalanceUpdate(s.user, payload || {}) }));
     }
     socket.on('balance:update', onBalanceUpdate);
 
@@ -167,7 +170,9 @@ export default function App() {
         <Route path="/games/plinko" element={<ProtectedRoute><Suspense fallback={<PageLoader />}><InhouseGameLauncher gameId="plinko" /></Suspense></ProtectedRoute>} />
         <Route path="/games/dice" element={<ProtectedRoute><Suspense fallback={<PageLoader />}><InhouseGameLauncher gameId="dice" /></Suspense></ProtectedRoute>} />
         <Route path="/games/limbo" element={<ProtectedRoute><Suspense fallback={<PageLoader />}><InhouseGameLauncher gameId="limbo" /></Suspense></ProtectedRoute>} />
-        <Route path="/games/wheel" element={<ProtectedRoute><Suspense fallback={<PageLoader />}><InhouseGameLauncher gameId="wheel" /></Suspense></ProtectedRoute>} />
+        <Route path="/games/crazywheel" element={<ProtectedRoute><Suspense fallback={<PageLoader />}><InhouseGameLauncher gameId="crazywheel" /></Suspense></ProtectedRoute>} />
+        {/* Wheel yayından kalktı (yerine Crazy Wheel): favorilerdeki eski bağlantı ölü kalmasın. */}
+        <Route path="/games/wheel" element={<Navigate to="/games/crazywheel" replace />} />
         <Route path="/games/hilo" element={<ProtectedRoute><Suspense fallback={<PageLoader />}><InhouseGameLauncher gameId="hilo" /></Suspense></ProtectedRoute>} />
         <Route path="/games/keno" element={<ProtectedRoute><Suspense fallback={<PageLoader />}><InhouseGameLauncher gameId="keno" /></Suspense></ProtectedRoute>} />
         <Route path="/games/blackjack" element={<ProtectedRoute><Suspense fallback={<PageLoader />}><InhouseGameLauncher gameId="blackjack" /></Suspense></ProtectedRoute>} />

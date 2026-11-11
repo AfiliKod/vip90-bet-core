@@ -1,5 +1,6 @@
 import { Router } from 'express';
 import { requireAuth, requireAdmin } from '../middleware/auth.js';
+import { requirePermission } from '../services/permissions.js';
 import { validate } from '../middleware/validate.js';
 import { auditLog } from '../middleware/audit.js';
 import { createDemoAdminBlock } from '../middleware/demoAdmin.js';
@@ -22,9 +23,9 @@ r.get('/mine/:id', requireAuth, ctrl.getMyTicket);
 r.post('/mine/:id/reply', requireAuth, validate(replySchema), ctrl.replyToMyTicket);
 
 // Admin uçları
-r.get('/', requireAuth, requireAdmin, ctrl.listAllTickets);
-r.get('/:id', requireAuth, requireAdmin, ctrl.getAnyTicket);
-r.post('/:id/reply', requireAuth, requireAdmin, blockDemoAdmin, auditLog('TICKET_REPLY'), validate(replySchema), ctrl.replyAsAdmin);
-r.patch('/:id/status', requireAuth, requireAdmin, blockDemoAdmin, auditLog('TICKET_STATUS_CHANGE'), validate(setStatusSchema), ctrl.setTicketStatus);
+r.get('/', requireAuth, requireAdmin, requirePermission('admin:support:read'), ctrl.listAllTickets);
+r.get('/:id', requireAuth, requireAdmin, requirePermission('admin:support:read'), ctrl.getAnyTicket);
+r.post('/:id/reply', requireAuth, requireAdmin, requirePermission('admin:support:write'), blockDemoAdmin, auditLog('TICKET_REPLY'), validate(replySchema), ctrl.replyAsAdmin);
+r.patch('/:id/status', requireAuth, requireAdmin, requirePermission('admin:support:write'), blockDemoAdmin, auditLog('TICKET_STATUS_CHANGE'), validate(setStatusSchema), ctrl.setTicketStatus);
 
 export default r;

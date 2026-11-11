@@ -73,13 +73,6 @@ export async function initDefaultGameSettings() {
       plinkoMaxBet: 50000,
     },
     {
-      gameId: 'inhouse-wheel',
-      gameTitle: 'Wheel',
-      wheelPayoutScale: 1.0,
-      wheelMinBet: 1,
-      wheelMaxBet: 50000,
-    },
-    {
       gameId: 'inhouse-keno',
       gameTitle: 'Keno',
       kenoPayoutScale: 1.0,
@@ -137,6 +130,17 @@ export async function initDefaultGameSettings() {
       gameTitle: 'King of Money',
       kingofmoneyMinBet: 0.20,
       kingofmoneyMaxBet: 100,
+    },
+    {
+      // Crazy Wheel (16 dilimli ağırlık çarkı) — Wheel'in yerini aldı, aynı sayı
+      // (15.). ONAYLI spec (2026-11-02): RTP %90.00 kapalı formda KESİN, min 1 /
+      // max 1000, ayrı max-win cap YOK (round tavanı 25 × maxBet = 25.000).
+      // MÜHÜRLÜ: ödeme tablosu provider math/crazyWheelMath.js sabitlerinde —
+      // burada yalnız bet aralığı + aç/kapat, RTP knobu TANIMSIZ.
+      gameId: 'inhouse-crazywheel',
+      gameTitle: 'Crazy Wheel',
+      crazywheelMinBet: 1,
+      crazywheelMaxBet: 1000,
     },
   ];
 
@@ -204,8 +208,6 @@ export async function updateGameSettings(gameId, updates, adminId, options = {})
     'dragonTigerMinBet', 'dragonTigerMaxBet',
     // Plinko
     'plinkoPayoutScale', 'plinkoMinBet', 'plinkoMaxBet',
-    // Wheel
-    'wheelPayoutScale', 'wheelMinBet', 'wheelMaxBet',
     // Keno
     'kenoPayoutScale', 'kenoMinBet', 'kenoMaxBet',
     // Baccarat
@@ -222,6 +224,8 @@ export async function updateGameSettings(gameId, updates, adminId, options = {})
     'coinflipPayoutMult', 'coinflipMinBet', 'coinflipMaxBet',
     // King of Money — mühürlü: yalnız bet aralığı (RTP knobu TANIMSIZ)
     'kingofmoneyMinBet', 'kingofmoneyMaxBet',
+    // Crazy Wheel — mühürlü: yalnız bet aralığı (RTP knobu TANIMSIZ)
+    'crazywheelMinBet', 'crazywheelMaxBet',
     // Common
     'isActive',
   ];
@@ -267,7 +271,7 @@ export async function updateGameSettings(gameId, updates, adminId, options = {})
   // Tekil alan aralıkları (ör. payoutFactor 0.5-0.99) zaten şema seviyesinde
   // (models/GameSettings.js) min/max ile korunuyor; burada yalnızca
   // şemanın ifade edemediği çapraz alan kısıtı (max >= min) kontrol ediliyor.
-  for (const prefix of ['mines', 'dice', 'limbo', 'hilo', 'dragonTiger', 'plinko', 'wheel', 'keno', 'baccarat', 'blackjack', 'vp', 'coinflip', 'kingofmoney']) {
+  for (const prefix of ['mines', 'dice', 'limbo', 'hilo', 'dragonTiger', 'plinko', 'keno', 'baccarat', 'blackjack', 'vp', 'coinflip', 'kingofmoney', 'crazywheel']) {
     const minKey = `${prefix}MinBet`;
     const maxKey = `${prefix}MaxBet`;
     if (updateData[minKey] !== undefined && updateData[minKey] <= 0) {
@@ -373,12 +377,6 @@ const OPERATOR_GAME_DEFAULTS = {
     plinkoMinBet: 1,
     plinkoMaxBet: 50000,
   },
-  'inhouse-wheel': {
-    gameTitle: 'Wheel',
-    wheelPayoutScale: 1.0,
-    wheelMinBet: 1,
-    wheelMaxBet: 50000,
-  },
   'inhouse-keno': {
     gameTitle: 'Keno',
     kenoPayoutScale: 1.0,
@@ -429,6 +427,14 @@ const OPERATOR_GAME_DEFAULTS = {
     kingofmoneyMinBet: 0.20,
     kingofmoneyMaxBet: 100,
   },
+  // Crazy Wheel — Wheel'in yerine geçti; mühürlü matematik
+  // (math/crazyWheelMath.js), yalnız bet aralığı + isActive; 1–1000.
+  // percentField/multField BİLEREK yok.
+  'inhouse-crazywheel': {
+    gameTitle: 'Crazy Wheel',
+    crazywheelMinBet: 1,
+    crazywheelMaxBet: 1000,
+  },
 };
 
 /** operatorId + gameId scoped ayar — yoksa o oyunun varsayılanlarıyla lazy-seed. */
@@ -475,7 +481,6 @@ const GAME_FIELD_META = {
   'inhouse-hilo':        { minKey: 'hiloMinBet', maxKey: 'hiloMaxBet' },
   'inhouse-dragontiger': { minKey: 'dragonTigerMinBet', maxKey: 'dragonTigerMaxBet' },
   'inhouse-plinko':      { minKey: 'plinkoMinBet', maxKey: 'plinkoMaxBet' },
-  'inhouse-wheel':       { minKey: 'wheelMinBet', maxKey: 'wheelMaxBet' },
   'inhouse-keno':        { minKey: 'kenoMinBet', maxKey: 'kenoMaxBet' },
   'inhouse-baccarat':    { minKey: 'baccaratMinBet', maxKey: 'baccaratMaxBet' },
   'inhouse-blackjack':   { minKey: 'blackjackMinBet', maxKey: 'blackjackMaxBet' },
@@ -484,6 +489,10 @@ const GAME_FIELD_META = {
   // MÜHÜR: percentField/multField BİLEREK YOK — kingofmoney'nin ödemesi
   // math/kingOfMoneyMath.js sabitlerinde mühürlü (lk-rev1, ölçülen RTP o sabitlerle geçerli).
   'inhouse-kingofmoney':    { minKey: 'kingofmoneyMinBet', maxKey: 'kingofmoneyMaxBet' },
+  // MÜHÜR: aynı sebep — crazyWheelMath.js sabitleri; provider'ın
+  // instantGameEngine'i bu iki alanı okuyamazsa GAME_LIMITS_UNCONFIGURED ile
+  // fail-CLOSED verir (503), para hareketi olmaz.
+  'inhouse-crazywheel':     { minKey: 'crazywheelMinBet', maxKey: 'crazywheelMaxBet' },
 };
 
 export function getGameFieldMeta(gameId) {
@@ -508,7 +517,6 @@ const OPERATOR_ALLOWED_FIELDS = {
     'dragonTigerMinBet', 'dragonTigerMaxBet', 'isActive',
   ],
   'inhouse-plinko': ['plinkoPayoutScale', 'plinkoMinBet', 'plinkoMaxBet', 'isActive'],
-  'inhouse-wheel': ['wheelPayoutScale', 'wheelMinBet', 'wheelMaxBet', 'isActive'],
   'inhouse-keno': ['kenoPayoutScale', 'kenoMinBet', 'kenoMaxBet', 'isActive'],
   'inhouse-baccarat': [
     'baccaratBankerMultiplier', 'baccaratPlayerMultiplier', 'baccaratTieMultiplier',
@@ -526,6 +534,8 @@ const OPERATOR_ALLOWED_FIELDS = {
   'inhouse-coinflip': ['coinflipPayoutMult', 'coinflipMinBet', 'coinflipMaxBet', 'isActive'],
   // Operatör yetkisi = aç/kapat + bet aralığı, BU KADAR (mühür: üç anahtar).
   'inhouse-kingofmoney': ['kingofmoneyMinBet', 'kingofmoneyMaxBet', 'isActive'],
+  // Crazy Wheel de mühürlü: operatör yetkisi aç/kapat + bet aralığı, üç anahtar.
+  'inhouse-crazywheel': ['crazywheelMinBet', 'crazywheelMaxBet', 'isActive'],
 };
 
 function validateOperatorUpdate(gameId, updateData) {
@@ -600,10 +610,6 @@ export async function getDragonTigerSettings() {
 
 export async function getPlinkoSettings() {
   return getGameSettings('inhouse-plinko');
-}
-
-export async function getWheelSettings() {
-  return getGameSettings('inhouse-wheel');
 }
 
 export async function getKenoSettings() {

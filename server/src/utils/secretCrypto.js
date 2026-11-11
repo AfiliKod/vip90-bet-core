@@ -56,3 +56,21 @@ export function secretsMatch(provided, encryptedStored) {
     return false;
   }
 }
+
+// ─── Önekli saklama (`enc:v1:`) — User 2FA sırları, KYC ayarları vb. ───────
+const PREFIX = 'enc:v1:';
+
+export function isEncryptedSecret(value) {
+  return typeof value === 'string' && value.startsWith(PREFIX);
+}
+
+/** Düz metni `enc:v1:<payload>` olarak şifreler. Anahtar yoksa throw eder (yazma fail-closed). */
+export function encryptSensitive(plain) {
+  return PREFIX + encryptSecret(String(plain));
+}
+
+/** `enc:v1:` önekliyse çözer; öneksiz (legacy düz metin) değeri olduğu gibi döner. */
+export function decryptSensitive(stored) {
+  if (stored == null || stored === '') return null;
+  return isEncryptedSecret(stored) ? decryptSecret(stored.slice(PREFIX.length)) : String(stored);
+}

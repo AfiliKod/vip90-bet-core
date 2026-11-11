@@ -85,7 +85,7 @@ describe('Social Auth Service', () => {
     // `user` olarak atanıyordu; bu test o gerçek bug'ı kırmızıdan yeşile
     // taşıdı (bkz. commit notu).
     it('should create a new user with correct fields, not an array', async () => {
-      const profile = { sub: 'google-sub-123', email: 'newgoogle@example.com', name: 'Google User', picture: 'https://x/y.jpg' };
+      const profile = { sub: 'google-sub-123', email: 'newgoogle@example.com', name: 'Google User', picture: 'https://x/y.jpg', verified_email: true };
       const user = await findOrCreateGoogleUser(profile);
 
       assert.ok(!Array.isArray(user), 'user bir dizi olmamalı');
@@ -95,9 +95,9 @@ describe('Social Auth Service', () => {
       assert.equal(user.emailVerified, true);
     });
 
-    it('should link Google to an existing user found by email', async () => {
-      const existing = await User.create({ username: 'existinguser', email: 'existing@example.com', password: 'Password1' });
-      const profile = { sub: 'google-sub-456', email: 'existing@example.com', name: 'Existing', picture: null };
+    it('should link Google to an existing verified user found by email (V14)', async () => {
+      const existing = await User.create({ username: 'existinguser', email: 'existing@example.com', password: 'Password1', emailVerified: true });
+      const profile = { sub: 'google-sub-456', email: 'existing@example.com', name: 'Existing', picture: null, verified_email: true };
       const user = await findOrCreateGoogleUser(profile);
 
       assert.equal(user._id.toString(), existing._id.toString());

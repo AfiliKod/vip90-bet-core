@@ -13,6 +13,7 @@ import { Router } from 'express';
 import { moduleStore, setModuleEnabled, invalidateModules } from '../modules/index.js';
 import { MODULE_DEFINITIONS } from '../modules/registry.js';
 import { licenseStore, invalidateLicenses } from '../services/licensing/index.js';
+import { requirePermission } from '../services/permissions.js';
 
 export function createModuleHandlers({ moduleStore: ms, licenseStore: ls, setModuleEnabled: setEnabled, invalidateModules: invalidateM }) {
   async function list(req, res) {
@@ -57,8 +58,9 @@ const handlers = createModuleHandlers({
   invalidateModules,
 });
 const r = Router();
-r.get('/', handlers.list);
-r.patch('/:id', handlers.update);
-r.post('/refresh', handlers.refresh);
+// V5: the parent router (routes/admin.js) only checks requireAdmin.
+r.get('/', requirePermission('admin:settings:read'), handlers.list);
+r.patch('/:id', requirePermission('admin:settings:write'), handlers.update);
+r.post('/refresh', requirePermission('admin:settings:write'), handlers.refresh);
 
 export default r;

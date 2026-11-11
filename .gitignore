@@ -38,6 +38,8 @@ server/scripts/verify-*.png
 # KYC uploads (hassas belgeler — commit etme)
 server/uploads/kyc/*
 !server/uploads/kyc/.gitkeep
+server/storage/kyc/*
+!server/storage/kyc/.gitkeep
 
 # Test/investigation artifacts (root-level dev scripts)
 test-*.mjs

@@ -25,7 +25,7 @@ The `POST /api/auth/login` and `POST /api/auth/refresh` responses carry `locked`
 
 | Path | Wagering requirement | Deadline | Ledger entry |
 |---|---|---|---|
-| Player claims a promotion — `POST /api/promotions/:id/claim` | `promo.amount × promo.wageringMultiplier` (default ×35) | `promo.deadlineDays` (default 30) | `type: 'bonus'`, idempotency key `promo_claim_<promoId>_<userId>` (a second claim returns `409`) |
+| Player claims a promotion — `POST /api/promotions/:id/claim` | `promo.amount × promo.wageringMultiplier` (default ×35) | `promo.deadlineDays` (default 30) | `type: 'bonus'`, idempotency key `promo_claim_<promoId>_<userId>`; credit, ledger row, wagering record and `claimedBy` are written in one transaction (a second claim returns `409 ALREADY_CLAIMED`) |
 | Admin sends a bonus — `PATCH /api/admin/users/:id/balance` with `type: 'bonus'` | `amount × 35` (fixed) | 30 days (fixed) | `type: 'bonus'`, key `admin_balance_<userId>_<uuid>` |
 
 Both paths `$inc` the real `balance` and create one `BonusWagering` record (`status: 'active'`). Admin bonuses are recorded with `source: 'admin_adjustment'`.
@@ -56,7 +56,7 @@ When progress reaches the requirement the record becomes `completed`, drops out 
 2. If `amount > withdrawable` and there is no active bonus, the response is `400 INSUFFICIENT_BALANCE`.
 3. If `amount > withdrawable` and a bonus is active, the response is **`409 ACTIVE_BONUS_LOCK`** with a message naming the locked amount. The client shows a confirmation dialog and, if the player agrees, repeats the request with `confirmForfeit: true`.
 4. With `confirmForfeit: true` the server first calls `previewForfeitAmount()`, which changes nothing. If even after forfeiting the requested amount would not be withdrawable, it rejects with `400 INSUFFICIENT_BALANCE` and the bonus is kept. A forfeit cannot be undone, so it is never triggered when it would not help.
-5. Otherwise `forfeitActiveWagerings()` marks every active record `forfeited` and removes the **unwagered share** of each bonus from `balance`, writing one `type: 'bonus_forfeit'` ledger entry:
+5. Otherwise `forfeitActiveWagerings()` marks every active record `forfeited` and removes the **unwagered share** of each bonus from `balance`, writing one `type: 'bonus_forfeit'` ledger entry **per wagering record** (key `forfeit_<wageringId>`, metadata `{ reason, wageringId, forfeitAmount, deducted }`). Status change, balance debit and ledger row of each record commit in one transaction. The balance never goes below 0: if the player has less than the forfeit amount, only what is left is deducted (`amount = -deducted`), and no row is written when nothing is deducted:
 
 ```
 forfeitAmount = bonusAmount × (wageringRequired − wageringProgress) / wageringRequired

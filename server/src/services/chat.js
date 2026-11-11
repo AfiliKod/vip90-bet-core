@@ -1,13 +1,21 @@
-import jwt from 'jsonwebtoken';
+import mongoose from 'mongoose';
+import { socketAuthMiddleware } from './socketAuth.js';
 import ChatRoom from '../models/ChatRoom.js';
 import ChatMessage from '../models/ChatMessage.js';
 import ChatRain from '../models/ChatRain.js';
 import ChatTip from '../models/ChatTip.js';
 import User from '../models/User.js';
-import Transaction from '../models/Transaction.js';
+import BonusWagering from '../models/BonusWagering.js';
 import { getIO } from './socketEmitter.js';
 import { createError } from '../middleware/error.js';
-import { createTransaction } from './ledger.js';
+import { createTransaction, adjustBalance } from './ledger.js';
+import { withTransactionRetry } from '../utils/transactionRetry.js';
+import { userHasPermission } from './permissions.js';
+import { evaluateEligibility } from './responsibleGaming.js';
+import { assertKycForWithdrawal } from '../middleware/kycGate.js';
+import { assertRiskAllowed } from '../middleware/risk.js';
+import { assertNoOpenIgamesSession } from './igamesSessionGuard.js';
+import { adminIpAllowedForSocket } from '../middleware/adminIpAllowlist.js';
 import { logAuditEvent } from './audit.js';
 
 /**
@@ -173,33 +181,41 @@ export async function getRoomMessages(roomId, options = {}) {
   return { messages: messages.reverse(), total, page: Number(page), pages: Math.ceil(total / Number(limit)) };
 }
 
-export async function deleteMessage(messageId, adminId, options = {}) {
-  const { session = null, reason = '' } = options;
+export async function deleteMessage(messageId, actorId, options = {}) {
+  const { session = null, reason = '', admin = false } = options;
   
   const message = await ChatMessage.findById(messageId).session(session);
   if (!message) throw createError(404, 'NOT_FOUND', 'Mesaj bulunamadı');
+  // Only the REST admin path (permission-gated in routes/chat.js) passes admin: true.
+  if (admin !== true && String(message.userId) !== String(actorId)) {
+    throw createError(403, 'FORBIDDEN', 'Yalnızca kendi mesajınızı silebilirsiniz');
+  }
+  // Already deleted: no write, no audit, no emit (keeps the first moderation attribution).
+  if (message.isDeleted) return message;
   
   message.isDeleted = true;
-  message.deletedBy = adminId;
+  message.deletedBy = actorId;
   message.deletedAt = new Date();
   message.deleteReason = reason;
   await message.save({ session });
   
-  // Log audit event
-  const admin = await User.findById(adminId).select('username');
-  await logAuditEvent({
-    actorId: adminId,
-    actorType: 'admin',
-    actorUsername: admin?.username || 'unknown',
-    action: 'CHAT_MESSAGE_DELETE',
-    category: 'chat',
-    targetType: 'chat',
-    targetId: messageId,
-    before: { message: message.message },
-    after: { isDeleted: true, deleteReason: reason },
-    reason,
-    metadata: { roomId: message.roomId, userId: message.userId },
-  });
+  // Audit only moderator deletions; a player deleting their own message is not an admin action.
+  if (admin === true) {
+    const actor = await User.findById(actorId).select('username');
+    await logAuditEvent({
+      actorId,
+      actorType: 'admin',
+      actorUsername: actor?.username || 'unknown',
+      action: 'CHAT_MESSAGE_DELETE',
+      category: 'chat',
+      targetType: 'chat',
+      targetId: messageId,
+      before: { message: message.message },
+      after: { isDeleted: true, deleteReason: reason },
+      reason,
+      metadata: { roomId: message.roomId, userId: message.userId },
+    });
+  }
   
   // Emit real-time
   const io = getIO();
@@ -342,209 +358,392 @@ export async function unmuteUserInRoom(roomId, userId, options = {}) {
 }
 
 /**
- * Rain (Yağmur Dağıtımı)
+ * Money movement shared by rain and tip (V8).
+ *
+ * Every write runs in ONE MongoDB transaction (withTransactionRetry): the
+ * sender's debit, every credit, every ledger row and the ChatRain/ChatTip
+ * record commit together or not at all. The client's requestId is scoped to
+ * the acting user (`<userId>:<requestId>`) and stored on the record under a
+ * unique index; ledger idempotency keys derive from it, so a retry or a
+ * double click returns the first result and never writes money twice.
  */
 
+const MAX_RAIN_RECIPIENTS = 50;
+const MAX_REQUEST_ID_LENGTH = 128;
+
+function scopedRequestId(userId, requestId) {
+  if (typeof requestId !== 'string' || !requestId.trim() || requestId.length > MAX_REQUEST_ID_LENGTH) {
+    throw createError(400, 'REQUEST_ID_REQUIRED', 'requestId is required');
+  }
+  return `${String(userId)}:${requestId}`;
+}
+
+/** Positive amount with at most two decimals, as integer cents. */
+function toCents(amount) {
+  const c = typeof amount === 'number' && Number.isFinite(amount) ? Math.round(amount * 100) : NaN;
+  if (!Number.isSafeInteger(c) || c <= 0 || Math.abs(c - amount * 100) > 1e-6) {
+    throw createError(400, 'INVALID_AMOUNT', 'Geçersiz tutar');
+  }
+  return c;
+}
+
+const fromCents = (c) => c / 100;
+const round2 = (n) => Math.round(n * 100) / 100;
+
+/**
+ * Splits `totalAmount` over `count` recipients in cents so the parts sum to
+ * the total exactly: everyone gets floor(total/count) cents and the first
+ * `remainder` recipients get one cent more.
+ */
+export function splitRainAmount(totalAmount, count) {
+  const totalCents = toCents(totalAmount);
+  if (!Number.isInteger(count) || count < 1) throw createError(400, 'INVALID_AMOUNT', 'Geçersiz alıcı sayısı');
+  const per = Math.floor(totalCents / count);
+  const remainder = totalCents - per * count;
+  return Array.from({ length: count }, (_, i) => fromCents(per + (i < remainder ? 1 : 0)));
+}
+
+function isDuplicateWrite(e) {
+  return e?.code === 'DUPLICATE_TRANSACTION' || (e?.code === 11000 && (e?.keyPattern?.requestId || e?.keyPattern?.idempotencyKey));
+}
+
+/**
+ * Debits `amount` from what the user could withdraw, inside `session`:
+ * refused when the responsible-gaming evaluation for `rgAction` blocks or
+ * restricts (same codes as enforceResponsibleGaming) or during a withdrawal
+ * lock (a tip is a transfer out, it must not bypass the cash-out gates), and
+ * never from bonus money still under wagering
+ * (balance - active BonusWagering.bonusAmount, same rule as the withdrawal
+ * gate in getSpendableBreakdown). Unprocessed expired wagerings still count
+ * as locked here, which only errs on the strict side.
+ */
+async function debitWithdrawable(userId, amount, session, { rgAction = 'transfer', rgEvaluate = evaluateEligibility } = {}) {
+  const user = await User.findById(userId)
+    .select('username isActive accountRestricted responsibleLimits withdrawalLockUntil')
+    .session(session);
+  if (!user) throw createError(404, 'NOT_FOUND', 'Kullanıcı bulunamadı');
+  const rg = user.isActive === false ? 'BLOCK' : rgEvaluate(user, rgAction, { amount });
+  if (rg === 'BLOCK') throw createError(403, 'ACCOUNT_RESTRICTED', 'Hesabınız sorumlu oyun nedeniyle kısıtlıdır');
+  if (rg === 'RESTRICT') throw createError(403, 'LIMIT_EXCEEDED', 'Sorumlu oyun limitiniz aşıldı');
+  if (user.withdrawalLockUntil && user.withdrawalLockUntil > new Date()) {
+    throw createError(403, 'WITHDRAWAL_LOCKED', 'Para transferi geçici olarak kilitli');
+  }
+  const active = await BonusWagering.find({ userId, status: 'active' }).select('bonusAmount').session(session).lean();
+  const locked = round2(active.reduce((sum, w) => sum + (w.bonusAmount || 0), 0));
+
+  const doc = await User.findOneAndUpdate(
+    { _id: userId, balance: { $gte: round2(amount + locked) } },
+    [{ $set: { balance: { $round: [{ $add: ['$balance', -amount] }, 2] } } }],
+    { session, new: true },
+  );
+  if (!doc) throw createError(400, 'INSUFFICIENT_BALANCE', 'Yetersiz bakiye');
+  return { doc, balanceBefore: round2(doc.balance + amount), balanceAfter: doc.balance };
+}
+
+/**
+ * Rain (Yağmur Dağıtımı)
+ *
+ * Only an admin holding `admin:users:balance` may rain (role and permission
+ * read from the DB, never from the socket's JWT claims). The rain is funded
+ * from the creator's own withdrawable balance; amount, per-user share,
+ * recipient count and cooldown are bounded by the room's rain settings.
+ */
 export async function createRain(roomId, createdBy, options = {}) {
-  const { session = null, totalAmount, minAmount, maxAmount } = options;
-  
-  const room = await ChatRoom.findById(roomId).session(session);
+  const { totalAmount, requestId } = options;
+  const key = scopedRequestId(createdBy, requestId);
+
+  const existing = await ChatRain.findOne({ requestId: key });
+  if (existing) {
+    if (String(existing.createdBy) !== String(createdBy)) throw createError(403, 'FORBIDDEN', 'Yetkisiz');
+    return existing;
+  }
+
+  const creator = await User.findById(createdBy).select('role').lean();
+  if (creator?.role !== 'admin' || !(await userHasPermission(createdBy, 'admin:users:balance'))) {
+    throw createError(403, 'FORBIDDEN', 'Yağmur başlatma yetkiniz yok');
+  }
+  // V19b: rain pays out of the creator's balance like a withdrawal.
+  await assertNoOpenIgamesSession(createdBy);
+
+  const room = await ChatRoom.findById(roomId);
   if (!room) throw createError(404, 'NOT_FOUND', 'Oda bulunamadı');
   if (!room.rainEnabled) throw createError(403, 'RAIN_DISABLED', 'Bu odada yağmur dağıtımı kapalı');
-  
-  // Check cooldown
-  const lastRain = await ChatRain.findOne({ roomId, status: 'completed' }).sort({ completedAt: -1 }).session(session);
-  if (lastRain && Date.now() - lastRain.completedAt.getTime() < room.rainCooldown * 1000) {
-    throw createError(429, 'RAIN_COOLDOWN', 'Yağmur dağıtımı bekleme süresi devam ediyor');
-  }
-  
-  // Check active users
+
+  const totalCents = toCents(totalAmount);
+  const total = fromCents(totalCents);
+
+  // Active users (socket presence) are read OUTSIDE the transaction. One user
+  // with several tabs counts once; the creator never rains on themselves;
+  // only existing, active accounts can receive.
   const io = getIO();
-  let activeUsers = [];
+  let socketUserIds = [];
   if (io) {
     const roomSockets = await io.of('/chat').in(`room:${roomId}`).fetchSockets();
-    activeUsers = roomSockets.map(s => s.user?.id).filter(Boolean);
+    socketUserIds = [...new Set(roomSockets.map(s => s.user?.id).filter(Boolean).map(String))]
+      .filter(id => id !== String(createdBy) && mongoose.isValidObjectId(id));
   }
-  
-  if (activeUsers.length < room.rainMinUsers) {
+  const eligible = socketUserIds.length
+    ? (await User.find({ _id: { $in: socketUserIds }, isActive: { $ne: false }, isSeed: { $ne: true } }).select('_id').lean()).map(u => String(u._id))
+    : [];
+
+  if (eligible.length < room.rainMinUsers) {
     throw createError(400, 'NOT_ENOUGH_USERS', `Minimum ${room.rainMinUsers} aktif kullanıcı gerekli`);
   }
-  
-  // Calculate amounts
-  const recipientCount = Math.min(activeUsers.length, 50); // Max 50 recipients
-  const amountPerUser = Math.floor(totalAmount / recipientCount);
-  
-  if (amountPerUser < room.rainMinAmount || amountPerUser > room.rainMaxAmount) {
+
+  const recipientCount = Math.min(eligible.length, MAX_RAIN_RECIPIENTS);
+  const amounts = splitRainAmount(total, recipientCount);
+  if (Math.min(...amounts) < room.rainMinAmount || Math.max(...amounts) > room.rainMaxAmount) {
     throw createError(400, 'INVALID_AMOUNT', 'Dağıtım miktarı sınırlar dışında');
   }
-  
-  // Create rain record — Model.create([{...}], {session}) İLK ARGÜMANI ARRAY
-  // olduğunda Mongoose HER ZAMAN array döner (session olsun olmasın); bu
-  // oturumda tekrar tekrar bulunan bir bug deseni (web3Auth.js/socialAuth.js'de
-  // de aynısı vardı). Array destructure ile tekil dokümana indirgenir.
-  const [rain] = await ChatRain.create([{
-    roomId,
-    createdBy,
-    totalAmount,
-    totalRecipients: recipientCount,
-    amountPerUser,
-    status: 'pending',
-    settings: { minAmount: room.rainMinAmount, maxAmount: room.rainMaxAmount, minUsers: room.rainMinUsers },
-  }], { session });
-  
-  // Select random recipients
-  const shuffled = activeUsers.sort(() => 0.5 - Math.random());
-  const recipients = shuffled.slice(0, recipientCount);
-  
-  // Distribute — atomic $inc (routes/inhouse.js deseni): read-modify-write
-  // yerine tek operasyonda güncellenir, eşzamanlı bir işlemin kaybolmasını önler.
-  const rainId = `rain_${roomId}_${createdBy}_${Date.now()}`;
-  for (const userId of recipients) {
-    const user = await User.findOneAndUpdate(
-      { _id: userId },
-      { $inc: { balance: amountPerUser } },
-      { session, new: true },
-    );
-    if (!user) continue;
 
-    const balanceBefore = parseFloat((user.balance - amountPerUser).toFixed(2));
+  // Fisher-Yates shuffle, then take the first recipientCount.
+  for (let i = eligible.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [eligible[i], eligible[j]] = [eligible[j], eligible[i]];
+  }
+  const recipients = eligible.slice(0, recipientCount);
 
-    const { transaction } = await createTransaction({
-      userId,
-      type: 'rain',
-      amount: amountPerUser,
-      balanceBefore,
-      balanceAfter: user.balance,
-      idempotencyKey: `${rainId}_${userId}`,
-      source: 'player',
-      metadata: { roomId, rainCreator: createdBy },
-      relatedTransactionId: rain._id,
-    }, { session });
-    
-    rain.recipients.push({ userId, amount: amountPerUser, transactionId: transaction._id, claimedAt: new Date() });
-    
-    // Emit real-time
-    const io = getIO();
-    if (io) {
-      io.to(`user:${userId}`).emit('balance:update', { balance: user.balance });
-      io.of('/chat').to(`room:${roomId}`).emit('chat:rainReceived', { userId, amount: amountPerUser });
+  let outcome;
+  const session = await mongoose.startSession();
+  try {
+    outcome = await withTransactionRetry(session, async () => {
+      const dup = await ChatRain.findOne({ requestId: key }).session(session);
+      if (dup) return { rain: dup, created: false };
+
+      // Writing the room first makes concurrent rains in this room conflict,
+      // so the cooldown read below is serialised (the loser retries and sees
+      // the committed rain).
+      await ChatRoom.updateOne(
+        { _id: roomId },
+        { $inc: { 'stats.totalRainAmount': total, 'stats.totalRainCount': 1 } },
+        { session },
+      );
+      const lastRain = await ChatRain.findOne({ roomId, status: 'completed' }).sort({ completedAt: -1 }).session(session);
+      if (lastRain?.completedAt && Date.now() - lastRain.completedAt.getTime() < room.rainCooldown * 1000) {
+        throw createError(429, 'RAIN_COOLDOWN', 'Yağmur dağıtımı bekleme süresi devam ediyor');
+      }
+
+      const debit = await debitWithdrawable(createdBy, total, session);
+
+      const [rain] = await ChatRain.create([{
+        roomId,
+        createdBy,
+        requestId: key,
+        totalAmount: total,
+        totalRecipients: recipientCount,
+        amountPerUser: amounts[amounts.length - 1],
+        status: 'distributing',
+        settings: { minAmount: room.rainMinAmount, maxAmount: room.rainMaxAmount, minUsers: room.rainMinUsers },
+      }], { session });
+
+      const { transaction: creatorTx } = await createTransaction({
+        userId: createdBy,
+        type: 'rain',
+        amount: -total,
+        balanceBefore: debit.balanceBefore,
+        balanceAfter: debit.balanceAfter,
+        idempotencyKey: `rain_${key}_creator`,
+        source: 'admin',
+        createdBy,
+        metadata: { roomId, rainId: rain._id, recipients: recipientCount },
+      }, { session });
+
+      const credited = [];
+      for (let i = 0; i < recipients.length; i++) {
+        const userId = recipients[i];
+        const amount = amounts[i];
+        const credit = await adjustBalance(userId, amount, { session });
+        if (!credit) throw createError(409, 'RAIN_RECIPIENT_MISSING', 'Alıcı bulunamadı');
+        const { transaction } = await createTransaction({
+          userId,
+          type: 'rain',
+          amount,
+          balanceBefore: credit.balanceBefore,
+          balanceAfter: credit.balanceAfter,
+          idempotencyKey: `rain_${key}_${userId}`,
+          source: 'admin',
+          createdBy,
+          metadata: { roomId, rainId: rain._id, rainCreator: createdBy },
+          relatedTransactionId: creatorTx._id,
+        }, { session });
+        rain.recipients.push({ userId, amount, transactionId: transaction._id, claimedAt: new Date() });
+        credited.push({ userId, amount, balance: credit.balanceAfter });
+      }
+
+      rain.status = 'completed';
+      rain.completedAt = new Date();
+      await rain.save({ session });
+
+      return { rain, created: true, credited, creatorBalance: debit.balanceAfter };
+    });
+  } catch (e) {
+    if (isDuplicateWrite(e)) {
+      const again = await ChatRain.findOne({ requestId: key });
+      if (again) return again;
     }
+    throw e;
+  } finally {
+    await session.endSession();
   }
-  
-  rain.status = 'completed';
-  rain.completedAt = new Date();
-  await rain.save({ session });
-  
-  // Update room stats
-  const updatedRoom = await ChatRoom.findById(roomId).session(session);
-  updatedRoom.stats.totalRainAmount += totalAmount;
-  updatedRoom.stats.totalRainCount += 1;
-  await updatedRoom.save({ session });
-  
-  // Emit rain announcement
-  const ioInstance = getIO();
-  if (ioInstance) {
-    ioInstance.of('/chat').to(`room:${roomId}`).emit('chat:rain', { rainId: rain._id, totalAmount, recipients: rain.recipients.length });
+
+  // Emits only after commit, and only for the call that wrote the rain.
+  if (outcome.created && io) {
+    io.to(`user:${createdBy}`).emit('balance:update', { balance: outcome.creatorBalance });
+    for (const { userId, amount, balance } of outcome.credited) {
+      io.to(`user:${userId}`).emit('balance:update', { balance });
+      io.of('/chat').to(`room:${roomId}`).emit('chat:rainReceived', { userId, amount });
+    }
+    io.of('/chat').to(`room:${roomId}`).emit('chat:rain', { rainId: outcome.rain._id, totalAmount: total, recipients: outcome.rain.recipients.length });
   }
-  
-  return rain;
+
+  return outcome.rain;
 }
 
 /**
  * Tips (Bahşiş)
  */
 
-export async function sendTip(fromUserId, toUserId, roomId, amount, message, options = {}) {
-  const { session = null } = options;
-  
-  // String karşılaştırması: fromUserId socket üzerinden JWT'den (düz string)
-  // gelebilir, ObjectId.equals() gibi bir metodu olmayabilir — toUserId ise
-  // her iki kaynaktan da (string veya ObjectId) gelebilir, String() ile normalize edilir.
-  if (String(fromUserId) === String(toUserId)) throw createError(400, 'SELF_TIP', 'Kendinize bahşiş gönderemezsiniz');
-  
-  const room = await ChatRoom.findById(roomId).session(session);
+async function tipInSession(fromUserId, toUserId, roomId, amount, message, key, session, rgEvaluate) {
+  const dup = await ChatTip.findOne({ requestId: key }).session(session);
+  if (dup) return { tip: dup, created: false };
+
+  const room = await ChatRoom.findById(roomId).select('isActive bannedUsers mutedUsers').session(session);
   if (!room) throw createError(404, 'NOT_FOUND', 'Oda bulunamadı');
-  
-  // Atomic $gte+$inc (routes/inhouse.js deseni): bakiye kontrolü ve düşüş
-  // tek operasyonda — iki eşzamanlı bahşişin ikisinin de yetersiz bakiyeyi
-  // "yeterli" görme riskini (read-modify-write race condition) ortadan kaldırır.
-  const fromUser = await User.findOneAndUpdate(
-    { _id: fromUserId, balance: { $gte: amount } },
-    { $inc: { balance: -amount } },
-    { session, new: true },
-  );
-  if (!fromUser) throw createError(400, 'INSUFFICIENT_BALANCE', 'Yetersiz bakiye');
+  if (!room.isActive) throw createError(403, 'ROOM_INACTIVE', 'Oda kapalı');
+  // Same rules as sendMessage: a banned or muted sender cannot tip in this room.
+  if ((room.bannedUsers || []).some(id => String(id) === String(fromUserId))) {
+    throw createError(403, 'BANNED', 'Bu odadan yasaklısınız');
+  }
+  if ((room.mutedUsers || []).some(m => String(m.userId) === String(fromUserId) && (!m.until || m.until > new Date()))) {
+    throw createError(403, 'MUTED', 'Susturuldunuz');
+  }
 
-  const toUser = await User.findById(toUserId).session(session);
-  if (!toUser) throw createError(404, 'RECIPIENT_NOT_FOUND', 'Alıcı bulunamadı');
+  const toUser = await User.findById(toUserId).select('username isActive').session(session);
+  if (!toUser || toUser.isActive === false) throw createError(404, 'RECIPIENT_NOT_FOUND', 'Alıcı bulunamadı');
 
-  // Create from transaction (outgoing)
-  const fromBalanceBefore = parseFloat((fromUser.balance + amount).toFixed(2));
-  const tipId = `tip_${fromUserId}_${toUserId}_${Date.now()}`;
+  // Atomic conditional debit: two concurrent tips cannot both see enough balance.
+  const debit = await debitWithdrawable(fromUserId, amount, session, { rgAction: 'withdraw', rgEvaluate });
+  const tipId = `tip_${key}`;
 
   const { transaction: fromTransaction } = await createTransaction({
     userId: fromUserId,
     type: 'tip_sent',
     amount: -amount,
-    balanceBefore: fromBalanceBefore,
-    balanceAfter: fromUser.balance,
+    balanceBefore: debit.balanceBefore,
+    balanceAfter: debit.balanceAfter,
     idempotencyKey: `${tipId}_sent`,
     source: 'player',
     metadata: { roomId, recipientUsername: toUser.username },
     relatedTransactionId: null,
   }, { session });
-  
-  // Create to transaction (incoming) — atomic $inc, tutarlılık için aynı desen.
-  const updatedToUser = await User.findOneAndUpdate(
-    { _id: toUserId },
-    { $inc: { balance: amount } },
-    { session, new: true },
-  );
-  const toBalanceBefore = parseFloat((updatedToUser.balance - amount).toFixed(2));
-  toUser.balance = updatedToUser.balance;
+
+  const credit = await adjustBalance(toUserId, amount, { session });
+  if (!credit) throw createError(404, 'RECIPIENT_NOT_FOUND', 'Alıcı bulunamadı');
 
   const { transaction: toTransaction } = await createTransaction({
     userId: toUserId,
     type: 'tip_received',
     amount,
-    balanceBefore: toBalanceBefore,
-    balanceAfter: toUser.balance,
+    balanceBefore: credit.balanceBefore,
+    balanceAfter: credit.balanceAfter,
     idempotencyKey: `${tipId}_received`,
     source: 'player',
-    metadata: { roomId, senderUsername: fromUser.username },
+    metadata: { roomId, senderUsername: debit.doc.username },
     relatedTransactionId: fromTransaction._id,
   }, { session });
-  
-  // Create tip record
-  const tip = await ChatTip.create([{
+
+  const [tip] = await ChatTip.create([{
     roomId,
     fromUserId,
     toUserId,
     amount,
     message,
+    requestId: key,
     fromTransactionId: fromTransaction._id,
     toTransactionId: toTransaction._id,
     status: 'completed',
   }], { session });
-  
-  // Emit real-time
+
+  return {
+    tip,
+    created: true,
+    fromUsername: debit.doc.username,
+    toUsername: toUser.username,
+    fromBalance: debit.balanceAfter,
+    toBalance: credit.balanceAfter,
+  };
+}
+
+/**
+ * A tip moves cash to another player, so the SENDER passes the same gates as a
+ * withdrawal (routes/bank.js /withdraw): KYC (assertKycForWithdrawal), the
+ * risk check for 'withdraw' (assertRiskAllowed) and the responsible-gaming
+ * 'withdraw' evaluation (inside the transaction, on the debited user).
+ * `cashOutGates` is a test seam ({ kyc: kycGate deps, risk: risk check fn,
+ * rg: evaluateEligibility-like fn }); the socket handler never passes it.
+ */
+export async function sendTip(fromUserId, toUserId, roomId, amount, message, options = {}) {
+  const { requestId, session = null, cashOutGates = {} } = options;
+  const key = scopedRequestId(fromUserId, requestId);
+
+  // String karşılaştırması: fromUserId socket üzerinden JWT'den (düz string)
+  // gelebilir, toUserId ise string veya ObjectId — String() ile normalize edilir.
+  if (String(fromUserId) === String(toUserId)) throw createError(400, 'SELF_TIP', 'Kendinize bahşiş gönderemezsiniz');
+  const value = fromCents(toCents(amount));
+  const text = typeof message === 'string' ? message.slice(0, 500) : '';
+
+  // A completed tip is returned as is (no gate may turn a retry into an error).
+  const prior = await ChatTip.findOne({ requestId: key }).session(session);
+  if (prior) return prior;
+
+  await assertNoOpenIgamesSession(fromUserId);
+  await assertKycForWithdrawal(fromUserId, cashOutGates.kyc);
+  await assertRiskAllowed(fromUserId, 'withdraw', { amount: value }, cashOutGates.risk);
+  const rgEvaluate = cashOutGates.rg || evaluateEligibility;
+
+  let outcome;
+  if (session) {
+    // Caller owns the transaction (and its retry); a duplicate inside it aborts the caller.
+    outcome = await tipInSession(fromUserId, toUserId, roomId, value, text, key, session, rgEvaluate);
+  } else {
+    const own = await mongoose.startSession();
+    try {
+      outcome = await withTransactionRetry(own, () => tipInSession(fromUserId, toUserId, roomId, value, text, key, own, rgEvaluate));
+    } catch (e) {
+      if (isDuplicateWrite(e)) {
+        const again = await ChatTip.findOne({ requestId: key });
+        if (again) return again;
+      }
+      throw e;
+    } finally {
+      await own.endSession();
+    }
+  }
+
+  if (!outcome.created) return outcome.tip;
+
+  const { tip } = outcome;
   const ioInstance = getIO();
   if (ioInstance) {
-    ioInstance.to(`user:${fromUserId}`).emit('balance:update', { balance: fromUser.balance });
-    ioInstance.to(`user:${toUserId}`).emit('balance:update', { balance: toUser.balance });
-    ioInstance.of('/chat').to(`room:${roomId}`).emit('chat:tip', { 
-      tipId: tip[0]._id, 
-      fromUser: fromUser.username, 
-      toUser: toUser.username, 
-      amount, 
-      message 
+    ioInstance.to(`user:${fromUserId}`).emit('balance:update', { balance: outcome.fromBalance });
+    ioInstance.to(`user:${toUserId}`).emit('balance:update', { balance: outcome.toBalance });
+    ioInstance.of('/chat').to(`room:${roomId}`).emit('chat:tip', {
+      tipId: tip._id,
+      fromUser: outcome.fromUsername,
+      toUser: outcome.toUsername,
+      amount: value,
+      message: text,
     });
   }
-  
-  // Send tip notification message to chat
-  await sendMessage(fromUserId, roomId, `💸 ${toUser.username} kullanıcısına ${amount} bahşiş gönderdi${message ? ': ' + message : ''}`, 'tip', { metadata: { tipId: tip[0]._id } });
-  
-  return tip[0];
+
+  // Chat announcement after commit; a failure here does not undo the tip.
+  try {
+    await sendMessage(fromUserId, roomId, `💸 ${outcome.toUsername} kullanıcısına ${value} bahşiş gönderdi${text ? ': ' + text : ''}`, 'tip', { metadata: { tipId: tip._id } });
+  } catch (e) {
+    console.warn('[chat] tip announcement failed:', e.message);
+  }
+
+  return tip;
 }
 
 /** Server açılışında bir kez çağrılır (idempotent) — hiç oda yoksa "Genel Sohbet" odasını oluşturur. */
@@ -635,17 +834,8 @@ export async function getModerationHistory(roomId, options = {}) {
 export function initChatSocket(io) {
   const chatNS = io.of('/chat');
   
-  chatNS.use((socket, next) => {
-    const token = socket.handshake.auth?.token;
-    if (!token) return next(new Error('auth'));
-    try {
-      socket.user = jwt.verify(token, process.env.JWT_SECRET);
-      next();
-    } catch {
-      next(new Error('auth'));
-    }
-  });
-  
+  chatNS.use(socketAuthMiddleware);
+
   chatNS.on('connection', (socket) => {
     socket.on('chat:join', ({ roomId }) => {
       socket.join(`room:${roomId}`);
@@ -666,7 +856,7 @@ export function initChatSocket(io) {
     
     socket.on('chat:delete', async ({ messageId }) => {
       try {
-        await deleteMessage(messageId, socket.user.id);
+        await deleteMessage(messageId, socket.user.id, { admin: false });
         socket.emit('chat:messageDeleted', { messageId });
       } catch (e) {
         socket.emit('chat:error', { message: e.message });
@@ -682,19 +872,20 @@ export function initChatSocket(io) {
       }
     });
     
-    socket.on('chat:tip', async ({ roomId, toUserId, amount, message }) => {
+    socket.on('chat:tip', async ({ roomId, toUserId, amount, message, requestId } = {}) => {
       try {
-        await sendTip(socket.user.id, toUserId, roomId, amount, message);
-        socket.emit('chat:tipSent', { toUserId, amount });
+        await sendTip(socket.user.id, toUserId, roomId, amount, message, { requestId });
+        socket.emit('chat:tipSent', { toUserId, amount, requestId });
       } catch (e) {
         socket.emit('chat:error', { message: e.message });
       }
     });
     
-    socket.on('chat:rain', async ({ roomId, totalAmount }) => {
+    socket.on('chat:rain', async ({ roomId, totalAmount, requestId } = {}) => {
       try {
-        const rain = await createRain(roomId, socket.user.id, { totalAmount });
-        socket.emit('chat:rainCreated', { rainId: rain._id });
+        if (!adminIpAllowedForSocket(socket)) throw createError(403, 'IP_NOT_ALLOWED', 'Bu IP adresinden erişim yok');
+        const rain = await createRain(roomId, socket.user.id, { totalAmount, requestId });
+        socket.emit('chat:rainCreated', { rainId: rain._id, requestId });
       } catch (e) {
         socket.emit('chat:error', { message: e.message });
       }

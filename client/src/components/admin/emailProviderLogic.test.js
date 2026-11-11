@@ -33,6 +33,16 @@ describe('inferEmailProvider', () => {
     assert.strictEqual(inferEmailProvider(''), 'custom');
     assert.strictEqual(inferEmailProvider(undefined, undefined), 'custom');
   });
+
+  test('mailtrap: hosttan tanınır; host yoksa token kaydı mailtrap seçilir', () => {
+    assert.strictEqual(inferEmailProvider('live.smtp.mailtrap.io'), 'mailtrap');
+    // API kurulumunda host alanı BOŞ kalır — token tanımlıysa panel boşuna
+    // "Özel SMTP" gösterip SMTP bağlantı alanları istemesin.
+    assert.strictEqual(inferEmailProvider('', undefined, { tokenConfigured: true }), 'mailtrap');
+    assert.strictEqual(inferEmailProvider(undefined, undefined, { tokenConfigured: false }), 'custom');
+    // Kayıtlı provider her zaman kazanır
+    assert.strictEqual(inferEmailProvider('smtp.mailgun.org', 'mailtrap', { tokenConfigured: false }), 'mailtrap');
+  });
 });
 
 describe('applyProviderPreset', () => {
@@ -67,12 +77,19 @@ describe('applyProviderPreset', () => {
     assert.deepStrictEqual(original, { from: 'a@b.c' });
   });
 
-  test('her sağlayıcının bir preset\'i vardır (yalnız custom boş)', () => {
+  test('her sağlayıcının bir preset\'i vardır; host-only SMTP sağlayıcıları için', () => {
+    // Host'suz sağlayıcılar: custom (elle doldurulur) ve mailtrap (API ile gönderir).
+    const HOSTLESS = ['custom', 'mailtrap'];
     for (const p of EMAIL_PROVIDERS) {
       assert.ok(p in EMAIL_PROVIDER_PRESETS, `preset eksik: ${p}`);
-      if (p === 'custom') assert.deepStrictEqual(EMAIL_PROVIDER_PRESETS.custom, {});
+      if (HOSTLESS.includes(p)) assert.deepStrictEqual(EMAIL_PROVIDER_PRESETS[p], {}, `host beklenmiyordu: ${p}`);
       else assert.ok(EMAIL_PROVIDER_PRESETS[p].host, `host eksik: ${p}`);
     }
     assert.deepStrictEqual(Object.keys(EMAIL_PROVIDER_PRESETS).sort(), [...EMAIL_PROVIDERS].sort());
+  });
+
+  test('mailtrap preset\'i formu bozmaz: bağlantı alanları olduğu gibi kalır', () => {
+    const form = applyProviderPreset('mailtrap', { host: 'smtp.mailgun.org', port: '587', from: 'a@b.c' });
+    assert.deepStrictEqual(form, { host: 'smtp.mailgun.org', port: '587', from: 'a@b.c', provider: 'mailtrap' });
   });
 });

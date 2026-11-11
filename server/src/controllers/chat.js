@@ -81,7 +81,7 @@ export async function unmuteUserHandler(req, res, next) {
 
 export async function deleteMessageHandler(req, res, next) {
   try {
-    const message = await deleteMessage(req.params.id, req.user.id, { reason: req.body?.reason });
+    const message = await deleteMessage(req.params.id, req.user.id, { admin: true, reason: req.body?.reason });
     res.json({ message });
   } catch (e) { next(e); }
 }

@@ -20,11 +20,13 @@ function settingsHandlers(store, { afterUpdate = () => {}, view = async () => ({
     async update(req, res, next) {
       try {
         const { clear = [], ...patch } = req.validated ?? req.body ?? {};
-        if ('secure' in patch) patch.secure = patch.secure === true ? 'true' : patch.secure === false ? 'false' : patch.secure;
-        for (const flag of ['gatewayEnabled', 'enabled']) {
+        // Panel formları boolean/an SAYI gönderir; store düz string bekler.
+        for (const flag of ['secure', 'gatewayEnabled', 'enabled', 'useSandbox']) {
           if (flag in patch) patch[flag] = patch[flag] === true ? 'true' : patch[flag] === false ? 'false' : patch[flag];
         }
-        if ('port' in patch) patch.port = String(patch.port);
+        for (const numField of ['port', 'sandboxInboxId']) {
+          if (numField in patch) patch[numField] = String(patch[numField]);
+        }
         try {
           await store.update(patch, { clear, adminId: req.user?.id });
         } catch (e) {
@@ -75,8 +77,10 @@ export function createEmailSettingsHandlers({
         try {
           await sendTest(to);
         } catch (e) {
-          if (e.code === 'SMTP_NOT_CONFIGURED') throw createError(400, 'SMTP_NOT_CONFIGURED', 'SMTP sunucusu tanımlı değil');
-          throw createError(502, 'SMTP_SEND_FAILED', `Test e-postası gönderilemedi: ${e.message}`);
+          if (e.code === 'MAIL_PROVIDER_NOT_CONFIGURED') throw createError(400, 'MAIL_PROVIDER_NOT_CONFIGURED', 'E-posta sağlayıcısı tanımlı değil (Mailtrap token veya SMTP host)');
+          if (e.code === 'MAILTRAP_SANDBOX_INBOX_MISSING') throw createError(400, 'MAILTRAP_SANDBOX_INBOX_MISSING', e.message);
+          if (e.code === 'MAIL_RECIPIENT_SUPPRESSED') throw createError(400, 'MAIL_RECIPIENT_SUPPRESSED', e.message);
+          throw createError(502, 'MAIL_SEND_FAILED', `Test e-postası gönderilemedi: ${e.message}`);
         }
         res.json({ ok: true, to });
       } catch (e) { next(e); }

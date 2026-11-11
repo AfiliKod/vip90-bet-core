@@ -87,9 +87,20 @@ describe('Game Settings', () => {
       assert.ok(plinko);
       assert.equal(plinko.plinkoPayoutScale, 1.0);
 
-      const wheel = await GameSettings.findOne({ gameId: 'inhouse-wheel' });
-      assert.ok(wheel);
-      assert.equal(wheel.wheelPayoutScale, 1.0);
+      // Wheel 2026-11'de yayından kalktı (provider c6faaa9 — wheelHandler ve
+      // wheelPayoutScale tamamen silindi); seed listesindeki 15. SLOT'u Crazy
+      // Wheel aldı, bu yüzden bu bloğun sayısında (6) değişiklik YOK. Crazy
+      // Wheel MÜHÜRLÜ olduğu için burada yalnız satır varlığı + bet aralığı
+      // okunur; operatör yetkisi aşağıdaki 'crazywheel operator settings
+      // (sealed math)' describe'ında doğrulanır.
+      const crazywheel = await GameSettings.findOne({ gameId: 'inhouse-crazywheel' });
+      assert.ok(crazywheel);
+      assert.equal(crazywheel.gameTitle, 'Crazy Wheel');
+      assert.equal(crazywheel.crazywheelMinBet, 1);
+      assert.equal(crazywheel.crazywheelMaxBet, 1000);
+      assert.equal(crazywheel.isActive, true);
+      // Eski `wheelPayoutScale` knobu artık hiçbir satırda yok.
+      assert.equal(crazywheel.wheelPayoutScale, undefined);
 
       const keno = await GameSettings.findOne({ gameId: 'inhouse-keno' });
       assert.ok(keno);
@@ -181,10 +192,9 @@ describe('Game Settings', () => {
       const settings = await getAllGameSettings();
       assert.equal(settings.length, 15);
       assert.deepEqual(settings.map(s => s.gameId), [
-        'inhouse-baccarat', 'inhouse-blackjack', 'inhouse-coinflip', 'inhouse-crash', 'inhouse-dice',
-        'inhouse-dragontiger', 'inhouse-hilo', 'inhouse-keno', 'inhouse-kingofmoney', 'inhouse-limbo',
-        'inhouse-mines', 'inhouse-plinko', 'inhouse-roulette', 'inhouse-videopoker',
-        'inhouse-wheel',
+        'inhouse-baccarat', 'inhouse-blackjack', 'inhouse-coinflip', 'inhouse-crash', 'inhouse-crazywheel',
+        'inhouse-dice', 'inhouse-dragontiger', 'inhouse-hilo', 'inhouse-keno', 'inhouse-kingofmoney',
+        'inhouse-limbo', 'inhouse-mines', 'inhouse-plinko', 'inhouse-roulette', 'inhouse-videopoker',
       ]);
     });
   });
@@ -703,6 +713,91 @@ describe('Game Settings', () => {
         updateOperatorGameSettings(operatorId, 'inhouse-kingofmoney', { coinflipPayoutMult: 1.9, kingofmoneyPayoutMult: 2 }),
         (err) => err.message.includes('geçerli alan yok'),
       );
+    });
+  });
+
+  // Crazy Wheel — Wheel'in yerine geçti (ONAYLI spec 2026-11-02): mühürlü
+  // matematik (provider math/crazyWheelMath.js — paytable/sabitleri), operatör
+  // yalnız bet aralığı 1–1000 + aç/kapat yazar. RTP/payout knobu TANIMSIZ.
+  describe('crazywheel operator settings (sealed math)', () => {
+    it('should lazy-seed operator-scoped crazywheel settings with the 1–1000 band', async () => {
+      const operatorId = new mongoose.Types.ObjectId();
+      const settings = await getGameSettingsForOperator(operatorId, 'inhouse-crazywheel');
+      assert.equal(settings.gameId, 'inhouse-crazywheel');
+      assert.equal(settings.gameTitle, 'Crazy Wheel');
+      assert.equal(settings.crazywheelMinBet, 1);
+      assert.equal(settings.crazywheelMaxBet, 1000);
+      assert.equal(settings.isActive, true);
+    });
+
+    it('should accept a bet band and reject max below min', async () => {
+      const operatorId = new mongoose.Types.ObjectId();
+      const { settings } = await updateOperatorGameSettings(operatorId, 'inhouse-crazywheel', { crazywheelMinBet: 5, crazywheelMaxBet: 500 });
+      assert.equal(settings.crazywheelMinBet, 5);
+      assert.equal(settings.crazywheelMaxBet, 500);
+      // 400 INVALID_RANGE — şemanın ifade edemediği tek çapraz kısıt (max >= min).
+      await assert.rejects(
+        updateOperatorGameSettings(operatorId, 'inhouse-crazywheel', { crazywheelMinBet: 100, crazywheelMaxBet: 10 }),
+        (err) => err.code === 'INVALID_RANGE' && err.status === 400,
+      );
+    });
+
+    it('should reject crazywheel max bet below min bet', async () => {
+      await initDefaultGameSettings();
+
+      const admin = await User.create({
+        username: 'admin',
+        email: 'admin@example.com',
+        password: 'password123',
+        role: 'admin',
+      });
+
+      try {
+        await updateGameSettings('inhouse-crazywheel', {
+          crazywheelMinBet: 100,
+          crazywheelMaxBet: 10,
+        }, admin._id);
+        assert.fail('Should have thrown error');
+      } catch (err) {
+        assert.ok(err.message.includes('Max bet min betten büyük olmalı'));
+      }
+    });
+
+    // Cross-game bleed: OPERATOR_ALLOWED_FIELDS['inhouse-crazywheel'] üç anahtar
+    // (min/max/isActive) — başka bir oyunun alanı bu update'e GİREMEZ.
+    it('should reject another game\'s field on crazywheel update (cross-game bleed)', async () => {
+      const operatorId = new mongoose.Types.ObjectId();
+      await assert.rejects(
+        updateOperatorGameSettings(operatorId, 'inhouse-crazywheel', { plinkoPayoutScale: 1.0 }),
+        (err) => err.message.includes('geçerli alan yok'),
+      );
+      // Eski Wheel satırının knobu da dahil: hiçbir payout/house-edge alanı geçmez.
+      await assert.rejects(
+        updateOperatorGameSettings(operatorId, 'inhouse-crazywheel', { wheelPayoutScale: 1.2 }),
+        (err) => err.message.includes('geçerli alan yok'),
+      );
+    });
+
+    // MÜHÜR: crazywheel için yazılabilir hiçbir RTP/payout knobu YOK — ne kendi
+    // adıyla (crazywheelPayoutScale/crazywheelHouseEdgePercent/crazywheelMult),
+    // ne başka bir oyunun knobu, ne de serbest alan. Şema + OPERATOR_ALLOWED_FIELDS
+    // birlikte düşerse bu test kırılır.
+    it('should refuse any payout knob (no RTP field is writable)', async () => {
+      const operatorId = new mongoose.Types.ObjectId();
+      await assert.rejects(
+        updateOperatorGameSettings(operatorId, 'inhouse-crazywheel', {
+          crazywheelPayoutScale: 1.2,
+          crazywheelHouseEdgePercent: 5,
+          crazywheelMult: 25,
+          coinflipPayoutMult: 1.9,
+          kingofmoneyPayoutMult: 2,
+        }),
+        (err) => err.message.includes('geçerli alan yok'),
+      );
+      // Reddedilen update hiçbir iz bırakmamalı: bant hâlâ varsayılan 1–1000.
+      const settings = await getGameSettingsForOperator(operatorId, 'inhouse-crazywheel');
+      assert.equal(settings.crazywheelMinBet, 1);
+      assert.equal(settings.crazywheelMaxBet, 1000);
     });
   });
 });

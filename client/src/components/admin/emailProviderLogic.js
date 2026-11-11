@@ -7,14 +7,17 @@
 // kartı, İletişim → E-posta → Provider sekmesi) ve preset eşlemesinin
 // doğruluğu kaydırma riski olmadan test edilmek istendi.
 //
-// Sağlayıcı yalnızca PANEL HAZIRLIĞI içindir; transport her koşulda genel
-// SMTP'dir (`services/email.js`). Host env'den geliyorsa panel doğru değeri
-// görür, operator yeni sağlayıcı seçerse host/port/secure forma doldurulur
-// (kaydetmeden önce düzenlenebilir).
+// Sağlayıcı iki şeyi belirler: (1) panel ön ayarı — host/port/secure forma
+// doldurulur (kaydetmeden önce düzenlenebilir); (2) 2026-10-30'dan itibaren
+// MEKANİZMA — `mailtrap` seçiliyken ve token giriliyken sunucu genel SMTP
+// yerine Mailtrap Email API'sini kullanır (`emailConfig.resolveEmailMode`).
+// Diğer sağlayıcılar her koşulda SMTP transport'unu kullanmaya devam eder.
 
-export const EMAIL_PROVIDERS = ['mailgun', 'ses', 'postmark', 'custom'];
+export const EMAIL_PROVIDERS = ['mailtrap', 'mailgun', 'ses', 'postmark', 'custom'];
 
 export const EMAIL_PROVIDER_PRESETS = {
+  // Mailtrap API ile gönderir: bağlantı alanı gerekmez (preset boş).
+  mailtrap: {},
   mailgun: { host: 'smtp.mailgun.org', port: '587', secure: false },
   ses: { host: 'email-smtp.us-east-1.amazonaws.com', port: '587', secure: false },
   postmark: { host: 'smtp.postmarkapp.com', port: '587', secure: false },
@@ -26,15 +29,21 @@ export const EMAIL_PROVIDER_PRESETS = {
  *  - Kayıtlı `provider` varsa o (sunucu alanı).
  *  - Yoksa host'tan çıkarılır — üretimde `smtp.mailgun.org` oturur,
  *    panel ilk açılışta doğru sağlığı gösterir.
+ *  - Host da yoksa ve Mailtrap token'ı tanımlıysa `mailtrap` (API kurulumunda
+ *    host alanı boş kalır, aksi halde panel 'custom' sanıp SMTP ister).
+ * @param {{tokenConfigured?: boolean}} [hints]
  */
-export function inferEmailProvider(host, provider) {
+export function inferEmailProvider(host, provider, hints = {}) {
   if (provider && EMAIL_PROVIDERS.includes(provider)) return provider;
   const h = String(host || '').trim().toLowerCase();
-  if (!h) return 'custom';
-  if (h === 'smtp.mailgun.org' || h.endsWith('.mailgun.org')) return 'mailgun';
-  if (h.includes('amazonaws.com')) return 'ses';
-  if (h.includes('postmark')) return 'postmark';
-  return 'custom';
+  if (h) {
+    if (h === 'smtp.mailgun.org' || h.endsWith('.mailgun.org')) return 'mailgun';
+    if (h.includes('amazonaws.com')) return 'ses';
+    if (h.includes('postmark')) return 'postmark';
+    if (h.includes('mailtrap')) return 'mailtrap';
+    return 'custom';
+  }
+  return hints.tokenConfigured ? 'mailtrap' : 'custom';
 }
 
 /**

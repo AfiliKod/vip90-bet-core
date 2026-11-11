@@ -3,6 +3,9 @@ import mongoose from 'mongoose';
 const schema = new mongoose.Schema({
   roomId: { type: mongoose.Schema.Types.ObjectId, ref: 'ChatRoom', required: true },
   createdBy: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true }, // admin or system
+  // V8: `<createdBy>:<client requestId>`; a retry with the same id returns this rain.
+  // No default: a sparse index skips missing fields but would index every null.
+  requestId: { type: String, unique: true, sparse: true },
   
   totalAmount: { type: Number, required: true, min: 0 },
   totalRecipients: { type: Number, default: 0 },

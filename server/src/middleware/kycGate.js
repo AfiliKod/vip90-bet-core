@@ -25,48 +25,56 @@ import { kycConfig } from '../config/kyc.js';
  * okunamazsa hata yukarı gider (500; çekim zaten yapılamaz).
  * Yatırma ve oyun bu kapıdan geçmez.
  */
-export function requireKycForWithdrawal({
+export function requireKycForWithdrawal(deps = {}) {
+  return async function kycGate(req, res, next) {
+    try {
+      const userId = req.user?.id;
+      if (!userId) return next();
+      await assertKycForWithdrawal(userId, deps);
+      next();
+    } catch (err) {
+      next(err);
+    }
+  };
+}
+
+/**
+ * Kapının kendisi (V8): middleware'siz yollar (ör. sohbet bahşişi, socket)
+ * aynı kuralı buradan uygular. Geçerse döner, geçmezse yukarıdaki hatayı atar.
+ */
+export async function assertKycForWithdrawal(userId, {
   getUsability = getModuleUsability,
   getConfig = (key) => kycConfig.get(key),
   findUser = (id) => User.findById(id).select('kycStatus kycVerified').lean(),
   log = (msg) => console.warn(msg),
 } = {}) {
-  return async function kycGate(req, res, next) {
-    try {
-      const userId = req.user?.id;
-      if (!userId) return next();
+  const usability = await getUsability('kyc-verification').catch(() => 'unknown');
+  if (usability === 'disabled') return;
 
-      const usability = await getUsability('kyc-verification').catch(() => 'unknown');
-      if (usability === 'disabled') return next();
-
-      if (usability !== 'usable') {
-        const policy = (await getConfig('KYC_FAILURE_POLICY').catch(() => null)) === 'allow' ? 'allow' : 'block';
-        if (policy === 'allow') {
-          log(`[kycGate] KYC durumu denetlenemedi (${usability}); KYC_FAILURE_POLICY=allow → çekim KYC'siz geçti, userId=${userId}`);
-          return next();
-        }
-        return next(createError(
-          503,
-          'KYC_CHECK_UNAVAILABLE',
-          'Kimlik doğrulama durumu şu an denetlenemiyor; çekimler geçici olarak durduruldu',
-          { reason: usability },
-        ));
-      }
-
-      // "KYC aktif" kapalıysa oyuncu başvuru yapamaz; çekimi de kilitleme.
-      if ((await getConfig('KYC_ENABLED').catch(() => 'true')) === 'false') return next();
-
-      const user = await findUser(userId);
-      if (user?.kycVerified && user?.kycStatus === 'approved') return next();
-
-      return next(createError(
-        403,
-        'KYC_REQUIRED',
-        'Para çekmek için kimlik doğrulaması (KYC) gerekiyor',
-        { kycStatus: user?.kycStatus || 'not_started' },
-      ));
-    } catch (err) {
-      next(err);
+  if (usability !== 'usable') {
+    const policy = (await getConfig('KYC_FAILURE_POLICY').catch(() => null)) === 'allow' ? 'allow' : 'block';
+    if (policy === 'allow') {
+      log(`[kycGate] KYC durumu denetlenemedi (${usability}); KYC_FAILURE_POLICY=allow → çekim KYC'siz geçti, userId=${userId}`);
+      return;
     }
-  };
+    throw createError(
+      503,
+      'KYC_CHECK_UNAVAILABLE',
+      'Kimlik doğrulama durumu şu an denetlenemiyor; çekimler geçici olarak durduruldu',
+      { reason: usability },
+    );
+  }
+
+  // "KYC aktif" kapalıysa oyuncu başvuru yapamaz; çekimi de kilitleme.
+  if ((await getConfig('KYC_ENABLED').catch(() => 'true')) === 'false') return;
+
+  const user = await findUser(userId);
+  if (user?.kycVerified && user?.kycStatus === 'approved') return;
+
+  throw createError(
+    403,
+    'KYC_REQUIRED',
+    'Para çekmek için kimlik doğrulaması (KYC) gerekiyor',
+    { kycStatus: user?.kycStatus || 'not_started' },
+  );
 }

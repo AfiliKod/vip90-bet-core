@@ -7,12 +7,62 @@ const CasinoSessionSchema = new mongoose.Schema({
   gameTitle:     { type: String, default: '' },
   initialBalance: { type: Number, required: true },
   transferredAt: { type: Date, required: true },
-  status:        { type: String, enum: ['active', 'closed', 'reconciled'], default: 'active', index: true },
+  // F3: 'provider' = the session's money sits at the provider until the close;
+  // callbacks only record rounds (walletId 'igames' ledger rows) and the close
+  // credits balance + withdrawnAmount. Sessions opened before F3 have no value
+  // (legacy: callbacks move the local balance, the close credits
+  // max(balance, withdrawnAmount)). No default, so legacy rows stay legacy.
+  balanceModel:  { type: String, enum: ['provider'], default: undefined },
+  // F3: set when the provider confirmed the launch deposit. A 'provider'
+  // session with depositedAt null is decided by reconcile from the provider
+  // balance (deposited / refunded / flagged).
+  depositedAt:   { type: Date, default: null },
+  // Provider balance read just before the launch deposit (leftover late
+  // rounds). An ambiguous deposit is decided against it; null (the read
+  // failed) → never inferred, flagged.
+  providerBalanceBeforeDeposit: { type: Number, default: null },
+  // F3: the provider definitely refused the launch deposit (set before the
+  // refund, so reconcile finishes a failed refund without a provider read).
+  depositRefusedAt: { type: Date, default: null },
+  // First provider read of an unconfirmed deposit; a second equal read at
+  // least 30 s later decides it, a different read restarts.
+  depositCheckBalance: { type: Number, default: null },
+  depositCheckAt: { type: Date, default: null },
+  // A refunded launch's late deposit was withdrawn back from the provider.
+  strayDepositRecoveredAt: { type: Date, default: null },
+  // 'closing' (V19b): the close has started; the provider withdraw and the
+  // credit are finished by a resumed close or reconcileStuckSessions. A
+  // closing session still counts as open (no new launch until it is closed).
+  status:        { type: String, enum: ['active', 'closing', 'closed', 'reconciled'], default: 'active', index: true },
+  // Set at active → closing (when the player left; it bounds the referral /
+  // cashback round window), not when the close is credited.
   closedAt:      { type: Date, default: null },
   finalBalance:  { type: Number, default: null },
   withdrawnAmount: { type: Number, default: null },
+  providerBalance: { type: Number, default: null }, // provider balance reported by withdraw-all
+  withdrawnAt:   { type: Date, default: null },     // set once withdraw-all succeeded; never called again after
+  withdrawClaimedAt: { type: Date, default: null }, // lease so concurrent closes call withdraw-all once
+  withdrawUncertainAt: { type: Date, default: null }, // last withdraw-all with an unknown outcome (timeout, 5xx, bad body)
+  withdrawAttempts: { type: Number, default: 0 },
+  // Set when the close cannot safely finish on its own (provider balance 0
+  // after an uncertain withdraw, a withdraw far below expectedAmount, or
+  // overlapping calls that disagree). Never closed automatically; an admin
+  // resolves it. expectedAmount = initialBalance + Σ CasinoRound.net.
+  needsReconciliation: { type: Boolean, default: false },
+  expectedAmount: { type: Number, default: null },
+  // Why it was flagged when it is not the close (F3: 'deposit_uncertain',
+  // 'stray_deposit', 'possible_stray_deposit').
+  reconciliationReason: { type: String, default: null },
+  // Staff resolution of a flagged session (POST /api/igames/session/:id/resolve).
+  resolvedBy:    { type: mongoose.Schema.Types.ObjectId, ref: 'User', default: null },
+  resolvedAt:    { type: Date, default: null },
+  resolutionNote: { type: String, default: null },
   closeReason:   { type: String, default: null }, // 'user' | 'timeout' | 'replaced'
   netResult:     { type: Number, default: null }, // CasinoRound.net toplamı (transferredAt..closedAt) — ileride bildirim için
+  // Review notes that do not block the close (F3: withdrawnAboveExpected =
+  // { withdrawnAmount, expectedAmount, at } when withdraw-all returned more
+  // than expected).
+  metadata:      { type: mongoose.Schema.Types.Mixed, default: undefined },
 }, { timestamps: { createdAt: true, updatedAt: true } });
 
 CasinoSessionSchema.index({ userId: 1, status: 1 });

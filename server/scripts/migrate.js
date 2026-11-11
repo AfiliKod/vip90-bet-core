@@ -9,7 +9,8 @@
  * Kurulum sonrası ilk koşu K2 sihirbazı tarafından tetiklenebilir ya da
  * operatör bir kez çalıştırır; tekrar çalıştırmak güvenlidir (idempotent).
  */
-import 'dotenv/config';
+import './lib/env.mjs';
+
 import { connectDB } from '../src/db.js';
 import mongoose from 'mongoose';
 import { discoverMigrations } from '../migrations/index.js';

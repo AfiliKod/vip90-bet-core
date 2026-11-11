@@ -41,7 +41,7 @@ describe('demoData/userSeed', () => {
   it('load(N) tam N seed kullanıcı oluşturur, her biri bcrypt ile hash\'lenmiş parolaya sahip', async () => {
     const result = await userSeed.load(5);
     assert.equal(result.created, 5);
-    const users = await User.find({ isSeed: true });
+    const users = await User.find({ isSeed: true }).select('+password'); // password artık select:false (V1)
     assert.equal(users.length, 5);
     for (const u of users) {
       assert.ok(u.password.startsWith('$2'), 'parola bcrypt hash olmalı (düz metin OLMAMALI)');

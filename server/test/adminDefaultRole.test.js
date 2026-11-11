@@ -31,7 +31,9 @@ describe('Panelden açılan admin varsayılan rolü alır', () => {
     await Promise.all([User.deleteMany({}), Role.deleteMany({}), Permission.deleteMany({})]);
     await initDefaultPermissions();
     await initDefaultRoles();
-    actor = await User.create({ username: 'kurucu', email: 'kurucu@test.com', password: 'Pass1234', role: 'admin' });
+    // V21: admin açabilmek için aktörün admin:roles:write + varsayılan rolün tüm izinleri gerekir (super_admin).
+    const superRole = await Role.findOne({ name: 'super_admin' });
+    actor = await User.create({ username: 'kurucu', email: 'kurucu@test.com', password: 'Pass1234', role: 'admin', roles: [superRole._id] });
   });
 
   it('role=admin, roles boş → admin rolü atanır, admin:activity:read izni vardır', async () => {

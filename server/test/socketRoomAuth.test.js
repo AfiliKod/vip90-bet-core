@@ -14,6 +14,8 @@ import { io as ioClient } from 'socket.io-client';
 import jwt from 'jsonwebtoken';
 import User from '../src/models/User.js';
 import { initSocket } from '../src/socket/handler.js';
+import Role from '../src/models/Role.js';
+import { initDefaultPermissions, initDefaultRoles } from '../src/services/permissions.js';
 
 process.env.JWT_SECRET ||= 'test_jwt_secret_socket_room_auth_0123456789abc';
 
@@ -37,7 +39,11 @@ describe('Socket oda yetkilendirmesi', () => {
   before(async () => {
     await mongoose.connect(process.env.MONGODB_URI || 'mongodb://localhost:27017/betzone_test_socket_room_auth');
     await User.deleteMany({});
-    admin = await User.create({ username: 'sock_admin', email: 'sock_admin@test.com', password: 'Pass1234', role: 'admin' });
+    // V5: joining role:admin needs admin:activity:read, so the admin holds super_admin.
+    await initDefaultPermissions();
+    await initDefaultRoles();
+    const sup = await Role.findOne({ name: 'super_admin' });
+    admin = await User.create({ username: 'sock_admin', email: 'sock_admin@test.com', password: 'Pass1234', role: 'admin', roles: [sup._id] });
     player = await User.create({ username: 'sock_player', email: 'sock_player@test.com', password: 'Pass1234' });
     other = await User.create({ username: 'sock_other', email: 'sock_other@test.com', password: 'Pass1234' });
     httpServer = http.createServer();

@@ -10,6 +10,7 @@ r.get('/', requireAuth, requireAdmin, requirePermission('admin:settings:read'), 
 r.get('/services', requireAuth, requireAdmin, requirePermission('admin:settings:read'), ctrl.getServiceHealth);
 r.get('/system', requireAuth, requireAdmin, requirePermission('admin:settings:read'), ctrl.getSystemHealth);
 r.get('/metrics', requireAuth, requireAdmin, requirePermission('admin:settings:read'), ctrl.getMetrics);
+r.get('/risk', requireAuth, requireAdmin, requirePermission('admin:risk:read'), ctrl.getRiskStatsHandler);
 r.post('/check', requireAuth, requireAdmin, requirePermission('admin:settings:read'), ctrl.forceHealthCheck);
 
 export default r;

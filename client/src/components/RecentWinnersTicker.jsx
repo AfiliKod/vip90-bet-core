@@ -29,7 +29,7 @@ export default function RecentWinnersTicker() {
             const img = w.image || winnerImage(w.gameId);
             return (
               <div
-                key={`${w.userId}-${w.timestamp}-${i}`}
+                key={w.id}
                 className="flex items-center gap-2.5 shrink-0 rounded-xl pl-2 pr-4 py-2"
                 style={{ background: '#0d1526', border: '1px solid #ffffff0e' }}
               >

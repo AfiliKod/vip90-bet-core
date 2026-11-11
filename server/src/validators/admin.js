@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { notReservedUsername, RESERVED_USERNAME_MESSAGE } from './auth.js';
 import { THEME_TOKEN_DEFINITIONS } from '../theme/registry.js';
 import { THEME_PRESET_IDS } from '../theme/presets.js';
 import { BRANDING_FIELD_DEFINITIONS } from '../branding/registry.js';
@@ -25,7 +26,7 @@ export const settleEventSchema = z.object({
 });
 
 export const createUserSchema = z.object({
-  username:     z.string().min(3).max(30),
+  username:     z.string().min(3).max(30).refine(notReservedUsername, RESERVED_USERNAME_MESSAGE),
   email:        z.string().email(),
   password:     z.string().min(8),
   role:         z.enum(['user', 'admin']).default('user'),
@@ -96,9 +97,6 @@ export const updateGameSettingsSchema = z.object({
   plinkoPayoutScale: z.number().optional(),
   plinkoMinBet: z.number().positive().optional(),
   plinkoMaxBet: z.number().positive().optional(),
-  wheelPayoutScale: z.number().optional(),
-  wheelMinBet: z.number().positive().optional(),
-  wheelMaxBet: z.number().positive().optional(),
   kenoPayoutScale: z.number().optional(),
   kenoMinBet: z.number().positive().optional(),
   kenoMaxBet: z.number().positive().optional(),
@@ -129,6 +127,9 @@ export const updateGameSettingsSchema = z.object({
   // King of Money — yalnız bet aralığı; çarpan/paytable alanı BİLEREK yok (mühür).
   kingofmoneyMinBet: z.number().positive().optional(),
   kingofmoneyMaxBet: z.number().positive().optional(),
+  // Crazy Wheel — aynı mühür: yalnız bet aralığı, çarpan/paytable alanı YOK.
+  crazywheelMinBet: z.number().positive().optional(),
+  crazywheelMaxBet: z.number().positive().optional(),
   isActive: z.boolean().optional(),
   reason: z.string().max(300).optional(),
 });
@@ -379,7 +380,6 @@ export const updateUserAdminSchema = z.object({
   // Yalnız doğrulanmış işaretlenebilir (SMTP'siz kurulumda oyuncunun giriş
   // yapabilmesi için); geri almak oyuncuyu hesabından kilitler.
   emailVerified: z.literal(true).optional(),
-  role: z.enum(['user', 'admin']).optional(),
 });
 
 export const updateTaskSchema = z.object({
@@ -463,12 +463,20 @@ export const rejectKycSubmissionSchema = z.object({
   reason: z.string().min(1).max(500),
 });
 
+// Shape sent by the admin panel (pages/admin/Modules.jsx): partial objects, not booleans.
+const cryptoLimit = z.number().finite().nonnegative().max(1_000_000_000);
 export const updateCryptoSettingsSchema = z.object({
-  deposit: z.boolean().optional(),
-  withdraw: z.boolean().optional(),
-  usdtTryRate: z.number().positive().optional(),
-  network: z.string().optional(),
-});
+  deposit: z.object({
+    autoCreditLimit: cryptoLimit.optional(),
+    requireApprovalAbove: cryptoLimit.optional(),
+  }).strict().optional(),
+  withdraw: z.object({
+    autoProcessLimit: cryptoLimit.optional(),
+    requireApprovalAbove: cryptoLimit.optional(),
+  }).strict().optional(),
+  usdtTryRate: z.number().finite().positive().max(1_000_000).optional(),
+  network: z.enum(['mainnet', 'shasta', 'nile']).optional(),
+}).strict();
 
 export const updateReferralSettingsSchema = z.object({
   enabled: z.boolean().optional(),
@@ -495,10 +503,14 @@ export const updateEmailSettingsSchema = z.object({
   pass: optStr(500),
   from: z.string().max(255).refine(v => v === '' || /^[^\s<>"]+@[^\s<>"]+\.[^\s<>"]+$/.test(v), 'from geçerli e-posta olmalı').optional(),
   fromName: optStr(100),
-  provider: z.enum(['', 'mailgun', 'ses', 'postmark', 'custom']).optional(),
+  provider: z.enum(['', 'mailtrap', 'mailgun', 'ses', 'postmark', 'custom']).optional(),
   // Email Gateway anahtarı: açıkken panel/DB ayarları, kapalıyken sunucu .env.
   gatewayEnabled: z.union([z.boolean(), z.enum(['true', 'false', ''])]).optional(),
-  clear: z.array(z.enum(['pass'])).optional(),
+  // Mailtrap Email API: token gizlidir, sandbox canlı gönderimi kapatır.
+  token: optStr(500),
+  useSandbox: z.union([z.boolean(), z.enum(['true', 'false', ''])]).optional(),
+  sandboxInboxId: z.union([z.string(), z.number()]).refine(v => v === '' || (Number.isInteger(Number(v)) && Number(v) > 0), 'sandboxInboxId pozitif tam sayı olmalı').optional(),
+  clear: z.array(z.enum(['pass', 'token'])).optional(),
 }).strict();
 
 /** PUT /admin/settings/google-auth — Modules → Google Login kartı. */

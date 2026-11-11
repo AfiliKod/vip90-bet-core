@@ -71,3 +71,15 @@ export async function forceHealthCheck(req, res, next) {
     next(error);
   }
 }
+
+/**
+ * GET /api/admin/health/risk
+ * Risk engine counters (staff only; was public /api/health/risk)
+ */
+export async function getRiskStatsHandler(req, res, next) {
+  try {
+    const { getRiskStats } = await import('../services/riskEngine.js');
+    res.set('Cache-Control', 'no-store');
+    res.json(await getRiskStats());
+  } catch (e) { next(e); }
+}

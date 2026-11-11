@@ -1,6 +1,8 @@
 import multer from 'multer';
 import path from 'path';
 import crypto from 'crypto';
+import { mkdirSync } from 'node:fs';
+import { kycUploadDir } from '../config/paths.js';
 
 const KYC_ALLOWED = new Set([
   'image/jpeg', 'image/png', 'image/webp', 'image/heic',
@@ -11,7 +13,9 @@ const KYC_MAX_SIZE = 10 * 1024 * 1024; // 10 MB
 
 const storage = multer.diskStorage({
   destination(_req, _file, cb) {
-    cb(null, path.resolve('uploads/kyc'));
+    const dir = kycUploadDir();
+    mkdirSync(dir, { recursive: true, mode: 0o700 });
+    cb(null, dir);
   },
   filename(_req, file, cb) {
     const ext = path.extname(file.originalname).toLowerCase();

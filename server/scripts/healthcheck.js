@@ -10,7 +10,8 @@
  * tohumlama durumu. Çıkış kodu: 0 sağlıklı (warn'lar hariç), 1 sorunlu —
  * Docker healthcheck / izleme araçlarıyla kullanılabilir.
  */
-import 'dotenv/config';
+import './lib/env.mjs';
+
 import mongoose from 'mongoose';
 import { runHealthChecks } from '../src/health/checks.js';
 import Setting from '../src/models/Setting.js';

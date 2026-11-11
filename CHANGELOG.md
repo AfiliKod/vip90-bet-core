@@ -18,7 +18,271 @@ Madde formatı ve kategoriler için `docs/CHANGELOG_GUIDE.md`'ye bakın —
 
 ## [Yayınlanmadı]
 
-### In-house oyun: King of Money — Çifte Şans, Bonus Satın Al, Oto ve yeni oyun ekranı
+### In-house oyun: CRAZY WHEEL (`crazywheel`) — Wheel'in yerini aldı
+**Eklendi**
+- 16 dilimli ağırlık çarkı **Crazy Wheel** in-house oyun olarak kayıtlı: `inhouse-crazywheel` GameSettings kaydı (bahis bandı 1–1000, `isActive`), `GAME_FIELD_META`/`OPERATOR_ALLOWED_FIELDS` girdileri, admin kısa-id `crazywheel`, lobi kartı ve `/games/crazywheel` rotası, 8 dilde `games.crazywheel.*` + panel alan etiketleri. RTP **%90.00** kapalı formda kesindir (Σ wᵢ·mᵢ / Σwᵢ = 67.5/75) ve **mühürlüdür**: paytable ve ağırlıklar sağlayıcı eklentideki `math/crazyWheelMath.js` sabitlerinde, `computeRound` ayardan hiçbir şey okumaz — panelde bahis bandı ve aç/kapat dışında düzenlenebilir alan BİLEREK yoktur (King of Money ile aynı mühür). Round başına tavan `25 × maxBet` = 25.000; ayrı max-win cap eklenmedi (cap, 25× dilimini budayıp onaylı RTP'yi geçersiz kılardı).
+- Dilim, sunucu-kararlı `roundSeed`'den seçilir: `HMAC-SHA256(key: 'crazywheel-v1', deriveRoundSeed(serverSeed, nonce))`; `clientSeed` bilinçli olarak girdi değildir (eski Wheel'in kararı). Oyuncu doğrulaması tam yeniden-hesap yapar (`FULLY_VERIFIABLE`).
+- Migration betikleri: `add-crazywheel-to-operators.mjs` (operatörlerin `allowedGameIds`'ine `crazywheel`; idempotent) ve `remove-wheel-from-operators.mjs` (`wheel` id'sini düşürür; `inhouse-wheel` ayar dokümanı ve oynanmış round'lar KORUNUR). İkisi de `run-migration.yml` seçim listesine eklendi.
+- Testler: `server/test/crazyWheelEndpoint.test.js` (bant sınırları, `GET /crazywheel/info`, `GAME_DISABLED`, tek-tohum determinizmi, round kaydı), `client/src/i18n/crazywheelSettingsParity.test.js` (admin formu ↔ şema ↔ `GAME_FIELD_META` drift bekçisi), `gameSettings`/`instantGamesSeed` beklentileri `crazywheel`e çevrildi. Oyun sayısı **15** (Wheel çıktı, Crazy Wheel girdi).
+
+**Değiştirildi**
+- Lobi listeleri ve oyun matematiği/SSS/provider belgeleri ile README oyun listeleri Wheel yerine Crazy Wheel'i sayıyor. Sağlayıcı eklentisi `POST /crazywheel/spin`, `GET /crazywheel/info` ve oyun ekranını getirir; oyun-host paketi `crazywheel`'i de içerir.
+
+**Kırılan Değişiklikler**
+- **Wheel (`inhouse-wheel`) yayından kalktı.** Motor tarafında `wheelHandler`, `POST /wheel/spin`, `GET /wheel/info`, `wheelPayoutScale/wheelMinBet/wheelMaxBet` şema alanları ve çekirdek kaydı (seed, `GAME_FIELD_META`, `OPERATOR_ALLOWED_FIELDS`, admin kısa-id, validatorlar, bot ve son-kazananlar başlığı) kaldırıldı; panelde Wheel için ayar yazmaya çalışan eski entegrasyonlar `NO_VALID_FIELDS`/`UNKNOWN_GAME` alır. `/games/wheel` adresi `/games/crazywheel`e yönlendirilir (favorilerdeki eski bağlantı ölmesin). Eski Wheel round'ları oyuncular için `commitment-only` görünür — taahhüt kontrolü durur, dilim yeniden-hesabı yapılmaz. Operatör erişimi `remove-wheel-from-operators.mjs` çalışana kadar `allowedGameIds`te kalır; lobi kartı kalktığı için oynanamaz.
+
+### İP-0 takip işleri: Telegram girişi, igames para modeli, geri çağrı kaynağı, personel para araçları (F1–F4)
+**Güvenlik**
+- F1: Telegram girişi mevcut hesabı yalnız `telegramId` ile bulur; `tg_<kullanıcı adı>` adlı mevcut bir hesaba artık kullanıcı adı üzerinden bağlanmaz (Telegram kullanıcı adları serbest kalıp başkasına geçebilir, yerel bir hesap da o adı önceden alabilir). Eşleşme yoksa her zaman yeni hesap açılır; kullanıcı adı doluysa `tg_<ad>_<telegramId'nin son 6 hanesi>`, o da doluysa rastgele 8 hex son ek alır (en çok 30 karakter). Aynı `telegramId` ile eşzamanlı ilk girişte kazanan hesap döner. Google ve cüzdan girişi de aynı kuralla ad seçer: üretilen ad (`google_<…>`, `web3_<…>`) doluysa kimliğin son 6 karakteriyle, o da doluysa rastgele son ekle (önceden çakışmada giriş hata veriyordu). Widget `hash`'i 64 hex karakter olmalı ve sabit zamanlı karşılaştırılır; `auth_date` sayısal olmalı, 24 saatten eski ya da 5 dakikadan ileri olamaz (`400 INVALID_TELEGRAM_DATA` / `EXPIRED_TELEGRAM_AUTH`; bağlama akışında da). Bir kullanıcıya bağlı `state` yalnız o kullanıcının bağlama isteğinde tüketilir (`400 INVALID_STATE`).
+- F2 (Casino Content eklentisi): Sağlayıcı geri çağrı imzası ya da kaynak IP'si belgelemediği için `POST /api/igames/callback` isteğe bağlı bir kaynak IP listesiyle (`IGAMES_CALLBACK_ALLOWED_IPS`) kısıtlanabilir; listede olmayan adres token'dan önce `401 {code:1001}` alır ve hiçbir şey okunmaz/yazılmaz. Reddedilen geri çağrılar kaynak IP ile loglanır (sunulan token loglanmaz, kategori + IP başına dakikada en çok bir satır). Açık oturumu olmayan kullanıcının geri çağrısı kaydedilir ama hiçbir yan etki üretmez (bonus çevrimi, XP, sorumlu oyun günlük istatistikleri, bonus call kazanç toplamı); `authenticate` açık oturum yokken bakiyeyi `0` bildirir (önceden yerel bakiyeyi bildiriyordu). `POST /api/igames/game/url` yalnız personel içindir.
+- F3 (Casino Content eklentisi): Igames oturumunun parası kapanışa kadar sağlayıcıda kalır (`CasinoSession.balanceModel: 'provider'`). Geri çağrılar platform bakiyesini artık hareket ettirmez: `CasinoRound` ve `casino_bet` / `casino_win` / `casino_cancel` defter satırı `walletId: 'igames'` üzerinde sağlayıcı bakiyeleriyle yazılır, ana cüzdan zinciri bozulmaz; sahte bir geri çağrı para basamaz. Kapanış `bakiye + çekilen` kredi eder (önceden `max(bakiye, çekilen)`), böylece oturum sırasında yapılan yatırma ve spor bahsi kapanışta kaybolmaz. Dağıtım anında açık olan eski oturumlar (`balanceModel` yok) eski davranışla (`max`) kapanır.
+- F4 (Casino Content eklentisi): İşaretli oturumun `settle` tutarı bir tavana bağlandı: transfer + max(oturumdaki kazançlı turların net toplamı, sağlayıcının onayladığı çekilen tutar; personelin oturuma kaydedilen sağlayıcı çekimleri dahil) + 0,01. Üstü yalnız super_admin'in `override: true` ve en az 10 karakterlik notuyla geçer (oturumda `metadata.capOverride`, denetimde kayıtlı). Her resolve denemesi (başarısızlar dahil) `igames_session_resolve` denetim satırı yazar. `/api/igames/user/deposit`, `/user/withdraw`, `/user/withdraw-all` her çağrıda denetlenir ve açık oturumda reddedilir. Admin `withdraw-test-users` sağlayıcı bakiyesini defter dışından kredi ediyordu; artık yalnız sağlayıcının çekildiğini onayladığı tutarı bir `casino_return` satırıyla kredi eder.
+
+**Eklendi**
+- `IGAMES_CALLBACK_ALLOWED_IPS` (virgüllü IP/CIDR, `ADMIN_ALLOWED_IPS` ile aynı kurallar). Tanımsızken geri çağrı yalnız token ile korunur ve açılışta `igames_callback_auth` uyarısı loglanır; geçersiz girdiler yok sayılır ve `igames_callback_ip` hatası loglanır; hiç geçerli girdi yoksa her geri çağrı reddedilir. İstemci IP'si `req.ip`'tir; `ADMIN_IP_TRUST_CF_HEADER=true` ise `CF-Connecting-IP` (bayrak admin listesiyle ortaktır).
+- `Transaction.type` yeni değer `casino_transfer`: oyun açılışında platform bakiyesinin sağlayıcıya aktarımı (negatif tutar, ana cüzdan, anahtar `igames_launch_<sessionId>`; profil, admin kullanıcı paneli ve 8 dilde etiket). Reddedilen aktarım `reversal` satırıyla iade edilir.
+- `CasinoSession` yeni alanlar: `balanceModel`, `depositedAt`, `providerBalanceBeforeDeposit`, `depositRefusedAt`, `depositCheckBalance`, `depositCheckAt`, `strayDepositRecoveredAt`, `reconciliationReason` (`deposit_uncertain`, `stray_deposit`, `possible_stray_deposit`), `metadata` (`withdrawnAboveExpected`, `settleFloor`, `retryAttempts`, `staffProviderWithdrawals`, `capOverride`).
+- Oyun açılışında belirsiz sağlayıcı aktarımı (ağ hatası, zaman aşımı, 5xx, okunamayan yanıt) `502 IGAMES_DEPOSIT_PENDING` döner ve iade edilmez; reconcile işi en erken 5 dakika sonra, en az 30 sn arayla iki eşit sağlayıcı okumasıyla ve aktarım öncesi okunan sağlayıcı bakiyesine göre karar verir: ulaştı / iade / `deposit_uncertain` ile personel incelemesi. Karar verilmemiş aktarımın oturumu kapatılmaz (`409 IGAMES_CLOSE_IN_PROGRESS`).
+- Resolve yeni eylem `mark_stray_recovered`: reconcile ile iade edilmiş kapalı bir açılışın sonradan ulaşabilecek aktarımı için personel "ulaşmadı / sağlayıcıdan geri alındı" kaydı düşer (`admin:users:balance`, en az 10 karakterlik not, denetlenir; para hareket etmez; uygun olmayan oturum `409 IGAMES_NOT_A_STRAY_RISK`). `stray_deposit` oturumun `amount: 0` settle'ı da bu kaydı düşer.
+- `balance:update` socket olayı `activeIgamesBalance` taşır: açık sağlayıcı oturumunda sağlayıcıdaki bakiye, kapanışta ve oturumsuz geri çağrıda `null` (istemci başlıktaki casino bakiyesini temizler).
+- Admin kullanıcı işlem listesi (`GET /api/admin/users/:id/transactions`) `walletId` döner; kullanıcı panelinde ana cüzdan dışındaki satırlarda gösterilir.
+- Resolve: `override` gövde alanı; yeni hata kodları `400 AMOUNT_ABOVE_CAP`, `403 CAP_OVERRIDE_FORBIDDEN`, `400 OVERRIDE_NOTE_REQUIRED` (üçü de `error.details.cap` taşır), `400 NOTE_TOO_LONG`, `400 AMOUNT_BELOW_WITHDRAWN`, `400 STRAY_DEPOSIT_SETTLE_ZERO`. Denetim satırları: `igames_provider_deposit`, `igames_provider_withdraw`, `igames_provider_withdraw_all`, `igames_test_user_sweep`.
+
+**Düzeltildi**
+- Sağlayıcı oturumunda başlıktaki toplam (`balance + activeIgamesBalance`) oturum kazancını iki kez sayıyordu; kapanıştan sonra da eski casino bakiyesi başlıkta kalıyordu.
+- Oyun açılışında oturum kaydı aktarımdan sonra oluşturuluyordu: arada çökme parayı kayıtsız bırakabiliyordu. Borç, `casino_transfer` satırı ve oturum artık tek işlemde, aktarımdan önce yazılır.
+- Belirsiz aktarım hatasında yerel bakiye hemen iade ediliyordu; aktarım sonradan ulaşırsa para iki kez var oluyordu.
+- Aynı oyuncunun eşzamanlı iki oyun açılışı iki oturum açabiliyordu; açık oturum kontrolü artık borç işleminin içinde yapılır, ikinci istek borç ve aktarım olmadan `409 SESSION_ACTIVE` alır.
+- İade edilmiş bir açılışın sonradan ulaşabilecek aktarımı yalnız bir sonraki kredi edilmiş kapanışa kadar izleniyordu; artık geri alındığı ya da personelce kapatıldığı ana kadar izlenir (kapanış `possible_stray_deposit`, toplu çekim `needs_review`), 30 günden eski iadeler yok sayılır.
+- `stray_deposit` incelemesindeki oturum `/users/me` ve girişte `activeIgamesBalance` olarak gösteriliyordu; aktarımı zaten iade edildiği için başlıkta para iki kez görünüyordu.
+
+**Kırılan Değişiklikler**
+- Kayıt (`POST /api/auth/register`) ve admin kullanıcı oluşturma (`POST /api/admin/users`) `tg_`, `google_` ve `web3_` ile başlayan kullanıcı adlarını `400 VALIDATION_ERROR` ile reddeder (büyük/küçük harf duyarsız). Bu adlarla mevcut hesaplar etkilenmez. Bu öneklerle hesap açan bir entegrasyon başka ad seçmelidir.
+- Telegram'a hiç bağlanmamış (`telegramId` yok) `tg_<ad>` adlı bir hesabın sahibi Telegram ile girince o hesaba değil yeni bir hesaba girer. Mevcut hesaba Telegram'ı eklemek şu an self-servis değildir (istemcide ekran yok; bağlama geri dönüşü Telegram yönlendirmesinin taşımadığı bir Bearer token ister): oyuncu desteğe başvurur, destek iki hesabın sahipliğini doğrulayıp Telegram kimliğini elle taşır. `telegramId`'si zaten yazılı hesaplar değişmeden çalışır.
+- `POST /api/igames/game/url` artık personel + `admin:casino:read` ister (oyuncu `403`). Web istemcisi bu ucu çağırmaz (`/game/launch` kullanır); onu doğrudan çağıran özel istemciler `/game/launch`'a geçmeli.
+- Igames `authenticate` geri çağrısı açık oturum yokken `balance: 0` döner. Oturumsuz geri çağrılar (kapanıştan sonra gelen geç turlar dahil) bonus çevrimine, XP'ye ve sorumlu oyun günlük istatistiklerine sayılmaz.
+- Igames defteri: yeni oturumların `casino_bet` / `casino_win` / `casino_cancel` satırları `walletId: 'igames'` üzerindedir, `balanceBefore`/`balanceAfter` sağlayıcı bakiyesidir ve `User.balance`'ı değiştirmez. Açılış bir `casino_transfer` (−transfer) yazar; sağlayıcı oturumunun kapanışındaki `casino_return` tutarı artık çekilen tutarın tamamıdır (önceden yalnız bakiye değişimi). Türe göre toplayan raporlar ana cüzdan için `walletId`'ye göre süzmeli. Admin finans analitiğinin tür dağılımında (`GET /api/admin/analytics/finance`) `casino_return` brüt çekilen tutarı gösterir ve `casino_transfer` hacmi ayrı satır olarak görünür.
+- Kapanıştan sonra gelen geç turlar platform bakiyesini artık değiştirmez; para sağlayıcıda kalır ve yalnız oyuncunun bir sonraki açılışında ya da kapanışında withdraw-all ile toplanır. Oyuncu bir daha oynamazsa sağlayıcıda kalır.
+- Oyun açılışı artık bir MongoDB replica set'i (işlem) ister ve aktarımdan önce sağlayıcıdan bir bakiye okur. Yeni yanıtlar: `502 IGAMES_DEPOSIT_PENDING` (aktarım doğrulanamadı; birkaç dakika içinde otomatik sonuçlanır, oyuncu bu sürede oyunu yeniden açamaz ve kapatamaz), `409 SESSION_CHANGED` (aktarım başka yerde karar verildikten sonra ulaştı; personel incelemeli).
+- `/api/igames/user/deposit`, `/user/withdraw`, `/user/withdraw-all`: kullanıcının açık (`active`/`closing`) oturumu varken `409 IGAMES_SESSION_OPEN` (sağlayıcı çağrılmaz). Tek istisna: çekimi kaydedilmiş işaretli oturum (`closing` + `needsReconciliation` + `withdrawnAt`) için `withdraw` ve `withdraw-all` kabul edilir, denetlenir, kesin başarı oturuma (`metadata.staffProviderWithdrawals`) yazılır ve settle tavanına sayılır; `deposit` her zaman reddedilir.
+- `POST /api/igames/session/:id/resolve`: `amount` sonlu bir JSON sayısı olmalı ya da hiç gönderilmemeli (`"100"` gibi metin artık `400 INVALID_AMOUNT`), `note` en çok 500 karakter (`400 NOTE_TOO_LONG`). Tavanın üstündeki settle `400 AMOUNT_ABOVE_CAP` alır; uzun oturumlarda tavan gevşektir (kazançlı turların toplamı kayıpları düşmez). `deposit_uncertain` oturumda `retry` sağlayıcıdan çeker ama oturumu işaretli bırakır (`finalBalance: null`, sonra `settle`); `stray_deposit` oturum yalnız `amount: 0` ile settle edilir. Sağlayıcı oturumunda settle `bakiye + amount` kredi eder.
+- `POST /api/admin/igames/withdraw-test-users` artık `admin:users:balance` ister (önceden `admin:casino:write`): sistem `casino_manager` rolü bu aracı kaybeder, `finance` kazanır (panelde bu ucu çağıran ekran yoktur). Kredi, ön okunan bakiye değil sağlayıcının withdraw-all yanıtındaki tutardır ve `casino_return` satırıyla (ana cüzdan, `source: 'admin'`, anahtar `igames_sweep_<requestId>_<userId>`) yazılır. Gövde isteğe bağlı `requestId` alır (8–64 `[A-Za-z0-9_-]`, aksi `400 INVALID_REQUEST_ID`; yoksa üretilir); yanıt `requestId` ve `needsReview` listesi döner, yeni durumlar `already_credited` ve `needs_review`. Belirsiz yanıt, ön okumada para varken 0 çekim, kredi hatası ve olası başıboş aktarım (iade edilmiş bir açılışın sonradan sağlayıcıya ulaşmış olabilecek parası) kredi etmez, `needs_review` olur. Sağlayıcı bakiyesi okunamayan kullanıcı `error` olur (önceden 0 sayılıyordu). Her kullanıcı için bir `igames_test_user_sweep` denetim satırı yazılır. Yeniden denemede aynı `requestId` gönderilmeli.
+- `needsReconciliation` artık kapanış dışında da konur: belirsiz açılış aktarımı (`deposit_uncertain`, oturum `closing`) ve iade edilmiş açılışın sonradan ulaşan aktarımı (`stray_deposit`, `possible_stray_deposit`). `reconciliationReason`'a bakmadan işaretli oturumları "kapanış eksiği" sayan dış sorgular güncellenmeli.
+- Operatör adımları: (1) Dağıtım anında açık igames oturumları eski modelde kalır, taşıma gerekmez. (1a) Güncellemeden hemen önce, eski kod çalışırken, açık oturumu olmayan kullanıcıların sağlayıcı bakiyelerini listeleyin (`GET /api/admin/igames/test-users`, en yeni 100 kullanıcı): bunlar eski geri çağrılarla platformda zaten kredi edilmiştir. Her biri için açık oturum olmadığını doğrulayıp yalnız sağlayıcı tarafında `POST /api/igames/user/withdraw-all` ile çekin ve tutarı kayda geçirin (eski rota denetim satırı yazmaz ve açık oturumu kontrol etmez; platforma kredi yok). Bu stok için `withdraw-test-users` çalıştırmayın: parayı ikinci kez kredi eder. Güncellemeden sonra bu toplu adımı tekrarlamayın: oturumsuz geç turlar artık platform bakiyesini değiştirmediği için o andaki sağlayıcı bakiyesi oyuncunun kredi edilmemiş parası olabilir. (2) Telegram'a bağlı olmayan `tg_*` hesapları listeleyin; sahipleri Telegram'ı eklemek için desteğe başvurmalıdır. (3) Sağlayıcıdan callback IP'lerini alıp `IGAMES_CALLBACK_ALLOWED_IPS`'i ayarlayın, proxy arkasında gerçek istemci IP'sinin uygulamaya ulaştığını test callback'iyle doğrulayın. (4) `withdraw-test-users` gerekiyorsa ilgili role `admin:users:balance` verin. (5) Finans analitiğinde `casino_return` sıçraması ve yeni `casino_transfer` satırı beklenen davranıştır. Geri dönüşten önce aktarımı karar bekleyen ya da `deposit_uncertain` sağlayıcı oturumu kalmamalıdır.
+
+### İP-0 PR-3: para ve yönetim sınırı sertleştirmesi (V4–V11, V15, V17–V19, V22)
+**Güvenlik**
+- V4: Ödeme almadan bakiye yükleyen `POST /api/transactions/deposit` artık varsayılan olarak kapalıdır: yalnız `DEMO_INSTANT_DEPOSIT=true` ve `TENANCY_MODE` `multi` değilken çalışır, aksi halde `404 DEMO_FEATURE_DISABLED`. İstemcideki kullanılmayan çağrı kaldırıldı.
+- V5: `requireAdmin` artık yalnız "personel" demektir; yalnız ona dayanan her admin ucu ayrıca bir izin ister: analytics `admin:reports:read`; mutabakat `admin:reconciliation:read` / POST'lar `:write`; `/api/admin/modules` `admin:settings:read` / `:write`; sağlayıcı ayarları, anahtarları ve kimlik bilgileri (in-house, odds, igames credentials) yeni `admin:integrations:read` / `:write`; igames modül ayarları `admin:settings:read` / `:write`; ticket ve chat admin uçları `admin:support:read` / `:write`; `GET /api/crypto/settings` ve `/hot-wallet-balance` `admin:settings:read`; `POST /api/auth/2fa/{setup,verify,disable}` yalnız personel. Yeni `admin:integrations:*` anahtarları açılışta super_admin ve varsayılan `admin` rolüne eklenir. Personel hesabını düzenlemek/silmek, kullanıcıdan rol kaldırmak ve rol silmek, aktörün hedefin (ya da rolün) tüm izinlerine sahip olmasını ister (`403 STAFF_MANAGE_FORBIDDEN` / `ROLE_GRANT_FORBIDDEN`); rolün izin listesini değiştirmek de rolün şu anki tüm izinlerini ister. Son aktif super_admin pasifleştirilemez ve super_admin rolü alınamaz (`409 LAST_SUPER_ADMIN`, yazımdan sonra yeniden sayılır). Rol silindiğinde rolsüz kalan eski sahipler `role: 'user'`'a düşer ve oturumları biter (önceden bir sonraki açılışta super_admin'e yükseltiliyordu); yetim admin yükseltmesi yalnız hiç super_admin yokken çalışır. Canlı admin socket odası (`role:admin`) `admin:activity:read` ister. Casino Content eklentisinin personel uçları da izin ister (aşağıda V18 maddesi).
+- V6: `ADMIN_ALLOWED_IPS` artık yalnız `/api/admin` altında değil, `requireAdmin` kullanan her personel ucunda (ticket/chat admin, `/api/bank/admin/*`, kripto ayarları ve hot wallet, 2FA setup/verify/disable, igames personel uçları) ve canlı admin socket odasında (`subscribe:admin`) uygulanır; KYC belgesinin admin yolu da aynı kontroldedir. Değişken tanımsızken hiçbir şey değişmez; giriş uçları kapsam dışıdır.
+- V7: Chat mesajı silme sahipliğe bağlandı: oyuncu `chat:delete` ile yalnız kendi mesajını silebilir (`403 FORBIDDEN`), başkasının mesajı yalnız izinli REST ucuyla (`DELETE /api/chat/admin/messages/:id`, `admin:support:write`) silinir ve yalnız o denetime yazılır. Silinmiş mesajı yeniden silmek hiçbir şey yazmaz.
+- V8: Chat rain para basıyordu (oluşturan borçlandırılmıyor, rol bakılmıyordu). Artık yalnız DB'de `role: 'admin'` ve `admin:users:balance` izni olan personel rain yapabilir; rain oluşturanın çekilebilir bakiyesinden fonlanır, kuruş bazında bölünür (alacakların toplamı borca eşit), alıcılar odadaki tekil aktif hesaplardır (oluşturan hariç, en çok 50), pay sınırları ve bekleme süresi oda ayarlarından gelir ve işlem içinde uygulanır; borç, alacaklar, defter satırları ve `ChatRain` tek işlemde yazılır. Tip de tek işlemde yazılır; gönderen çekimle aynı kapılardan geçer (KYC, risk `withdraw`, sorumlu oyun `withdraw`), çekim kilidindeyken ve aktif çevrimdeki bonus parasıyla tip gönderemez, odada banlı/susturulmuşsa ya da oda pasifse reddedilir. Rain ve tip `requestId` ister (`400 REQUEST_ID_REQUIRED`), kimlik kullanıcı bazında kapsamlanır; tekrar ve çift tıklama ilk kaydı döner, para bir kez hareket eder.
+- V9: Risk istatistikleri herkese açık `GET /api/health/risk`'ten `GET /api/admin/health/risk`'e taşındı (personel + `admin:risk:read`, `Cache-Control: no-store`); eski yol `404`. Hata artık boş istatistikli `200` yerine hata yanıtı döner. `GET /api/health` ve `/api/health/status` değişmedi.
+- V10: Başarısız Slikair ödemesi (payout) oyuncuya iade edilir. Webhook imzasız olduğu için gövdesi parayı hareket ettirmez: durum Slikair'den yeniden sorgulanır ve yalnız sağlayıcının onayladığı başarısızlık (`failed`/`declined`/`expired` ya da kod 311/320/330) iade edilir. Bakiye, `refund` defter satırı (anahtar `slikair_payout_refund_<merchantReference>`, eski senkron iadenin anahtarıyla aynı), payout kaydı ve bekleyen çekim satırının kapanışı tek işlemde ve bir kez yazılır. Senkron `createPayout` hatasında yalnız kesin bir 4xx (408/409/425/429 hariç) iade edilir; 5xx, zaman aşımı, ağ hatası ve kullanılamaz 2xx yanıtı iade etmez, payout'u `needsReconciliation` ile işaretler (`502 SLIKAIR_PAYOUT_UNCONFIRMED`). `createPayout` deterministik `Idempotency-Key` gönderir; bilinmeyen `payoutId`'li webhook, `get-status` aynı `merchantReference`'ı döndürürse kayda bağlanır. İade edilmiş bir payout'u sağlayıcı sonradan başarılı onaylarsa geri alınmaz, işaretlenir (`PAYOUT_REFUND_CONFLICT` denetim kaydı, kritik log). `SlikairPayout` yeni alanlar alır: `refundedAt`, `refundTransactionId`, `providerStatus`, `needsReconciliation`, `reconciliationNote`, `metadata`.
+- V11: Sumsub webhook'unun ham gövdesi global JSON ayrıştırıcıdan önce, yol kapsamlı bir ayrıştırıcıyla (100 kb) yakalanır ve HMAC bu baytlar üzerinden hesaplanır; boş gövde ve yanlış uzunlukta imza `401` döner (önceden karşılaştırma hata verip `200` dönüyordu). Okunamayan sır için `503` korunur.
+- V15: Operatör origin'leri (`Operator.allowedOrigins`) CORS'ta yalnız `/api/provider/v1` ve Socket.IO için kabul edilir; platform API'si yalnız statik listeye (`CLIENT_URL`, `GAME_HOST_URL`, Railway) açıktır.
+- V17: Kripto ayarları (otomatik kredi/çekim limitleri, onay eşikleri, USDT/TRY kuru, ağ) DB'de kalıcıdır; önceden her yeniden başlatmada kayboluyordu ve panelin nesne biçimli kaydı şema tarafından reddediliyordu. Yalnız kaydedilen anahtarlar saklanır, önceki kaydın üzerine birleştirilir, yazmadan önce doğrulanır ve env varsayılanlarının üzerine uygulanır (açılışta ve 30 sn TTL ile ayar okuma, `check-deposit` ve `withdraw-request`'te). Kaydedilmemiş anahtarlar `USDT_TRY_RATE` / `TRON_NETWORK`'ü izler; geçersiz `USDT_TRY_RATE` 1'e düşer. Yatırma adresi indeksi atomik bir sayaçla verilir (eşzamanlı iki istek aynı HD adresini alamaz, aynı kullanıcı tek indeks tutar); `scripts/migrate-crypto-index.mjs` sayacı tohumlar, çift indeksleri raporlar ve ancak çift kalmadığında kısmi tekil indeks `cryptoDepositIndex_unique` ekler.
+- V18 (Casino Content eklentisi): Igames geri çağrıları (bet, win, cancel, bonus call) bakiye, `CasinoRound`, defter satırı (`casino_bet` / `casino_win` / `casino_cancel`; işaretli tutar, gerçek önceki/sonraki bakiye, anahtar `igames_<user_code>_<round_id>_<trans_type>`) ve kalıcı makbuzu tek işlemde yazar; tekrar ve eşzamanlı kopyalar parayı bir kez hareket ettirir ve saklanan yanıtı alır. İşlem hatası `500 {code:1000}` döner ve hiçbir şey yazılmaz. Bonus çevrimi ve XP commit'ten sonra bir kez uygulanır. Negatif, sıfır ya da düz ondalık olmayan tutar (`"0x10"`, `"1e3"`, `"12abc"`) `400 {code:1005}` ile reddedilir. Oyuncu uçları çağırana bağlandı: `/game/url` ve `/user/info` yalnız çağıranın hesabıyla çalışır (başka `user_code` `403`), oyuncunun gönderdiği `win_ratio` sağlayıcıya iletilmez; ajan geneli veri döndüren ve personel uçları izin ister.
+- V19a: Promosyon talebi (`claimedBy`, kredi, `bonus` defter satırı, `BonusWagering`) tek işlemde yazılır; kısmi hata hepsini geri alır, eşzamanlı talepler bir kez kredi verir. Bonus feshi çağıranın işlemine katılır ya da kendi işlemini açar; her çevrimin durum değişikliği, bakiye düşüşü ve defter satırı birlikte yazılır, bakiye 0'ın altına inmez.
+- V19b (Casino Content eklentisi): Igames oturum kapanışı iki kalıcı aşamada çalışır: oturum `active → closing` olur, sağlayıcıdan withdraw-all bir kira (lease) arkasında ve 30 sn zaman aşımıyla bir kez yapılır, sonra tek işlemde `balance = max(balance, çekilen)` ve tek `casino_return` satırı yazılır. Belirsiz sağlayıcı yanıtı (ağ hatası, zaman aşımı, 5xx, okunamayan gövde) oturumu 0 ile kapatmaz; sağlayıcı bakiyesi 0 görünürken beklenen tutar sıfırdan büyükse ya da çekilen tutar beklenenin yarısının altındaysa oturum `needsReconciliation` ile işaretlenir ve kredi yapılmaz. Yarım kalan `closing` oturumlarını reconcile işi tamamlar. Açık (`active`/`closing`) igames oturumu varken platform çekimleri reddedilir: kapanıştaki `max` oturum içi kazancı ikinci kez öderdi.
+
+**Eklendi**
+- `DEMO_INSTANT_DEPOSIT` (varsayılan `false`, yalnız tek kiracı modunda etkili) ve `TENANCY_MODE` okuması (`config/demoFlags.js`).
+- `admin:integrations:read` / `admin:integrations:write` izinleri.
+- `GET /api/admin/health/risk`.
+- `POST /api/igames/session/:id/resolve` (`admin:users:balance`, denetim kaydı `igames_session_resolve`): işaretli igames oturumunu `retry` ya da `settle` ile çözer. `GET /api/admin/igames/summary` yanıtına `needsReconciliationCount` eklendi; işaretli oturumlar yaşından bağımsız `stuckSessionCount`'a girer.
+- `CasinoSession` `closing` durumu ve `providerBalance`, `withdrawnAt`, `withdrawClaimedAt`, `withdrawUncertainAt`, `withdrawAttempts`, `needsReconciliation`, `expectedAmount`, `resolvedBy`, `resolvedAt`, `resolutionNote` alanları.
+- `Transaction.type` yeni değerler: `reversal`, `casino_bet`, `casino_win`, `casino_cancel` (profil, admin kullanıcı paneli ve 8 dilde etiket). `createReversal` deterministik anahtar (`reversal:<id>`) taşır ve aynı işlemi ikinci kez tersine çevirmez.
+- `server/scripts/migrate-crypto-index.mjs` (varsayılan dry run, `--commit`, `--fix`) ve `Counter` modeli.
+
+**Düzeltildi**
+- Sumsub webhook'u bu güncellemeden önce çalışmıyordu: global JSON ayrıştırıcı gövdeyi tükettiği için istek askıda kalıyordu. Güncellemeden sonra Sumsub sonuçları işlenmeye başlar.
+- `createReversal` `reversal` türü enum'da olmadığı için hiç çalışmıyordu.
+- Admin kripto ayarlarını kaydetmek şema uyuşmazlığı yüzünden başarısız oluyordu; kaydedilen değerler yeniden başlatmada kayboluyordu.
+- `createTransaction` anahtarsız satıra `idempotencyKey: null` yazıyordu; tekil+seyrek indeks null'u da indekslediği için ikinci anahtarsız satır `E11000` ile düşüyordu. Alan artık anahtar yoksa hiç yazılmaz.
+
+**Kırılan Değişiklikler**
+- `POST /api/transactions/deposit` varsayılan olarak `404 DEMO_FEATURE_DISABLED` döner. İstemcide artık bu uca çağrı yoktur; `DEMO_INSTANT_DEPOSIT` her kurulumda (demo dahil) tanımsız/`false` bırakılmalıdır. Yalnızca harici bir çağırıcısı olan, bilinçli tek operatörlü test kurulumunda açın; `TENANCY_MODE=multi` iken bayrak yok sayılır. Gerçek para kurulumlarında açmayın.
+- V5: Sistem rolleri ve özel roller, izni olmayan ekranları kaybeder (`admin` ve `super_admin` etkilenmez; yeni `admin:integrations:*` açılışta onlara eklenir). Varsayılan sistem rolleri için:
+
+  | Rol | Artık 403 alan ekranlar / uçlar |
+  |---|---|
+  | `risk_analyst` | Dashboard ve Analytics sayıları (`admin:reports:read`), Mutabakat, Modüller, Ticket'lar, Chat moderasyonu, kripto ayarları ve hot wallet, sağlayıcı entegrasyon ayarları, igames modül ayarları, canlı admin akışı |
+  | `support` | Dashboard ve Analytics sayıları, Mutabakat, Modüller, kripto ayarları ve hot wallet, entegrasyon ayarları, igames modül ayarları, canlı admin akışı (ticket ve chat kalır) |
+  | `finance` | Mutabakat, Modüller, Ticket'lar, Chat moderasyonu, kripto ayarları ve hot wallet, entegrasyon ayarları, igames modül ayarları, canlı admin akışı (Analytics kalır) |
+  | `casino_manager` | Mutabakat, Modüller, Ticket'lar, Chat moderasyonu, kripto ayarları ve hot wallet, entegrasyon ayarları, igames modül ayarları, canlı admin akışı (Analytics kalır) |
+  | `content_manager` | Dashboard ve Analytics sayıları, Mutabakat, modül aç/kapa (liste okunur), Ticket'lar, Chat moderasyonu, entegrasyon ayarları, igames modül ayarlarını kaydetme, canlı admin akışı |
+
+  Admin Dashboard bu 403'leri sessizce yutar (kartlar boş kalır, hata görünmez) ve admin menüsü izni olmayan öğeleri gizlemez; personel "boş sayfa" bildirirse rolüne ilgili izni verin (Ayarlar → Roller). Özel roller aynı kurala tabidir.
+- Canlı admin socket akışı (`subscribe:admin`: aktivite, KYC/ticket olayları, kuyruk sayıları) artık `admin:activity:read` ister; sistem `support` ve `finance` rolleri bu izne sahip değildir ve canlı bildirimleri kaybeder, gerekiyorsa izin verin.
+- `ADMIN_ALLOWED_IPS` tanımlıysa ticket/chat admin, `/api/bank/admin/*`, kripto ayarları/hot wallet, 2FA setup/verify/disable, igames personel uçları ve canlı admin socket odası da IP kısıtlıdır; listede olmayan adresten çalışan personel `403 ADMIN_IP_NOT_ALLOWED` alır. Cloudflare arkasında gerçek IP'nin `req.ip`'e ulaştığını doğrulayın.
+- Risk istatistikleri `GET /api/admin/health/risk`'e taşındı; eski `GET /api/health/risk` `404` döner. Onu izleyen harici monitörler `admin:risk:read` izinli bir personel token'ı ile yeni yola geçmeli.
+- Oyuncular artık chat rain başlatamaz (`chat:rain` → `chat:error`); rain yalnız `admin:users:balance` izinli personelce ve kendi bakiyesinden yapılır. `chat:rain` ve `chat:tip` socket olayları `requestId` ister (yankı olayları `chat:rainCreated` / `chat:tipSent` onu geri döner); bunu göndermeyen özel istemciler `REQUEST_ID_REQUIRED` alır. Rain'in sorumlu oyun ret kodu `RG_BLOCKED` yerine `ACCOUNT_RESTRICTED`'tır.
+- Tip artık göndereni çekim kapılarından geçirir: KYC (`KYC_REQUIRED`, `KYC_CHECK_UNAVAILABLE`), risk (`RISK_BLOCKED`, `RISK_RESTRICTED`), sorumlu oyun (`ACCOUNT_RESTRICTED`, `LIMIT_EXCEEDED`), çekim kilidi (`WITHDRAWAL_LOCKED`), bonus kilidi (`INSUFFICIENT_BALANCE`), oda kuralları (`BANNED`, `MUTED`, `ROOM_INACTIVE`). KYC modülü açıkken KYC'si onaylı olmayan oyuncu tip gönderemez.
+- Moderatörler başkasının mesajını socket `chat:delete` ile silemez; admin panelindeki REST silme ucu (`admin:support:write`) kullanılır.
+- Operatör origin'leri platform API'sinde CORS'u kaybeder: bir operatörün sayfası tarayıcıdan `/api/provider/v1` dışındaki `/api/*` uçlarını çağıramaz (Socket.IO etkilenmez). Platform istemcisi ve game-host kendi origin'leriyle çalıştığı için etkilenmez.
+- Casino Content eklentisi uçları (API tüketicileri için kırıcı): `GET /api/igames/agent/info`, `POST /api/igames/transactions`, `/round-details`, `/game/online`, `/game/call-config` artık personel + `admin:casino:read`; `POST /api/igames/user/create` personel + `admin:casino:write`; `/agent/rtp` `admin:casino:rtp`, `/agent/callback-test` `admin:casino:write`, `/user/deposit`, `/user/withdraw`, `/user/withdraw-all` `admin:users:balance`, `/bonus/start` ve `/bonus/cancel` `admin:casino:bonus`, `/statistics/user` `admin:reports:read` ister. `/game/url` ve `/user/info` yalnız çağıranın hesabını kullanır (başka `user_code` `403`), `win_ratio` gövdeden okunmaz. Web istemcisi yalnız `/game/launch`, `/game/close`, `/games`, `/game/all` çağırdığı için etkilenmez.
+- Igames geri çağrıları: tutarı negatif, sıfır ya da düz ondalık olmayan para geri çağrısı `400 {code:1005}` alır (önceden negatif bir "bet" oyuncuya kredi veriyordu, `"12abc"` gibi değerler kabul ediliyordu). Makbuz anahtarı `<round_id>:<trans_type>`'tan `<user_code>:<round_id>:<trans_type>`'a değişti; eski biçimli makbuzlar 30 günlük TTL boyunca işlenmiş sayılır. Reddedilen geri çağrı artık makbuz yakmaz (aynı kopya yeniden gelince yine reddedilir, `{code:0}` almaz); bilinmeyen `user_code` için makbuz yazılmaz. Bahissiz cancel ve win yine kredi verir (eski davranış, değişmedi).
+- Kullanıcının açık (`active` ya da `closing`) igames oturumu varken `POST /api/transactions/withdraw`, `POST /api/bank/withdraw` ve `POST /api/crypto/withdraw-request` `409 IGAMES_SESSION_OPEN` döner; oturum incelemeye düşmüşse `409 IGAMES_SESSION_REVIEW`. Oyuncu önce oyunu kapatmalıdır. Admin toplu `withdraw-test-users` aracı açık oturumu olan kullanıcıları atlar.
+- Igames kapanış defter satırı: anahtar `igames_return_<sessionId>` yerine `igames_close_<sessionId>`; `casino_return` tutarı çekilen tutar değil bakiyedeki gerçek değişimdir (değişim 0 ise satır yazılmaz). `casino_return` toplamından "igames'ten dönen para" hesaplayan raporlar güncellenmeli. `CasinoSession.status` yeni `closing` değerini alabilir; `active`'i "açık oturum" sayan dış sorgular `closing`'i de saymalı.
+- Bonus feshi tek toplu satır yerine her çevrim için bir `bonus_forfeit` satırı yazar: anahtar `forfeit_<wageringId>`, tutar fiilen düşülen miktar (`-deducted`), metadata `{ reason, wageringId, forfeitAmount, deducted }` (önceden `{ forfeitedWagerings, totalForfeitedAmount }`). Bakiye 0'ın altına inmez; düşülecek bir şey yoksa satır yazılmaz.
+- Promosyon talebinin tekrarı standart hata gövdesiyle `409 ALREADY_CLAIMED` döner (önceden `{ error: '...' }`); olmayan ya da pasif promosyon `404` kalır.
+- `PUT /api/admin/crypto/settings` tel biçimi: `{ deposit: { autoCreditLimit?, requireApprovalAbove? }, withdraw: { autoProcessLimit?, requireApprovalAbove? }, usdtTryRate?, network? }`; dış ve iç nesneler katıdır (bilinmeyen anahtar `400`), limitler 0–1e9, kur 0'dan büyük ve en çok 1e6, ağ `mainnet|shasta|nile`. `deposit`/`withdraw` için boolean artık reddedilir. Panelden kaydedilen değer env'in (`USDT_TRY_RATE`, `TRON_NETWORK`) önüne geçer; kaydedilmemiş anahtarlar env'i izlemeye devam eder.
+- Yeni `Transaction.type` değerleri (`reversal`, `casino_bet`, `casino_win`, `casino_cancel`): türe göre süzen ya da toplayan dış raporlar ve entegrasyonlar bunları tanımalı. Igames bahis ve kazançları artık defterde görünür.
+- `createTransaction` anahtarsız satırlarda `idempotencyKey` alanını hiç yazmaz (önceden `null`). `{ idempotencyKey: null }` sorgusu eksik alanı da eşlediği için çoğu sorgu etkilenmez; `$type: 'null'` ile arayanlar yeni satırları bulmaz.
+- Slikair: senkron `createPayout` 5xx, zaman aşımı ya da ağ hatası verdiğinde bakiye artık otomatik iade edilmez; payout `needsReconciliation` ile işaretlenir ve elle mutabakat gerekir (henüz admin ekranı yok).
+- Sumsub webhook'unda yanlış uzunlukta imza artık `200` değil `401` alır.
+- Operatör adımları (sıra önemli): (1) `DEMO_INSTANT_DEPOSIT` hiçbir kurulumda açılmaz (istemci çağrısı yok). (2) Güncellemeden önce salt okunur null-anahtar sayımı (`db.transactions.countDocuments({$expr:{$eq:[{$type:"$idempotencyKey"},"null"]}})`). (3) Güncellemeden sonra `node scripts/migrate-crypto-index.mjs` (dry run), sonra `--commit`; çift indeks raporlanırsa `--fix`'ten önce o kullanıcıların yatırma geçmişini inceleyin. (4) V10 öncesi `failed` olup iade edilmemiş Slikair ödemelerini mutabakat sorgusuyla bulun. (5) Kripto ayarlarını panelde kontrol edip bir kez kaydedin. (6) Personel rollerini yukarıdaki tabloya göre gözden geçirin. (7) Igames'te `needsReconciliationCount`'u izleyin ve işaretli oturumları resolve ucuyla çözün.
+
+### İP-0 PR-2: KYC ve kişisel veri sertleştirmesi (V3, V12, V13, V16)
+**Güvenlik**
+- V3: KYC kimlik belgeleri artık düz `express.static` ile (`/uploads/kyc`) sunulmaz. Dosyalar sunulan hiçbir yolun dışındaki `KYC_UPLOAD_DIR` altında tutulur (varsayılan `server/storage/kyc`), kayıtlar `storageKey` taşır ve belge yalnız kimlik doğrulamalı `GET /api/kyc/documents/:id` ile iner: belgenin sahibi ya da `admin:kyc:read` iznine sahip, izinli IP'den gelen admin. Sahibi olmayan çağıran belge var olsa da olmasa da 403 alır. Yanıtlar `Cache-Control: private, no-store`, `nosniff` ve `Content-Security-Policy: sandbox` ile döner. Taşıma betiği çalışana kadar eski konumlardan (`server/uploads/kyc`, `<cwd>/uploads/kyc`) salt okunur geri dönüş vardır. Admin KYC inceleme sayfası belgeleri yetkili blob isteğiyle açar.
+- V12: KYC sağlayıcı sırları (`SUMSUB_APP_TOKEN`, `SUMSUB_SECRET_KEY`, `SUMSUB_WEBHOOK_SECRET`) `OPERATOR_SECRET_ENCRYPTION_KEY` ile AES-256-GCM (`enc:v1:`) şifrelenir; anahtar yoksa yazma fail-closed reddedilir, eski düz metin okunur (uyarı loglanır) ve ilk yazımda şifrelenir. Admin `GET /api/admin/kyc-settings` yalnız maskeli değer görür (`rawValue` null), formdan geri gelen maskeli değer saklı sırrın üzerine yazılmaz; admin KYC ayar sayfası sır alanlarını önceden doldurmaz. Okunamayan webhook sırrı `503` döner ki Sumsub olayı yeniden denesin.
+- V13: Canlı kazananlar (`winners:new` socket olayı ve `GET /api/inhouse/recent-winners`) artık `userId` taşımaz; `username` her kazanan için maskelenir (ilk 2 karakter + `***`), sahte kazananlar da aynı şekilde maskelenir, her olay rastgele bir `id` alır.
+- V16: Denetim yolları `admin:audit:read` ister; `GET /api/admin/audit/export` ayrıca `admin:reports:export` ister. Denetim CSV'si formül enjeksiyonuna karşı nötrleştirilir (`= + - @ TAB CR` ile başlayan hücrelere `'` eklenir), her hücre tırnak içine alınır (Türkçe yerelli Excel `;` ile böler) ve RFC 4180'e göre kaçırılır.
+- Operasyon: `scripts/backup-db.sh` artık `BACKUP_FILES` (iki nokta ile ayrılmış dizin listesi, örn. kalıcı KYC dizini) ile dosya dizinlerini de yedekler: her mevcut dizin dump'tan sonra, rclone yüklemesinden önce `files-<dizin-adı>.tar.gz` (mod 600) olarak arşivlenir; olmayan dizin uyarıyla atlanır, tar hatası yedeği başarısız sayar, `--dry-run` yalnız listeler. Geri yükleme: arşivi dizinin üst klasörüne `tar -xzf` ile açın.
+
+**Kırılan Değişiklikler**
+- KYC dosyaları artık `KYC_UPLOAD_DIR` altındadır (varsayılan `server/storage/kyc`). Bu klasör dağıtımlar arasında **kalıcı** olmalı ve rsync'in üzerine yazdığı ya da `--delete` ile sildiği bir yolun içinde olmamalıdır; `KYC_UPLOAD_DIR`'i `DEPLOY_PATH` dışında mutlak bir yola (mod 700) işaretlemeniz önerilir: deploy'daki `rsync -a` `server/storage/kyc` modunu her seferinde sıfırlar, orada `chmod` kalıcı olmaz. Yedeğe alın.
+- Eski `/uploads/kyc/*` statik adresleri çalışmaz; belgeler yalnız kimlik doğrulamalı `GET /api/kyc/documents/:id` ile sunulur. Eski adresleri saklayan harici araçlar bu uca geçmeli.
+- Winners yayını ve REST yanıtı `userId` taşımaz ve gerçek kullanıcı adı yerine maskeli ad döner; `userId`'ye ya da tam kullanıcı adına dayanan istemciler güncellenmeli.
+- Denetim: `finance` rolü denetim dışa aktarımında artık 403 alır (`admin:audit:read` da gerekir); `risk_analyst` denetimi okuyabilir ama dışa aktaramaz. Denetim CSV'si BOM'lu UTF-8, CRLF satır sonlu ve RFC 4180 kaçışlıdır.
+- Operatör adımları: (1) Servisin çalışma dizininden ve `server/.env` ile aynı ortamla `node scripts/migrate-kyc-uploads.mjs` (dry run), sonra `--commit`: mevcut KYC dosyalarını `KYC_UPLOAD_DIR`'e taşır ve `storageKey` doldurur; betik `server/.env`'i kendisi yükler, `MONGODB_URI` yoksa hata verir; başka eski dizinler için `--from <dizin>` (tekrarlanabilir). Sonra kontrol: `moved` eski dizinlerdeki dosya sayısına eşit mi, KYC incelemede bir eski ve bir yeni belge açılıyor mu, imzalı bir Sumsub test webhook'u kabul ediliyor mu. (2) `node scripts/migrate-encrypt-secrets.mjs` (dry run), sonra `--commit`: KYC sırlarını da şifreler; bu adım atlanırsa eski KYC sırları yeniden girilene kadar düz metin kalır.
+
+### İP-0 PR-1: kimlik ve oturum sertleştirmesi (V1, V2, V14, V20, V21)
+**Güvenlik**
+- V1: `GET /api/admin/users` ve `User.toSafeObject` artık şifre sıfırlama/e-posta doğrulama token'larını, 2FA sırrını ve yedek kodlarını döndürmez (alanlar `select: false`). Sıfırlama ve doğrulama token'ları DB'de SHA-256 hash olarak saklanır; ham token yalnız e-posta linkindedir. 2FA sırrı ve yedek kodları `OPERATOR_SECRET_ENCRYPTION_KEY` ile AES-256-GCM (`enc:v1:`) şifrelenir; anahtar yoksa yazma işlemleri fail-closed reddedilir, eski düz metin okunabilir; TOTP sırrı ilk başarılı TOTP'de yeniden şifrelenir, eski yedek kod dizileri ise yalnız bir kod kullanıldığında ya da migrasyon çalıştığında şifrelenir. Mevcut kayıtlar için `server/scripts/migrate-encrypt-secrets.mjs`.
+- V2: 2FA'lı hesaplar girişte ikinci faktörü (TOTP veya yedek kod) doğrulamadan oturum alamaz. Şifre, cüzdan, Google ve Telegram girişlerinin hepsi tek oturum kapısından (`issueSession`) geçer; 2FA'lı hesapta yalnız kısa ömürlü (5 dk), tek kullanımlık, 5 denemelik bir challenge döner ve `POST /api/auth/2fa/login` ile tamamlanır. Hesap başına (IP'den bağımsız) 15 dakikada 10 yanlış kod kilitlenir (`429 TOO_MANY_ATTEMPTS`). Personel için 2FA zorunlu değildir; yalnız etkinleştirenler kod sorulur.
+- V14: Google girişi, Google'ın doğrulamadığı e-posta ile reddedilir (`GOOGLE_EMAIL_UNVERIFIED`). Bağlı olmayan yerel hesaba otomatik bağlama yalnız iki taraf da e-postayı doğruladıysa yapılır; aksi halde `409 GOOGLE_LINK_REQUIRED` (callback `error=google_link_required`) ve kullanıcı şifreyle girip profilden bağlar. Google profil kimliği normalize edilir; elle bağlamada e-posta yalnız adresler eşleşirse doğrulanmış sayılır.
+- V20: Socket el sıkışmaları (`/live`, `/chat`, `subscribe:user`, `subscribe:admin`) imzaya ek olarak `tokenVersion`, `isSeed` ve `purpose` kontrolü yapar (`services/socketAuth.js`); iptal edilmiş token'lar artık socket açamaz.
+- V21: `admin:users:write` tek başına admin hesabı açamaz; rol atama ve rol oluşturma/güncelleme yalnız aktörün kendisinde olan izinlerle sınırlıdır (`403 ROLE_GRANT_FORBIDDEN`), yalnız super_admin düzeyindeki aktörler her rolü atayıp admin açabilir. Sistem rolleri değiştirilemez; varsayılan `admin` rolü yoksa admin oluşturma fail-closed (`500 DEFAULT_ADMIN_ROLE_MISSING`) durur.
+
+**Eklendi**
+- `POST /api/auth/2fa/login` (`{ challengeToken, token }`); `POST /auth/login` ve `POST /auth/wallet/login` 2FA'lı hesaplarda `{ requires2fa: true, challengeToken }` döner, Google/Telegram callback'i `/auth/callback?requires2fa=1#challenge=...` adresine yönlendirir. İstemcide 2FA adımı ve Google bağlama uyarısı (8 dil).
+- `npm run test:security` (`server/test/security/`); `npm test` bu suite'i de çalıştırır.
+
+**Kırılan Değişiklikler**
+- Dağıtımdan önce gönderilmiş şifre sıfırlama ve e-posta doğrulama linkleri geçersiz olur (DB artık hash saklar). Kullanıcılar yeni link ister; toplu için `node scripts/resend-verification.js`.
+- 2FA etkin hesaplar her girişte kod sorulur; `POST /auth/login`, `/auth/wallet/login` yanıtı kullanıcı/token yerine `requires2fa` + `challengeToken` olabilir. Bu yanıtı işlemeyen özel istemciler `POST /auth/2fa/login` adımını eklemeli. Google/Telegram callback'i de `requires2fa=1#challenge=` ile dönebilir.
+- Google ile giriş artık yalnız her iki tarafın e-postası doğrulanmışsa mevcut yerel hesaba otomatik bağlanır; diğer durumlarda `google_link_required` ile profil üzerinden elle bağlama gerekir. Google'ın doğrulamadığı e-postalar reddedilir.
+- Eski socket token'ları (iptal edilmiş `tokenVersion`, seed hesap, purpose'lu token) düşer; bağlı istemciler yeniden bağlanıp yeniden giriş yapar.
+- `admin:users:write` tek başına admin açamaz; admin oluşturmak/rol atamak için `admin:roles:write` ve atanan rolün tüm izinlerine sahip olmak gerekir, admin açma fiilen super_admin düzeyindeki aktörlere kalır. Rol oluşturma/güncelleme de aynı kuralla sınırlıdır.
+- Cüzdan/Google/Telegram girişi de şifreli giriş gibi kullanıcının diğer oturumlarını geçersiz kılar (`tokenVersion` artar).
+- Hesap askıya alındığında (`isActive: false`) veya silindiğinde tüm oturumları hemen biter: `tokenVersion` artar, refresh cookie'si dönmez, açık access token'lar ve socket bağlantıları reddedilir. Askıdaki, silinmiş veya seed hesap cüzdan/Google/Telegram ile de giriş yapamaz (`403 ACCOUNT_BANNED`; önceden yalnız şifreli giriş reddediyordu).
+- 2FA'yı etkinleştirmek veya kapatmak o kullanıcıyı (yöneticiyi) her yerden çıkarır; yeniden giriş gerekir.
+- Google ile bağlı hesap, yerel e-postası Google e-postasından farklı olsa da `googleId` ile bulunur (önceden tekrar girişte hata veriyordu).
+- Operatör adımları: (1) `server/.env` içinde `OPERATOR_SECRET_ENCRYPTION_KEY` tanımlayın (`node -e "console.log(require('crypto').randomBytes(32).toString('hex'))"`) ve sunucu dışında yedekleyin; anahtar kaybolursa şifreli 2FA sırları okunamaz. (2) `cd server && node scripts/migrate-encrypt-secrets.mjs` (dry-run), sonra `node scripts/migrate-encrypt-secrets.mjs --commit`. Anahtar yokken 2FA kurulumu ve yedek kod yazımı reddedilir.
+
+### Demo/seed hesaplara e-posta gönderimi uygulama düzeyinde baskılanıyor
+**Eklendi**
+- `MAIL_SUPPRESS_EMAIL_DOMAINS` (virgülle ayrılmış, varsayılan `seed.local,test.local,local`):
+  listedeki domainlere **ve alt domainlerine** hiçbir mail gönderilmez. `local` ayrılmış
+  TLD olduğu için demo/seed (`@seed.local`) ve e2e (`@test.local`) hesapları da kapsanır;
+  bu adresler teslim edilemez, yalnız sağlayıcı hacmi/kotarya ve gönderim günlüğü üretiyordu.
+- Kural tek yerde (`server/src/config/mailSuppression.js`), iki bağlantı noktasında:
+  `sendEmail` transport sınırında (systemMail aksiyon + kitle, destek bileti, operatör
+  uyarıları ve ileride eklenecek her çağıran için emniyet sübabı — sağlayıcıya emisyon
+  gitmez, `{ mock: true, suppressed: true }` döner) ve `resolveAudience` kitlesel seçim
+  sorgusunda (`email.$not` — adresler kitleye hiç girmez, `SystemMailLog` satırı da
+  yazılmaz). `sendActionMail` baskılanmış alıcıyı `skipped/suppressed_domain` olarak
+  erken döner (log satırı yok — `bot_user`/`no_recipient` ile aynı aile).
+- Panelden "Test e-postası" baskılanmış adrese giderse `400 MAIL_RECIPIENT_SUPPRESSED`
+  döner — sahte "gönderildi" izlenimi yerine açık red.
+- `scripts/resend-verification.js` artık aynı listeyi kullanıyor (`--exclude-domain`
+  buna eklenir); `.local` kuralı scriptte değildi, uygulamanın kendisinde.
+- Testler: `server/test/mailSuppression.test.js` (16) — liste çözümü ve env ezmesi,
+  boş liste = kapalı, alt domain/lookalike eşleşmeleri, `userSeed.js` SEED_DOMAIN'in
+  varsayılan listede kalması (sürüklenme koruması), sağlayıcıya emisyon gitmediği,
+  kitle sorgusunun `$not` taşıdığı.
+
+**Değiştirildi**
+- Baskılama sağlayıcı çözümlemesinden ÖNCE çalışır: hiçbir credential olmayan
+  kurulumda bile baskılanmış adres `MAIL_PROVIDER_NOT_CONFIGURED` değil
+  `MAIL_RECIPIENT_SUPPRESSED` alır.
+
+
+### Scriptler artık her dizinden doğru env dosyasını okuyor (`server/.env`)
+**Düzeltildi**
+- `server/scripts` içindeki env yükleme iki bozuk desendi: `import 'dotenv/config'` ve
+  `config({ path: resolve('../.env') })` **cwd'ye** bakıyor, `config({ path:
+  resolve(__dirname, '../../.env') })` ise cwd'den bağımsız ama **repo/decode kökündeki**
+  `.env`i okuyor. Belgelenen çağrı biçimi kökten çalıştırma (`node server/scripts/healthcheck.js`,
+  `node server/scripts/migrate.js`, `node server/scripts/seed.js`,
+  `node server/scripts/ledger-dedupe.mjs`, `node server/scripts/inhouse-audit-report.mjs`,
+  `node server/scripts/validate-token.mjs`), yani production'da bu scriptler
+  dağıtım kökündeki `.env`i (bayat SMTP değerleri + eksik `OPERATOR_SECRET_ENCRYPTION_KEY`/
+  `MAILTRAP_TOKEN`), dev makinesinde kök `.env`i (içinde `MONGODB_URI` **yok**) okuyordu.
+  15 script tek kaynağa bağlandı: `server/scripts/lib/env.mjs` → `server/.env`
+  (uygulamanın kendi dosyası, `app.js` ile birebir).
+- `lib/env.mjs` import edildiği anda yükler: eski `dotenv/config` sıralama semantiğini
+  korur — gövdede çağrılan bir yükleme, modül düzeyinde `process.env` okuyan bir
+  bağımlılığı env'siz bırakırdı. `dotenv` kuralları gereği dışarıdan enjekte edilen
+  env (`CI`, `MONGODB_URI=… node …`) yine önceliklidir.
+- `validate-token.mjs`: koda gömülü makineye özgü `.env` yolu ve sağlayıcı API host'u kaldırıldı; `PALACE_API_TOKEN`/`PALACE_API_BASE` env'den okunuyor.
+- `resend-verification.js` aynı yardımcıya bağlandı (`resolveEnvFile()` dışa açık kaldı).
+
+**Eklendi**
+- `server/test/scriptsEnvLoading.test.js`: `server/scripts` içinde cwd-bazlı
+  (`dotenv/config`, `resolve('../.env')`) veya kök `.env` ('`../../.env`') yüklemesi
+  bırakan her scripti denetler; `SERVER_ENV_FILE`'ın iki farklı cwd'den aynı yolu
+  ürettiğini altprosesle doğrular; `app.js` ile aynı dosyayı hedeflediğini kilitler.
+
+
+### Doğrulama maili telafi scripti
+**Eklendi**
+- `node server/scripts/resend-verification.js` — doğrulama maili gitmemiş hesaplara yeni 24 saatlik link gönderir; e-posta aksaklığı sırasında kaydolup doğrulayamayan oyuncular (`EMAIL_NOT_VERIFIED`) için telafi aracıdır.
+- `--dry-run` yalnız sayı + domain/ay kovaları yazar (hiç mail göndermez, hiç token üretmez); `--since/--until` penceresi, `--limit` (varsayılan `MAIL_SEND_BATCH_LIMIT`), `--parallel`, `--exclude-domain`. `--yes` verilmeden DB bağlantısı açılmaz; sağlayıcı çözümlenemezse (mod `none`) gönderime başlamadan çıkar.
+- Gönderim `sendActionMail('user.emailVerify')` üzerinden: kayıt doğrulama akışıyla aynı şablon/token/TTL yolu, her mail `SystemMailLog`a yazılır. Link origin'i `CLIENT_URL`'in ilk adresidir.
+- Env kaynağı `server/.env` olarak sabitlendi (uygulamanın kendi yüklediği dosya): `import 'dotenv/config'` cwd'ye baktığı için dağıtım kökündeki bayat `.env` yüklenebilirdi.
+- Testler: `server/test/resendVerificationBackfill.test.js` — seçim filtresi, `.local` (seed.local/test.local) ve bozuk adres dışlaması, kanonik origin, TTL'nin `controllers/auth.js` ile ayrılmazlığı, `--yes` kapısının DB bağlanmadan önce çalışması.
+
+
+
+### E-posta gönderimi: Mailtrap Email API sağlayıcısı
+**Eklendi**
+- `mailtrap` e-posta sağlayıcısı: gönderim Mailtrap **Sending API** ile yapılır
+  (`mailtrap` SDK, `MailtrapClient.send`). Yeni ayarlar hem panele (Settings →
+  Modules → Email Gateway kartı) hem `.env` örneklerine eklendi: `MAILTRAP_TOKEN`
+  (`smtp.token`, gizli — SMTP şifresiyle aynı store ve aynı şifreleme),
+  `MAILTRAP_SANDBOX` (varsayılan `false`) ve `MAILTRAP_INBOX_ID`.
+- Mekanizma seçimi tek yerden: `emailConfig.resolveEmailMode`. Token çözülmüş ve
+  sağlayıcı `mailtrap` ise (ya da SMTP host'u hiç yoksa) API, aksi halde genel
+  SMTP transport kullanılır — Mailgun/SES/Postmark/özel SMTP kurulumları
+  davranışını değiştirmez.
+- Panel: Mailtrap seçiliyken bağlantı alanları (host/port/user/pass/secure)
+  yerine API bloğu (token + Sandbox anahtarı + Sandbox inbox ID) çizilir; rozet
+  hangi mekanizmanın aktif olduğunu gösterir. API modunda `configured` ölçütü
+  host değil token'dır.
+- Health: "E-posta gönderimi" kontrolü artık token ya da host'a bakar (adı
+  `service:smtp` kalır); bundan önce yalnızca SMTP host'u bakıldığı için,
+  sağlayıcı tamamen reddedense bile kontrol `ok` görünürdü.
+- Testler: `server/test/emailSettings.test.js` — mekanizma seçimi, API mesaj
+  biçimi (`from {email,name}` / `to [{email}]`), client'ın token imzasıyla
+  yeniden kurulması, sandbox + inbox zorunluluğu, gateway kapalıyken token'ın
+  `.env`'den çözülmesi; `emailProviderLogic.test.js` — mailtrap preset/infer.
+
+**Değiştirildi**
+- E-posta gönderimi Mailtrap Email API üzerinden de yapılabilir; Mailgun SMTP kullanan kurulumlar, API'ye geçerken eski SMTP host/kullanıcı/şifre değerlerini `.env`'den kaldırmalıdır. Gönderim günlüğü Mailtrap Email Logs'unda izlenir.
+- Sandbox modu açıldığında transport her kurulduğunda sunucu loguna uyarı
+  yazılır: Sandbox açıkken hiçbir gerçek alıcıya mail çıkmaz, bu sessiz kalmasın.
+- Email Gateway kartındaki host yer tutucusu `smtp.mailgun.org` yerine genel
+  örnek `smtp.example.com` (AGENTS.md: forma gerçek sağlayıcı değeri yazılmaz).
+- `integrationSettings.update` boolean→string dönüşümü `useSandbox`'u da kapsar;
+  sayısal alan listesi `port` ile birlikte `sandboxInboxId`'yi de stringe çevirir.
+
+**Kırılan Değişiklikler**
+- `POST /admin/settings/email/test` hata kodları sağlayıcı-bağımsız ad aldı:
+  `SMTP_NOT_CONFIGURED` → `MAIL_PROVIDER_NOT_CONFIGURED`, `SMTP_SEND_FAILED` →
+  `MAIL_SEND_FAILED`; yeni `MAILTRAP_SANDBOX_INBOX_MISSING` (`400`). API'yi
+  tüketen kod bu kodları eşleştiriyorsa güncellemeli.
+- Kurulum adımı: yeni bağımlılık için sunucuda `npm install` (veya `npm ci`) gerekir (`server/package.json` → `mailtrap`); atlanırsa e-posta modülü import sırasında düşer.
+- Mailtrap ile göndermek için `MAILTRAP_TOKEN` tanımlı olmalı **ve** gönderen
+  domain'in Mailtrap Sending Domains içinde doğrulanmış olması gerekir; aksi
+  halde API gönderimi reddeder. `SMTP_FROM` doğrulanmış domainin adresinde
+  olmalı.
+
+
+### In-house oyun: King of Money — yeni oyun ekranı, Çifte Şans, Bonus Satın Al, Oto
 **Eklendi**
 - Çifte Şans (bahsin 1,25 katı tahsil edilir, hazine sandığı daha sık düşer; ölçülen RTP
   %95,94) ve Bonus Satın Al (bahsin 100 katına doğrudan 15 bedava dönüş; ölçülen RTP

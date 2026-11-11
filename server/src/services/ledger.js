@@ -78,12 +78,12 @@ export async function createTransaction(data, options = {}) {
     status = 'completed',
     note = '',
     createdBy = null,
-    idempotencyKey = null,
     source = 'system',
     metadata = {},
     relatedTransactionId = null,
     walletId = 'main',
   } = data;
+  const idempotencyKey = typeof data.idempotencyKey === 'string' && data.idempotencyKey ? data.idempotencyKey : null;
 
   // Tekrar koruması. İşlem (transaction) içindeyken aynı anahtarın zaten var
   // olması, çağıranın aynı işlemde bakiyeyi de değiştirmiş olduğu anlamına
@@ -114,7 +114,9 @@ export async function createTransaction(data, options = {}) {
     status,
     note,
     createdBy,
-    idempotencyKey,
+    // Only write the key when set: a null value is indexed by the sparse unique
+    // index and would collide with every other keyless row.
+    ...(idempotencyKey ? { idempotencyKey } : {}),
     currency: currency.code,
     source,
     metadata,
@@ -206,10 +208,24 @@ export async function emitWithdrawalRisk(playerId, amount, metadata = {}) {
  */
 export async function createReversal(originalTransactionId, reason, options = {}) {
   const { session = null } = options;
+  // Balance move + ledger row must be atomic: without a caller transaction, open our own.
+  if (session?.inTransaction?.()) return reverseInSession(originalTransactionId, reason, session);
+  const { runInTransaction } = await import('../utils/transactionRetry.js');
+  return runInTransaction(null, (own) => reverseInSession(originalTransactionId, reason, own));
+}
+
+async function reverseInSession(originalTransactionId, reason, session) {
 
   const original = await Transaction.findById(originalTransactionId).session(session);
   if (!original) throw new Error('Original transaction not found');
   if (original.type === 'reversal') throw new Error('Cannot reverse a reversal');
+
+  // One reversal per original: the key also avoids the sparse-unique index
+  // colliding on a null idempotencyKey (a second reversal would fail on E11000).
+  const idempotencyKey = `reversal:${original._id}`;
+  if (await Transaction.exists({ idempotencyKey }).session(session)) {
+    throw new Error('Transaction already reversed');
+  }
 
   // Calculate reversal amount (opposite of original) — atomik güncelleme
   const reversalAmount = -original.amount;
@@ -221,6 +237,7 @@ export async function createReversal(originalTransactionId, reason, options = {}
   const { transaction: reversal } = await createTransaction({
     userId: original.userId,
     type: 'reversal',
+    idempotencyKey,
     amount: reversalAmount,
     balanceBefore,
     balanceAfter,
@@ -306,10 +323,12 @@ export async function validateBalanceConsistency(userId) {
   const user = await User.findById(userId);
   if (!user) throw new Error('User not found');
 
-  // Get all completed transactions
+  // Get all completed main-wallet transactions. Rows on walletId 'igames'
+  // (F3) record money held at the casino provider, not User.balance.
   const transactions = await Transaction.find({
     userId,
     status: 'completed',
+    walletId: { $in: ['main', null] },
   }).sort({ createdAt: 1 });
 
   // Calculate expected balance from transactions

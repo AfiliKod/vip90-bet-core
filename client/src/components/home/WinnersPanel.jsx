@@ -33,7 +33,7 @@ export default function WinnersPanel() {
           const img = w.image || winnerImage(w.gameId);
           return (
             <div
-              key={`${w.userId}-${w.timestamp}-${i}`}
+              key={w.id}
               className="flex items-center gap-2.5 py-2.5"
               style={{ borderBottom: i < 3 ? `1px solid ${HOME_BORDER}` : 'none' }}
             >

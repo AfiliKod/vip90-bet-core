@@ -37,6 +37,16 @@ export const useAuthStore = create((set) => ({
       username, password,
       ...(turnstileToken ? { turnstileToken } : {}),
     });
+    // 2FA'lı hesap: token/kullanıcı yok, yalnız challenge — oturum açılmaz.
+    if (data.requires2fa) return { requires2fa: true, challengeToken: data.challengeToken };
+    localStorage.setItem('accessToken', data.accessToken);
+    set({ user: data.user, token: data.accessToken });
+    connectUserSocket(data.user._id || data.user.id, data.user.role);
+    return data.user;
+  },
+  // İkinci faktör adımı: challenge + TOTP/yedek kod → oturum.
+  completeTwoFactor: async (challengeToken, code) => {
+    const { data } = await api.post('/auth/2fa/login', { challengeToken, token: code });
     localStorage.setItem('accessToken', data.accessToken);
     set({ user: data.user, token: data.accessToken });
     connectUserSocket(data.user._id || data.user.id, data.user.role);
@@ -60,6 +70,7 @@ export const useAuthStore = create((set) => ({
     const { data } = await api.post('/auth/wallet/login', {
       address, signature, message, walletType: 'metamask',
     });
+    if (data.requires2fa) return { requires2fa: true, challengeToken: data.challengeToken };
     localStorage.setItem('accessToken', data.accessToken);
     set({ user: data.user, token: data.accessToken });
     connectUserSocket(data.user._id || data.user.id, data.user.role);

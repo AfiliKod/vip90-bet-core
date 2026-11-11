@@ -3,6 +3,7 @@ import crypto from 'crypto';
 import User from '../models/User.js';
 import Transaction from '../models/Transaction.js';
 import { createError } from '../middleware/error.js';
+import { assertNoOpenIgamesSession } from '../services/igamesSessionGuard.js';
 import { formatMoney } from '../currency/index.js';
 import { createTransaction } from '../services/ledger.js';
 import { enforceAndRecordInTransaction } from '../services/responsibleGaming.js';
@@ -46,6 +47,7 @@ export async function deposit(req, res, next) {
 
 export async function withdraw(req, res, next) {
   try {
+    await assertNoOpenIgamesSession(req.user.id);
     const { amount, confirmForfeit } = req.validated;
     const { getSpendableBreakdown, forfeitActiveWagerings, previewForfeitAmount } = await import('../services/wagering.js');
     const breakdown = await getSpendableBreakdown(req.user.id);

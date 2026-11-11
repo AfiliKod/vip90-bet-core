@@ -172,6 +172,19 @@ export async function getRecentUserAuditLogs(userId, limit = 50) {
     .limit(limit);
 }
 
+const FORMULA_PREFIX = /^[=+\-@\t\r]/;
+
+/**
+ * Escape one CSV cell: neutralise spreadsheet formula injection (OWASP) and
+ * quote every cell (Turkish-locale Excel splits on ';').
+ */
+export function csvCell(value) {
+  if (value === null || value === undefined) return '';
+  let s = String(value);
+  if (FORMULA_PREFIX.test(s)) s = `'${s}`;
+  return `"${s.replace(/"/g, '""')}"`;
+}
+
 /**
  * Export audit logs to CSV format.
  *
@@ -208,5 +221,5 @@ export async function exportAuditLogs(filters = {}) {
     log.reason || 'N/A',
   ]);
 
-  return [headers, ...rows].map(row => row.join(',')).join('\n');
+  return `\uFEFF${[headers, ...rows].map(row => row.map(csvCell).join(',')).join('\r\n')}`;
 }

@@ -32,6 +32,7 @@ import helpRoutes from './routes/help.js';
 import inhouseRoutes from './routes/inhouse.js';
 import cryptoRoutes from './routes/crypto.js';
 import kycRoutes from './routes/kyc.js';
+import kycDocumentsRoutes from './routes/kycDocuments.js';
 import sumsubWebhookRoute from './routes/sumsubWebhook.js';
 import bankRoutes from './routes/bank.js';
 import analyticsRoutes from './routes/analytics.js';
@@ -116,27 +117,48 @@ if (process.env.RAILWAY_PUBLIC_DOMAIN) {
   baseOrigins.push(`https://${process.env.RAILWAY_PUBLIC_DOMAIN}`);
 }
 
+// V15 — operator origins (Operator.allowedOrigins, DB-backed, 30s TTL cache)
+// are honoured ONLY for the provider API (/api/provider/v1) and Socket.IO.
+// The rest of the platform API accepts the static allowlist (CLIENT_URL,
+// GAME_HOST_URL, Railway domain) and, outside production, ngrok tunnels.
+// The source is injectable so tests can run without the premium package.
+let operatorOriginsSource = () => getAllOperatorOrigins();
+export function setOperatorOriginsSource(fn) {
+  operatorOriginsSource = typeof fn === 'function' ? fn : () => getAllOperatorOrigins();
+}
+
 export const corsOptions = {
-  // async: DB-tabanlı operatör-origin listesi (provider/services/
-  // operatorOriginCache.js, 30sn TTL) statik baseOrigins'e ek olarak
-  // kontrol edilir — operatörler aynı statik game-host bundle'ını kendi
-  // white-label domain'lerinde barındırabilir, bu yüzden origin listesi
-  // artık salt .env değil, DB'den (Operator.allowedOrigins) geliyor.
-  origin: async (origin, cb) => {
+  origin: (origin, cb) => {
     if (!origin) return cb(null, false);
     if (baseOrigins.includes('*') || baseOrigins.includes(origin)) return cb(null, true);
     // Development only: ngrok tunnel desteği (Phase B10 — production'da kapalı)
     if (!isProd && (origin.endsWith('.ngrok-free.dev') || origin === 'https://ngrok-free.dev')) {
       return cb(null, true);
     }
-    try {
-      const operatorOrigins = await getAllOperatorOrigins();
-      if (operatorOrigins.has(origin)) return cb(null, true);
-    } catch { /* DB erişilemezse statik allowlist'e düş — aşağıda reddedilir */ }
     cb(new Error('CORS: ' + origin));
   },
   credentials: true,
 };
+
+export const providerCorsOptions = {
+  origin: async (origin, cb) => {
+    if (!origin) return cb(null, false);
+    if (baseOrigins.includes('*') || baseOrigins.includes(origin)) return cb(null, true);
+    if (!isProd && (origin.endsWith('.ngrok-free.dev') || origin === 'https://ngrok-free.dev')) {
+      return cb(null, true);
+    }
+    try {
+      const operatorOrigins = await operatorOriginsSource();
+      if (operatorOrigins.has(origin)) return cb(null, true);
+    } catch { /* DB erişilemezse reddedilir */ }
+    cb(new Error('CORS: ' + origin));
+  },
+  credentials: true,
+};
+
+// Pre-built once; chosen per request by path.
+const platformCors = cors(corsOptions);
+const providerCors = cors(providerCorsOptions);
 
 export function createApp() {
   const app = express();
@@ -161,7 +183,9 @@ export function createApp() {
   // dinamiktir (seo/http.js); dev'de kapalı (HMR için).
   app.use(createSecurityHeaders({ isProd }));
 
-  app.use(cors(corsOptions));
+  app.use((req, res, next) => (
+    req.path.startsWith('/api/provider/v1') ? providerCors : platformCors
+  )(req, res, next));
   app.use(compression({ level: 6, threshold: 1024 })); // Phase E2
   // A3 — logo/favicon/font dosyaları data: URL olarak JSON gövdede taşınır,
   // global 10kb sınırına sığmaz. Yalnızca bu yol için önce (daha büyük
@@ -179,6 +203,13 @@ export function createApp() {
   app.use('/api/inhouse-provider/callback', express.json({
     verify: (req, res, buf) => { req.rawBody = buf.toString('utf8'); },
   }));
+  // Sumsub webhook (V11): HMAC imzalanan TAM ham gövdeyi ister. Global parser
+  // gövdeyi tüketirse rota kendi okuyucusuyla sonsuza dek bekler; bu yüzden
+  // ham gövde burada yakalanır (global parser sonra no-op olur).
+  app.use('/api/webhook/sumsub', express.json({
+    limit: '100kb',
+    verify: (req, _res, buf) => { req.rawBody = buf.toString('utf8'); },
+  }));
   app.use(express.json({ limit: '10kb' })); // Phase B3
   app.use(express.urlencoded({ extended: false, limit: '10kb' }));
   app.use(mongoSanitize()); // Phase B12
@@ -187,8 +218,7 @@ export function createApp() {
   // Global rate limit (Phase B1)
   app.use('/api', globalLimiter);
 
-  // KYC belgeleri — statik dosya sunumu (yalnızca kendi belgelerine erişim)
-  app.use('/uploads/kyc', express.static(join(__dirname, '../uploads/kyc'), { maxAge: '1d', index: false }));
+  // KYC belgeleri statik sunulmaz: GET /api/kyc/documents/:id (kimlik doğrulamalı).
 
   // Production: static assets'i API routes'lardan ÖNCE serve et
   // Böylece /assets/*.js ve /assets/*.css istekleri doğru MIME type ile döner
@@ -310,6 +340,8 @@ export function createApp() {
     app.use('/api/inhouse-provider', (req, res) => res.status(503).json({ error: 'MODULE_NOT_INSTALLED', message: 'In-house oyun provider\'ı bu kurulumda mevcut değil.' }));
   }
   app.use('/api/crypto', requireCryptoPayment, cryptoRoutes);
+  // KYC belge indirme: kimlik doğrulamalı, sahibi veya admin:kyc:read (modül kapısından önce).
+  app.use('/api/kyc/documents', kycDocumentsRoutes);
   app.use('/api/kyc', requireKycVerification, kycRoutes);
   app.use('/api', sumsubWebhookRoute); // Sumsub webhook — module gate'den bağımsız
   app.use('/api/tickets', ticketRoutes);
@@ -369,17 +401,7 @@ export function createApp() {
     res.json(result);
   });
 
-  // Risk observability — non-sensitive risk stats for ops monitoring
-  app.get('/api/health/risk', async (req, res) => {
-    try {
-      const { getRiskStats } = await import('./services/riskEngine.js');
-      const stats = await getRiskStats();
-      res.set('Cache-Control', 'no-store');
-      res.json(stats);
-    } catch {
-      res.json({ statusStats: [], levelStats: [], evaluationStats: [] });
-    }
-  });
+  // V9: risk stats moved to GET /api/admin/health/risk (staff auth + admin:risk:read).
 
   // Görsel proxy — hotlink korumalı CDN'lerden Origin header olmadan çeker
   // SECURITY FIX (H2): SSRF protection — block internal IPs and cloud metadata

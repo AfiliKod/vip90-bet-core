@@ -1,13 +1,18 @@
 // client/src/components/admin/EmailProviderPanel.jsx
 //
-// E-posta (SMTP/Mailgun) sağlayıcı paneli — Modules → "Email Gateway" kartının
-// gövdesi (2026-10-06'da İletişim → E-posta → Provider sekmesinden taşındı;
-// sekme bu tarihte kaldırıldı). Email Gateway anahtarı KART BAŞLIĞINDADIR
+// E-posta sağlayıcı paneli — Modules → "Email Gateway" kartının gövdesi
+// (2026-10-06'da İletişim → E-posta → Provider sekmesinden taşındı; sekme bu
+// tarihte kaldırıldı). Email Gateway anahtarı KART BAŞLIĞINDADIR
 // (ModuleCard'ın sağ üstüne `headerSwitch` olarak çizilir, Core rozetinin
 // yerine geçer): AÇIK → transport panel/DB ayarlarını (gateway) kullanır,
-// KAPALI → sunucu .env SMTP'si (`SMTP_GATEWAY_ENABLED` / `smtp.gatewayEnabled`).
+// KAPALI → sunucu .env değerleri (`SMTP_GATEWAY_ENABLED` / `smtp.gatewayEnabled`).
 // Panelde kalan: anahtarın yardım metni, aktif mod rozeti ve form alanları —
 // anahtar durumu `gatewayEnabled` prop'uyla gelir (Modules anında kaydeder).
+//
+// 2026-10-30 (Mailtrap): sağlayıcı artık GÖNDERME MEKANİZMASINI da seçer —
+// `mailtrap` → Mailtrap Email API (token + opsiyonel sandbox), diğerleri →
+// genel SMTP transport. Form buna göre iki blok çizer: API bloğu
+// (token/sandbox) veya SMTP bağlantı bloğu (host/port/user/pass/secure).
 //
 // Taşınma (2026-10-03): gövde eskiden `Settings.jsx` içindeki
 // `EmailSettingsCard`'tı (Genel sekmesi). Sağlayıcı ayarının operatörün
@@ -37,16 +42,46 @@ const SOURCE_CLS = {
   unset: 'bg-white/5 text-text-3 border-white/10',
 };
 
-// `secure` formda booldur (eski Settings kartıyla aynı), sunucuya
-// 'true'/'false' stringi olarak gider (`integrationSettings.update`).
-const EMAIL_FIELDS = [
-  { key: 'host', labelKey: 'admin.emailSettings.host', placeholder: 'smtp.mailgun.org' },
+// Yer tutucular genel örnekdir (AGENTS.md — forma gerçek sağlayıcı değeri
+// yazılmaz). `secure` ve `useSandbox` formda booldur; sunucuya 'true'/'false'
+// stringi olarak gider (`integrationSettings.update`).
+const SMTP_FIELDS = [
+  { key: 'host', labelKey: 'admin.emailSettings.host', placeholder: 'smtp.example.com' },
   { key: 'port', labelKey: 'admin.emailSettings.port', placeholder: '587', inputMode: 'numeric' },
   { key: 'user', labelKey: 'admin.emailSettings.user', placeholder: 'postmaster@example.com' },
-  { key: 'pass', labelKey: 'admin.emailSettings.pass', secret: true },
+  { key: 'pass', labelKey: 'admin.emailSettings.pass', secret: true, hintKey: 'admin.emailSettings.passHint' },
+];
+
+const API_FIELDS = [
+  { key: 'token', labelKey: 'admin.emailSettings.token', secret: true, hintKey: 'admin.emailSettings.tokenHint' },
+  { key: 'sandboxInboxId', labelKey: 'admin.emailSettings.sandboxInboxId', placeholder: '123456', inputMode: 'numeric' },
+];
+
+const COMMON_FIELDS = [
   { key: 'from', labelKey: 'admin.emailSettings.from', placeholder: 'noreply@example.com' },
   { key: 'fromName', labelKey: 'admin.emailSettings.fromName', placeholder: 'VIP90' },
 ];
+
+function SwitchRow({ checked, onToggle, label, help }) {
+  return (
+    <div className="flex items-center justify-between gap-3 rounded-lg bg-bg-hover p-3 sm:col-span-2">
+      <div className="min-w-0">
+        <div className="text-xs font-medium text-text-2">{label}</div>
+        <div className="text-[11px] text-text-3/70">{help}</div>
+      </div>
+      <button
+        type="button"
+        role="switch"
+        aria-checked={checked}
+        aria-label={label}
+        onClick={onToggle}
+        className={`relative w-12 h-6 rounded-full transition shrink-0 ${checked ? 'bg-success/80' : 'bg-white/10'}`}
+      >
+        <span className={`absolute top-0.5 left-0.5 w-5 h-5 rounded-full bg-white transition-transform ${checked ? 'translate-x-6' : ''}`} />
+      </button>
+    </div>
+  );
+}
 
 export default function EmailProviderPanel({ gatewayEnabled }) {
   const { t } = useTranslation();
@@ -92,14 +127,23 @@ export default function EmailProviderPanel({ gatewayEnabled }) {
 
   const byKey = Object.fromEntries(settings.map(s => [s.key, s]));
   const secureCurrent = form.secure ?? (byKey.secure?.value === 'true');
+  const sandboxCurrent = form.useSandbox ?? (byKey.useSandbox?.value === 'true');
   // Email Gateway anahtarı kart başlığında (Modules → headerSwitch) durur ve
   // anında kaydedilir; prop yoksa (yüklenmedi/tek başına kullanıldı) DB'deki
   // son değer okunur. Sunucu 'true' (default) döndürür; eski sunucuda alan
   // hiç yoksa da gateway AÇIK sayılır (eski davranış korunur).
   const gatewayCurrent = gatewayEnabled ?? (byKey.gatewayEnabled?.value !== 'false');
   const dirty = Object.keys(form).length > 0;
-  const provider = inferEmailProvider(form.host ?? byKey.host?.value, form.provider ?? byKey.provider?.value);
-  const configured = byKey.host?.configured && byKey.from?.configured;
+  const tokenConfigured = !!(form.token || byKey.token?.configured);
+  const provider = inferEmailProvider(
+    form.host ?? byKey.host?.value,
+    form.provider ?? byKey.provider?.value,
+    { tokenConfigured },
+  );
+  const isApi = provider === 'mailtrap';
+  // Yapılandırılma ölçütü mekanizmaya göre değişir: API → token, SMTP → host.
+  const configured = (isApi ? byKey.token?.configured : byKey.host?.configured) && byKey.from?.configured;
+  const connectionFields = isApi ? API_FIELDS : SMTP_FIELDS;
   const inputCls = 'w-full bg-bg-deep border border-white/10 rounded-lg px-3 py-2 text-sm text-text-1 placeholder:text-text-3/60 focus:outline-none focus:border-white/25';
 
   return (
@@ -114,7 +158,10 @@ export default function EmailProviderPanel({ gatewayEnabled }) {
         <span className="px-2 py-0.5 rounded-full border text-xs bg-white/5 border-white/10 text-text-3">
           {t('admin.emailSettings.providerLabel')}: {t(`admin.emailSettings.provider.${provider}`)}
         </span>
-        {byKey.host?.value && (
+        <span className="px-2 py-0.5 rounded-full border text-xs bg-white/5 border-white/10 text-text-3">
+          {isApi ? t('admin.emailSettings.mechanismApi') : t('admin.emailSettings.mechanismSmtp')}
+        </span>
+        {!isApi && byKey.host?.value && (
           <span className="px-2 py-0.5 rounded-full border text-xs bg-white/5 border-white/10 text-text-3 font-mono">
             {byKey.host.value}:{byKey.port?.value || '587'}
           </span>
@@ -144,7 +191,7 @@ export default function EmailProviderPanel({ gatewayEnabled }) {
           <div className="mt-1 text-[11px] text-text-3/70">{t('admin.emailSettings.providerHelp')}</div>
         </div>
 
-        {EMAIL_FIELDS.map(({ key, labelKey, secret, placeholder, inputMode }) => {
+        {[...connectionFields, ...COMMON_FIELDS].map(({ key, labelKey, secret, hintKey, placeholder, inputMode }) => {
           const current = byKey[key] || {};
           return (
             <div key={key}>
@@ -164,26 +211,25 @@ export default function EmailProviderPanel({ gatewayEnabled }) {
                 onChange={e => setForm(f => ({ ...f, [key]: e.target.value }))}
                 className={inputCls}
               />
-              {secret && <div className="mt-1 text-[11px] text-text-3/70">{t('admin.emailSettings.passHint')}</div>}
+              {secret && hintKey && <div className="mt-1 text-[11px] text-text-3/70">{t(hintKey)}</div>}
             </div>
           );
         })}
-        <div className="flex items-center justify-between gap-3 rounded-lg bg-bg-hover p-3 sm:col-span-2">
-          <div className="min-w-0">
-            <div className="text-xs font-medium text-text-2">{t('admin.emailSettings.secure')}</div>
-            <div className="text-[11px] text-text-3/70">{t('admin.emailSettings.secureHelp')}</div>
-          </div>
-          <button
-            type="button"
-            role="switch"
-            aria-checked={secureCurrent}
-            aria-label={t('admin.emailSettings.secure')}
-            onClick={() => setForm(f => ({ ...f, secure: !secureCurrent }))}
-            className={`relative w-12 h-6 rounded-full transition shrink-0 ${secureCurrent ? 'bg-success/80' : 'bg-white/10'}`}
-          >
-            <span className={`absolute top-0.5 left-0.5 w-5 h-5 rounded-full bg-white transition-transform ${secureCurrent ? 'translate-x-6' : ''}`} />
-          </button>
-        </div>
+        {isApi ? (
+          <SwitchRow
+            checked={sandboxCurrent}
+            onToggle={() => setForm(f => ({ ...f, useSandbox: !sandboxCurrent }))}
+            label={t('admin.emailSettings.useSandbox')}
+            help={t('admin.emailSettings.useSandboxHelp')}
+          />
+        ) : (
+          <SwitchRow
+            checked={secureCurrent}
+            onToggle={() => setForm(f => ({ ...f, secure: !secureCurrent }))}
+            label={t('admin.emailSettings.secure')}
+            help={t('admin.emailSettings.secureHelp')}
+          />
+        )}
       </div>
 
       <div className="mt-4 flex flex-wrap items-center gap-2">

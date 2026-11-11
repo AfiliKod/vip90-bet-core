@@ -63,6 +63,18 @@ export default function AdminKycReview() {
   const [stats, setStats] = useState(null);
   const searchTimer = useRef(null);
 
+  // Belgeler statik sunulmaz; kimlik doğrulamalı istekle blob olarak açılır.
+  const openDocument = async (doc) => {
+    try {
+      const r = await api.get(`/kyc/documents/${doc._id}`, { responseType: 'blob' });
+      const url = URL.createObjectURL(r.data);
+      window.open(url, '_blank', 'noopener');
+      setTimeout(() => URL.revokeObjectURL(url), 60_000);
+    } catch {
+      addToast(t('admin.kycReview.detailLoadError'), 'error');
+    }
+  };
+
   const load = useCallback(async (f, s, p) => {
     setLoading(true);
     try {
@@ -377,16 +389,15 @@ export default function AdminKycReview() {
                           {STATUS_LABELS[doc.status] ? t(STATUS_LABELS[doc.status]) : doc.status}
                         </span>
                       </div>
-                      {doc.fileUrl && (
-                        <a
-                          href={doc.fileUrl}
-                          target="_blank"
-                          rel="noopener noreferrer"
+                      {(doc.storageKey || doc.fileUrl) && (
+                        <button
+                          type="button"
+                          onClick={() => openDocument(doc)}
                           className="inline-flex items-center gap-1 text-xs font-bold text-primary transition hover:underline"
                         >
                           <span className="material-symbols-outlined !text-[14px]" aria-hidden="true">open_in_new</span>
                           {t('admin.kycReview.viewDocument')}
-                        </a>
+                        </button>
                       )}
                     </div>
                   ))}
