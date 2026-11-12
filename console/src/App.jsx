@@ -18,6 +18,8 @@ import PartnerTenantsList from './pages/partner/PartnerTenantsList.jsx';
 import PartnerTenantProvision from './pages/partner/PartnerTenantProvision.jsx';
 import PartnerTenantDetail from './pages/partner/PartnerTenantDetail.jsx';
 import PartnerStaff from './pages/partner/PartnerStaff.jsx';
+import PartnerStatementsList from './pages/partner/PartnerStatementsList.jsx';
+import PartnerStatementDetail from './pages/partner/PartnerStatementDetail.jsx';
 
 function ProtectedRoute({ children }) {
   const { isAuthenticated, requires2faSetup } = usePlatformAuthStore();
@@ -46,6 +48,11 @@ function PartnerDetailRoute() {
 function PartnerTenantDetailRoute() {
   const { id } = useParams();
   return <PartnerTenantDetail key={id} tenantId={id} />;
+}
+
+function PartnerStatementDetailRoute() {
+  const { id } = useParams();
+  return <PartnerStatementDetail key={id} statementId={id} />;
 }
 
 function PlatformRoute({ children }) {
@@ -116,12 +123,16 @@ export default function App() {
           <Route path="partner/operators" element={<PartnerRoute><PartnerTenantsList /></PartnerRoute>} />
           <Route path="partner/operators/new" element={<PartnerRoute><PartnerTenantProvision /></PartnerRoute>} />
           <Route path="partner/operators/:id" element={<PartnerRoute><PartnerTenantDetailRoute /></PartnerRoute>} />
+          <Route path="partner/statements" element={<PartnerRoute><PartnerStatementsList /></PartnerRoute>} />
+          <Route path="partner/statements/:id" element={<PartnerRoute><PartnerStatementDetailRoute /></PartnerRoute>} />
           <Route path="partner/staff" element={<PartnerRoute><PartnerStaff /></PartnerRoute>} />
 
           {/* Fallback aliases for partner convenience */}
           <Route path="operators" element={<PartnerRoute><Navigate to="/partner/operators" replace /></PartnerRoute>} />
           <Route path="operators/new" element={<PartnerRoute><Navigate to="/partner/operators/new" replace /></PartnerRoute>} />
           <Route path="operators/:id" element={<PartnerRoute><PartnerTenantDetailRoute /></PartnerRoute>} />
+          <Route path="statements" element={<PartnerRoute><Navigate to="/partner/statements" replace /></PartnerRoute>} />
+          <Route path="statements/:id" element={<PartnerRoute><PartnerStatementDetailRoute /></PartnerRoute>} />
           <Route path="staff" element={<PartnerRoute><Navigate to="/partner/staff" replace /></PartnerRoute>} />
         </Route>
 
