@@ -35,28 +35,45 @@ export function isTenantCollection(name) {
 
 const stats = { count: 0, lastSample: null };
 
+/** `log` mode warning window: at most one line per model+op (spec §6.3 G7). */
+export const WARN_WINDOW_MS = 60_000;
+
+/** Last warning time per `<model>|<op>`, so an old install is not flooded. */
+const lastWarnAt = new Map();
+
 /** Violation counters collected in `log` mode. */
 export function getScopeViolationStats() {
   return { count: stats.count, lastSample: stats.lastSample };
 }
 
-/** Reset the violation counters (tests, diagnostics). */
+/** Reset the violation counters and warning window (tests, diagnostics). */
 export function resetScopeViolationStats() {
   stats.count = 0;
   stats.lastSample = null;
+  lastWarnAt.clear();
 }
 
 /**
  * Report a scope violation. In `log` mode it counts and warns; in `enforce`
  * mode it throws a TenantScopeError. Callers must not invoke it in `off` mode.
+ * Every call is counted; the warning line is rate limited per model+op.
  * @param {{ model: string|null, op: string|null, reason?: 'unscoped'|'cross_tenant' }} details
+ * @param {{ now?: number, windowMs?: number }} [limits] Clock injection (tests)
  */
-export function reportViolation({ model, op, reason = 'unscoped' }) {
+export function reportViolation(
+  { model, op, reason = 'unscoped' },
+  { now = Date.now(), windowMs = WARN_WINDOW_MS } = {},
+) {
   if (getTenancyEnforcement() === 'enforce') {
     throw new TenantScopeError(`[tenancy] ${reason} ${op} on ${model}`, { model, op, reason });
   }
   stats.count += 1;
   stats.lastSample = { model, op, reason, stack: new Error().stack };
+
+  const key = `${model}|${op}`;
+  const previous = lastWarnAt.get(key);
+  if (previous !== undefined && now - previous < windowMs) return;
+  lastWarnAt.set(key, now);
   console.warn(`[tenancy] unscoped ${op} on ${model}`);
 }
 
@@ -284,6 +301,8 @@ function stampDoc(doc, ctx, model, op) {
  * Mongoose plugin that scopes every query and write of a tenant-owned model to
  * the ambient tenant context. Behaviour depends on TENANCY_ENFORCEMENT, read on
  * every operation: `off` is a no-op, `log` warns and counts, `enforce` throws.
+ * Single mode stays on `off` until the G3 backfill is complete (spec §6.3 G7), so
+ * documents without a `tenantId` are still read by older installs.
  * @param {mongoose.Schema} schema
  */
 export function tenantScoped(schema) {

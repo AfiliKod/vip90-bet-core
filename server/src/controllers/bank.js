@@ -1,3 +1,4 @@
+import { tenantFilter } from '../tenancy/tenantFilter.js';
 import mongoose from 'mongoose';
 import { broadcastAdminCounts } from '../services/adminCounts.js';
 import { withTransactionRetry } from '../utils/transactionRetry.js';
@@ -105,12 +106,13 @@ export async function getAllPending(req, res, next) {
   } catch (e) { next(e); }
 }
 
-export async function approve(req, res, next) {
+export async function approveDeposit(req, res, next) {
   const session = await mongoose.startSession();
   let recordRef;
   try {
     const safeUser = await withTransactionRetry(session, async () => {
-      const record = await BankDepositRequest.findById(req.params.id).session(session);
+      const filter = tenantFilter(req, { _id: req.params.id });
+      const record = await BankDepositRequest.findOne(filter).session(session);
       if (!record) throw createError(404, 'NOT_FOUND', 'Talep bulunamadı');
       if (record.status !== 'pending') throw createError(409, 'ALREADY_PROCESSED', 'Talep zaten işlenmiş');
 
@@ -162,18 +164,20 @@ export async function approve(req, res, next) {
   finally { session.endSession(); }
 }
 
-export async function reject(req, res, next) {
+export async function rejectDeposit(req, res, next) {
   try {
     const { note } = req.body;
+    const filter = tenantFilter(req, { _id: req.params.id, status: 'pending' });
     // Koşullu ve atomik: aynı anda gelen onay ile çakışırsa yalnız biri geçer
     // (önceden red, onaylanmış ve parası işlenmiş talebin durumunu ezebiliyordu).
     const record = await BankDepositRequest.findOneAndUpdate(
-      { _id: req.params.id, status: 'pending' },
+      filter,
       { $set: { status: 'rejected', adminNote: note || '', approvedBy: req.user.id, approvedAt: new Date() } },
       { new: true },
     );
     if (!record) {
-      const exists = await BankDepositRequest.exists({ _id: req.params.id });
+      const existsFilter = tenantFilter(req, { _id: req.params.id });
+      const exists = await BankDepositRequest.exists(existsFilter);
       throw exists ? createError(409, 'ALREADY_PROCESSED', 'Talep zaten işlenmiş') : createError(404, 'NOT_FOUND', 'Talep bulunamadı');
     }
 
@@ -181,3 +185,7 @@ export async function reject(req, res, next) {
     res.json({ message: 'Talep reddedildi' });
   } catch (e) { next(e); }
 }
+
+// Keep existing route bindings stable while exposing the explicitly named
+// handlers used by tenancy tests and integrations.
+export { approveDeposit as approve, rejectDeposit as reject };

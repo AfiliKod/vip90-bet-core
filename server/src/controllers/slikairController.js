@@ -3,6 +3,7 @@
  *
  * Handles deposit initiation, webhook notifications, and admin queries.
  */
+import { tenantFilter } from '../tenancy/tenantFilter.js';
 import { randomUUID as uuidv4 } from 'node:crypto';
 import mongoose from 'mongoose';
 import { withTransactionRetry } from '../utils/transactionRetry.js';
@@ -108,13 +109,15 @@ export async function initiateDeposit(req, res, next) {
 // bir "succeeded" webhook'u sandbox'ta hiç gelmeyecek.
 export async function initiatePayout(req, res, next) {
   try {
+    const { userId, amount, currency, method, country, paymentDetails } = req.validated;
+    const userFilter = tenantFilter(req, { _id: userId });
+    const user = await User.findOne(userFilter);
+    if (!user) throw createError(404, 'NOT_FOUND', 'Kullanıcı bulunamadı');
+
     if (!(await isSlikairConfigured())) {
       throw createError(503, 'SLIKAIR_DISABLED', 'Slikair ödeme sistemi şu an aktif değil');
     }
 
-    const { userId, amount, currency, method, country, paymentDetails } = req.validated;
-    const user = await User.findById(userId);
-    if (!user) throw createError(404, 'NOT_FOUND', 'Kullanıcı bulunamadı');
     await assertNoOpenIgamesSession(userId);
     if (user.balance < amount) throw createError(400, 'INSUFFICIENT_BALANCE', 'Kullanıcının bakiyesi yetersiz');
 
@@ -127,7 +130,8 @@ export async function initiatePayout(req, res, next) {
     const session = await mongoose.startSession();
     session.startTransaction();
     try {
-      const fresh = await User.findById(userId).session(session);
+      const fresh = await User.findOne(userFilter).session(session);
+      if (!fresh) throw createError(404, 'NOT_FOUND', 'Kullanıcı bulunamadı');
       if (fresh.balance < amount) throw createError(400, 'INSUFFICIENT_BALANCE', 'Kullanıcının bakiyesi yetersiz');
       const balanceBefore = fresh.balance;
       fresh.balance = +(fresh.balance - amount).toFixed(2);
@@ -659,9 +663,10 @@ export async function getPayments(req, res, next) {
 
 // ── Admin: Yatırma Detayı ──────────────────────────────────────────────────
 
-export async function getPaymentDetail(req, res, next) {
+export async function getPaymentById(req, res, next) {
   try {
-    const payment = await SlikairPayment.findById(req.params.id)
+    const filter = tenantFilter(req, { _id: req.params.id });
+    const payment = await SlikairPayment.findOne(filter)
       .populate('userId', 'username email balance');
     if (!payment) throw createError(404, 'NOT_FOUND', 'İşlem bulunamadı');
     res.json({ payment });
@@ -700,14 +705,17 @@ export async function getPayouts(req, res, next) {
 
 // ── Admin: Çekim Detayı ────────────────────────────────────────────────────
 
-export async function getPayoutDetail(req, res, next) {
+export async function getPayoutById(req, res, next) {
   try {
-    const payout = await SlikairPayout.findById(req.params.id)
+    const filter = tenantFilter(req, { _id: req.params.id });
+    const payout = await SlikairPayout.findOne(filter)
       .populate('userId', 'username email balance');
     if (!payout) throw createError(404, 'NOT_FOUND', 'İşlem bulunamadı');
     res.json({ payout });
   } catch (e) { next(e); }
 }
+
+export { getPaymentById as getPaymentDetail, getPayoutById as getPayoutDetail };
 
 // ── Admin: Özet İstatistikler ──────────────────────────────────────────────
 
