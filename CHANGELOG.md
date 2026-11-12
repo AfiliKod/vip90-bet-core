@@ -18,6 +18,20 @@ Madde formatı ve kategoriler için `docs/CHANGELOG_GUIDE.md`'ye bakın —
 
 ## [Yayınlanmadı]
 
+### İP-8: çok kiracılı modda zorunlu `enforce`, kiracı bazlı manifest ve başlık, yasal tüzel kişi
+**Kırılan Değişiklikler**
+- **Site adı ayarlanmamış tek modlu kurulumlar artık yerleşik ürün adını değil kiracı adını gösterir.** Çekirdek marka nötrdür: `branding.siteName` boşsa sunucu ve istemci kiracının `name` değerine düşer, o da yoksa istek host'una. Eski görünümü korumak için admin panelinde **Marka → Site adı** alanını doldurun (tek modda varsayılan kiracının adı `Default`'tur). Veri geçişi gerekmez, yalnız ayar gerekir.
+- **`TENANCY_MODE=multi` kurulumlar `TENANCY_ENFORCEMENT=log` veya `off` ile çalışamaz.** Çok kiracılı modda zorlama her zaman `enforce`'dur; açıkça `log`/`off` verilirse açılış doğrulaması bunu hata olarak raporlar ve süreç durur. `.env`'inizde `log` ya da `off` yazıyorsa satırı silin veya `enforce` yapın. Tek modlu kurulumların varsayılanı değişmez: G3 geri doldurması tamamlandıysa `log`, değilse `off`.
+
+**Eklendi**
+- **Tek modda isteğe bağlı `enforce` (G8):** `TENANCY_MODE=single` ile `TENANCY_ENFORCEMENT=enforce` açıkça verilebilir; kiracı kapsamı olmayan sorgular `TenantScopeError` fırlatır. Açıkça değer verilmediğinde tek modun davranışı bugünküyle aynıdır.
+- **Kiracı bazlı dinamik PWA manifest'i** (`server/src/controllers/manifestController.js`, `server/src/routes/manifest.js`): `GET /manifest.webmanifest` ve `GET /site.webmanifest` istek host'unun kiracısına göre `name`, `short_name` ve tema rengini üretir; site adı ve renk kurulumun kendi marka ayarlarından okunur, ayar yoksa kiracı adı kullanılır. Rota `express.static`'ten **önce** bağlanır, böylece derleme zamanında üretilen manifest çok kiracılı istemciye servis edilmez.
+- **`index.html` başlığı ve OpenGraph etiketleri sunucuda kiracı bazında üretiliyor** (`server/src/seo/http.js`, `server/src/seo/render.js`): SPA fallback her istekte `<title>`, `og:title`, `og:site_name` ve `og:url` etiketlerini enjekte eder — SEO kaydı hiç olmasa bile. Marka ayarı da boşsa başlık tarafsız biçimde istek host'una düşer; çekirdek ürün adı üretilmez.
+- **Yasal metinler `Tenant.legalEntity`'den geliyor:** `GET /api/branding` artık `legalEntity` (ad, sicil no, adres) ve `tenantName` döner; istemcinin yasal ve şirket sayfaları bu değerleri kullanır. Varsayılan kiracı için `LEGAL_ENTITY_NAME`, `LEGAL_ENTITY_REGISTRATION_NO` ve `LEGAL_ENTITY_ADDRESS` ortam değişkenleri eklendi — yalnız kiracı **ilk oluşturulurken** okunur, sonraki açılışlarda DB'deki değer korunur. Çekirdekte tüzel kişi sabiti yoktur.
+
+**Değişti**
+- **İstemcideki sabit marka geri dönüşleri kaldırıldı** (`Navbar`, `Footer`, `LiveHelp`, `HomePage`, `Login`, `PromoHeroSlider`, `client/src/seo/titles.js`): site adı artık marka deposundan gelir, ayar yoksa kiracı adı kullanılır; ürün adı geri dönüş sabiti kalmaz.
+
 ### İP-7: işler, soketler, kampanya kitleleri ve önbellekler kiracıya göre
 **Kırılan Değişiklikler**
 - **`TENANCY_MODE=single` kurulumlar için işlem gerekmez.** Varsayılan kiracı oluştuysa (`G1`) bütün akışlar o kiracının tek odasına ve tek önbellek anahtarına gider; tek kiracılı kurulumlarda bu, bugünkü davranışla aynıdır. Varsayılan kiracı henüz yoksa (G1 çalışmamış) eski oda adları (`role:admin`, `room:<roomId>`) ve global istemci yayını (`clientsRoom()` → `null`), ayrıca `g:` önbellek öneki korunur; hiçbir yayın atlanmaz.
