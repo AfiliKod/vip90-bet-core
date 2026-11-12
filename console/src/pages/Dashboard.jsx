@@ -80,7 +80,7 @@ export default function Dashboard() {
         h(
           'a',
           {
-            href: '/tenants/new',
+            href: '/console/tenants/new',
             className: 'px-4 py-2 text-xs font-medium text-white bg-indigo-600 hover:bg-indigo-700 rounded-md shadow-sm transition-colors',
           },
           '+ Yeni Operatör Ekle'
@@ -270,14 +270,14 @@ export default function Dashboard() {
             'div',
             { className: 'p-3 bg-blue-950/40 border border-blue-500/30 rounded-lg flex items-center justify-between text-blue-300' },
             h('span', null, `ℹ ${statusCounts.provisioning} operatör hazırlanıyor durumunda. Go-live checklist tamamlanmadan canlı trafik alamazlar.`),
-            h('a', { href: '/tenants', className: 'text-indigo-400 hover:underline font-medium' }, 'Görüntüle →')
+            h('a', { href: '/console/tenants', className: 'text-indigo-400 hover:underline font-medium' }, 'Görüntüle →')
           ),
         statusCounts.suspended > 0 &&
           h(
             'div',
             { className: 'p-3 bg-amber-950/40 border border-amber-500/30 rounded-lg flex items-center justify-between text-amber-300' },
             h('span', null, `⚠️ ${statusCounts.suspended} operatör askıya alınmış durumda. Oyuncu trafiği engellendi.`),
-            h('a', { href: '/tenants', className: 'text-amber-400 hover:underline font-medium' }, 'Görüntüle →')
+            h('a', { href: '/console/tenants', className: 'text-amber-400 hover:underline font-medium' }, 'Görüntüle →')
           ),
         h(
           'div',

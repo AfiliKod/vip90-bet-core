@@ -169,7 +169,7 @@ export default function TenantDetail({ tenantId: propTenantId }) {
       h('p', { className: 'text-rose-400 text-sm' }, error || 'Operatör bulunamadı.'),
       h(
         'a',
-        { href: '/tenants', className: 'inline-block px-4 py-2 text-xs bg-slate-800 text-slate-200 rounded-md' },
+        { href: '/console/tenants', className: 'inline-block px-4 py-2 text-xs bg-slate-800 text-slate-200 rounded-md' },
         '← Operatör Listesine Dön'
       )
     );

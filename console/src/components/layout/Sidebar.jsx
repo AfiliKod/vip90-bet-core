@@ -6,7 +6,6 @@ const navItems = [
   { name: 'Tenants & Operators', path: '/tenants' },
   { name: 'Domains', path: '/domains' },
   { name: 'Scope Gates (N6)', path: '/scope-gates' },
-  { name: 'Audit Logs', path: '/audit-logs' },
 ];
 
 export default function Sidebar() {

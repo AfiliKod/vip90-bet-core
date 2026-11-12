@@ -137,7 +137,7 @@ export default function TenantProvision() {
           h(
             'a',
             {
-              href: '/tenants',
+              href: '/console/tenants',
               className: 'px-4 py-2 text-xs font-medium text-slate-300 hover:text-white bg-slate-700 rounded-md transition-colors',
             },
             'Operatör Listesine Dön'
@@ -145,7 +145,7 @@ export default function TenantProvision() {
           h(
             'a',
             {
-              href: `/tenants/${createdResult.tenantId || createdResult._id}`,
+              href: `/console/tenants/${createdResult.tenantId || createdResult._id}`,
               className: 'px-4 py-2 text-xs font-medium text-white bg-indigo-600 hover:bg-indigo-700 rounded-md transition-colors',
             },
             'Operatör Detayına Git →'

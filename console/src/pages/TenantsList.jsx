@@ -64,7 +64,7 @@ export default function TenantsList() {
       h(
         'a',
         {
-          href: '/tenants/new',
+          href: '/console/tenants/new',
           className:
             'inline-flex items-center justify-center px-4 py-2 text-sm font-medium text-white bg-indigo-600 hover:bg-indigo-700 rounded-md shadow-sm transition-colors',
         },
@@ -188,7 +188,7 @@ export default function TenantsList() {
                     h(
                       'a',
                       {
-                        href: `/tenants/${t._id}`,
+                        href: `/console/tenants/${t._id}`,
                         className: 'text-indigo-400 hover:text-indigo-300 bg-slate-900 px-3 py-1.5 rounded border border-slate-700 hover:border-indigo-500 transition-colors',
                       },
                       'Yönet / Detay →'

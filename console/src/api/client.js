@@ -68,7 +68,7 @@ apiClient.interceptors.response.use(
       } catch (refreshErr) {
         usePlatformAuthStore.getState().logout();
         if (typeof window !== 'undefined' && window.location.pathname !== '/login') {
-          window.location.href = '/login';
+          window.location.href = '/console/login';
         }
         return Promise.reject(refreshErr);
       }

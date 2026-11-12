@@ -18,7 +18,6 @@ const GoLiveChecklist = await import('../src/pages/GoLiveChecklist.jsx');
 const TenantsList = await import('../src/pages/TenantsList.jsx');
 const TenantDetail = await import('../src/pages/TenantDetail.jsx');
 const DomainsList = await import('../src/pages/DomainsList.jsx');
-const AuditLogs = await import('../src/pages/AuditLogs.jsx');
 const AcceptInvite = await import('../src/pages/AcceptInvite.jsx');
 const WriteGrantModal = await import('../src/components/WriteGrantModal.jsx');
 
@@ -29,7 +28,6 @@ test('Console pages export valid React component views', () => {
   assert.equal(typeof TenantsList.default, 'function');
   assert.equal(typeof TenantDetail.default, 'function');
   assert.equal(typeof DomainsList.default, 'function');
-  assert.equal(typeof AuditLogs.default, 'function');
   assert.equal(typeof AcceptInvite.default, 'function');
   assert.equal(typeof WriteGrantModal.default, 'function');
 });

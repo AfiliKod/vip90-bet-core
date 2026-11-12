@@ -6,6 +6,8 @@ import { fileURLToPath } from 'node:url';
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
 export default defineConfig({
+  // Served by the API server under /console (multi mode, platform host).
+  base: '/console/',
   plugins: [react()],
   resolve: {
     alias: {
