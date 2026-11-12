@@ -1,3 +1,4 @@
+import { scopeTenantId } from '../tenancy/tenantFilter.js';
 import * as reconciliationService from '../services/reconciliation.js';
 import User from '../models/User.js';
 import { ReconciliationJob, ReconciliationItem } from '../models/Reconciliation.js';
@@ -127,7 +128,7 @@ export async function createJob(req, res, next) {
  */
 export async function getJob(req, res, next) {
   try {
-    const tenantId = req.tenant?.id;
+    const tenantId = scopeTenantId(req);
     const filter = { _id: req.params.id };
     if (tenantId) filter.tenantId = tenantId;
     const job = await ReconciliationJob.findOne(filter);
@@ -143,7 +144,7 @@ export const getReconciliationJob = getJob;
  */
 export async function startJob(req, res, next) {
   try {
-    const tenantId = req.tenant?.id;
+    const tenantId = scopeTenantId(req);
     if (tenantId) {
       const job = await ReconciliationJob.findOne({ _id: req.params.id, tenantId });
       if (!job) throw createError(404, 'NOT_FOUND', 'İş bulunamadı');
@@ -169,7 +170,7 @@ export async function startJob(req, res, next) {
  */
 export async function getJobItems(req, res, next) {
   try {
-    const tenantId = req.tenant?.id;
+    const tenantId = scopeTenantId(req);
     if (tenantId) {
       const job = await ReconciliationJob.findOne({ _id: req.params.id, tenantId });
       if (!job) throw createError(404, 'NOT_FOUND', 'İş bulunamadı');
@@ -189,7 +190,7 @@ export async function getJobItems(req, res, next) {
  */
 export async function resolveItem(req, res, next) {
   try {
-    const tenantId = req.tenant?.id;
+    const tenantId = scopeTenantId(req);
     if (tenantId) {
       const item = await ReconciliationItem.findOne({ _id: req.params.itemId, tenantId });
       if (!item) throw createError(404, 'NOT_FOUND', 'Kayıt bulunamadı');
