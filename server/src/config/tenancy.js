@@ -17,8 +17,73 @@ const DEMO_FLAG_ENV = {
 const TENANCY_MODES = new Set(['single', 'multi']);
 const ENFORCEMENT_MODES_SET = new Set(ENFORCEMENT_MODES);
 
+/** G3 record that gates the single-mode `log` default; same name as `tenancy/backfill.js`. */
+const BACKFILL_MIGRATION_NAME = 'tenancy-002-backfill-tenant-id';
+
+/**
+ * G7 gate: `log` makes the plugin add `{ tenantId }` to scoped reads, so documents the
+ * G3 backfill has not stamped yet would vanish from a single-operator install. The
+ * single-mode default therefore stays `off` until the backfill is recorded complete.
+ */
+let tenantIdBackfillComplete = false;
+
+/**
+ * Whether every collection in a G3 `progress` map finished (`status: 'completed'`).
+ * An empty or missing map is not complete: the backfill has not run.
+ * @param {Record<string, { status?: string }>|null|undefined} progress
+ * @returns {boolean}
+ */
+function isBackfillProgressComplete(progress) {
+  if (!progress || typeof progress !== 'object' || Array.isArray(progress)) return false;
+  const entries = Object.values(progress);
+  if (entries.length === 0) return false;
+  return entries.every((entry) => entry?.status === 'completed');
+}
+
+/**
+ * Open or close the G7 gate for this process.
+ * @param {boolean} complete whether the G3 backfill finished
+ * @returns {boolean} the applied value
+ */
+function setTenantIdBackfillComplete(complete) {
+  tenantIdBackfillComplete = Boolean(complete);
+  return tenantIdBackfillComplete;
+}
+
+/** Whether the G7 gate is open (single mode defaults to `log`). */
+function isTenantIdBackfillComplete() {
+  return tenantIdBackfillComplete;
+}
+
+/**
+ * Read the G3 record and set the gate from it. Call after the database connection is
+ * open. Never throws: an unreadable record leaves the previous `off` behaviour, as
+ * every G step must (spec §6.3).
+ * @param {{ migration?: { findOne: Function }|null }} [options] Migration model override (tests)
+ * @returns {Promise<boolean>} the gate after the read
+ */
+async function refreshTenantIdBackfillGate({ migration = null } = {}) {
+  try {
+    const Model = migration ?? (await import('../models/Migration.js')).default;
+    const doc = await Model.findOne({ name: BACKFILL_MIGRATION_NAME }).select('progress').lean();
+    return setTenantIdBackfillComplete(isBackfillProgressComplete(doc?.progress));
+  } catch (err) {
+    console.warn(`[tenancy] G3 backfill status unreadable, staying off: ${err?.message || err}`);
+    return setTenantIdBackfillComplete(false);
+  }
+}
+
+/** Default enforcement per mode; single mode only leaves `off` once G3 finished. */
+function defaultEnforcement(mode) {
+  if (mode === 'multi') return 'enforce';
+  return tenantIdBackfillComplete ? 'log' : 'off';
+}
+
 /**
  * Read and parse the tenancy config from environment variables.
+ * The single-mode enforcement default is not env-only: it follows the G7 gate,
+ * so `refreshTenantIdBackfillGate` must run after the connection opens for the
+ * default to become `log`.
  *
  * @param {object} [env=process.env] - Environment variable object
  * @returns {{ mode: 'single'|'multi', enforcement: 'off'|'log'|'enforce', demoRequested: { bots: boolean, fakeWinners: boolean, instantDeposit: boolean, data: boolean }, errors: string[] }} Parsed config
@@ -37,17 +102,17 @@ function readTenancyConfig(env = process.env) {
     mode = 'single';
   }
 
-  // Parse enforcement: unset → single: 'off', multi: 'enforce'
-  // empty → default per mode; invalid → mode default + error
+  // Parse enforcement: unset -> single: 'off' until G3 backfilled, then 'log' (G7),
+  // multi: 'enforce'; empty -> default per mode; invalid -> mode default + error
   let enforcement;
   let enforcementErrors = [];
 
   if (!rawEnforcement) {
-    enforcement = mode === 'single' ? 'off' : 'enforce';
+    enforcement = defaultEnforcement(mode);
   } else if (ENFORCEMENT_MODES_SET.has(rawEnforcement.toLowerCase())) {
     enforcement = rawEnforcement.toLowerCase();
   } else {
-    enforcement = mode === 'single' ? 'off' : 'enforce';
+    enforcement = defaultEnforcement(mode);
     enforcementErrors.push(
       `TENANCY_ENFORCEMENT must be "off", "log" or "enforce" (got "${rawEnforcement}")`
     );
@@ -88,7 +153,8 @@ function getTenancyMode(env = process.env) {
 }
 
 /**
- * Get the tenancy enforcement mode.
+ * Get the tenancy enforcement mode. In single mode an unset flag follows the G7 gate:
+ * `off` until the G3 backfill is recorded complete, `log` afterwards.
  *
  * @param {object} [env=process.env] - Environment variable object
  * @returns {'off'|'log'|'enforce'} The enforcement mode
@@ -334,6 +400,10 @@ export {
   isDemoFakeWinnersEnabled,
   isDemoDataEnabled,
   requireDemoFlag,
+  isBackfillProgressComplete,
+  isTenantIdBackfillComplete,
+  setTenantIdBackfillComplete,
+  refreshTenantIdBackfillGate,
   TENANCY_MODES,
   ENFORCEMENT_MODES,
 };

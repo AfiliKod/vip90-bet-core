@@ -41,7 +41,10 @@
    route, method). The time-limited, audited exception grant that re-enables writes is İP-9a work; until then there is
    no write path. Tests: platform GET on a tenant route 200; platform POST/PATCH/DELETE 403 + audit row; tenant staff
    unaffected. Files: `server/src/middleware/auth.js`, `server/test/platformReadOnly.test.js`. No other task edits auth.js.
-3. Every task runs the full root `npm test` at the end (fail 0) and never weakens an existing check; legacy unique
+3. **Use `tenantFilter(req, base)` from `server/src/tenancy/tenantFilter.js` for every id lookup.** It adds the
+   tenant only in multi mode; single mode keeps today's query (one tenant, and a default-tenant filter would hide
+   records the G3 backfill has not stamped). Never change existing status codes or error codes.
+4. Every task runs the full root `npm test` at the end (fail 0) and never weakens an existing check; legacy unique
    indexes and İP-0 security tests stay untouched.
 
 ## Review Focus

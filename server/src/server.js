@@ -32,7 +32,7 @@ import { initDefaultRules, dedupeRuleNames } from './services/riskRule.js';
 import { initDefaultSegments } from './services/playerSegment.js';
 import { initDefaultSmsTemplates } from './services/smsTemplate.js';
 import { initDefaultSmsSender } from './services/smsSender.js';
-import { assertTenancyStartup, getTenancyMode } from './config/tenancy.js';
+import { assertTenancyStartup, getTenancyMode, refreshTenantIdBackfillGate } from './config/tenancy.js';
 import { runTenancyBoot } from './tenancy/defaultTenant.js';
 import { startDemoJobs } from './jobs/demoJobs.js';
 
@@ -173,6 +173,9 @@ connectDB()
     // Admin-adjusted crypto limits/rate/network survive a restart (V17); never throws.
     await hydrateCryptoSettings({ force: true });
     await runTenancyBoot();
+    // G7 (spec §6.3): single mode only defaults to `log` once the G3 tenantId backfill
+    // is recorded complete; until then unbacked documents would drop out of scoped reads.
+    await refreshTenantIdBackfillGate();
     httpServer.listen(PORT, () => console.log(`Server running on :${PORT}`));
     // O4 — kademeli yönetici yetkileri: varsayılan izin/rol setini oluşturur
     // (idempotent, koleksiyon boşsa doldurur). Daha önce hiçbir yerden
