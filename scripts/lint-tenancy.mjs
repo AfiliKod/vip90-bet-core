@@ -26,10 +26,20 @@ export function checkRunAsPlatformUsage(filePath, content) {
   return [`runAsPlatform is not permitted in ${norm} (spec §4.4 #5)`];
 }
 
+// Catalog / platform models addressed by id without a tenant filter on purpose.
+export const UNSCOPED_ID_LOOKUP_MODELS = new Set(['Event', 'GameTask']);
+
 export function checkControllerQueries(filePath, content) {
   const norm = filePath.replace(/\\/g, '/');
   if (!norm.includes('controllers/')) return [];
   const errors = [];
+  // Id lookups from the request must go through tenantFilter (spec §9 G-3).
+  const idLookup = /\b([A-Z][A-Za-z]+)\.(findById|findByIdAndUpdate|findByIdAndDelete)\(\s*req\.params\./g;
+  for (const m of content.matchAll(idLookup)) {
+    if (!UNSCOPED_ID_LOOKUP_MODELS.has(m[1])) {
+      errors.push(`${m[1]}.${m[2]}(req.params...) in ${norm}: use tenantFilter(req, { _id })`);
+    }
+  }
   if (/\.collection\.(find|update|delete|insert|bulkWrite)/.test(content)) {
     errors.push(`bare collection access prohibited in controller ${norm}`);
   }

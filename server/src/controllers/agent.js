@@ -1,6 +1,7 @@
 import mongoose from 'mongoose';
 import * as agentService from '../services/agent.js';
 import Agent from '../models/Agent.js';
+import { tenantFilter } from '../tenancy/tenantFilter.js';
 import { createError } from '../middleware/error.js';
 import { withTransactionRetry } from '../utils/transactionRetry.js';
 
@@ -25,7 +26,7 @@ export async function getAllAgents(req, res, next) {
 
 export async function getAgentStats(req, res, next) {
   try {
-    const agent = await Agent.findById(req.params.agentId);
+    const agent = await Agent.findOne(tenantFilter(req, { _id: req.params.agentId }));
     if (!agent) throw createError(404, 'AGENT_NOT_FOUND', 'Agent bulunamadı');
     const stats = await agentService.getAgentStats(agent.userId);
     res.json(stats);
@@ -52,7 +53,7 @@ export async function transferFunds(req, res, next) {
   try {
     const result = await withTransactionRetry(session, async () => {
       const { playerId, amount, note } = req.validated;
-      const agent = await Agent.findById(req.params.agentId).session(session);
+      const agent = await Agent.findOne(tenantFilter(req, { _id: req.params.agentId })).session(session);
       if (!agent) throw createError(404, 'AGENT_NOT_FOUND', 'Agent bulunamadı');
       return agentService.transferFundsAgentToPlayer(agent.userId, playerId, amount, note, { session });
     });

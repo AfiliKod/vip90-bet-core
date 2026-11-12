@@ -24,3 +24,11 @@ test('checkControllerQueries flags bare Model.collection access on tenant models
   assert.equal(errors.length, 1);
   assert.match(errors[0], /bare collection access prohibited/);
 });
+
+test('controller id lookups must use tenantFilter, except catalog models', async () => {
+  const { checkControllerQueries } = await import('./lint-tenancy.mjs');
+  assert.equal(checkControllerQueries('server/src/controllers/x.js', 'await User.findById(req.params.id)').length, 1);
+  assert.equal(checkControllerQueries('server/src/controllers/x.js', 'await User.findOne(tenantFilter(req, { _id: req.params.id }))').length, 0);
+  assert.equal(checkControllerQueries('server/src/controllers/x.js', 'await Event.findById(req.params.id)').length, 0);
+  assert.equal(checkControllerQueries('server/src/services/x.js', 'await User.findById(req.params.id)').length, 0);
+});
