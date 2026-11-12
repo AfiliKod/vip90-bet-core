@@ -46,6 +46,8 @@ import { createBot, getAllBots, getBotById, updateBot, deleteBot, getBotStats, s
 import { listAllForAdmin as listAllStaticPagesForAdmin, upsertPage as upsertStaticPageSvc, togglePage as toggleStaticPageSvc } from '../services/staticPages.js';
 import { setFeaturedGameCodes as setFeaturedGameCodesImpl, getFeaturedGameCodes } from '../games/index.js';
 import * as demoDataRegistry from '../services/demoData/registry.js';
+import { scopeTenantId, tenantFilter } from '../tenancy/tenantFilter.js';
+import { tenantLookup } from '../tenancy/tenantScoped.js';
 
 // In-house oyun provider'ı ayrı (ücretli) bir pakettir — bu kurulumda hiç
 // bulunmayabilir (bkz. app.js'deki aynı opsiyonel yükleme deseni).
@@ -89,13 +91,13 @@ const STATUS_FILTERS = {
   deleted:   { deletedAt: { $ne: null } },
 };
 
-async function vipFilter() {
-  const ids = await VipLevel.find({ level: { $gt: 1 } }).distinct('_id');
+async function vipFilter(req) {
+  const ids = await VipLevel.find(tenantFilter(req, { level: { $gt: 1 } })).distinct('_id');
   return { vipLevel: { $in: ids }, deletedAt: null };
 }
 
-async function statusFilter(status) {
-  if (status === 'vip') return vipFilter();
+async function statusFilter(req, status) {
+  if (status === 'vip') return vipFilter(req);
   return STATUS_FILTERS[status] ? { ...STATUS_FILTERS[status] } : {};
 }
 
@@ -104,7 +106,7 @@ export async function getUsers(req, res, next) {
     const { search = '', status = 'all', page = 1, limit = 20 } = req.query;
     const skip = (Number(page) - 1) * Number(limit);
 
-    const filter = await statusFilter(status);
+    const filter = tenantFilter(req, await statusFilter(req, status));
     if (search) {
       const re = safeRegex(search);
       if (re) filter.$or = [{ username: re }, { email: re }];
@@ -123,7 +125,7 @@ export async function getUsers(req, res, next) {
 
     // Sayfadaki kullanıcılar için tek toplu risk sorgusu (N+1 yok).
     const profiles = users.length
-      ? await RiskProfile.find({ playerId: { $in: users.map(u => u._id) } }).select('playerId riskLevel').lean()
+      ? await RiskProfile.find(tenantFilter(req, { playerId: { $in: users.map(u => u._id) } })).select('playerId riskLevel').lean()
       : [];
     const riskByUser = new Map(profiles.map(p => [String(p.playerId), String(p.riskLevel).toLowerCase()]));
     const rows = users.map(u => ({
@@ -139,11 +141,11 @@ export async function getUsers(req, res, next) {
 export async function getUsersFacets(req, res, next) {
   try {
     const [vip, all, active, suspended, deleted] = await Promise.all([
-      vipFilter().then(f => User.countDocuments(f)),
-      User.countDocuments({}),
-      User.countDocuments(STATUS_FILTERS.active),
-      User.countDocuments(STATUS_FILTERS.suspended),
-      User.countDocuments(STATUS_FILTERS.deleted),
+      vipFilter(req).then(f => User.countDocuments(tenantFilter(req, f))),
+      User.countDocuments(tenantFilter(req)),
+      User.countDocuments(tenantFilter(req, STATUS_FILTERS.active)),
+      User.countDocuments(tenantFilter(req, STATUS_FILTERS.suspended)),
+      User.countDocuments(tenantFilter(req, STATUS_FILTERS.deleted)),
     ]);
     res.json({ all, active, suspended, deleted, vip });
   } catch(e) { next(e); }
@@ -158,11 +160,11 @@ export async function getUsersKpis(req, res, next) {
     const startOfToday = new Date(now);
     startOfToday.setHours(0, 0, 0, 0);
     const [active30d, kycPending, newToday, avg] = await Promise.all([
-      User.countDocuments({ deletedAt: null, lastLoginAt: { $gte: since30d } }),
-      User.countDocuments({ kycStatus: { $in: ['pending', 'under_review'] } }),
-      User.countDocuments({ createdAt: { $gte: startOfToday } }),
+      User.countDocuments(tenantFilter(req, { deletedAt: null, lastLoginAt: { $gte: since30d } })),
+      User.countDocuments(tenantFilter(req, { kycStatus: { $in: ['pending', 'under_review'] } })),
+      User.countDocuments(tenantFilter(req, { createdAt: { $gte: startOfToday } })),
       User.aggregate([
-        { $match: { deletedAt: null } },
+        { $match: tenantFilter(req, { deletedAt: null }) },
         { $group: { _id: null, avg: { $avg: '$balance' } } },
       ]),
     ]);
@@ -180,14 +182,14 @@ export async function getUsersKpis(req, res, next) {
 export async function createUser(req, res, next) {
   try {
     const { username, email, password, role, referredBy, phone, dateOfBirth, roles } = req.validated;
-    if (await User.findOne({ $or: [{ username }, { email }] }))
+    if (await User.findOne(tenantFilter(req, { $or: [{ username }, { email }] })))
       throw createError(409, 'USER_EXISTS', 'Kullanıcı adı veya email zaten kullanımda');
 
     const normalizedPhone = await resolveUniquePhone(phone);
 
     let referredById = null;
     if (referredBy) {
-      const referrer = await User.findOne({ username: referredBy, deletedAt: null });
+      const referrer = await User.findOne(tenantFilter(req, { username: referredBy, deletedAt: null }));
       if (!referrer) throw createError(400, 'REFERRER_NOT_FOUND', 'Referans kullanıcısı bulunamadı');
       referredById = referrer._id;
     }
@@ -230,11 +232,11 @@ export async function createUser(req, res, next) {
 
 export async function deleteUser(req, res, next) {
   try {
-    const user = await User.findById(req.params.id);
+    const user = await User.findOne(tenantFilter(req, { _id: req.params.id }));
     if (!user) throw createError(404, 'NOT_FOUND', 'Kullanıcı bulunamadı');
     if (user.role === 'admin') throw createError(403, 'FORBIDDEN', 'Admin hesabı silinemez');
     await assertCanManageUser(req.user.id, req.params.id); // V5: staff with roles but role!=='admin'
-    await User.findByIdAndUpdate(req.params.id, { deletedAt: new Date(), isActive: false });
+    await User.findOneAndUpdate(tenantFilter(req, { _id: req.params.id }), { deletedAt: new Date(), isActive: false });
     await invalidateUserTokens(req.params.id); // açık oturumlar ve refresh cookie'si biter
     res.json({ ok: true });
   } catch(e) { next(e); }
@@ -244,19 +246,30 @@ export async function updateUser(req, res, next) {
   try {
     const allowed = ['isActive', 'kycVerified', 'emailVerified'];
     const update = Object.fromEntries(Object.entries(req.validated ?? req.body).filter(([k]) => allowed.includes(k)));
+    const existing = await User.findOne(tenantFilter(req, { _id: req.params.id })).select('_id');
+    if (!existing) throw createError(404,'NOT_FOUND','Kullanıcı bulunamadı');
     // V5 (I3): a staff target needs an actor holding all of its permissions,
     // and the last active super_admin is never deactivated.
     await assertCanManageUser(req.user.id, req.params.id);
     if (update.isActive === false) await assertKeepsActiveSuperAdmin(req.params.id, 'deactivate');
-    const prev = await User.findById(req.params.id).select('isActive').lean();
-    const user = await User.findByIdAndUpdate(req.params.id, update, { new:true }).select('-password');
+    const prev = await User.findOne(tenantFilter(req, { _id: req.params.id })).select('isActive').lean();
+    const user = await User.findOneAndUpdate(tenantFilter(req, { _id: req.params.id }), update, { new:true }).select('-password');
     if (!user) throw createError(404,'NOT_FOUND','Kullanıcı bulunamadı');
     if (update.isActive === false) {
-      await ensureActiveSuperAdminRemains(() => User.updateOne({ _id: req.params.id }, { isActive: prev?.isActive ?? true }));
+      await ensureActiveSuperAdminRemains(() => User.updateOne(tenantFilter(req, { _id: req.params.id }), { isActive: prev?.isActive ?? true }));
     }
     if (update.isActive === false) await invalidateUserTokens(req.params.id);
     res.json({ user: user.toSafeObject() });
   } catch(e) { next(e); }
+}
+
+export async function getUser(req, res, next) {
+  try {
+    const user = await User.findOne(tenantFilter(req, { _id: req.params.id }))
+      .select('-password -twoFactorSecret -twoFactorBackupCodes -emailVerificationToken -passwordResetToken');
+    if (!user) throw createError(404, 'NOT_FOUND', 'Kullanıcı bulunamadı');
+    res.json({ user: user.toSafeObject() });
+  } catch (e) { next(e); }
 }
 
 export async function updateBalance(req, res, next) {
@@ -270,9 +283,9 @@ export async function updateBalance(req, res, next) {
   const idempotencyKey = `admin_balance_${userId}_${requestId || crypto.randomUUID()}`;
 
   const findDuplicate = async (session = null) => {
-    const existing = await Transaction.findOne({ idempotencyKey }).session(session);
+    const existing = await Transaction.findOne(tenantFilter(req, { idempotencyKey })).session(session);
     if (!existing) return null;
-    const user = await User.findById(userId).session(session);
+    const user = await User.findOne(tenantFilter(req, { _id: userId })).session(session);
     return { user, transaction: existing, duplicate: true };
   };
 
@@ -282,13 +295,13 @@ export async function updateBalance(req, res, next) {
       const duplicate = await findDuplicate(session);
       if (duplicate) return duplicate;
 
-      const before = await User.findById(userId).session(session);
+      const before = await User.findOne(tenantFilter(req, { _id: userId })).session(session);
       if (!before) throw createError(404, 'NOT_FOUND', 'Kullanıcı bulunamadı');
 
       const incAmount = type === 'debit' ? -amount : amount;
       // Borçta bakiye kontrolü güncellemeyle aynı koşulda: arada başka bir
       // düşüm olsa bile bakiye eksiye inmez.
-      const filter = type === 'debit' ? { _id: userId, balance: { $gte: amount } } : { _id: userId };
+      const filter = tenantFilter(req, type === 'debit' ? { _id: userId, balance: { $gte: amount } } : { _id: userId });
       const user = await User.findOneAndUpdate(filter, { $inc: { balance: incAmount } }, { new: true, session });
       if (!user) throw createError(400, 'INSUFFICIENT_BALANCE', 'Yetersiz bakiye');
 
@@ -325,7 +338,7 @@ export async function updateBalance(req, res, next) {
     if (type === 'bonus' && !result.duplicate) {
       // bonusBalance artık kilitli/çevrim bekleyen tutarın göstergesi (mirror).
       const { getLockedAmount } = await import('../services/wagering.js');
-      await User.findByIdAndUpdate(userId, { bonusBalance: await getLockedAmount(userId) });
+      await User.findOneAndUpdate(tenantFilter(req, { _id: userId }), { bonusBalance: await getLockedAmount(userId) });
     }
 
     res.json({ user: result.user.toSafeObject(), transaction: result.transaction, duplicate: result.duplicate });
@@ -344,7 +357,9 @@ export async function updateBalance(req, res, next) {
 
 export async function getReferrals(req, res, next) {
   try {
-    const referrals = await User.find({ referredBy: req.params.id, deletedAt: null })
+    const user = await User.findOne(tenantFilter(req, { _id: req.params.id })).select('_id');
+    if (!user) throw createError(404, 'NOT_FOUND', 'Kullanıcı bulunamadı');
+    const referrals = await User.find(tenantFilter(req, { referredBy: req.params.id, deletedAt: null }))
       .select('username createdAt isActive')
       .sort({ createdAt: -1 });
     res.json({ referrals });
@@ -353,7 +368,9 @@ export async function getReferrals(req, res, next) {
 
 export async function getUserTransactions(req, res, next) {
   try {
-    const transactions = await Transaction.find({ userId: req.params.id })
+    const user = await User.findOne(tenantFilter(req, { _id: req.params.id })).select('_id');
+    if (!user) throw createError(404, 'NOT_FOUND', 'Kullanıcı bulunamadı');
+    const transactions = await Transaction.find(tenantFilter(req, { userId: req.params.id }))
       .sort({ createdAt: -1 })
       .limit(20)
       .select('type amount balanceBefore balanceAfter note createdAt walletId');
@@ -581,10 +598,10 @@ export async function getStats(req, res, next) {
     // isSeed filtresi bilerek yok: seed/demo veri analytics ile birlikte
     // bu genel sayaçlara da dahildir (bkz. Faz 3 kararı).
     const [userCount, totalBets, pendingBets, depositSum] = await Promise.all([
-      User.countDocuments({ role:'user' }),
-      Bet.countDocuments(),
-      Bet.countDocuments({ status:'pending' }),
-      Transaction.aggregate([{ $match:{ type:'deposit' } }, { $group:{ _id:null, total:{ $sum:'$amount' } } }]),
+      User.countDocuments(tenantFilter(req, { role:'user' })),
+      Bet.countDocuments(tenantFilter(req)),
+      Bet.countDocuments(tenantFilter(req, { status:'pending' })),
+      Transaction.aggregate([{ $match: tenantFilter(req, { type:'deposit' }) }, { $group:{ _id:null, total:{ $sum:'$amount' } } }]),
     ]);
     res.json({ userCount, totalBets, pendingBets, totalDeposit: depositSum[0]?.total || 0 });
   } catch(e) { next(e); }
@@ -636,6 +653,7 @@ export async function getCasinoStats(req, res, next) {
     // üretilir — casinoSeed.js / sportsSeed.js; bkz. Faz 3 kararı).
     const [overview, topGames, topUsers, daily] = await Promise.all([
       CasinoRound.aggregate([
+        { $match: tenantFilter(req) },
         { $group: {
           _id: null,
           totalRounds: { $sum: 1 },
@@ -647,6 +665,7 @@ export async function getCasinoStats(req, res, next) {
       ]),
 
       CasinoRound.aggregate([
+        { $match: tenantFilter(req) },
         { $group: {
           _id:       '$gameId',
           gameTitle: { $first: '$gameTitle' },
@@ -661,6 +680,7 @@ export async function getCasinoStats(req, res, next) {
       ]),
 
       CasinoRound.aggregate([
+        { $match: tenantFilter(req) },
         { $group: {
           _id:     '$userId',
           rounds:  { $sum: 1 },
@@ -670,13 +690,13 @@ export async function getCasinoStats(req, res, next) {
         }},
         { $sort: { totalBet: -1 } },
         { $limit: 10 },
-        { $lookup: { from: 'users', localField: '_id', foreignField: '_id', as: 'user' } },
+        tenantLookup({ from: 'users', localField: '_id', foreignField: '_id', as: 'user' }),
         { $unwind: { path: '$user', preserveNullAndEmptyArrays: true } },
         { $project: { rounds: 1, totalBet: 1, totalPayout: 1, ggr: 1, 'user.username': 1, 'user._id': 1 } },
       ]),
 
       CasinoRound.aggregate([
-        { $match: { createdAt: { $gte: day7ago } } },
+        { $match: tenantFilter(req, { createdAt: { $gte: day7ago } }) },
         { $group: {
           _id:      { $dateToString: { format: '%Y-%m-%d', date: '$createdAt' } },
           rounds:   { $sum: 1 },
@@ -709,15 +729,18 @@ export async function getUserCasinoRounds(req, res, next) {
     const { page = 1, limit = 30 } = req.query;
     const skip = (Number(page) - 1) * Number(limit);
 
+    const user = await User.findOne(tenantFilter(req, { _id: req.params.id })).select('_id');
+    if (!user) throw createError(404, 'NOT_FOUND', 'Kullanıcı bulunamadı');
+    const roundFilter = tenantFilter(req, { userId: req.params.id });
     const [rounds, total, byGame, wagerings, allBets] = await Promise.all([
-      CasinoRound.find({ userId: req.params.id })
+      CasinoRound.find(roundFilter)
         .sort({ createdAt: -1 })
         .skip(skip)
         .limit(Number(limit))
         .select('gameId gameTitle provider bet payout net balanceBefore balanceAfter createdAt'),
-      CasinoRound.countDocuments({ userId: req.params.id }),
+      CasinoRound.countDocuments(roundFilter),
       CasinoRound.aggregate([
-        { $match: { userId: new mongoose.Types.ObjectId(req.params.id) } },
+        { $match: tenantFilter(req, { userId: new mongoose.Types.ObjectId(req.params.id) }) },
         { $group: {
           _id:       '$gameId',
           gameTitle: { $first: '$gameTitle' },
@@ -729,8 +752,8 @@ export async function getUserCasinoRounds(req, res, next) {
         }},
         { $sort: { totalBet: -1 } },
       ]),
-      BonusWagering.find({ userId: req.params.id }).select('createdAt completedAt convertedAt status updatedAt'),
-      CasinoRound.find({ userId: req.params.id }).sort({ createdAt: -1 }).limit(5000).select('bet createdAt'),
+      BonusWagering.find(tenantFilter(req, { userId: req.params.id })).select('createdAt completedAt convertedAt status updatedAt'),
+      CasinoRound.find(roundFilter).sort({ createdAt: -1 }).limit(5000).select('bet createdAt'),
     ]);
 
     // Bonus aktiflik pencereleri: [start, end] — end yoksa (hâlâ aktif) Infinity
@@ -1592,7 +1615,7 @@ export async function savePromotion(req, res, next) {
 
 export async function deletePromotion(req, res, next) {
   try {
-    const promotion = await Promotion.findByIdAndDelete(req.params.id);
+    const promotion = await Promotion.findOneAndDelete(tenantFilter(req, { _id: req.params.id }));
     if (!promotion) throw createError(404, 'NOT_FOUND', 'Kampanya bulunamadı');
     res.json({ ok: true });
   } catch (e) { next(e); }
@@ -1765,11 +1788,11 @@ export async function getKycSubmissions(req, res, next) {
 
 export async function getKycSubmissionDetail(req, res, next) {
   try {
-    const user = await User.findById(req.params.id)
+    const user = await User.findOne(tenantFilter(req, { _id: req.params.id }))
       .select('username email kycStatus kycSubmittedAt kycApprovedAt kycRejectedAt kycRejectionReason kycVerified kycProvider');
     if (!user) throw createError(404, 'NOT_FOUND', 'Kullanıcı bulunamadı');
 
-    const documents = await KycDocument.find({ userId: req.params.id })
+    const documents = await KycDocument.find(tenantFilter(req, { userId: req.params.id }))
       .sort({ createdAt: -1 })
       .select('documentType fileName fileSize mimeType fileUrl storageKey status reviewedBy reviewedAt rejectionReason metadata createdAt');
 
@@ -1779,6 +1802,8 @@ export async function getKycSubmissionDetail(req, res, next) {
 
 export async function approveKycSubmission(req, res, next) {
   try {
+    const target = await User.findOne(tenantFilter(req, { _id: req.params.id })).select('_id');
+    if (!target) throw createError(404, 'NOT_FOUND', 'Kullanıcı bulunamadı');
     const user = await approveKyc(req.params.id, req.user.id, { notes: req.body.notes || '' });
     broadcastAdminCounts();
     res.json({ user: user.toSafeObject() });
@@ -1788,6 +1813,8 @@ export async function approveKycSubmission(req, res, next) {
 export async function rejectKycSubmission(req, res, next) {
   try {
     if (!req.body.reason) throw createError(400, 'REASON_REQUIRED', 'Red sebebi gerekli');
+    const target = await User.findOne(tenantFilter(req, { _id: req.params.id })).select('_id');
+    if (!target) throw createError(404, 'NOT_FOUND', 'Kullanıcı bulunamadı');
     const user = await rejectKyc(req.params.id, req.user.id, req.body.reason);
     broadcastAdminCounts();
     res.json({ user: user.toSafeObject() });
@@ -1796,6 +1823,8 @@ export async function rejectKycSubmission(req, res, next) {
 
 export async function setKycSubmissionUnderReview(req, res, next) {
   try {
+    const target = await User.findOne(tenantFilter(req, { _id: req.params.id })).select('_id');
+    if (!target) throw createError(404, 'NOT_FOUND', 'Kullanıcı bulunamadı');
     const user = await setKycUnderReview(req.params.id, req.user.id);
     res.json({ user: user.toSafeObject() });
   } catch (e) { next(e); }
@@ -1818,7 +1847,7 @@ import { sendWithdrawal, reconcileWithdrawal, resolveWithdrawalManually } from '
 
 export async function getCryptoPendingDeposits(req, res, next) {
   try {
-    const deposits = await CryptoDeposit.find({ status: 'pending_approval' })
+    const deposits = await CryptoDeposit.find(tenantFilter(req, { status: 'pending_approval' }))
       .populate('userId', 'username email')
       .sort({ createdAt: -1 });
     res.json(deposits);
@@ -1828,7 +1857,7 @@ export async function getCryptoPendingDeposits(req, res, next) {
 export async function getCryptoPendingWithdrawals(req, res, next) {
   try {
     // 'processing': transferi başlamış ama sonucu kesinleşmemiş çekimler de görünsün
-    const withdrawals = await Transaction.find({ type: 'crypto_withdraw', status: { $in: ['pending', 'processing'] } })
+    const withdrawals = await Transaction.find(tenantFilter(req, { type: 'crypto_withdraw', status: { $in: ['pending', 'processing'] } }))
       .populate('userId', 'username email')
       .sort({ createdAt: -1 });
     res.json(withdrawals);
@@ -1838,7 +1867,7 @@ export async function getCryptoPendingWithdrawals(req, res, next) {
 export async function getAllCryptoDeposits(req, res, next) {
   try {
     const { status, page = 1, limit = 50 } = req.query;
-    const filter = { type: 'crypto_deposit' };
+    const filter = tenantFilter(req, { type: 'crypto_deposit' });
     if (status) filter.status = status;
     const skip = (+page - 1) * +limit;
     const [transactions, total] = await Promise.all([
@@ -1852,7 +1881,7 @@ export async function getAllCryptoDeposits(req, res, next) {
 export async function getAllCryptoWithdrawals(req, res, next) {
   try {
     const { status, page = 1, limit = 50 } = req.query;
-    const filter = { type: 'crypto_withdraw' };
+    const filter = tenantFilter(req, { type: 'crypto_withdraw' });
     if (status) filter.status = status;
     const skip = (+page - 1) * +limit;
     const [transactions, total] = await Promise.all([
@@ -1870,17 +1899,17 @@ export async function getAllCryptoWithdrawals(req, res, next) {
  */
 export async function getCryptoStats(req, res, next) {
   try {
-    const withdrawFilter = { type: 'crypto_withdraw', amount: { $lt: 0 } };
+    const withdrawFilter = tenantFilter(req, { type: 'crypto_withdraw', amount: { $lt: 0 } });
     const [deposits, payouts, depositCount, payoutCount] = await Promise.all([
       Transaction.aggregate([
-        { $match: { type: 'crypto_deposit', status: 'completed' } },
+        { $match: tenantFilter(req, { type: 'crypto_deposit', status: 'completed' }) },
         { $group: { _id: null, total: { $sum: '$amount' } } },
       ]),
       Transaction.aggregate([
         { $match: { ...withdrawFilter, status: 'completed' } },
         { $group: { _id: null, total: { $sum: { $abs: '$amount' } } } },
       ]),
-      Transaction.countDocuments({ type: 'crypto_deposit' }),
+      Transaction.countDocuments(tenantFilter(req, { type: 'crypto_deposit' })),
       Transaction.countDocuments(withdrawFilter),
     ]);
     const depositsTotal = deposits[0]?.total || 0;
@@ -1901,6 +1930,7 @@ export async function getCryptoStats(req, res, next) {
 export async function getBankStats(req, res, next) {
   try {
     const groups = await BankDepositRequest.aggregate([
+      { $match: tenantFilter(req) },
       { $group: { _id: { type: '$type', status: '$status' }, count: { $sum: 1 }, total: { $sum: '$amount' } } },
     ]);
     const sum = (type, onlyApproved) => groups
@@ -1919,22 +1949,22 @@ export async function getBankStats(req, res, next) {
 
 export async function getCryptoTxDetail(req, res, next) {
   try {
-    const tx = await Transaction.findById(req.params.id).populate('userId', 'username email balance bonusBalance');
+    const tx = await Transaction.findOne(tenantFilter(req, { _id: req.params.id })).populate('userId', 'username email balance bonusBalance');
     if (!tx) return res.status(404).json({ error: 'İşlem bulunamadı' });
 
-    const user = await User.findById(tx.userId._id).select('username email balance bonusBalance');
+    const user = await User.findOne(tenantFilter(req, { _id: tx.userId._id })).select('username email balance bonusBalance');
     const locked = await (await import('../services/wagering.js')).getLockedAmount(user._id);
     const withdrawable = Math.max(0, parseFloat((user.balance - locked).toFixed(2)));
 
-    const wagerings = await (await import('../models/BonusWagering.js')).default.find({
+    const wagerings = await (await import('../models/BonusWagering.js')).default.find(tenantFilter(req, {
       userId: user._id, status: 'active',
-    }).select('bonusAmount wageringRequired wageringProgress');
+    })).select('bonusAmount wageringRequired wageringProgress');
 
     let cryptoDeposit = null;
     if (tx.type === 'crypto_deposit') {
       cryptoDeposit = tx.cryptoDepositId
-        ? await CryptoDeposit.findById(tx.cryptoDepositId)
-        : await CryptoDeposit.findOne({ userId: user._id, status: { $in: ['pending_approval', 'credited'] } }).sort({ createdAt: -1 });
+        ? await CryptoDeposit.findOne(tenantFilter(req, { _id: tx.cryptoDepositId }))
+        : await CryptoDeposit.findOne(tenantFilter(req, { userId: user._id, status: { $in: ['pending_approval', 'credited'] } })).sort({ createdAt: -1 });
     }
 
     // Hot wallet bakiyesi (çekim pending ise)
@@ -2030,17 +2060,17 @@ export async function approveCryptoDeposit(req, res, next) {
   const session = await mongoose.startSession();
   try {
     const result = await withTransactionRetry(session, async () => {
-      const tx = await Transaction.findById(req.params.id).session(session);
+      const tx = await Transaction.findOne(tenantFilter(req, { _id: req.params.id })).session(session);
       if (!tx || tx.type !== 'crypto_deposit') return { status: 404, body: { error: 'Yatırma bulunamadı' } };
       if (tx.status !== 'pending') return { status: 400, body: { error: 'Bu yatırma zaten işlenmiş' } };
 
       const deposit = tx.cryptoDepositId
-        ? await CryptoDeposit.findById(tx.cryptoDepositId).session(session)
-        : await CryptoDeposit.findOne({ userId: tx.userId, status: 'pending_approval' }).sort({ createdAt: -1 }).session(session);
+        ? await CryptoDeposit.findOne(tenantFilter(req, { _id: tx.cryptoDepositId })).session(session)
+        : await CryptoDeposit.findOne(tenantFilter(req, { userId: tx.userId, status: 'pending_approval' })).sort({ createdAt: -1 }).session(session);
       if (!deposit) return { status: 404, body: { error: 'Yatırma detayı bulunamadı' } };
       if (deposit.status !== 'pending_approval') return { status: 400, body: { error: 'Bu yatırma zaten işlenmiş' } };
 
-      const user = await User.findById(deposit.userId).session(session);
+      const user = await User.findOne(tenantFilter(req, { _id: deposit.userId })).session(session);
       const balBefore = user.balance;
       user.balance = +(user.balance + deposit.creditedTRY).toFixed(2);
       await user.save({ session });
@@ -2073,13 +2103,13 @@ export async function approveCryptoDeposit(req, res, next) {
 
 export async function rejectCryptoDeposit(req, res, next) {
   try {
-    const tx = await Transaction.findById(req.params.id);
+    const tx = await Transaction.findOne(tenantFilter(req, { _id: req.params.id }));
     if (!tx || tx.type !== 'crypto_deposit') return res.status(404).json({ error: 'Yatırma bulunamadı' });
     if (tx.status !== 'pending') return res.status(400).json({ error: 'Bu yatırma zaten işlenmiş' });
 
     const deposit = tx.cryptoDepositId
-      ? await CryptoDeposit.findById(tx.cryptoDepositId)
-      : await CryptoDeposit.findOne({ userId: tx.userId, status: 'pending_approval' }).sort({ createdAt: -1 });
+      ? await CryptoDeposit.findOne(tenantFilter(req, { _id: tx.cryptoDepositId }))
+      : await CryptoDeposit.findOne(tenantFilter(req, { userId: tx.userId, status: 'pending_approval' })).sort({ createdAt: -1 });
     if (!deposit) return res.status(404).json({ error: 'Yatırma detayı bulunamadı' });
 
     deposit.status = 'rejected';
@@ -2099,12 +2129,12 @@ export async function approveCryptoWithdrawal(req, res, next) {
     // Talep koşullu ve atomik "processing"e alınır: aynı çekime eşzamanlı iki
     // onay (ya da onay + red) gelirse yalnız biri geçer.
     const tx = await Transaction.findOneAndUpdate(
-      { _id: req.params.id, type: 'crypto_withdraw', status: 'pending' },
+      tenantFilter(req, { _id: req.params.id, type: 'crypto_withdraw', status: 'pending' }),
       { $set: { status: 'processing', 'metadata.flow': 'admin', 'metadata.approvedBy': req.user?.id || null } },
       { new: true },
     );
     if (!tx) {
-      const exists = await Transaction.exists({ _id: req.params.id });
+      const exists = await Transaction.exists(tenantFilter(req, { _id: req.params.id }));
       return exists
         ? res.status(400).json({ error: 'Bu çekim zaten işlenmiş' })
         : res.status(404).json({ error: 'Çekim bulunamadı' });
@@ -2135,6 +2165,8 @@ export async function approveCryptoWithdrawal(req, res, next) {
 /** "processing" çekimi hemen zincirle uzlaştırır (uzlaştırma işini beklemeden). */
 export async function reconcileCryptoWithdrawalNow(req, res, next) {
   try {
+    const tx = await Transaction.findOne(tenantFilter(req, { _id: req.params.id, type: 'crypto_withdraw' })).select('_id');
+    if (!tx) return res.status(404).json({ error: 'Çekim bulunamadı' });
     const result = await reconcileWithdrawal(req.params.id);
     broadcastAdminCounts();
     res.json(result);
@@ -2146,6 +2178,8 @@ export async function resolveCryptoWithdrawal(req, res, next) {
   try {
     const { sent, txHash } = req.body || {};
     if (typeof sent !== 'boolean') throw createError(400, 'INVALID_BODY', "'sent' (true/false) gerekli");
+    const tx = await Transaction.findOne(tenantFilter(req, { _id: req.params.id, type: 'crypto_withdraw' })).select('_id');
+    if (!tx) return res.status(404).json({ error: 'Çekim bulunamadı' });
     const result = await resolveWithdrawalManually(req.params.id, { sent, txHash, adminId: req.user?.id });
     if (!result.ok) return res.status(409).json({ error: result.error });
     broadcastAdminCounts();
@@ -2157,12 +2191,12 @@ export async function rejectCryptoWithdrawal(req, res, next) {
   const session = await mongoose.startSession();
   try {
     const result = await withTransactionRetry(session, async () => {
-      const tx = await Transaction.findById(req.params.id).session(session);
+      const tx = await Transaction.findOne(tenantFilter(req, { _id: req.params.id })).session(session);
       if (!tx) return { status: 404, body: { error: 'Çekim bulunamadı' } };
       if (tx.status !== 'pending') return { status: 400, body: { error: 'Bu çekim zaten işlenmiş' } };
 
       // Bakiyeyi iade et
-      const user = await User.findById(tx.userId).session(session);
+      const user = await User.findOne(tenantFilter(req, { _id: tx.userId })).session(session);
       const refundAmount = Math.abs(tx.amount);
       const balBefore = user.balance;
       user.balance = +(user.balance + refundAmount).toFixed(2);
@@ -2219,7 +2253,7 @@ import ActivityEvent from '../models/ActivityEvent.js';
 
 export async function getAdminQueueCounts(req, res, next) {
   try {
-    res.json(await getAdminCounts());
+    res.json(await getAdminCounts({ tenantId: scopeTenantId(req) }));
   } catch (e) { next(e); }
 }
 
@@ -2234,7 +2268,7 @@ export async function getPendingFinance(req, res, next) {
 export async function listActivity(req, res, next) {
   try {
     const { type, page = 1, limit = 20 } = req.query;
-    const filter = {};
+    const filter = tenantFilter(req);
     if (type) filter.type = type;
     const pageNum = Math.max(1, Math.floor(Number(page) || 1));
     const limitNum = Math.min(100, Math.max(1, Math.floor(Number(limit) || 20)));

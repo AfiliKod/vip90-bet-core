@@ -466,9 +466,12 @@ export async function listTemplates({ page = 1, limit = 20, search = '', categor
   };
 }
 
-export async function getTemplateById(id) {
+export async function getTemplateById(id, options = {}) {
   if (!mongoose.isValidObjectId(id)) return null;
-  return SystemMailTemplate.findById(id).lean();
+  const { tenantId = null } = options;
+  const filter = { _id: id };
+  if (tenantId) filter.tenantId = tenantId;
+  return SystemMailTemplate.findOne(filter).lean();
 }
 
 /**
@@ -522,9 +525,12 @@ export async function createTemplate(data, adminId = null) {
   return doc.toObject();
 }
 
-export async function updateTemplate(id, data, adminId = null) {
+export async function updateTemplate(id, data, adminId = null, options = {}) {
   if (!mongoose.isValidObjectId(id)) return null;
-  const doc = await SystemMailTemplate.findById(id);
+  const { tenantId = null } = options;
+  const filter = { _id: id };
+  if (tenantId) filter.tenantId = tenantId;
+  const doc = await SystemMailTemplate.findOne(filter);
   if (!doc) return null;
 
   const editable = ['name', 'subject', 'preheader', 'body', 'ctaLabel', 'ctaUrl', 'enabled', 'audience', 'schedule'];
@@ -537,9 +543,12 @@ export async function updateTemplate(id, data, adminId = null) {
   return doc.toObject();
 }
 
-export async function deleteTemplate(id) {
+export async function deleteTemplate(id, options = {}) {
   if (!mongoose.isValidObjectId(id)) return null;
-  const doc = await SystemMailTemplate.findById(id);
+  const { tenantId = null } = options;
+  const filter = { _id: id };
+  if (tenantId) filter.tenantId = tenantId;
+  const doc = await SystemMailTemplate.findOne(filter);
   if (!doc) return null;
   if (doc.isSystem) {
     const err = new Error('Sistem şablonu silinemez — yalnızca düzenlenebilir');

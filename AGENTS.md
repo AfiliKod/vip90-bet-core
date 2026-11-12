@@ -55,6 +55,24 @@ Versions follow SemVer; core tags are primary, downstream installs record which 
   not list, including unmanaged and partial ones. In single mode the legacy global unique indexes stay in place; dropping
   an index is always its own explicit migration step.
 - Agent (reseller) and Partner are different concepts; do not merge them.
+- **Id lookups are tenant-scoped (İP-5, spec §9 G-3).** Every controller that addresses a record by `req.params.id`
+  (or a body `userId`) looks it up through `tenantFilter(req, { _id })` / `scopeTenantId(req)` from
+  `server/src/tenancy/tenantFilter.js`. Multi mode adds the request tenant, so another tenant's id answers the same
+  404 `NOT_FOUND` (or a dedicated 404 code such as `RECIPIENT_NOT_FOUND`) as an id that does not exist: never 403, never
+  the record. Single mode returns the base query unchanged, so records the G3 backfill has not stamped stay visible.
+  `npm run lint:tenancy` (`scripts/lint-tenancy.mjs`, run in CI) fails on a raw `Model.findById*(req.params…)` in a
+  controller and on `runAsPlatform` outside its allow-list.
+- **Single-mode enforcement default (G7).** `TENANCY_ENFORCEMENT` defaults to `log` in single mode only after the G3
+  backfill is recorded complete for every collection; until then it stays `off`. In `log` mode scoped requests get
+  `{ tenantId }`, unscoped queries are counted and warned (at most one line per model+op per minute), nothing throws.
+  An explicit env value always wins; multi mode is always `enforce`.
+- **Platform staff on tenant routes (K23).** A platform-scoped staff token may only use safe methods (GET, HEAD,
+  OPTIONS) on a tenant route; anything else answers 403 `PLATFORM_READ_ONLY` and writes an `AuditLog` row. Manual event
+  settlement is platform-only in multi mode (403 `PLATFORM_ONLY`). Do not add a platform write path outside the
+  time-limited, audited grant planned for İP-9a.
+- **`TenantDailyStat` (spec §4.3.6).** `server/src/models/TenantDailyStat.js` is a platform/partner collection written
+  only by `server/src/services/tenantDailyStat.js` (`runAsPlatform`); it excludes bot, seed and demo activity, and the
+  partner view applies small-cell suppression (`activePlayers < 5` → `"<5"`) with no player identifiers.
 
 ## Identity, staff authentication and 2FA
 

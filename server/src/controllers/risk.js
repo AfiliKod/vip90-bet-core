@@ -6,6 +6,7 @@ import RiskSignal from '../models/RiskSignal.js';
 import { getPlayerRiskOverview, manualRiskOverride, getRiskStats, evaluateRisk } from '../services/riskEngine.js';
 import { createRule, updateRule, deleteRule, toggleRule, getRules, getRuleById, initDefaultRules } from '../services/riskRule.js';
 import Rule from '../models/RiskRule.js';
+import { tenantFilter } from '../tenancy/tenantFilter.js';
 import { getSignalStats } from '../services/riskSignal.js';
 import { logAuditEvent } from '../services/audit.js';
 import { createError } from '../middleware/error.js';
@@ -282,7 +283,7 @@ export async function createRiskRule(req, res, next) {
 
 export async function updateRiskRule(req, res, next) {
   try {
-    const existing = await Rule.findById(req.params.ruleId).lean();
+    const existing = await Rule.findOne(tenantFilter(req, { _id: req.params.ruleId })).lean();
     const rule = await updateRule(req.params.ruleId, req.validated, req.user.id);
 
     await logAuditEvent({

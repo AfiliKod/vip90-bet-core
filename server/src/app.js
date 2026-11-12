@@ -202,7 +202,9 @@ export function createApp() {
   // Sumsub webhook (V11): HMAC imzalanan TAM ham gövdeyi ister. Global parser
   // gövdeyi tüketirse rota kendi okuyucusuyla sonsuza dek bekler; bu yüzden
   // ham gövde burada yakalanır (global parser sonra no-op olur).
-  app.use('/api/webhook/sumsub', express.json({
+  // İP-6: kiracı segmentli URL de aynı ham gövdeyi yakalar; gizli anahtar
+  // gövde ayrıştırılmadan önce kiracıya göre seçilir (spec §8.4).
+  app.use(['/api/webhook/sumsub', '/api/webhook/sumsub/:tenantId'], express.json({
     limit: '100kb',
     verify: (req, _res, buf) => { req.rawBody = buf.toString('utf8'); },
   }));

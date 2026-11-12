@@ -20,6 +20,7 @@ import { createModuleGate } from '../middleware/moduleGate.js';
 import { isModuleUsable } from '../services/licensing/index.js';
 import { emailTestLimiter } from '../middleware/rateLimit.js';
 import seoAdminRouter from './seoAdmin.js';
+import { requirePlatformInMultiMode } from '../middleware/platformOnly.js';
 import { requireDemoFlag, getDemoFlags } from '../config/tenancy.js';
 
 // V1 — demo yönetici yıkıcı işlemleri yapamaz (bayrak DB'den taze okunur)
@@ -83,7 +84,7 @@ r.get('/users/:id/transactions', requirePermission('admin:transactions:read'), c
 r.get('/events/archived',    requirePermission('admin:events:read'), ctrl.getArchivedEvents);
 r.post('/events',            requirePermission('admin:events:write'), validate(createEventSchema), ctrl.createEvent);
 r.patch('/events/:id',       requirePermission('admin:events:write'), ctrl.updateEvent);
-r.post('/events/:id/settle', requirePermission('admin:events:settle'), blockDemoAdmin, validate(settleEventSchema), ctrl.settle);
+r.post('/events/:id/settle', requirePlatformInMultiMode, requirePermission('admin:events:settle'), blockDemoAdmin, validate(settleEventSchema), ctrl.settle);
 
 r.get('/stats',       requirePermission('admin:reports:read'), ctrl.getStats);
 r.get('/activity',    requirePermission('admin:activity:read'), ctrl.listActivity);

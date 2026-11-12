@@ -3,6 +3,11 @@
  *
  * Handles deposit initiation, webhook notifications, and admin queries.
  */
+import { tenantFilter } from '../tenancy/tenantFilter.js';
+import { runWithTenant } from '../tenancy/context.js';
+import { findPaymentForCallback, findPayoutForCallback } from '../tenancy/callbackAttribution.js';
+import { getTenancyMode } from '../config/tenancy.js';
+import { getDefaultTenantId } from '../tenancy/defaultTenantId.js';
 import { randomUUID as uuidv4 } from 'node:crypto';
 import mongoose from 'mongoose';
 import { withTransactionRetry } from '../utils/transactionRetry.js';
@@ -27,6 +32,14 @@ import {
 let _slikairService = slikairService;
 export function _setSlikairService(svc) { _slikairService = svc; }
 export function _getSlikairService() { return _slikairService; }
+
+// İP-6: webhook kiracısı yalnız kayıtlı ödeme/çekimden gelir. Tek modda kayıt
+// kiracı damgası taşımıyorsa varsayılan kiracıya düşülür (Y4 geriye uyumluluk);
+// varsayılan kiracı da yoksa (ör. boot'suz test ortamı) eski kapsam dışı davranış.
+function callbackTenantId(record) {
+  if (record.tenantId) return record.tenantId;
+  return getTenancyMode() === 'single' ? getDefaultTenantId() : null;
+}
 
 // ── Kullanıcı: Yatırma Başlat ──────────────────────────────────────────────
 
@@ -108,13 +121,15 @@ export async function initiateDeposit(req, res, next) {
 // bir "succeeded" webhook'u sandbox'ta hiç gelmeyecek.
 export async function initiatePayout(req, res, next) {
   try {
+    const { userId, amount, currency, method, country, paymentDetails } = req.validated;
+    const userFilter = tenantFilter(req, { _id: userId });
+    const user = await User.findOne(userFilter);
+    if (!user) throw createError(404, 'NOT_FOUND', 'Kullanıcı bulunamadı');
+
     if (!(await isSlikairConfigured())) {
       throw createError(503, 'SLIKAIR_DISABLED', 'Slikair ödeme sistemi şu an aktif değil');
     }
 
-    const { userId, amount, currency, method, country, paymentDetails } = req.validated;
-    const user = await User.findById(userId);
-    if (!user) throw createError(404, 'NOT_FOUND', 'Kullanıcı bulunamadı');
     await assertNoOpenIgamesSession(userId);
     if (user.balance < amount) throw createError(400, 'INSUFFICIENT_BALANCE', 'Kullanıcının bakiyesi yetersiz');
 
@@ -127,7 +142,8 @@ export async function initiatePayout(req, res, next) {
     const session = await mongoose.startSession();
     session.startTransaction();
     try {
-      const fresh = await User.findById(userId).session(session);
+      const fresh = await User.findOne(userFilter).session(session);
+      if (!fresh) throw createError(404, 'NOT_FOUND', 'Kullanıcı bulunamadı');
       if (fresh.balance < amount) throw createError(400, 'INSUFFICIENT_BALANCE', 'Kullanıcının bakiyesi yetersiz');
       const balanceBefore = fresh.balance;
       fresh.balance = +(fresh.balance - amount).toFixed(2);
@@ -236,160 +252,177 @@ export async function handlePayinWebhook(req, res, next) {
       return res.status(400).json({ error: 'Missing payin_id' });
     }
 
-    // Kaydı bul — Slikair API'si payin_id döndürür, modelde payinId olarak saklanır
-    const payment = await SlikairPayment.findOne({ payinId: payin_id });
+    // Kaydı bul — Slikair API'si payin_id döndürür, modelde payinId olarak saklanır.
+    // İP-6: webhook'ta kiracı göstergesi yok; kiracı yalnız bu kayıttan alınır.
+    const payment = await findPaymentForCallback(payin_id);
     if (!payment) {
       // Bilinmeyen payin_id — log'la ama 200 dön (tekrar deneme döngüsüne girmemesi için)
       console.warn(`[Slikair] Webhook for unknown payin_id: ${payin_id}`);
       return res.status(200).json({ ok: true });
     }
 
-    // Idempotency: zaten succeeded ise tekrar kredi yapma
-    if (payment.status === 'succeeded') {
-      return res.status(200).json({ ok: true, message: 'Already processed' });
+    const tenantId = callbackTenantId(payment);
+    if (!tenantId && getTenancyMode() === 'multi') {
+      // G-4: kiracı kesin belirlenemiyorsa kredi de durum değişikliği de yok.
+      errorLogger.critical(
+        'slikair_webhook_unattributed',
+        `payin_id=${payin_id}: stored payment has no tenantId in multi mode; webhook ignored`,
+        { payinId: payin_id },
+      );
+      return res.status(200).json({ ok: true });
     }
 
-    // Durum haritası
-    const statusMap = {
-      100: 'pending',      // Created
-      200: 'processing',   // Processing
-      201: 'succeeded',    // Authorized
-      300: 'pending',      // 3DS redirect gerekli
-      301: 'failed',       // Declined
-      302: 'failed',       // Expired
-      303: 'failed',       // Failed
-      310: 'succeeded',    // Captured (son durum)
-      311: 'failed',       // Capture failed
-      317: 'failed',       // Invalid CVV
-      318: 'failed',       // Expired card
-      320: 'refunded',     // Refunded
-      330: 'failed',       // Risk decline
-    };
+    // Doğrulama, bakiye ve ledger yazımları kaydın kiracısı altında çalışır;
+    // get-status çağrısı o kiracının Slikair kimlik bilgilerini kullanır.
+    const process = async () => {
+      // Idempotency: zaten succeeded ise tekrar kredi yapma
+      if (payment.status === 'succeeded') {
+        return res.status(200).json({ ok: true, message: 'Already processed' });
+      }
 
-    // 2026-09-22'de canlı sandbox testinde bulundu: bir "auto" akışlı
-    // credit_card test kartı (1111111111111111) webhook'u status_code=200
-    // ile geldi — statusMap bunu (yanlış şekilde) "processing" (ara durum)
-    // sanıyordu, halbuki AYNI payin_id için get-status status_code=200'ü
-    // "succeeded" olarak raporluyor (Slikair'in status_code semantiği
-    // status'e (string) bağlı olarak değişiyor, sabit bir final/ara-durum
-    // haritası değil). Sonuç: newStatus hiç 'succeeded' olmadığı için
-    // aşağıdaki get-status çapraz doğrulaması TETİKLENMİYORDU, ödeme
-    // sonsuza kadar 'processing'de takılı kalıyordu — kredi asla verilmedi.
-    // Düzeltme: webhook'un kendi "status" (string) alanı "succeeded"
-    // diyorsa statusMap'e bakmadan önceliklendiriyoruz. Bu güvenliği
-    // ZAYIFLATMAZ — webhook imzasız olduğu için "succeeded" iddiasına
-    // zaten hiçbir zaman doğrudan güvenilmiyor, bu sadece get-status
-    // çapraz doğrulamasının ÇALIŞIP ÇALIŞMAYACAĞINI belirliyor; daha sık
-    // doğrulama yapmak asla daha az güvenli olamaz.
-    const newStatus = status === 'succeeded' ? 'succeeded' : (statusMap[status_code] || payment.status);
+      // Durum haritası
+      const statusMap = {
+        100: 'pending',      // Created
+        200: 'processing',   // Processing
+        201: 'succeeded',    // Authorized
+        300: 'pending',      // 3DS redirect gerekli
+        301: 'failed',       // Declined
+        302: 'failed',       // Expired
+        303: 'failed',       // Failed
+        310: 'succeeded',    // Captured (son durum)
+        311: 'failed',       // Capture failed
+        317: 'failed',       // Invalid CVV
+        318: 'failed',       // Expired card
+        320: 'refunded',     // Refunded
+        330: 'failed',       // Risk decline
+      };
 
-    // GÜVENLİK: Slikair'in webhook'ları (DMN) imzasız — OpenAPI spec'i webhook
-    // endpoint'i için açıkça `security: []` belirtiyor, HMAC/imza header'ı da
-    // dokümante edilmiş değil (doc.slikair.com'da da bu konuda bir mekanizma yok,
-    // teyit edildi). Bu yüzden webhook body'sindeki "succeeded" durumuna körü
-    // körüne güvenip kredi vermek, geçerli bir payin_id'yi bilen HERKESİN (ör.
-    // kendi meşru bir yatırma denemesinden dönen payin_id ile) sahte bir webhook
-    // POST ederek gerçekte ödeme yapmadan bakiyesine kredi kazanmasına izin verir.
-    // Krediye geçmeden önce Slikair'in KENDİ /payment/get-status API'sine (merchant
-    // kimlik bilgileriyle korunan, sahte bir webhook'un taklit edemeyeceği bir
-    // sunucu-sunucu çağrısı) çapraz doğrulama yapıyoruz — hem durum hem tutar/para
-    // birimi eşleşmeli.
-    let verifiedSucceeded = false;
-    if (newStatus === 'succeeded' && payment.status !== 'succeeded') {
-      try {
-        const statusCheck = await _slikairService.getPaymentStatus(payin_id);
-        verifiedSucceeded = statusCheck?.status === 'succeeded'
-          && Number(statusCheck?.amount) === Number(payment.amount)
-          && statusCheck?.currency === payment.currency;
-        if (!verifiedSucceeded) {
+      // 2026-09-22'de canlı sandbox testinde bulundu: bir "auto" akışlı
+      // credit_card test kartı (1111111111111111) webhook'u status_code=200
+      // ile geldi — statusMap bunu (yanlış şekilde) "processing" (ara durum)
+      // sanıyordu, halbuki AYNI payin_id için get-status status_code=200'ü
+      // "succeeded" olarak raporluyor (Slikair'in status_code semantiği
+      // status'e (string) bağlı olarak değişiyor, sabit bir final/ara-durum
+      // haritası değil). Sonuç: newStatus hiç 'succeeded' olmadığı için
+      // aşağıdaki get-status çapraz doğrulaması TETİKLENMİYORDU, ödeme
+      // sonsuza kadar 'processing'de takılı kalıyordu — kredi asla verilmedi.
+      // Düzeltme: webhook'un kendi "status" (string) alanı "succeeded"
+      // diyorsa statusMap'e bakmadan önceliklendiriyoruz. Bu güvenliği
+      // ZAYIFLATMAZ — webhook imzasız olduğu için "succeeded" iddiasına
+      // zaten hiçbir zaman doğrudan güvenilmiyor, bu sadece get-status
+      // çapraz doğrulamasının ÇALIŞIP ÇALIŞMAYACAĞINI belirliyor; daha sık
+      // doğrulama yapmak asla daha az güvenli olamaz.
+      const newStatus = status === 'succeeded' ? 'succeeded' : (statusMap[status_code] || payment.status);
+
+      // GÜVENLİK: Slikair'in webhook'ları (DMN) imzasız — OpenAPI spec'i webhook
+      // endpoint'i için açıkça `security: []` belirtiyor, HMAC/imza header'ı da
+      // dokümante edilmiş değil (doc.slikair.com'da da bu konuda bir mekanizma yok,
+      // teyit edildi). Bu yüzden webhook body'sindeki "succeeded" durumuna körü
+      // körüne güvenip kredi vermek, geçerli bir payin_id'yi bilen HERKESİN (ör.
+      // kendi meşru bir yatırma denemesinden dönen payin_id ile) sahte bir webhook
+      // POST ederek gerçekte ödeme yapmadan bakiyesine kredi kazanmasına izin verir.
+      // Krediye geçmeden önce Slikair'in KENDİ /payment/get-status API'sine (merchant
+      // kimlik bilgileriyle korunan, sahte bir webhook'un taklit edemeyeceği bir
+      // sunucu-sunucu çağrısı) çapraz doğrulama yapıyoruz — hem durum hem tutar/para
+      // birimi eşleşmeli.
+      let verifiedSucceeded = false;
+      if (newStatus === 'succeeded' && payment.status !== 'succeeded') {
+        try {
+          const statusCheck = await _slikairService.getPaymentStatus(payin_id);
+          verifiedSucceeded = statusCheck?.status === 'succeeded'
+            && Number(statusCheck?.amount) === Number(payment.amount)
+            && statusCheck?.currency === payment.currency;
+          if (!verifiedSucceeded) {
+            errorLogger.critical(
+              'slikair_webhook_verification_failed',
+              `payin_id=${payin_id} webhook'u "succeeded" dedi ama get-status çapraz doğrulaması eşleşmedi — kredi VERİLMEDİ`,
+              { payinId: payin_id, webhookBody: req.body, statusCheck, storedAmount: payment.amount, storedCurrency: payment.currency },
+            );
+          }
+        } catch (e) {
           errorLogger.critical(
-            'slikair_webhook_verification_failed',
-            `payin_id=${payin_id} webhook'u "succeeded" dedi ama get-status çapraz doğrulaması eşleşmedi — kredi VERİLMEDİ`,
-            { payinId: payin_id, webhookBody: req.body, statusCheck, storedAmount: payment.amount, storedCurrency: payment.currency },
+            'slikair_webhook_verification_error',
+            `payin_id=${payin_id} için get-status çapraz doğrulaması başarısız oldu — kredi VERİLMEDİ: ${e.message}`,
+            { payinId: payin_id },
           );
         }
-      } catch (e) {
-        errorLogger.critical(
-          'slikair_webhook_verification_error',
-          `payin_id=${payin_id} için get-status çapraz doğrulaması başarısız oldu — kredi VERİLMEDİ: ${e.message}`,
-          { payinId: payin_id },
-        );
       }
-    }
 
-    // MongoDB transaction ile bakiye güncelleme
-    if (newStatus === 'succeeded' && payment.status !== 'succeeded' && verifiedSucceeded) {
-      const session = await mongoose.startSession();
-      try {
-        const credited = await withTransactionRetry(session, async () => {
-          // Ödeme kaydı koşullu ve atomik "succeeded" olur: aynı payin için
-          // eşzamanlı iki webhook'tan yalnız biri kredi verir (önceden ikisi de
-          // dışarıdaki "succeeded değil" kontrolünü geçip iki kez yatırıyordu).
-          const claimed = await SlikairPayment.findOneAndUpdate(
-            { _id: payment._id, status: { $ne: 'succeeded' } },
-            { $set: { status: 'succeeded', creditedAt: new Date() } },
-            { new: true, session },
-          );
-          if (!claimed) return false;
+      // MongoDB transaction ile bakiye güncelleme
+      if (newStatus === 'succeeded' && payment.status !== 'succeeded' && verifiedSucceeded) {
+        const session = await mongoose.startSession();
+        try {
+          const credited = await withTransactionRetry(session, async () => {
+            // Ödeme kaydı koşullu ve atomik "succeeded" olur: aynı payin için
+            // eşzamanlı iki webhook'tan yalnız biri kredi verir (önceden ikisi de
+            // dışarıdaki "succeeded değil" kontrolünü geçip iki kez yatırıyordu).
+            const claimed = await SlikairPayment.findOneAndUpdate(
+              { _id: payment._id, status: { $ne: 'succeeded' } },
+              { $set: { status: 'succeeded', creditedAt: new Date() } },
+              { new: true, session },
+            );
+            if (!claimed) return false;
 
-          const adjusted = await adjustBalance(payment.userId, payment.amount, { session });
-          if (!adjusted) throw new Error('User not found');
-          const { balanceBefore, balanceAfter } = adjusted;
+            const adjusted = await adjustBalance(payment.userId, payment.amount, { session });
+            if (!adjusted) throw new Error('User not found');
+            const { balanceBefore, balanceAfter } = adjusted;
 
-          await createTransaction({
-            userId: payment.userId,
-            type: 'deposit',
-            amount: payment.amount,
-            balanceBefore,
-            balanceAfter,
-            referenceId: payment._id,
-            status: 'completed',
-            note: `Slikair yatırma (${payment.paymentMethod})`,
-            idempotencyKey: `slikair_payin_${payment.payinId}`,
-            source: 'system',
-            metadata: { payinId: payment.payinId, paymentMethod: payment.paymentMethod },
-          }, { session });
-          return true;
-        }).catch((e) => { if (isDuplicateTransaction(e)) return false; throw e; });
+            await createTransaction({
+              userId: payment.userId,
+              type: 'deposit',
+              amount: payment.amount,
+              balanceBefore,
+              balanceAfter,
+              referenceId: payment._id,
+              status: 'completed',
+              note: `Slikair yatırma (${payment.paymentMethod})`,
+              idempotencyKey: `slikair_payin_${payment.tenantId || 'single'}_${payment.payinId}`,
+              source: 'system',
+              metadata: { payinId: payment.payinId, paymentMethod: payment.paymentMethod },
+            }, { session });
+            return true;
+          }).catch((e) => { if (isDuplicateTransaction(e)) return false; throw e; });
 
-        // Transaction SONRASI — retry bloğunun dışında
-        if (credited) updateDailyStats(payment.userId, 'deposit', payment.amount).catch((e) => {
-          console.error(`[RG] updateDailyStats (deposit) failed for payin ${payment.payinId}:`, e.message);
-        });
-        if (credited) emitDepositRisk(payment.userId, payment.amount, { payinId: payment.payinId }).catch(() => {});
-      } finally {
-        await session.endSession();
+          // Transaction SONRASI — retry bloğunun dışında
+          if (credited) updateDailyStats(payment.userId, 'deposit', payment.amount).catch((e) => {
+            console.error(`[RG] updateDailyStats (deposit) failed for payin ${payment.payinId}:`, e.message);
+          });
+          if (credited) emitDepositRisk(payment.userId, payment.amount, { payinId: payment.payinId }).catch(() => {});
+        } finally {
+          await session.endSession();
+        }
+      } else if (newStatus === 'succeeded' && payment.status !== 'succeeded') {
+        // get-status çapraz doğrulaması başarısız oldu — 'succeeded' YAZILMAZ (aksi
+        // halde en üstteki idempotency kontrolü sonraki gerçek/doğrulanmış webhook'u da
+        // sessizce yok sayardı). 'processing'de bırakılıp admin incelemesi için
+        // metadata'ya işleniyor; krediye geçilmiyor.
+        // Koşullu: arada başka bir webhook kredi verdiyse "succeeded" ezilmez.
+        await SlikairPayment.updateOne({ _id: payment._id, status: { $ne: 'succeeded' } }, { $set: {
+          status: 'processing',
+          statusCode: status_code,
+          metadata: {
+            ...(payment.metadata || {}),
+            unverifiedSucceededWebhook: { status, status_code, amount, currency, receivedAt: new Date() },
+          },
+          webhookReceivedAt: new Date(),
+        } });
+      } else {
+        // Succeeded değilse (failed/refunded/pending/processing vb.) sadece durumu güncelle.
+        // Kredilenmiş ödemenin durumu geç gelen bir webhook'la geri çekilmez
+        // (iade gibi gerçek bir durum değişikliği hariç).
+        const guard = newStatus === 'refunded' ? {} : { status: { $ne: 'succeeded' } };
+        await SlikairPayment.updateOne({ _id: payment._id, ...guard }, { $set: {
+          status: newStatus,
+          statusCode: status_code,
+          reasonCode: reason_code || null,
+          declineReason: decline_reason || null,
+          webhookReceivedAt: new Date(),
+        } });
       }
-    } else if (newStatus === 'succeeded' && payment.status !== 'succeeded') {
-      // get-status çapraz doğrulaması başarısız oldu — 'succeeded' YAZILMAZ (aksi
-      // halde en üstteki idempotency kontrolü sonraki gerçek/doğrulanmış webhook'u da
-      // sessizce yok sayardı). 'processing'de bırakılıp admin incelemesi için
-      // metadata'ya işleniyor; krediye geçilmiyor.
-      // Koşullu: arada başka bir webhook kredi verdiyse "succeeded" ezilmez.
-      await SlikairPayment.updateOne({ _id: payment._id, status: { $ne: 'succeeded' } }, { $set: {
-        status: 'processing',
-        statusCode: status_code,
-        metadata: {
-          ...(payment.metadata || {}),
-          unverifiedSucceededWebhook: { status, status_code, amount, currency, receivedAt: new Date() },
-        },
-        webhookReceivedAt: new Date(),
-      } });
-    } else {
-      // Succeeded değilse (failed/refunded/pending/processing vb.) sadece durumu güncelle.
-      // Kredilenmiş ödemenin durumu geç gelen bir webhook'la geri çekilmez
-      // (iade gibi gerçek bir durum değişikliği hariç).
-      const guard = newStatus === 'refunded' ? {} : { status: { $ne: 'succeeded' } };
-      await SlikairPayment.updateOne({ _id: payment._id, ...guard }, { $set: {
-        status: newStatus,
-        statusCode: status_code,
-        reasonCode: reason_code || null,
-        declineReason: decline_reason || null,
-        webhookReceivedAt: new Date(),
-      } });
-    }
 
-    res.status(200).json({ ok: true });
+      res.status(200).json({ ok: true });
+    };
+    return tenantId ? await runWithTenant(tenantId, process) : await process();
   } catch (e) {
     console.error('[Slikair] Payin webhook error:', e);
     // Hata olsa bile 200 dön — Slikair tekrar denemesin
@@ -449,155 +482,183 @@ export async function handlePayoutWebhook(req, res, next) {
       return res.status(400).json({ error: 'Missing payoutId' });
     }
 
-    let payout = await SlikairPayout.findOne({ payoutId });
+    // İP-6: kiracı yalnız kayıtlı çekimden alınır (payoutId, yoksa merchantReference).
+    let payout = await findPayoutForCallback({ payoutId, merchantReference });
     if (!payout && merchantReference) {
-      // V10: a payout whose create answer was lost has no payoutId yet. Match
-      // it by merchantReference, but attach the payoutId only after Slikair
-      // confirms it knows that payout (the webhook is unsigned).
-      payout = await attachPayoutIdByReference(payoutId, String(merchantReference));
+      // V10: a payout whose create answer was lost has no payoutId yet; find it
+      // by merchantReference for attribution. The id is attached only after the
+      // provider confirms it, inside the tenant run below.
+      payout = await findPayoutForCallback({ merchantReference });
     }
     if (!payout) {
       console.warn(`[Slikair] Webhook for unknown payout_id: ${payoutId}`);
       return res.status(200).json({ ok: true });
     }
 
-    // Idempotency
-    if (payout.status === 'succeeded') {
-      return res.status(200).json({ ok: true, message: 'Already processed' });
-    }
-
-    const statusMap = {
-      100: 'created',
-      200: 'processing',
-      310: 'succeeded',
-      311: 'failed',
-      320: 'failed',
-      330: 'failed',
-    };
-
-    // handlePayinWebhook'taki 2026-09-22 canlı test bulgusuyla aynı desen —
-    // bkz. oradaki yorum. Webhook'un kendi "status" string alanı statusCode
-    // haritasından daha güvenilir, öncelik veriyoruz.
-    const newStatus = status === 'succeeded' ? 'succeeded' : (statusMap[statusCode] || payout.status);
-
-    // V10: the webhook is unsigned; its body never moves money. A refunded
-    // payout that the provider later confirms as paid is flagged loudly.
-    if (payout.refundTransactionId) {
-      if (newStatus === 'succeeded') {
-        let confirmed = false;
-        try {
-          confirmed = isProviderSucceeded(providerState(await _slikairService.getPayoutStatus(payoutId)));
-        } catch (e) {
-          errorLogger.critical('slikair_payout_webhook_verification_error',
-            `payoutId=${payoutId}: get-status check failed: ${e.message}`, { payoutId });
-        }
-        if (confirmed) {
-          await flagRefundConflict(payout, { webhookStatus: status ?? null, statusCode: statusCode ?? null, reasonCode: reasonCode || null });
-        } else {
-          errorLogger.critical('slikair_payout_webhook_verification_failed',
-            `payoutId=${payoutId}: "succeeded" webhook for a refunded payout not confirmed by get-status`, { payoutId });
-        }
-      }
-      await SlikairPayout.updateOne({ _id: payout._id }, { $set: { webhookReceivedAt: new Date() } });
+    const tenantId = callbackTenantId(payout);
+    if (!tenantId && getTenancyMode() === 'multi') {
+      // G-4: kiracı kesin belirlenemiyorsa iade de durum değişikliği de yok.
+      errorLogger.critical(
+        'slikair_webhook_unattributed',
+        `payoutId=${payoutId}: stored payout has no tenantId in multi mode; webhook ignored`,
+        { payoutId },
+      );
       return res.status(200).json({ ok: true });
     }
 
-    if (newStatus === 'failed') {
-      if (payout.status === 'failed') {
-        // Marked failed before V10 refunds existed: the player may never have
-        // been refunded. Flag it only when the provider confirms the failure;
-        // never move money here. An unconfirmed webhook is only recorded.
-        let confirmed = false;
-        try {
-          confirmed = isProviderFailed(providerState(await _slikairService.getPayoutStatus(payoutId)));
-        } catch (e) {
-          errorLogger.critical('slikair_payout_webhook_verification_error',
-            `payoutId=${payoutId}: get-status check failed: ${e.message}`, { payoutId });
+    // Doğrulama ve mutabakat kaydın kiracısı altında çalışır; get-status
+    // çağrısı o kiracının Slikair kimlik bilgilerini kullanır.
+    const process = async () => {
+      if (String(payout.payoutId ?? '') !== String(payoutId)) {
+        // V10: a payout whose create answer was lost has no payoutId yet. Match
+        // it by merchantReference, but attach the payoutId only after Slikair
+        // confirms it knows that payout (the webhook is unsigned).
+        payout = await attachPayoutIdByReference(payoutId, String(merchantReference));
+        if (!payout) {
+          console.warn(`[Slikair] Webhook for unknown payout_id: ${payoutId}`);
+          return res.status(200).json({ ok: true });
         }
-        const set = { webhookReceivedAt: new Date() };
-        if (confirmed) {
-          set.needsReconciliation = true;
-          set.reconciliationNote = 'Payout failed without a recorded refund; check whether the player was refunded';
-        } else {
-          set['metadata.unverifiedFailedWebhook'] = { status: status ?? null, statusCode: statusCode ?? null, reason: 'pre_v10_failed_unconfirmed', receivedAt: new Date() };
+      }
+
+      // Idempotency
+      if (payout.status === 'succeeded') {
+        return res.status(200).json({ ok: true, message: 'Already processed' });
+      }
+
+      const statusMap = {
+        100: 'created',
+        200: 'processing',
+        310: 'succeeded',
+        311: 'failed',
+        320: 'failed',
+        330: 'failed',
+      };
+
+      // handlePayinWebhook'taki 2026-09-22 canlı test bulgusuyla aynı desen —
+      // bkz. oradaki yorum. Webhook'un kendi "status" string alanı statusCode
+      // haritasından daha güvenilir, öncelik veriyoruz.
+      const newStatus = status === 'succeeded' ? 'succeeded' : (statusMap[statusCode] || payout.status);
+
+      // V10: the webhook is unsigned; its body never moves money. A refunded
+      // payout that the provider later confirms as paid is flagged loudly.
+      if (payout.refundTransactionId) {
+        if (newStatus === 'succeeded') {
+          let confirmed = false;
+          try {
+            confirmed = isProviderSucceeded(providerState(await _slikairService.getPayoutStatus(payoutId)));
+          } catch (e) {
+            errorLogger.critical('slikair_payout_webhook_verification_error',
+              `payoutId=${payoutId}: get-status check failed: ${e.message}`, { payoutId });
+          }
+          if (confirmed) {
+            await flagRefundConflict(payout, { webhookStatus: status ?? null, statusCode: statusCode ?? null, reasonCode: reasonCode || null });
+          } else {
+            errorLogger.critical('slikair_payout_webhook_verification_failed',
+              `payoutId=${payoutId}: "succeeded" webhook for a refunded payout not confirmed by get-status`, { payoutId });
+          }
         }
-        await SlikairPayout.updateOne({ _id: payout._id, refundTransactionId: null }, { $set: set });
+        await SlikairPayout.updateOne({ _id: payout._id }, { $set: { webhookReceivedAt: new Date() } });
         return res.status(200).json({ ok: true });
       }
-      const outcome = await refundPayout(payout, 'provider_failed', {
-        fetchStatus: (id) => _slikairService.getPayoutStatus(id),
-      });
-      const set = { webhookReceivedAt: new Date() };
-      if (outcome.refunded) {
-        set.statusCode = statusCode;
-        set.reasonCode = reasonCode || null;
-      } else {
-        set['metadata.unverifiedFailedWebhook'] = { status: status ?? null, statusCode: statusCode ?? null, reason: outcome.reason, receivedAt: new Date() };
-      }
-      await SlikairPayout.updateOne({ _id: payout._id }, { $set: set });
-      return res.status(200).json({ ok: true });
-    }
 
-    // Payin'deki gibi: bu webhook de imzasız. Bir payout için sahte "succeeded"
-    // bildirimi kullanıcı bakiyesini doğrudan etkilemiyor (para transferi zaten
-    // /payouts/create ile başlatılırken düşülmüştü) ama muhasebe kaydını "para
-    // gerçekten çıktı" olarak yanlış işaretleyebilir — aynı get-status çapraz
-    // doğrulamasını burada da uyguluyoruz.
-    let verifiedSucceeded = true;
-    if (newStatus === 'succeeded' && payout.status !== 'succeeded') {
-      verifiedSucceeded = false;
-      try {
-        const statusCheck = await _slikairService.getPayoutStatus(payoutId);
-        verifiedSucceeded = isProviderSucceeded(providerState(statusCheck));
-        if (!verifiedSucceeded) {
+      if (newStatus === 'failed') {
+        if (payout.status === 'failed') {
+          // Marked failed before V10 refunds existed: the player may never have
+          // been refunded. Flag it only when the provider confirms the failure;
+          // never move money here. An unconfirmed webhook is only recorded.
+          let confirmed = false;
+          try {
+            confirmed = isProviderFailed(providerState(await _slikairService.getPayoutStatus(payoutId)));
+          } catch (e) {
+            errorLogger.critical('slikair_payout_webhook_verification_error',
+              `payoutId=${payoutId}: get-status check failed: ${e.message}`, { payoutId });
+          }
+          const set = { webhookReceivedAt: new Date() };
+          if (confirmed) {
+            set.needsReconciliation = true;
+            set.reconciliationNote = 'Payout failed without a recorded refund; check whether the player was refunded';
+          } else {
+            set['metadata.unverifiedFailedWebhook'] = { status: status ?? null, statusCode: statusCode ?? null, reason: 'pre_v10_failed_unconfirmed', receivedAt: new Date() };
+          }
+          await SlikairPayout.updateOne({ _id: payout._id, refundTransactionId: null }, { $set: set });
+          return res.status(200).json({ ok: true });
+        }
+        const outcome = await refundPayout(payout, 'provider_failed', {
+          fetchStatus: (id) => _slikairService.getPayoutStatus(id),
+        });
+        const set = { webhookReceivedAt: new Date() };
+        if (outcome.refunded) {
+          set.statusCode = statusCode;
+          set.reasonCode = reasonCode || null;
+        } else {
+          set['metadata.unverifiedFailedWebhook'] = { status: status ?? null, statusCode: statusCode ?? null, reason: outcome.reason, receivedAt: new Date() };
+        }
+        await SlikairPayout.updateOne({ _id: payout._id }, { $set: set });
+        return res.status(200).json({ ok: true });
+      }
+
+      // Payin'deki gibi: bu webhook de imzasız. Bir payout için sahte "succeeded"
+      // bildirimi kullanıcı bakiyesini doğrudan etkilemiyor (para transferi zaten
+      // /payouts/create ile başlatılırken düşülmüştü) ama muhasebe kaydını "para
+      // gerçekten çıktı" olarak yanlış işaretleyebilir — aynı get-status çapraz
+      // doğrulamasını burada da uyguluyoruz.
+      let verifiedSucceeded = true;
+      if (newStatus === 'succeeded' && payout.status !== 'succeeded') {
+        verifiedSucceeded = false;
+        try {
+          const statusCheck = await _slikairService.getPayoutStatus(payoutId);
+          verifiedSucceeded = isProviderSucceeded(providerState(statusCheck));
+          if (!verifiedSucceeded) {
+            errorLogger.critical(
+              'slikair_payout_webhook_verification_failed',
+              `payoutId=${payoutId} webhook'u "succeeded" dedi ama get-status çapraz doğrulaması eşleşmedi`,
+              { payoutId, webhookBody: req.body, statusCheck },
+            );
+          }
+        } catch (e) {
+          verifiedSucceeded = false;
           errorLogger.critical(
-            'slikair_payout_webhook_verification_failed',
-            `payoutId=${payoutId} webhook'u "succeeded" dedi ama get-status çapraz doğrulaması eşleşmedi`,
-            { payoutId, webhookBody: req.body, statusCheck },
+            'slikair_payout_webhook_verification_error',
+            `payoutId=${payoutId} için get-status çapraz doğrulaması başarısız oldu: ${e.message}`,
+            { payoutId },
           );
         }
-      } catch (e) {
-        verifiedSucceeded = false;
-        errorLogger.critical(
-          'slikair_payout_webhook_verification_error',
-          `payoutId=${payoutId} için get-status çapraz doğrulaması başarısız oldu: ${e.message}`,
-          { payoutId },
-        );
       }
-    }
 
-    payout.status = (newStatus === 'succeeded' && !verifiedSucceeded) ? 'processing' : newStatus;
-    payout.statusCode = statusCode;
-    payout.reasonCode = reasonCode || null;
-    payout.webhookReceivedAt = new Date();
-    const unverifiedSucceeded = (newStatus === 'succeeded' && !verifiedSucceeded)
-      ? { status, statusCode, amount, currency, receivedAt: new Date() }
-      : null;
+      payout.status = (newStatus === 'succeeded' && !verifiedSucceeded) ? 'processing' : newStatus;
+      payout.statusCode = statusCode;
+      payout.reasonCode = reasonCode || null;
+      payout.webhookReceivedAt = new Date();
+      const unverifiedSucceeded = (newStatus === 'succeeded' && !verifiedSucceeded)
+        ? { status, statusCode, amount, currency, receivedAt: new Date() }
+        : null;
 
-    if (payout.status === 'succeeded') {
-      payout.processedAt = new Date();
-    }
-
-    // V10: a refund may have been written since this payout was read; never
-    // overwrite it (a refunded payout that is paid is a reconciliation case).
-    const upd = await SlikairPayout.updateOne(
-      { _id: payout._id, refundTransactionId: null },
-      { $set: {
-        status: payout.status,
-        statusCode: payout.statusCode,
-        reasonCode: payout.reasonCode,
-        webhookReceivedAt: payout.webhookReceivedAt,
-        processedAt: payout.processedAt,
-        ...(unverifiedSucceeded ? { 'metadata.unverifiedSucceededWebhook': unverifiedSucceeded } : {}),
-      } },
-    );
-    if (upd.matchedCount === 0 && payout.status === 'succeeded') {
-      const refunded = await SlikairPayout.findById(payout._id);
-      if (refunded?.refundTransactionId) {
-        await flagRefundConflict(refunded, { webhookStatus: status ?? null, statusCode: statusCode ?? null, reasonCode: reasonCode || null });
+      if (payout.status === 'succeeded') {
+        payout.processedAt = new Date();
       }
-    }
-    res.status(200).json({ ok: true });
+
+      // V10: a refund may have been written since this payout was read; never
+      // overwrite it (a refunded payout that is paid is a reconciliation case).
+      const upd = await SlikairPayout.updateOne(
+        { _id: payout._id, refundTransactionId: null },
+        { $set: {
+          status: payout.status,
+          statusCode: payout.statusCode,
+          reasonCode: payout.reasonCode,
+          webhookReceivedAt: payout.webhookReceivedAt,
+          processedAt: payout.processedAt,
+          ...(unverifiedSucceeded ? { 'metadata.unverifiedSucceededWebhook': unverifiedSucceeded } : {}),
+        } },
+      );
+      if (upd.matchedCount === 0 && payout.status === 'succeeded') {
+        const refunded = await SlikairPayout.findById(payout._id);
+        if (refunded?.refundTransactionId) {
+          await flagRefundConflict(refunded, { webhookStatus: status ?? null, statusCode: statusCode ?? null, reasonCode: reasonCode || null });
+        }
+      }
+      res.status(200).json({ ok: true });
+    };
+    return tenantId ? await runWithTenant(tenantId, process) : await process();
   } catch (e) {
     console.error('[Slikair] Payout webhook error:', e);
     res.status(200).json({ ok: true });
@@ -659,9 +720,10 @@ export async function getPayments(req, res, next) {
 
 // ── Admin: Yatırma Detayı ──────────────────────────────────────────────────
 
-export async function getPaymentDetail(req, res, next) {
+export async function getPaymentById(req, res, next) {
   try {
-    const payment = await SlikairPayment.findById(req.params.id)
+    const filter = tenantFilter(req, { _id: req.params.id });
+    const payment = await SlikairPayment.findOne(filter)
       .populate('userId', 'username email balance');
     if (!payment) throw createError(404, 'NOT_FOUND', 'İşlem bulunamadı');
     res.json({ payment });
@@ -700,14 +762,17 @@ export async function getPayouts(req, res, next) {
 
 // ── Admin: Çekim Detayı ────────────────────────────────────────────────────
 
-export async function getPayoutDetail(req, res, next) {
+export async function getPayoutById(req, res, next) {
   try {
-    const payout = await SlikairPayout.findById(req.params.id)
+    const filter = tenantFilter(req, { _id: req.params.id });
+    const payout = await SlikairPayout.findOne(filter)
       .populate('userId', 'username email balance');
     if (!payout) throw createError(404, 'NOT_FOUND', 'İşlem bulunamadı');
     res.json({ payout });
   } catch (e) { next(e); }
 }
+
+export { getPaymentById as getPaymentDetail, getPayoutById as getPayoutDetail };
 
 // ── Admin: Özet İstatistikler ──────────────────────────────────────────────
 

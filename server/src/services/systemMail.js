@@ -296,7 +296,9 @@ export async function sendBulk(templateOrId, { audience = null, triggeredBy = nu
   const isDoc = typeof templateOrId === 'object'
     && templateOrId !== null
     && ('event' in templateOrId || 'category' in templateOrId);
-  const tpl = isDoc ? templateOrId : await SystemMailTemplate.findById(templateOrId);
+  const tplFilter = { _id: templateOrId };
+  if (tenantId) tplFilter.tenantId = tenantId;
+  const tpl = isDoc ? templateOrId : await SystemMailTemplate.findOne(tplFilter);
 
   if (!tpl) {
     const err = new Error('Şablon bulunamadı');

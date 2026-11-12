@@ -611,7 +611,7 @@ async function tipInSession(fromUserId, toUserId, roomId, amount, message, key, 
   const dup = await ChatTip.findOne({ requestId: key }).session(session);
   if (dup) return { tip: dup, created: false };
 
-  const room = await ChatRoom.findById(roomId).select('isActive bannedUsers mutedUsers').session(session);
+  const room = await ChatRoom.findById(roomId).select('isActive bannedUsers mutedUsers tenantId').session(session);
   if (!room) throw createError(404, 'NOT_FOUND', 'Oda bulunamadı');
   if (!room.isActive) throw createError(403, 'ROOM_INACTIVE', 'Oda kapalı');
   // Same rules as sendMessage: a banned or muted sender cannot tip in this room.
@@ -622,8 +622,20 @@ async function tipInSession(fromUserId, toUserId, roomId, amount, message, key, 
     throw createError(403, 'MUTED', 'Susturuldunuz');
   }
 
-  const toUser = await User.findById(toUserId).select('username isActive').session(session);
+  const fromUser = await User.findById(fromUserId).session(session);
+  if (!fromUser) throw createError(404, 'SENDER_NOT_FOUND', 'Gönderen bulunamadı');
+
+  const toUser = await User.findById(toUserId).select('username isActive tenantId').session(session);
   if (!toUser || toUser.isActive === false) throw createError(404, 'RECIPIENT_NOT_FOUND', 'Alıcı bulunamadı');
+
+  // Multi-tenant containment (§3 #6, §8.3): recipient and room must belong to
+  // the sender's tenant. A foreign id answers 404, never reveals existence.
+  if (fromUser.tenantId && toUser.tenantId && String(fromUser.tenantId) !== String(toUser.tenantId)) {
+    throw createError(404, 'RECIPIENT_NOT_FOUND', 'Alıcı bulunamadı');
+  }
+  if (fromUser.tenantId && room.tenantId && String(fromUser.tenantId) !== String(room.tenantId)) {
+    throw createError(404, 'NOT_FOUND', 'Oda bulunamadı');
+  }
 
   // Atomic conditional debit: two concurrent tips cannot both see enough balance.
   const debit = await debitWithdrawable(fromUserId, amount, session, { rgAction: 'withdraw', rgEvaluate });
@@ -679,6 +691,26 @@ async function tipInSession(fromUserId, toUserId, roomId, amount, message, key, 
 }
 
 /**
+ * Cross-tenant containment (§3 #6, §8.3): sender, recipient and room must share
+ * a tenant. Runs before any gate or money movement so a foreign id answers 404
+ * (RECIPIENT_NOT_FOUND for the recipient) and never reveals that it exists.
+ */
+async function assertTipTenantContainment(fromUserId, toUserId, roomId, session) {
+  const fromUser = await User.findById(fromUserId).select('tenantId').session(session);
+  if (!fromUser) throw createError(404, 'SENDER_NOT_FOUND', 'Gönderen bulunamadı');
+  const toUser = await User.findById(toUserId).select('isActive tenantId').session(session);
+  if (!toUser || toUser.isActive === false) throw createError(404, 'RECIPIENT_NOT_FOUND', 'Alıcı bulunamadı');
+  if (fromUser.tenantId && toUser.tenantId && String(fromUser.tenantId) !== String(toUser.tenantId)) {
+    throw createError(404, 'RECIPIENT_NOT_FOUND', 'Alıcı bulunamadı');
+  }
+  const room = await ChatRoom.findById(roomId).select('tenantId').session(session);
+  if (!room) throw createError(404, 'NOT_FOUND', 'Oda bulunamadı');
+  if (fromUser.tenantId && room.tenantId && String(fromUser.tenantId) !== String(room.tenantId)) {
+    throw createError(404, 'NOT_FOUND', 'Oda bulunamadı');
+  }
+}
+
+/**
  * A tip moves cash to another player, so the SENDER passes the same gates as a
  * withdrawal (routes/bank.js /withdraw): KYC (assertKycForWithdrawal), the
  * risk check for 'withdraw' (assertRiskAllowed) and the responsible-gaming
@@ -688,13 +720,16 @@ async function tipInSession(fromUserId, toUserId, roomId, amount, message, key, 
  */
 export async function sendTip(fromUserId, toUserId, roomId, amount, message, options = {}) {
   const { requestId, session = null, cashOutGates = {} } = options;
-  const key = scopedRequestId(fromUserId, requestId);
 
   // String karşılaştırması: fromUserId socket üzerinden JWT'den (düz string)
   // gelebilir, toUserId ise string veya ObjectId — String() ile normalize edilir.
   if (String(fromUserId) === String(toUserId)) throw createError(400, 'SELF_TIP', 'Kendinize bahşiş gönderemezsiniz');
   const value = fromCents(toCents(amount));
   const text = typeof message === 'string' ? message.slice(0, 500) : '';
+
+  await assertTipTenantContainment(fromUserId, toUserId, roomId, session);
+
+  const key = scopedRequestId(fromUserId, requestId);
 
   // A completed tip is returned as is (no gate may turn a retry into an error).
   const prior = await ChatTip.findOne({ requestId: key }).session(session);

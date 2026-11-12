@@ -199,8 +199,11 @@ export async function createTemplate(data, adminId = null) {
   return doc.toObject();
 }
 
-export async function updateTemplate(id, data, adminId = null) {
-  const current = await SmsTemplate.findById(id);
+export async function updateTemplate(id, data, adminId = null, options = {}) {
+  const { tenantId = null } = options;
+  const filter = { _id: id };
+  if (tenantId) filter.tenantId = tenantId;
+  const current = await SmsTemplate.findOne(filter);
   if (!current) throw new SmsError('Şablon bulunamadı', 'NOT_FOUND', 404);
 
   // Denetimler payload'un İLGİLİ alanlarına dokunduğu zaman çalışır:
@@ -265,8 +268,11 @@ export async function updateTemplate(id, data, adminId = null) {
   return SmsTemplate.findByIdAndUpdate(id, patch, { new: true, runValidators: true }).lean();
 }
 
-export async function deleteTemplate(id) {
-  const removed = await SmsTemplate.findByIdAndDelete(id);
+export async function deleteTemplate(id, options = {}) {
+  const { tenantId = null } = options;
+  const filter = { _id: id };
+  if (tenantId) filter.tenantId = tenantId;
+  const removed = await SmsTemplate.findOneAndDelete(filter);
   if (!removed) throw new SmsError('Şablon bulunamadı', 'NOT_FOUND', 404);
   // Demo şablonu kalıcı olarak silindiyse seed'in onu yeniden yaratmasın:
   // `$setOnInsert` upsert'i YALNIZCA belge yokken çalışır, yani silinen bir
@@ -369,8 +375,11 @@ export async function sendTemplate({
   adminId = null,
   config = null,
   sendImpl = null,
+  tenantId = null,
 }) {
-  const template = await SmsTemplate.findById(templateId).lean();
+  const filter = { _id: templateId };
+  if (tenantId) filter.tenantId = tenantId;
+  const template = await SmsTemplate.findOne(filter).lean();
   if (!template) throw new SmsError('Şablon bulunamadı', 'NOT_FOUND', 404);
 
   // Aksiyona bağlı sistem mesajları operatör tarafından elle gönderilemez:
@@ -402,7 +411,7 @@ export async function sendTemplate({
   // engeller TÜM gönderimi durdurur (operatör bilerek gönderiyorsa
   // kaydı düzeltmeli); alıcıya özgü engeller (ülke onayı, trial numarası)
   // yalnız o alıcıyı atlar.
-  const gate = await resolveSenderGate(cfg);
+  const gate = await resolveSenderGate(cfg, { tenantId });
   if (gate.blocked) {
     throw new SmsError(
       'Gönderici kaydı uygun değil; Göndericiler sekmesinden onay durumunu düzeltin.',

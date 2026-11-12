@@ -1,3 +1,4 @@
+import { scopeTenantId } from '../tenancy/tenantFilter.js';
 import crypto from 'crypto';
 import mongoose from 'mongoose';
 import Bet from '../models/Bet.js';
@@ -80,8 +81,15 @@ export async function place(req, res, next) {
 
 export async function getById(req, res, next) {
   try {
-    const bet = await Bet.findOne({ _id: req.params.id, userId: req.user.id });
-    if (!bet) return res.status(404).json({ error:{ code:'NOT_FOUND', message:'Bahis bulunamadı' } });
+    const filter = { _id: req.params.id, userId: req.user.id };
+    const scopedTenant = scopeTenantId(req);
+    if (scopedTenant) filter.tenantId = scopedTenant;
+    const bet = await Bet.findOne(filter);
+    if (!bet) throw createError(404, 'NOT_FOUND', 'Bahis bulunamadı');
     res.json({ bet });
-  } catch(e) { next(e); }
+  } catch (e) {
+    next(e);
+  }
 }
+
+export const getBetById = getById;

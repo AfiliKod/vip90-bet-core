@@ -29,6 +29,10 @@ const EXPECTED = [
   'requireStaff',
   'requireStaffPermission',
   'signStaffAccess',
+  'validateCredentialSchema',
+  'tenantFilter',
+  'findPaymentForCallback',
+  'findPayoutForCallback',
 ];
 
 const tenancyIndexPath = path.join(TENNANCY_DIR, 'index.js');
