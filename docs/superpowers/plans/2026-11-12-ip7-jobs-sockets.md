@@ -30,6 +30,15 @@
 
 ---
 
+## Reviewer correction (2026-11-12): overrides every conflicting line below
+
+1. **Single mode without a default tenant (G1 not run yet) keeps today's behaviour:** broadcasts go to today's room
+   names (the legacy admin/client rooms) instead of being skipped, and cache keys use the legacy `g:` prefix. Skipping
+   a broadcast is a behaviour change. The legacy room name is defined once as a constant in `server/src/socket/publish.js`
+   and is the only place the lint (Task 9) allows it.
+2. Every existing socket and broadcast test must still pass; migrate assertions to the new room helper, never delete them.
+3. Run the full root `npm test` at the end of each task; it must report fail 0.
+
 ## Review Focus
 
 - **No broadcast can cross a tenant boundary:** `io.emit` and `role:admin` are gone; every `winners:new`, `online:count`, `bot:action`, `activity:*`, `ticket:*`, `kyc:*`, `admin:counts`, `chat:*` and `game:update` reaches only the emitting tenant's room. `publishToAllTenants()` is reserved for genuinely platform-wide feed updates (odds/score refresh) and enumerates active tenants.
