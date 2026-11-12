@@ -57,14 +57,17 @@ function migrateTwoFactor(user) {
   };
 }
 
-async function migrateOne(user, tenantId, resolveRole) {
+async function migrateOne(user, tenantId, resolveRole, { bootstrap }) {
   const heldRoles = user.roles?.length
     ? await Role.find({ _id: { $in: user.roles } }).select('name').lean()
     : [];
   const heldNames = [...new Set(heldRoles.map((role) => role.name))];
 
   const targets = [];
-  if (heldNames.length === 0 || heldNames.includes('super_admin')) {
+  // V5 parity (migrateOrphanedAdminRoles): a role-less admin is promoted only in
+  // the bootstrap case (nobody holds super_admin). Otherwise it is a stripped
+  // account and stays without assignments (fail-closed).
+  if (heldNames.includes('super_admin') || (heldNames.length === 0 && bootstrap)) {
     targets.push({ name: 'platform_owner', scopeType: 'platform', scopeId: null });
     targets.push({ name: 'tenant_owner', scopeType: 'tenant', scopeId: tenantId });
   } else {
@@ -145,6 +148,9 @@ export async function migrateAdminUsersToStaff({ defaultTenantId = null } = {}) 
       return role;
     }
 
+    const superAdminRole = await Role.findOne({ name: 'super_admin' }).select('_id').lean();
+    const bootstrap = !superAdminRole || !(await User.exists({ roles: superAdminRole._id }));
+
     const report = { scanned: 0, migrated: 0, skipped: 0, errors: [] };
     let lastId = null;
     for (;;) {
@@ -164,7 +170,7 @@ export async function migrateAdminUsersToStaff({ defaultTenantId = null } = {}) 
           continue;
         }
         try {
-          await migrateOne(user, tenantId, resolveRole);
+          await migrateOne(user, tenantId, resolveRole, { bootstrap });
           report.migrated += 1;
         } catch (err) {
           const message = err?.message || String(err);
