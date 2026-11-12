@@ -68,7 +68,7 @@ describe('single-mode default tenant stamping', () => {
     assert.equal(String(created.tenantId), String(explicitTenantId));
   });
 
-  it('tenant context retains its existing enforcement behavior instead of default stamping', async () => {
+  it('single mode inside a tenant context (resolveTenantHost binds every request) stamps that tenant, off or enforce', async () => {
     const defaultTenantId = new mongoose.Types.ObjectId();
     const otherTenantId = new mongoose.Types.ObjectId();
     setDefaultTenantId(defaultTenantId);
@@ -77,7 +77,9 @@ describe('single-mode default tenant stamping', () => {
     process.env.TENANCY_ENFORCEMENT = 'enforce';
     const enforced = await runWithTenant(otherTenantId, () => Widget.create({ name: 'enforced' }));
 
-    assert.equal(off.tenantId, undefined); // Enforcement off is the existing no-op behavior.
+    // Before review this stayed undefined: every HTTP-created record in single mode
+    // would have missed tenantId once resolveTenantHost bound the request context.
+    assert.equal(String(off.tenantId), String(otherTenantId));
     assert.equal(String(enforced.tenantId), String(otherTenantId));
   });
 
@@ -97,3 +99,4 @@ describe('single-mode default tenant stamping', () => {
     assert.equal(created.tenantId, undefined);
   });
 });
+

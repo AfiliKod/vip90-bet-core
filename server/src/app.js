@@ -14,6 +14,8 @@ import { errorHandler, notFound } from './middleware/error.js';
 import { globalLimiter } from './middleware/rateLimit.js';
 import { createAdminIpAllowlist } from './middleware/adminIpAllowlist.js';
 import authRoutes from './routes/auth.js';
+import staffAuthRoutes from './routes/staffAuth.js';
+import staff2faRoutes from './routes/staff2fa.js';
 import web3AuthRoutes from './routes/web3Auth.js';
 import socialAuthRoutes from './routes/socialAuth.js';
 import eventsRoutes from './routes/events.js';
@@ -59,6 +61,7 @@ import riskRoutes from './routes/risk.js';
 import healthRoutes from './routes/health.js';
 import { createSeoPublicRouter, createSpaFallback, createSecurityHeaders } from './seo/http.js';
 import { getSiteName } from './branding/index.js';
+import { resolveTenantHost } from './middleware/tenantHost.js';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const isProd = process.env.NODE_ENV === 'production';
@@ -214,6 +217,7 @@ export function createApp() {
   app.use(express.urlencoded({ extended: false, limit: '10kb' }));
   app.use(mongoSanitize()); // Phase B12
   app.use(cookieParser());
+  app.use(resolveTenantHost());
 
   // Global rate limit (Phase B1)
   app.use('/api', globalLimiter);
@@ -257,6 +261,8 @@ export function createApp() {
   // ADMIN_ALLOWED_IPS tanımlıysa /api/admin/* yalnız o IP/CIDR'lerden (varsayılan kapalı)
   app.use('/api/admin', createAdminIpAllowlist());
   app.use('/api/auth', authRoutes);
+  app.use('/api/staff/auth', staffAuthRoutes);
+  app.use('/api/staff/auth/2fa', staff2faRoutes);
   app.use('/api/auth/wallet', web3AuthRoutes);
   app.use('/api/auth', socialAuthRoutes);
   app.use('/api/users', usersRoutes);

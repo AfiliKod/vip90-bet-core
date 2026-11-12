@@ -72,10 +72,10 @@ describe('tenantScoped plugin', () => {
     assert.equal(Widget.schema.$tenantScoped, true);
   });
   it('adds a tenantId path when missing', () => assert.ok(Widget.schema.path('tenantId')));
-  it('off: unscoped find returns everything and nothing is stamped', () => withEnforcement('off', async () => {
+  it('off: unscoped find returns everything; single mode still stamps writes (G2, İP-2)', () => withEnforcement('off', async () => {
     assert.equal((await Widget.find()).length, 3);
     const d = await runWithTenant(T1, () => Widget.create({ name: 'n' }));
-    assert.equal(d.tenantId, undefined);
+    assert.equal(String(d.tenantId), String(T1));
   }));
   it('log: tenant ctx find is scoped', () => withEnforcement('log', async () => {
     assert.equal((await runWithTenant(T1, () => Widget.find())).length, 2);
