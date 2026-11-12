@@ -3,11 +3,26 @@ import escapeStringRegexp from 'escape-string-regexp';
 import PlayerSegment from '../models/PlayerSegment.js';
 import User from '../models/User.js';
 import VipLevel from '../models/VipLevel.js';
+import { createError } from '../middleware/error.js';
 
 /**
  * Player Segmentation Service
  * Provides player segmentation based on various criteria
  */
+
+/**
+ * Segment lookups carry the tenant of the request: a segment id of another
+ * tenant must not match, so the caller answers 404 instead of the record
+ * (spec §9 G-3).
+ * @param {mongoose.Types.ObjectId|string} id
+ * @param {mongoose.Types.ObjectId|null} tenantId
+ * @returns {object}
+ */
+function segmentFilter(id, tenantId) {
+  const filter = { _id: id };
+  if (tenantId) filter.tenantId = tenantId;
+  return filter;
+}
 
 /**
  * Create a new player segment
@@ -70,29 +85,33 @@ export async function getSegments(options = {}) {
 /**
  * Get segment by ID
  */
-export async function getSegmentById(id) {
-  return PlayerSegment.findById(id).populate('createdBy', 'username');
+export async function getSegmentById(id, options = {}) {
+  const { tenantId = null } = options;
+  return PlayerSegment.findOne(segmentFilter(id, tenantId)).populate('createdBy', 'username');
 }
 
 /**
  * Get segment by slug
  */
-export async function getSegmentBySlug(slug) {
-  return PlayerSegment.findOne({ slug }).populate('createdBy', 'username');
+export async function getSegmentBySlug(slug, options = {}) {
+  const { tenantId = null } = options;
+  const filter = { slug };
+  if (tenantId) filter.tenantId = tenantId;
+  return PlayerSegment.findOne(filter).populate('createdBy', 'username');
 }
 
 /**
  * Update segment
  */
 export async function updateSegment(id, data, options = {}) {
-  const { session = null } = options;
-  
-  const segment = await PlayerSegment.findByIdAndUpdate(
-    id,
+  const { session = null, tenantId = null } = options;
+
+  const segment = await PlayerSegment.findOneAndUpdate(
+    segmentFilter(id, tenantId),
     { $set: data },
     { new: true, session }
   ).populate('createdBy', 'username');
-  
+
   return segment;
 }
 
@@ -100,20 +119,20 @@ export async function updateSegment(id, data, options = {}) {
  * Delete segment
  */
 export async function deleteSegment(id, options = {}) {
-  const { session = null } = options;
-  
-  await PlayerSegment.findByIdAndDelete(id, { session });
-  return true;
+  const { session = null, tenantId = null } = options;
+
+  const deleted = await PlayerSegment.findOneAndDelete(segmentFilter(id, tenantId), { session });
+  return Boolean(deleted);
 }
 
 /**
  * Compute players matching segment criteria
  */
 export async function computeSegmentPlayers(segmentId, options = {}) {
-  const { limit = 1000 } = options;
-  
-  const segment = await PlayerSegment.findById(segmentId);
-  if (!segment) throw new Error('Segment not found');
+  const { limit = 1000, tenantId = null } = options;
+
+  const segment = await PlayerSegment.findOne(segmentFilter(segmentId, tenantId));
+  if (!segment) throw createError(404, 'NOT_FOUND', 'Segment not found');
   
   const query = await buildQueryFromCriteria(segment.criteria);
   
@@ -135,11 +154,11 @@ export async function computeSegmentPlayers(segmentId, options = {}) {
  * Get players for a segment (with pagination)
  */
 export async function getSegmentPlayers(segmentId, options = {}) {
-  const { page = 1, limit = 20 } = options;
+  const { page = 1, limit = 20, tenantId = null } = options;
   const skip = (Number(page) - 1) * Number(limit);
-  
-  const segment = await PlayerSegment.findById(segmentId);
-  if (!segment) throw new Error('Segment not found');
+
+  const segment = await PlayerSegment.findOne(segmentFilter(segmentId, tenantId));
+  if (!segment) throw createError(404, 'NOT_FOUND', 'Segment not found');
   
   const query = await buildQueryFromCriteria(segment.criteria);
   
@@ -244,9 +263,11 @@ export async function buildQueryFromCriteria(criteria) {
 /**
  * Get segment statistics
  */
-export async function getSegmentStats(segmentId) {
-  const segment = await PlayerSegment.findById(segmentId);
-  if (!segment) throw new Error('Segment not found');
+export async function getSegmentStats(segmentId, options = {}) {
+  const { tenantId = null } = options;
+
+  const segment = await PlayerSegment.findOne(segmentFilter(segmentId, tenantId));
+  if (!segment) throw createError(404, 'NOT_FOUND', 'Segment not found');
   
   const query = await buildQueryFromCriteria(segment.criteria);
   
