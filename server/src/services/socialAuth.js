@@ -4,6 +4,7 @@ import { createError } from '../middleware/error.js';
 import { issueSession } from './session.js';
 import { getGoogleAuthSettings } from '../config/googleAuthConfig.js';
 import { createProviderUser, providerUsernameCandidates } from './providerUsername.js';
+import { clientUrlFallback } from '../tenancy/tenantBaseUrl.js';
 
 /**
  * Telegram OAuth configuration — DÜZELTME: önceden aynı TELEGRAM_BOT_TOKEN
@@ -135,12 +136,12 @@ export async function getGoogleUserInfo(accessToken) {
 /**
  * Telegram OAuth: Generate login widget URL
  */
-export function getTelegramAuthUrl(userId = null) {
+export function getTelegramAuthUrl(userId = null, origin = clientUrlFallback()) {
   const state = setOAuthState('telegram', userId);
   const params = new URLSearchParams({
-    // DÜZELTME: CLIENT_URL virgülle ayrılmış çoklu CORS origin'i taşıyabilir
-    // (bkz. utils/origins.js) — Telegram'a tek bir origin gönderilmeli.
-    origin: (process.env.CLIENT_URL || 'http://localhost:5173').split(',')[0].trim(),
+    // Callers pass the tenant's primary-domain origin (getTenantBaseUrl);
+    // the default keeps the single-mode CLIENT_URL behaviour.
+    origin,
     bot_id: TELEGRAM_LOGIN_BOT_TOKEN?.split(':')[0] || '',
     request_access: 'write',
     state,
