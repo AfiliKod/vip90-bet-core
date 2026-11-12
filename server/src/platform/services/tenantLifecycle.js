@@ -19,7 +19,24 @@ export function legalRetentionDays(env = process.env) {
   return Math.max(Number.isNaN(configured) ? 1825 : configured, 1825);
 }
 
-export async function transitionTenantStatus(tenantId, newStatus, { actorStaffId, force = false, reason = '' } = {}) {
+export async function transitionTenantStatus(tenantId, newStatus, {
+  actorStaffId,
+  actorScope = 'platform',
+  partnerId = null,
+  force = false,
+  reason = '',
+} = {}) {
+  // K26: closure is platform-only, and a partner can never force past the
+  // go-live checklist.
+  if (actorScope === 'partner') {
+    if (newStatus === 'closed') {
+      throw createError(403, 'PLATFORM_ONLY', 'PLATFORM_ONLY: Only platform staff can close an operator');
+    }
+    if (force) {
+      throw createError(403, 'PLATFORM_ONLY', 'PLATFORM_ONLY: Partners cannot force-activate an operator');
+    }
+  }
+
   const tenant = await Tenant.findById(tenantId);
   if (!tenant) throw createError(404, 'TENANT_NOT_FOUND', 'Tenant not found');
 
@@ -54,9 +71,10 @@ export async function transitionTenantStatus(tenantId, newStatus, { actorStaffId
 
   await runWithTenant(tenant._id, () => AuditLog.create({
     actorType: 'admin',
-    actorUsername: 'platform',
-    actorScope: 'platform',
+    actorUsername: actorScope === 'partner' ? 'partner' : 'platform',
+    actorScope,
     actorStaffId,
+    partnerId,
     onBehalfOfTenantId: tenant._id,
     action: `TENANT_STATUS_${newStatus.toUpperCase()}`,
     category: 'system',
