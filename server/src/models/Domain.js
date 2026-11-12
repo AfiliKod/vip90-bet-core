@@ -21,9 +21,12 @@ const domainSchema = new mongoose.Schema({
   isPrimary: { type: Boolean, default: false },
   purpose: { type: String, enum: ['player', 'admin', 'api'], default: 'player' },
   verifiedAt: { type: Date, default: null },
+  // DNS TXT ownership challenge value issued at provisioning (K25, spec G-11).
+  txtVerificationToken: { type: String, default: null },
   tls: {
-    status:   { type: String, enum: ['none', 'pending', 'active', 'failed'], default: 'none' },
-    provider: { type: String, default: null },
+    status:           { type: String, enum: ['none', 'pending', 'active', 'failed'], default: 'none' },
+    provider:         { type: String, default: null },
+    customHostnameId: { type: String, default: null },
   },
 }, { timestamps: true });
 
