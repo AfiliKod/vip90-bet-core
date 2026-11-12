@@ -1,4 +1,6 @@
 import mongoose from 'mongoose';
+import { defineTenantModel } from '../tenancy/models.js';
+import { registerTenantIndexes } from '../tenancy/indexRegistry.js';
 
 const selectionSchema = new mongoose.Schema({
   eventId: { type: mongoose.Schema.Types.ObjectId, ref: 'Event', required: true },
@@ -8,12 +10,14 @@ const selectionSchema = new mongoose.Schema({
 }, { _id: false });
 
 const schema = new mongoose.Schema({
+  tenantId:     { type: mongoose.Schema.Types.ObjectId, ref: 'Tenant', required: false, index: true, immutable: true },
   userId:       { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true },
   selections:   { type: [selectionSchema], required: true },
   type:         { type: String, enum: ['single','combo'], required: true },
   stake:        { type: Number, required: true, min: 1 },
   totalOdds:    { type: Number, required: true },
   potentialWin: { type: Number, required: true },
+  currency:     { type: String, default: 'TRY', uppercase: true, trim: true },
   status:       { type: String, enum: ['pending','won','lost','cancelled'], default: 'pending' },
   settledAt:    Date,
   isSeed:       { type: Boolean, default: false, index: true },
@@ -24,6 +28,14 @@ schema.index({ userId: 1, createdAt: -1 });
 schema.index({ userId: 1, status: 1, createdAt: -1 });
 schema.index({ status: 1 });
 schema.index({ createdAt: -1 });
+
+registerTenantIndexes('Bet', [
+  { keys: { tenantId: 1, userId: 1, createdAt: -1 }, options: { name: 'tenant_userId_createdAt' } },
+  { keys: { tenantId: 1, userId: 1, status: 1, createdAt: -1 }, options: { name: 'tenant_userId_status_createdAt' } },
+  { keys: { tenantId: 1, status: 1 }, options: { name: 'tenant_status' } },
+  { keys: { tenantId: 1, createdAt: -1 }, options: { name: 'tenant_createdAt' } },
+  { keys: { tenantId: 1, 'selections.eventId': 1 }, options: { name: 'tenant_selections_eventId' } },
+]);
 
 schema.post('save', async function() {
   try {
@@ -99,4 +111,4 @@ schema.pre('save', function(next) {
   next();
 });
 
-export default mongoose.model('Bet', schema);
+export default defineTenantModel('Bet', schema);
