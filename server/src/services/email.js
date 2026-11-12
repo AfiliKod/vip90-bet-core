@@ -4,52 +4,67 @@
 
 import nodemailer from 'nodemailer';
 import { MailtrapClient } from 'mailtrap';
+import mongoose from 'mongoose';
 import { getSiteName } from '../branding/index.js';
 import { emailConfig, emailEnvView, resolveEmailMode } from '../config/emailConfig.js';
 import { isSuppressedRecipient } from '../config/mailSuppression.js';
+import { getTenantBaseUrl } from '../tenancy/tenantBaseUrl.js';
+import { getCurrentTenantId } from '../tenancy/context.js';
+import { getTenancyMode } from '../config/tenancy.js';
 
 const DEFAULT_FROM = 'noreply@vip90.bet';
 
-// Gönderici, ayarlar değişince yeniden kurulur: imza değişmediği sürece aynı
-// örnek yeniden kullanılır. Ayar kaynağı: Email Gateway AÇIK → DB > env,
-// KAPALI → yalnız sunucu .env (emailEnvView).
-let _transporter = null;
-let _smtpSignature = null;
-let _createTransport = (opts) => nodemailer.createTransport(opts);
+// Transporter & Mailtrap client pools keyed by tenantId (spec §4.5, İP-4 Task 7).
+// Changing a tenant's settings invalidates that tenant's pool entry without
+// affecting other tenants' active connections.
+const transporterPool = new Map();
+const mailtrapPool = new Map();
 
-let _mailtrap = null;
-let _mailtrapSignature = null;
+let _createTransport = (opts) => nodemailer.createTransport(opts);
 let _createMailtrapClient = (opts) => new MailtrapClient(opts);
 
 /** Testler için: gerçek SMTP yerine sahte transport. */
 export function _setCreateTransport(fn) {
   _createTransport = fn || ((opts) => nodemailer.createTransport(opts));
-  _transporter = null;
-  _smtpSignature = null;
+  transporterPool.clear();
 }
 
 /** Testler için: gerçek Mailtrap API'si yerine sahte client. */
 export function _setCreateMailtrapClient(fn) {
   _createMailtrapClient = fn || ((opts) => new MailtrapClient(opts));
-  _mailtrap = null;
-  _mailtrapSignature = null;
+  mailtrapPool.clear();
 }
 
-function getSmtpTransporter(gatewayOn, c) {
+/** Testler için: tüm transporter havuzunu ve sahte istemcileri sıfırlar. */
+export function _resetEmailTransportersForTests() {
+  transporterPool.clear();
+  mailtrapPool.clear();
+  _createTransport = (opts) => nodemailer.createTransport(opts);
+  _createMailtrapClient = (opts) => new MailtrapClient(opts);
+}
+
+function getPoolKey(tenantId) {
+  if (tenantId) return String(tenantId);
+  return 'default';
+}
+
+function getSmtpTransporter(tenantKey, gatewayOn, c) {
   const signature = JSON.stringify([gatewayOn, c.host, c.port, c.secure, c.user, c.pass]);
-  if (!_transporter || signature !== _smtpSignature) {
-    _transporter = _createTransport({
+  const existing = transporterPool.get(tenantKey);
+  if (!existing || existing.signature !== signature) {
+    const transporter = _createTransport({
       host: c.host,
       port: parseInt(c.port || '587', 10),
       secure: c.secure === 'true',
       auth: c.user ? { user: c.user, pass: c.pass } : undefined,
     });
-    _smtpSignature = signature;
+    transporterPool.set(tenantKey, { transporter, signature });
+    return transporter;
   }
-  return _transporter;
+  return existing.transporter;
 }
 
-function getMailtrapClient(gatewayOn, c) {
+function getMailtrapClient(tenantKey, gatewayOn, c) {
   const sandbox = c.useSandbox === 'true';
   const testInboxId = parseInt(c.sandboxInboxId || '', 10) || 0;
   if (sandbox && !testInboxId) {
@@ -60,19 +75,21 @@ function getMailtrapClient(gatewayOn, c) {
   // Sandbox↔canlı anahtarı imzada: taban URL değişir
   // (sandbox.api.mailtrap.io / send.api.mailtrap.io), örneği yeniden kurmak şart.
   const signature = JSON.stringify([gatewayOn, sandbox, testInboxId, c.token]);
-  if (!_mailtrap || signature !== _mailtrapSignature) {
+  const existing = mailtrapPool.get(tenantKey);
+  if (!existing || existing.signature !== signature) {
     if (sandbox) {
       // Sessiz tuzak: Sandbox açıksayken hiçbir gerçek alıcıya mail çıkmaz.
       console.warn(`📧 [Mailtrap] SANDBOX modu açık (inbox ${testInboxId}) — mailler yalnız Sandbox'a gidiyor, gerçek kullanıcılara ulaşmıyor.`);
     }
-    _mailtrap = _createMailtrapClient(
+    const client = _createMailtrapClient(
       sandbox
         ? { token: c.token, sandbox: true, testInboxId }
         : { token: c.token },
     );
-    _mailtrapSignature = signature;
+    mailtrapPool.set(tenantKey, { client, signature });
+    return client;
   }
-  return _mailtrap;
+  return existing.client;
 }
 
 /**
@@ -80,18 +97,27 @@ function getMailtrapClient(gatewayOn, c) {
  * 'none' (ikisi de tanımsız → çağıran mock'a düşer). Email Gateway anahtarı
  * imzanın parçasıdır: anahtar değişince kaynak (DB/env) değişir, aynı
  * değerlerle bile gönderici yeniden kurulur.
+ *
+ * Çok kiracılı modda (TENANCY_MODE=multi): DB'de ayar yoksa 'none' döner,
+ * asla sunucu ortam değişkenlerine (.env) düşmez.
+ * Tek modda: DB yoksa eskisi gibi .env'e düşer.
  */
-async function getSender() {
-  const all = await emailConfig.getAll();
-  // Modules → Email Gateway kartındaki anahtar: kapalıysa paneldeki DB
-  // değerleri girmez, gönderici yalnızca sunucu .env değerlerinden kurulur.
+export async function getSender(opts = {}) {
+  const options = typeof opts === 'object' && opts !== null && !(opts instanceof mongoose.Types.ObjectId) && !opts._bsontype
+    ? opts
+    : { tenantId: opts };
+  const effectiveTenantId = options.tenantId !== undefined ? options.tenantId : getCurrentTenantId();
+  const tenantKey = getPoolKey(effectiveTenantId);
+
+  const all = await emailConfig.getAll({ tenantId: effectiveTenantId });
+  const isMulti = getTenancyMode() === 'multi';
   const gatewayOn = all.gatewayEnabled !== 'false';
-  const c = gatewayOn ? all : emailEnvView();
+  const c = (!isMulti && !gatewayOn) ? emailEnvView() : (gatewayOn ? all : {});
   const mode = resolveEmailMode(c);
   const base = { mode, from: c.from, fromName: c.fromName, useSandbox: c.useSandbox };
   if (mode === 'none') return { ...base, sender: null };
-  if (mode === 'mailtrap') return { ...base, sender: getMailtrapClient(gatewayOn, c) };
-  return { ...base, sender: getSmtpTransporter(gatewayOn, c) };
+  if (mode === 'mailtrap') return { ...base, sender: getMailtrapClient(tenantKey, gatewayOn, c) };
+  return { ...base, sender: getSmtpTransporter(tenantKey, gatewayOn, c) };
 }
 
 /**
@@ -262,13 +288,25 @@ const TEMPLATES = {
  * içerik üretmek isteyen çağıranlar (ör. systemMail'in yolu) için.
  * Şablon yoksa `null` döner.
  */
-export async function renderBuiltinTemplate(template, data = {}) {
+export async function renderBuiltinTemplate(template, data = {}, opts = {}) {
   if (!TEMPLATES[template]) return null;
+  const options = typeof opts === 'object' && opts !== null && !(opts instanceof mongoose.Types.ObjectId) && !opts._bsontype
+    ? opts
+    : { tenantId: opts };
+  const effectiveTenantId = options.tenantId !== undefined ? options.tenantId : getCurrentTenantId();
   const siteName = await getSiteName();
-  return TEMPLATES[template]({ ...(data || {}), siteName });
+  let siteUrl = '';
+  try {
+    siteUrl = await getTenantBaseUrl(effectiveTenantId);
+  } catch {
+    siteUrl = '';
+  }
+  const depositUrl = data?.depositUrl || (siteUrl ? `${siteUrl}/deposit` : '/deposit');
+  return TEMPLATES[template]({ siteUrl, depositUrl, ...(data || {}), siteName });
 }
 
-export async function sendEmail({ to, subject, template, data, html }) {
+export async function sendEmail({ to, subject, template, data, html, tenantId } = {}) {
+  const effectiveTenantId = tenantId !== undefined ? tenantId : getCurrentTenantId();
   // Demo/seed ve ayrik TLDli adreslere hicbir sey gonderilmez — saglayiciya
   // emisyon bile gitmez (Delivery Logs'ta 'enqueued' satiri uretmez).
   // `mock: true` korunur: dev'de dogrulama/sifirlama linki yine doner.
@@ -276,11 +314,18 @@ export async function sendEmail({ to, subject, template, data, html }) {
     console.log(`📧 [EMAIL SUPPRESSED] → ${to} | ${subject || template || '(şablon)'}`);
     return { mock: true, suppressed: true };
   }
-  const { mode, sender, from, fromName } = await getSender();
+  const { mode, sender, from, fromName } = await getSender({ tenantId: effectiveTenantId });
   const siteName = await getSiteName();
+  let siteUrl = '';
+  try {
+    siteUrl = await getTenantBaseUrl(effectiveTenantId);
+  } catch {
+    siteUrl = '';
+  }
   let body = { subject, html };
   if (template && TEMPLATES[template]) {
-    body = TEMPLATES[template]({ ...(data || {}), siteName });
+    const depositUrl = data?.depositUrl || (siteUrl ? `${siteUrl}/deposit` : '/deposit');
+    body = TEMPLATES[template]({ siteUrl, depositUrl, ...(data || {}), siteName });
   }
   if (!sender) {
     // Sağlayıcı yok — development mode'da console.log + linki bas
@@ -299,14 +344,19 @@ export async function sendEmail({ to, subject, template, data, html }) {
  * Panelden "test e-postası": hiçbir sağlayıcı tanımlı DEĞİLSE mock'a düşmez,
  * hata fırlatır (aksi halde admin yanlış bir "gönderildi" izlenimi alırdı).
  */
-export async function sendTestEmail(to) {
+export async function sendTestEmail(to, opts = {}) {
+  const options = typeof opts === 'object' && opts !== null && !(opts instanceof mongoose.Types.ObjectId) && !opts._bsontype
+    ? opts
+    : { tenantId: opts };
+  const tenantId = options.tenantId;
+
   if (isSuppressedRecipient(to)) {
     // Panelden test: 'gönderildi' izlenimi verme — bu adrese gönderilmez.
     const err = new Error(`Bu adrese mail gönderilmiyor (baskılanmış domain): ${to}`);
     err.code = 'MAIL_RECIPIENT_SUPPRESSED';
     throw err;
   }
-  const { mode, sender, from, fromName } = await getSender();
+  const { mode, sender, from, fromName } = await getSender({ tenantId });
   if (!sender) {
     const err = new Error('E-posta sağlayıcısı tanımlı değil (Mailtrap token veya SMTP host)');
     err.code = 'MAIL_PROVIDER_NOT_CONFIGURED';
