@@ -1,0 +1,33 @@
+name: ci
+
+on:
+  pull_request:
+    branches: [main]
+  push:
+    branches: [main]
+
+jobs:
+  leak-scan:
+    name: leak scan
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+      - name: Sızıntı taraması
+        run: node --test scripts/leak-scan.test.mjs && node scripts/leak-scan.mjs
+
+  changelog:
+    name: changelog
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+      - name: CHANGELOG girdisi
+        run: node scripts/check-changelog.mjs --base origin/${{ github.base_ref }} --head HEAD

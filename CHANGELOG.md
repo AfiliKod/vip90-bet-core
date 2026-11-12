@@ -27,6 +27,10 @@ Madde formatı ve kategoriler için `docs/CHANGELOG_GUIDE.md`'ye bakın —
 - Kiracı bağlamı (`server/src/tenancy/`): `tenantContext`, `runWithTenant`, `runAsPlatform`, `forEachTenant`, `tenantScoped` eklentisi (`TENANCY_ENFORCEMENT=off|log|enforce`, tek modda varsayılan `off`), `defineTenantModel`/`getTenantModel` ve bağlantı çözümleyici; eklentiler için `registerTenantProvisioningHook` ve `registerTenantCredentialSchema`. Bu sürümde hiçbir üretim modeli eklentiyi kullanmaz.
 - `GET /api/admin/demo-flags`: admin istemcisinin demo öğelerini gösterip gizlemek için okuduğu etkin bayraklar.
 
+### Admin kullanıcı listesi: güncelleme sonrası seçili kullanıcı korunuyor
+**Düzeltildi**
+- Admin → Kullanıcılar'da bir kullanıcıyı güncelledikten sonra yan paneldeki kullanıcı `search=<kullanıcı adı>&limit=1` ile yeniden çekiliyordu; benzer adlı daha yeni bir hesap (`ahmet` → `ahmet1907`) seçili kullanıcının yerine geçebiliyordu. Panel artık güncelleme yanıtındaki kullanıcıyı kullanır; yanıt yoksa sonuçlar içinde `_id` ile eşleştirir.
+
 ### In-house oyun: CRAZY WHEEL (`crazywheel`) — Wheel'in yerini aldı
 **Eklendi**
 - 16 dilimli ağırlık çarkı **Crazy Wheel** in-house oyun olarak kayıtlı: `inhouse-crazywheel` GameSettings kaydı (bahis bandı 1–1000, `isActive`), `GAME_FIELD_META`/`OPERATOR_ALLOWED_FIELDS` girdileri, admin kısa-id `crazywheel`, lobi kartı ve `/games/crazywheel` rotası, 8 dilde `games.crazywheel.*` + panel alan etiketleri. RTP **%90.00** kapalı formda kesindir (Σ wᵢ·mᵢ / Σwᵢ = 67.5/75) ve **mühürlüdür**: paytable ve ağırlıklar sağlayıcı eklentideki `math/crazyWheelMath.js` sabitlerinde, `computeRound` ayardan hiçbir şey okumaz — panelde bahis bandı ve aç/kapat dışında düzenlenebilir alan BİLEREK yoktur (King of Money ile aynı mühür). Round başına tavan `25 × maxBet` = 25.000; ayrı max-win cap eklenmedi (cap, 25× dilimini budayıp onaylı RTP'yi geçersiz kılardı).
