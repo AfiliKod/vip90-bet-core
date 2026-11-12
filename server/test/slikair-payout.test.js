@@ -34,6 +34,18 @@ const { initiatePayout, _setSlikairService, _getSlikairService } = await import(
 
 const ORIGINAL = _getSlikairService();
 
+// Slikair'i test kendisi yapılandırır (clean clone'da server/.env yoksa
+// initiatePayout her istekte 503 SLIKAIR_DISABLED döner — isSlikairConfigured:
+// DB > env). config/slikairConfig.js env'i canlı okuduğu için before()'da set
+// etmek yeterli; aynı desen security/v19b-tip-rain-payout-guard.test.js ve
+// security/v10-payout-refund.test.js testlerinde de kullanılıyor.
+const SLIKAIR_TEST_ENV = {
+  SLIKAIR_MERCHANT_ID: 'TEST_merchant',
+  SLIKAIR_MERCHANT_TOKEN: 'sk_test_token',
+  SLIKAIR_SITE_ID: 'SANDBOX_123',
+};
+const savedEnv = {};
+
 const slikairMock = {
   nextCreatePayout: null, // { result } veya { throws: Error }
   async createPayout() {
@@ -61,12 +73,20 @@ async function callInitiatePayout(validated) {
 
 describe('Slikair — initiatePayout (admin)', () => {
   before(async () => {
+    for (const k of Object.keys(SLIKAIR_TEST_ENV)) { savedEnv[k] = process.env[k]; process.env[k] = SLIKAIR_TEST_ENV[k]; }
     await mongoose.connect('mongodb://localhost:27017/betzone_test_slikair_payout');
+    // Create collections and indexes up front: the first write happens inside a
+    // transaction, and on a fresh database Mongo rejects it while the catalog is
+    // still changing ("Unable to write ... due to catalog changes").
+    await Promise.all([User.init(), Transaction.init(), SlikairPayout.init()]);
   });
 
   after(async () => {
     _setSlikairService(ORIGINAL);
     await mongoose.disconnect();
+    for (const k of Object.keys(savedEnv)) {
+      if (savedEnv[k] === undefined) delete process.env[k]; else process.env[k] = savedEnv[k];
+    }
   });
 
   beforeEach(async () => {

@@ -90,9 +90,9 @@ export default function UserSlideOver({ user, onClose, onUpdated }) {
 
   const patch = async (data) => {
     try {
-      await api.patch(`/admin/users/${user._id}`, data);
+      const r = await api.patch(`/admin/users/${user._id}`, data);
       addToast(t('admin.userSlideOver.updated'), 'success');
-      onUpdated();
+      onUpdated(r.data?.user);
     } catch { addToast(t('common.error'), 'error'); }
   };
 

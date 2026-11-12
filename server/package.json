@@ -16,8 +16,8 @@
   "scripts": {
     "dev": "node --watch src/server.js",
     "start": "node src/server.js",
-    "test": "node scripts/run-all-tests.cjs",
-    "test:security": "node --test test/security/*.test.js",
+    "test": "node --experimental-test-module-mocks scripts/run-all-tests.cjs",
+    "test:security": "node --test --experimental-test-module-mocks test/security/*.test.js",
     "test:bonus": "node scripts/test-bonus-wagering.cjs",
     "test:promo": "node scripts/test-promotion-claim.cjs",
     "test:callbacks": "node scripts/test-casino-callbacks.mjs"

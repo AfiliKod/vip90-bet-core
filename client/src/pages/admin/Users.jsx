@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import api from '../../services/api';
+import { mergeUpdatedUser, findSelectedInResults } from './usersLogic.js';
 import UserSlideOver from './components/UserSlideOver.jsx';
 import CreateUserModal from './components/CreateUserModal.jsx';
 import { useTranslation } from '../../i18n';
@@ -114,13 +115,18 @@ export default function AdminUsers() {
     setStatus(key);
   };
 
-  const handleUpdated = () => {
+  const handleUpdated = (updatedUser) => {
     load(search, status, page);
-    if (selected) {
-      api.get(`/admin/users?search=${encodeURIComponent(selected.username)}&limit=1`)
-        .then(r => { if (r.data.users[0]) setSelected(r.data.users[0]); })
-        .catch(() => {});
-    }
+    if (!selected) return;
+    const merged = mergeUpdatedUser(selected, updatedUser);
+    if (merged) { setSelected(merged); return; }
+    // Yanıtta kullanıcı yoksa: limit=1 değil, sonuçlar içinden _id ile eşleştir.
+    api.get(`/admin/users?search=${encodeURIComponent(selected.username)}&limit=20`)
+      .then(r => {
+        const match = findSelectedInResults(r.data.users, selected);
+        if (match) setSelected(match);
+      })
+      .catch(() => {});
   };
 
   const [searchParams] = useSearchParams();
