@@ -30,6 +30,12 @@ export function registerTenantIndexes(modelName, specs) {
     if (typeof options.name !== 'string' || !options.name.startsWith('tenant_')) {
       throw new TypeError(`registerTenantIndexes(${modelName}): options.name must start with "tenant_"`);
     }
+    if (options.unique && options.sparse) {
+      // A compound sparse index still indexes documents whose optional field is
+      // missing (tenantId is always set), so a unique+sparse compound index
+      // rejects the second such document. Use partialFilterExpression instead.
+      throw new TypeError(`registerTenantIndexes(${modelName}): ${options.name} is unique+sparse; use partialFilterExpression ({ field: { $type: ... } })`);
+    }
     const existing = list.find(e => e.options.name === options.name);
     if (existing) {
       if (JSON.stringify(existing) !== JSON.stringify({ keys, options })) {

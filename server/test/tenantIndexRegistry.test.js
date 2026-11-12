@@ -29,3 +29,7 @@ test('keys must start with tenantId and names with tenant_', () => {
   assert.throws(() => registerTenantIndexes('User', [{ keys: { tenantId: 1, username: 1 }, options: { name: 'username_1' } }]), TypeError);
   assert.throws(() => registerTenantIndexes('User', []), TypeError);
 });
+
+test('unique + sparse compound indexes are rejected', () => {
+  assert.throws(() => registerTenantIndexes('User', [{ keys: { tenantId: 1, googleId: 1 }, options: { name: 'tenant_googleId_uniq', unique: true, sparse: true } }]), /partialFilterExpression/);
+});
