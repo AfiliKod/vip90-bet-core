@@ -9,6 +9,8 @@ import { runWithTenant, tenantContext } from '../tenancy/context.js';
 import { getStaffAuthState, verifyStaffAccess } from '../services/staffSession.js';
 import { staffHasPermission } from '../services/permissions.js';
 
+const SAFE_TENANT_ROUTE_METHODS = new Set(['GET', 'HEAD', 'OPTIONS']);
+
 // ── Token version cache (30s TTL) ────────────────────────────────────────────
 // Avoids DB hit on every authenticated request while ensuring revoked tokens
 // (password change, email change, role demotion) are rejected within 30 seconds.
@@ -135,6 +137,36 @@ function setStaffActor(next, req, res, staff) {
   }), continueRequest);
 }
 
+async function auditPlatformReadOnlyViolation(req, payload) {
+  try {
+    const [{ default: AuditLog }, staff] = await Promise.all([
+      import('../models/AuditLog.js'),
+      StaffAccount.findById(payload.sub).select('username').lean(),
+    ]);
+    const method = String(req.method || '').toUpperCase();
+    const route = req.originalUrl || req.baseUrl || req.path || '';
+
+    await runWithTenant(req.tenant.id, () => AuditLog.create({
+      actorType: 'admin',
+      actorUsername: staff?.username || String(payload.sub),
+      actorScope: 'platform',
+      actorStaffId: payload.sub,
+      onBehalfOfTenantId: req.tenant.id,
+      action: 'PLATFORM_READ_ONLY',
+      category: 'system',
+      targetType: 'system',
+      ipAddress: req.ip || req.headers['x-forwarded-for']?.split(',')[0]?.trim() || null,
+      userAgent: req.headers['user-agent'] || null,
+      reason: 'Platform staff are read-only on tenant routes',
+      success: false,
+      errorMessage: 'PLATFORM_READ_ONLY',
+      metadata: { route, method },
+    }));
+  } catch (error) {
+    console.error('[auth] platform read-only audit log failed:', error.message);
+  }
+}
+
 export function requireStaff(allowedScope = null) {
   return async (req, res, next) => {
     const token = req.headers.authorization?.split(' ')[1];
@@ -189,6 +221,12 @@ export function requireStaff(allowedScope = null) {
       }
       if (payload.scp === 'tenant' && String(payload.sid) !== String(req.tenant?.id)) {
         return next(createError(403, 'CROSS_TENANT_ACCESS', 'Farklı kiracıya erişim reddedildi'));
+      }
+
+      if (allowedScope === 'tenant' && payload.scp === 'platform' && req.method &&
+          !SAFE_TENANT_ROUTE_METHODS.has(String(req.method || '').toUpperCase())) {
+        await auditPlatformReadOnlyViolation(req, payload);
+        return next(createError(403, 'PLATFORM_READ_ONLY', 'Platform personeli kiracı rotalarında yalnızca okuma yapabilir'));
       }
 
       req.staff = {

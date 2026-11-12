@@ -43,11 +43,12 @@ async function loadActiveBrands() {
  * Get all brands
  */
 export async function getAllBrands(options = {}) {
-  const { page = 1, limit = 50, isActive = null } = options;
+  const { page = 1, limit = 50, isActive = null, tenantId = null } = options;
   const search = options.search || '';
   const skip = (Number(page) - 1) * Number(limit);
-  
+
   const filter = {};
+  if (tenantId) filter.tenantId = tenantId;
   if (isActive !== null) filter.isActive = isActive;
   // Kullanıcı araması: client `search` gönderiyordu ama servis desteklemiyordu
   // (arama yalnız mevcut sayfayı süzerdi). ReDoS'a karşı desen kaçırılır.
@@ -75,10 +76,29 @@ export async function getAllBrands(options = {}) {
 }
 
 /**
+ * Build a lookup filter scoped to an optional tenant (İP-5, §9 G-3).
+ * Callers that know the request tenant pass `tenantId` so a `:id` belonging
+ * to another tenant misses the query and the caller answers 404.
+ */
+function scopedIdFilter(id, tenantId) {
+  const filter = { _id: id };
+  if (tenantId) filter.tenantId = tenantId;
+  return filter;
+}
+
+function brandNotFoundError() {
+  const err = new Error('Brand not found');
+  err.status = 404;
+  err.code = 'NOT_FOUND';
+  return err;
+}
+
+/**
  * Get brand by ID
  */
-export async function getBrandById(id) {
-  return Brand.findById(id)
+export async function getBrandById(id, options = {}) {
+  const { tenantId = null } = options;
+  return Brand.findOne(scopedIdFilter(id, tenantId))
     .populate('createdBy', 'username')
     .populate('updatedBy', 'username');
 }
@@ -86,8 +106,11 @@ export async function getBrandById(id) {
 /**
  * Get brand by slug
  */
-export async function getBrandBySlug(slug) {
-  return Brand.findOne({ slug })
+export async function getBrandBySlug(slug, options = {}) {
+  const { tenantId = null } = options;
+  const filter = { slug };
+  if (tenantId) filter.tenantId = tenantId;
+  return Brand.findOne(filter)
     .populate('createdBy', 'username')
     .populate('updatedBy', 'username');
 }
@@ -95,18 +118,24 @@ export async function getBrandBySlug(slug) {
 /**
  * Get brand by domain
  */
-export async function getBrandByDomain(domain) {
-  return Brand.findOne({ 
+export async function getBrandByDomain(domain, options = {}) {
+  const { tenantId = null } = options;
+  const filter = {
     'domains.domain': domain,
-    isActive: true 
-  });
+    isActive: true,
+  };
+  if (tenantId) filter.tenantId = tenantId;
+  return Brand.findOne(filter);
 }
 
 /**
  * Get default brand
  */
-export async function getDefaultBrand() {
-  return Brand.findOne({ isDefault: true });
+export async function getDefaultBrand(options = {}) {
+  const { tenantId = null } = options;
+  const filter = { isDefault: true };
+  if (tenantId) filter.tenantId = tenantId;
+  return Brand.findOne(filter);
 }
 
 /**
@@ -152,12 +181,14 @@ export async function createBrand(data, options = {}) {
  * Update brand
  */
 export async function updateBrand(id, data, options = {}) {
-  const { session = null } = options;
-  
+  const { session = null, tenantId = null } = options;
+
   // If this is set as default, unset other defaults
   if (data.isDefault) {
+    const unsetFilter = { isDefault: true, _id: { $ne: id } };
+    if (tenantId) unsetFilter.tenantId = tenantId;
     await Brand.updateMany(
-      { isDefault: true, _id: { $ne: id } },
+      unsetFilter,
       { isDefault: false },
       { session }
     );
@@ -171,8 +202,8 @@ export async function updateBrand(id, data, options = {}) {
     }));
   }
   
-  const brand = await Brand.findByIdAndUpdate(
-    id,
+  const brand = await Brand.findOneAndUpdate(
+    scopedIdFilter(id, tenantId),
     { $set: data },
     { new: true, session }
   );
@@ -187,13 +218,13 @@ export async function updateBrand(id, data, options = {}) {
  * Delete brand
  */
 export async function deleteBrand(id, options = {}) {
-  const { session = null } = options;
-  
+  const { session = null, tenantId = null } = options;
+
   // Don't allow deleting default brand
-  const brand = await Brand.findById(id);
-  if (!brand) throw new Error('Brand not found');
+  const brand = await Brand.findOne(scopedIdFilter(id, tenantId));
+  if (!brand) throw brandNotFoundError();
   if (brand.isDefault) throw new Error('Cannot delete default brand');
-  
+
   await Brand.findByIdAndDelete(id, { session });
   
   // Invalidate cache
@@ -206,10 +237,10 @@ export async function deleteBrand(id, options = {}) {
  * Add domain to brand
  */
 export async function addDomain(brandId, domain, options = {}) {
-  const { session = null } = options;
-  
-  const brand = await Brand.findById(brandId);
-  if (!brand) throw new Error('Brand not found');
+  const { session = null, tenantId = null } = options;
+
+  const brand = await Brand.findOne(scopedIdFilter(brandId, tenantId));
+  if (!brand) throw brandNotFoundError();
   
   // Check if domain already exists
   if (brand.domains.some(d => d.domain === domain.toLowerCase())) {
@@ -233,10 +264,10 @@ export async function addDomain(brandId, domain, options = {}) {
  * Remove domain from brand
  */
 export async function removeDomain(brandId, domain, options = {}) {
-  const { session = null } = options;
-  
-  const brand = await Brand.findById(brandId);
-  if (!brand) throw new Error('Brand not found');
+  const { session = null, tenantId = null } = options;
+
+  const brand = await Brand.findOne(scopedIdFilter(brandId, tenantId));
+  if (!brand) throw brandNotFoundError();
   
   const domainIndex = brand.domains.findIndex(d => d.domain === domain.toLowerCase());
   if (domainIndex === -1) {
@@ -261,10 +292,10 @@ export async function removeDomain(brandId, domain, options = {}) {
  * Set primary domain
  */
 export async function setPrimaryDomain(brandId, domain, options = {}) {
-  const { session = null } = options;
-  
-  const brand = await Brand.findById(brandId);
-  if (!brand) throw new Error('Brand not found');
+  const { session = null, tenantId = null } = options;
+
+  const brand = await Brand.findOne(scopedIdFilter(brandId, tenantId));
+  if (!brand) throw brandNotFoundError();
   
   const domainObj = brand.domains.find(d => d.domain === domain.toLowerCase());
   if (!domainObj) {
@@ -287,11 +318,13 @@ export async function setPrimaryDomain(brandId, domain, options = {}) {
 /**
  * Get brand statistics
  */
-export async function getBrandStats() {
+export async function getBrandStats(options = {}) {
+  const { tenantId = null } = options;
+  const scope = tenantId ? { tenantId } : {};
   const [total, active, defaultBrand] = await Promise.all([
-    Brand.countDocuments(),
-    Brand.countDocuments({ isActive: true }),
-    Brand.findOne({ isDefault: true }),
+    Brand.countDocuments(scope),
+    Brand.countDocuments({ ...scope, isActive: true }),
+    Brand.findOne({ ...scope, isDefault: true }),
   ]);
   
   return {

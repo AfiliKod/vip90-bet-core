@@ -1,3 +1,4 @@
+import { scopeTenantId } from '../tenancy/tenantFilter.js';
 import mongoose from 'mongoose';
 import Promotion from '../models/Promotion.js';
 import User from '../models/User.js';
@@ -9,7 +10,10 @@ import { withTransactionRetry } from '../utils/transactionRetry.js';
 
 export async function list(req, res, next) {
   try {
-    const promos = await Promotion.find({ isActive:true });
+    const filter = { isActive: true };
+    const scopedTenant = scopeTenantId(req);
+    if (scopedTenant) filter.tenantId = scopedTenant;
+    const promos = await Promotion.find(filter);
     res.json({ promotions: promos });
   } catch(e) { next(e); }
 }
@@ -34,8 +38,13 @@ export async function claim(req, res, next) {
         // Read-only check first; the conditional $push below is the LAST write
         // so the hot promotion document is locked as briefly as possible when
         // many users claim the same promotion at once.
-        const claimed = await Promotion.findById(req.params.id).session(session);
-        if (!claimed || !claimed.isActive) throw createError(404, 'NOT_FOUND', 'Promosyon bulunamadı');
+        // Tenant scope: a promotion of another tenant must look absent (404),
+        // never forbidden (spec §9 G-3).
+        const tenantId = scopeTenantId(req);
+        const promoFilter = { _id: req.params.id, isActive: true };
+        if (tenantId) promoFilter.tenantId = tenantId;
+        const claimed = await Promotion.findOne(promoFilter).session(session);
+        if (!claimed) throw createError(404, 'NOT_FOUND', 'Promosyon bulunamadı');
         if (claimed.claimedBy.some((id) => String(id) === String(req.user.id))) {
           throw createError(409, 'ALREADY_CLAIMED', 'Bu promosyonu daha önce kullandınız');
         }
@@ -142,6 +151,14 @@ export async function myWagerings(req, res, next) {
 export async function convert(req, res, next) {
   try {
     const { convertBonus } = await import('../services/wagering.js');
+    // The wagering id comes from the URL: scope it to the tenant so a bonus of
+    // another tenant looks absent (404), never convertible (spec §9 G-3).
+    const wageringFilter = { _id: req.params.wid, userId: req.user.id };
+    const wageringTenant = scopeTenantId(req);
+    if (wageringTenant) wageringFilter.tenantId = wageringTenant;
+    const wagering = await BonusWagering.findOne(wageringFilter).select('_id');
+    if (!wagering) throw createError(404, 'NOT_FOUND', 'Bonus dönüşümü bulunamadı');
+
     const result = await convertBonus(req.params.wid, req.user.id);
     if (!result) throw createError(400, 'INVALID_STATE', 'Bu bonus dönüştürülemez (tamamlanmamış veya zaten dönüştürülmüş)');
     res.json({

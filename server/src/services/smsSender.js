@@ -117,11 +117,18 @@ export async function createSender(data, adminId = null) {
   return { ...created, rejectedTrialNumbers: trial.rejected };
 }
 
-export async function updateSender(id, data, adminId = null) {
-  const current = await SmsSender.findById(id);
+export async function updateSender(id, data, adminId = null, options = {}) {
+  const { tenantId = null } = options;
+  const filter = { _id: id };
+  if (tenantId) filter.tenantId = tenantId;
+  const current = await SmsSender.findOne(filter);
   if (!current) throw new SmsError('Gönderici bulunamadı', 'NOT_FOUND', 404);
 
-  if (data.isActive) await SmsSender.updateMany({ _id: { $ne: id } }, { $set: { isActive: false } });
+  if (data.isActive) {
+    const deactivateFilter = { _id: { $ne: id } };
+    if (tenantId) deactivateFilter.tenantId = tenantId;
+    await SmsSender.updateMany(deactivateFilter, { $set: { isActive: false } });
+  }
 
   const patch = { updatedBy: adminId };
   if (data.label !== undefined) patch.label = data.label;
@@ -155,12 +162,15 @@ export async function updateSender(id, data, adminId = null) {
   if (data.notes !== undefined) patch.notes = data.notes;
   if (data.isActive !== undefined) patch.isActive = Boolean(data.isActive);
 
-  const updated = await SmsSender.findByIdAndUpdate(id, patch, { new: true, runValidators: true }).lean();
+  const updated = await SmsSender.findOneAndUpdate(filter, patch, { new: true, runValidators: true }).lean();
   return { ...updated, rejectedTrialNumbers };
 }
 
-export async function deleteSender(id) {
-  const removed = await SmsSender.findByIdAndDelete(id);
+export async function deleteSender(id, options = {}) {
+  const { tenantId = null } = options;
+  const filter = { _id: id };
+  if (tenantId) filter.tenantId = tenantId;
+  const removed = await SmsSender.findOneAndDelete(filter);
   if (!removed) throw new SmsError('Gönderici bulunamadı', 'NOT_FOUND', 404);
   return true;
 }
@@ -180,8 +190,11 @@ export async function markSenderChecked(id, { ok, status = '' } = {}) {
  *          TÜM gönderimi durdurur; alıcı başına uygulanacak nedenler
  *          `checkRecipient(recipientPhone)` ile alınır.
  */
-export async function resolveSenderGate(config) {
-  const sender = await SmsSender.findOne({ isActive: true }).lean();
+export async function resolveSenderGate(config, options = {}) {
+  const { tenantId = null } = options;
+  const gateFilter = { isActive: true };
+  if (tenantId) gateFilter.tenantId = tenantId;
+  const sender = await SmsSender.findOne(gateFilter).lean();
   const accountType = config?.accountType || 'paid';
   const reasons = [];
 
