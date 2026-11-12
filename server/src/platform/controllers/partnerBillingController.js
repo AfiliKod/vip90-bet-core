@@ -1,6 +1,8 @@
 import mongoose from 'mongoose';
 import PartnerStatement from '../../models/PartnerStatement.js';
 import StatementLine from '../../models/StatementLine.js';
+import { csvText, csvNumber } from '../utils/csv.js';
+import { createError } from '../../middleware/error.js';
 
 export async function listPartnerStatements(req, res, next) {
   try {
@@ -22,7 +24,7 @@ export async function getPartnerStatement(req, res, next) {
   try {
     const partnerId = req.staff.scopeId;
     if (!mongoose.isObjectIdOrHexString(req.params.id)) {
-      return res.status(404).json({ error: 'Statement not found' });
+      return next(createError(404, 'NOT_FOUND', 'Statement not found'));
     }
 
     const statement = await PartnerStatement.findOne({
@@ -32,7 +34,7 @@ export async function getPartnerStatement(req, res, next) {
     }).lean();
 
     if (!statement) {
-      return res.status(404).json({ error: 'Statement not found' });
+      return next(createError(404, 'NOT_FOUND', 'Statement not found'));
     }
 
     const lines = await StatementLine.find({ statementId: statement._id })
@@ -50,7 +52,7 @@ export async function exportPartnerStatementCsv(req, res, next) {
   try {
     const partnerId = req.staff.scopeId;
     if (!mongoose.isObjectIdOrHexString(req.params.id)) {
-      return res.status(404).json({ error: 'Statement not found' });
+      return next(createError(404, 'NOT_FOUND', 'Statement not found'));
     }
 
     const statement = await PartnerStatement.findOne({
@@ -60,7 +62,7 @@ export async function exportPartnerStatementCsv(req, res, next) {
     }).lean();
 
     if (!statement) {
-      return res.status(404).json({ error: 'Statement not found' });
+      return next(createError(404, 'NOT_FOUND', 'Statement not found'));
     }
 
     const lines = await StatementLine.find({ statementId: statement._id })
@@ -73,7 +75,8 @@ export async function exportPartnerStatementCsv(req, res, next) {
     res.write('Date,Type,Description,Base Amount,Rate,Amount,Currency\n');
     for (const line of lines) {
       res.write(
-        `"${line.date || ''}","${line.type}","${(line.description || '').replace(/"/g, '""')}",${line.baseAmount || 0},${line.rate || 0},${line.amount},"${line.currency}"\n`
+        `${[csvText(line.date || ''), csvText(line.type), csvText(line.description), csvNumber(line.baseAmount || 0),
+          csvNumber(line.rate || 0), csvNumber(line.amount), csvText(line.currency)].join(',')}\n`
       );
     }
     res.end();
