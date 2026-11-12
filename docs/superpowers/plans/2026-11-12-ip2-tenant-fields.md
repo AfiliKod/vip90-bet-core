@@ -4,7 +4,7 @@
 
 **Goal:** Implement work package İP-2 of the approved multi-tenant design: add `tenantId` field to all TEN collections (with `required: false` during transition per G2 and `immutable: true`), apply `defineTenantModel` and `tenantScoped` plugin, stamp `tenantId` from ambient context, add `currency` field where required by K14, add compound indexes from §2.1 while preserving existing global unique indexes in single mode, implement the G3 resumable 10k-batched backfill migration (`0005_tenancy_backfill_tenant_id`), implement the G4 online compound index build migration (`0006_tenancy_compound_indexes`), and verify with §8.2 unique-index and §8.6 migration tests.
 
-**Architecture:** Tenant-owned models in `server/src/models/` adopt `defineTenantModel(name, schema)` (replacing direct `mongoose.model(name, schema)` calls). Schema definitions include `tenantId: { type: ObjectId, ref: 'Tenant', required: false, index: true, immutable: true }` and compound indexes from spec §2.1. Schemas enforce `{ autoIndex: false }` to prevent blocking index builds on server boot. Existing global unique indexes remain in single mode. Money-bearing records receive `currency: { type: String, default: 'TRY' }` per K14. The G3 migration (`server/migrations/0005_tenancy_backfill_tenant_id.js` + `server/src/tenancy/backfill.js`) backfills legacy unassigned documents to the default tenant in 10,000-document batches, recording progress in the `Migration` record per collection, verifying `countDocuments({ $or: [{ tenantId: null }, { tenantId: { $exists: false } }] }) === 0`, and includes `transactions_dedupe_archive`. The G4 migration (`server/migrations/0006_tenancy_compound_indexes.js` + `server/src/tenancy/indexBuilder.js`) builds compound indexes online; `listIndexes` shows both old global unique and new compound unique indexes. `syncIndexes` is strictly prohibited.
+**Architecture:** Tenant-owned models in `server/src/models/` adopt `defineTenantModel(name, schema)` (replacing direct `mongoose.model(name, schema)` calls). Schema definitions include `tenantId: { type: ObjectId, ref: 'Tenant', required: false, index: true, immutable: true }` and compound indexes from spec §2.1. Schema index options stay unchanged; new compound indexes live in `server/src/tenancy/indexRegistry.js` and are built by the G4 migration. Existing global unique indexes remain in single mode. Money-bearing records receive `currency: { type: String, default: 'TRY' }` per K14. The G3 migration (`server/migrations/0005_tenancy_backfill_tenant_id.js` + `server/src/tenancy/backfill.js`) backfills legacy unassigned documents to the default tenant in 10,000-document batches, recording progress in the `Migration` record per collection, verifying `countDocuments({ $or: [{ tenantId: null }, { tenantId: { $exists: false } }] }) === 0`, and includes `transactions_dedupe_archive`. The G4 migration (`server/migrations/0006_tenancy_compound_indexes.js` + `server/src/tenancy/indexBuilder.js`) builds compound indexes online; `listIndexes` shows both old global unique and new compound unique indexes. `syncIndexes` is strictly prohibited.
 
 **Tech Stack:** Node >= 22 (ESM), Express 4, Mongoose 8.24, `node:test` + `node:assert/strict`, local MongoDB (replica set `rs0` on 127.0.0.1:27017).
 
@@ -22,7 +22,7 @@
 - Special nullable tenant models: `RiskRule` allows `tenantId: null` for platform templates (§2.1); `AuditLog` and `AdminAction` allow `tenantId: null` for platform-wide operations (§4.3.7).
 - Global unique indexes remain active in single mode (§6.3 G4). Never drop legacy global unique indexes in single mode.
 - Never call `syncIndexes()`: drops indexes not explicitly declared in the Mongoose schema, breaking unmanaged and partial indexes (§6.3 notes).
-- AutoIndex false-safe handling: schemas set `{ autoIndex: false }` or models register with `autoIndex: false` so that production and test booting does not trigger synchronous blocking index builds before backfill.
+- Index handling: autoIndex untouched; compound indexes only through `registerTenantIndexes` (see Reviewer correction).
 - Currency field (K14): every money-bearing record (`Bet`, `CasinoRound`, `CasinoSession`, `InhousePlaySession`, `BankDepositRequest`, `CryptoDeposit`, `ReferralCommission`) receives `currency: { type: String, default: 'TRY', uppercase: true, trim: true }` (or keeps existing `'EUR'`/`'TRY'` on `Transaction`, `SlikairPayment`, `SlikairPayout`).
 - G3 backfill batching: 10,000 documents per batch, resumable via `Migration{name:'tenancy-002-backfill-tenant-id'}.progress[collName] = { lastId, processed, status }`. Validates zero unassigned documents at completion. Includes `transactions_dedupe_archive` if the collection exists.
 - G4 compound indexes: built online before application traffic; `listIndexes` shows both legacy global unique and new compound unique indexes.
@@ -31,6 +31,26 @@
 - Commits add files by explicit path. Never `git add -A` or `git add .`.
 
 ---
+
+## Reviewer correction (2026-11-12): overrides every conflicting line below
+
+1. **Never set `autoIndex: false`.** Leave each schema's index options exactly as they are today. Turning autoIndex off
+   would stop a fresh install from creating the existing unique indexes (`username`, `email`, `Transaction.idempotencyKey`
+   …) and would allow duplicate users and double credits.
+2. **New compound indexes do not go into the schema.** Each task registers them in
+   `server/src/tenancy/indexRegistry.js` (created by Task 1; Tasks 2-6 only append their own `registerTenantIndexes`
+   call in their model files):
+   `export function registerTenantIndexes(modelName, specs)` where `specs` is `[{ keys: {tenantId: 1, username: 1}, options: { unique: true, partialFilterExpression?, name } }]`,
+   `export function listTenantIndexes() -> [{ modelName, keys, options }]`, `export function _resetTenantIndexes()` (tests only).
+   Index names are explicit: `tenant_<field>[_<field>]_uniq` for unique, `tenant_<field>[_<field>]` otherwise.
+   Task 8 (G4) builds every registered index with `collection.createIndex(keys, options)`; it never calls `syncIndexes` or
+   `ensureIndexes`. The plain `tenantId: { index: true }` single-field index stays on the field (autoIndex builds it).
+3. Model tests assert: `Model.schema.options.autoIndex` is unchanged (undefined), the compound index is NOT in
+   `Model.schema.indexes()`, and `listTenantIndexes()` contains it with the expected name and options.
+4. **Currency (K14):** add `currency` only where the model has no currency field. `Transaction` (`default 'TRY'`),
+   `SlikairPayment` (`'EUR'`), `SlikairPayout`, `ActivityEvent` already have one: leave them unchanged.
+5. Model files keep their current default export and model name. Switch `mongoose.model(name, schema)` to
+   `defineTenantModel(name, schema)` from `../tenancy/models.js` (İP-1) only for TEN models.
 
 ## Review Focus
 
@@ -107,7 +127,7 @@ Tasks in the same wave run in parallel in separate worktrees without touching th
   - `User`: schema with `tenantId: { type: ObjectId, ref: 'Tenant', required: false, index: true, immutable: true }`; compound unique indexes `{ tenantId: 1, username: 1 }`, `{ tenantId: 1, email: 1 }`, `{ tenantId: 1, phone: 1 }`, `{ tenantId: 1, walletAddress: 1 }`, `{ tenantId: 1, googleId: 1 }`, `{ tenantId: 1, telegramId: 1 }`, `{ tenantId: 1, palaceUserCode: 1 }` (all with `sparse: true` or partial filters matching legacy fields); retains existing global unique indexes; compiled via `defineTenantModel('User', schema)`.
   - `LoginAttempt`: schema with `tenantId`; compound index `{ tenantId: 1, username: 1, ip: 1 }`, `{ tenantId: 1, createdAt: -1 }`; compiled via `defineTenantModel('LoginAttempt', schema)`.
   - `KycDocument`: schema with `tenantId`; compound indexes `{ tenantId: 1, userId: 1, documentType: 1 }`, `{ tenantId: 1, userId: 1, status: 1 }`, `{ tenantId: 1, status: 1, createdAt: -1 }`; compiled via `defineTenantModel('KycDocument', schema)`.
-  - All schemas specify `{ autoIndex: false }`.
+  - Compound indexes registered via `registerTenantIndexes`, not `schema.index`.
 
 - [ ] **Step 1: Write the failing tests** in `server/test/models/playersAuthTenancy.test.js`:
 ```js
@@ -140,12 +160,12 @@ test('Players & Auth models are registered as tenant collections', () => {
   assert.ok(isTenantCollection('kycdocuments'));
 });
 
-test('User schema has tenantId with immutable property and autoIndex false', () => {
+test('User schema has tenantId with immutable property and autoIndex unchanged', () => {
   const path = User.schema.path('tenantId');
   assert.ok(path);
   assert.equal(path.options.immutable, true);
   assert.equal(path.options.required, false);
-  assert.equal(User.schema.options.autoIndex, false);
+  assert.equal(User.schema.options.autoIndex, undefined);
 });
 
 test('stamps tenantId from ambient context on User creation', async () => {
@@ -180,7 +200,6 @@ test('LoginAttempt and KycDocument stamp tenantId from ambient context', async (
   - Add compound indexes:
     - In `User.js`:
       ```js
-      schema.set('autoIndex', false);
       schema.index({ tenantId: 1, username: 1 }, { unique: true });
       schema.index({ tenantId: 1, email: 1 }, { unique: true });
       schema.index({ tenantId: 1, walletAddress: 1 }, { unique: true, sparse: true });
@@ -195,14 +214,12 @@ test('LoginAttempt and KycDocument stamp tenantId from ambient context', async (
       ```
     - In `LoginAttempt.js`:
       ```js
-      schema.set('autoIndex', false);
       schema.index({ tenantId: 1, username: 1, ip: 1 });
       schema.index({ tenantId: 1, createdAt: -1 });
       schema.index({ tenantId: 1, userId: 1, createdAt: -1 });
       ```
     - In `KycDocument.js`:
       ```js
-      schema.set('autoIndex', false);
       schema.index({ tenantId: 1, userId: 1, documentType: 1 });
       schema.index({ tenantId: 1, userId: 1, status: 1 });
       schema.index({ tenantId: 1, status: 1, createdAt: -1 });
@@ -244,7 +261,7 @@ git commit -m "feat(tenancy): add tenantId and compound indexes to Players and A
 **Interfaces:**
 - Consumes: `defineTenantModel`, `tenantContext`, `runWithTenant`.
 - Produces:
-  - All 10 models updated with `tenantId: { type: ObjectId, ref: 'Tenant', required: false, index: true, immutable: true }` and `{ autoIndex: false }`.
+  - All 10 models updated with `tenantId: { type: ObjectId, ref: 'Tenant', required: false, index: true, immutable: true }` (autoIndex unchanged; compound indexes via indexRegistry).
   - Added `currency: { type: String, default: 'TRY', uppercase: true, trim: true }` to `Bet`, `CasinoRound`, `CasinoSession`, `InhousePlaySession`, `BankDepositRequest`, `CryptoDeposit` (preserving existing currency on `Transaction`, `SlikairPayment`, `SlikairPayout`) per K14.
   - Global uniques preserved: `Transaction.idempotencyKey`, `CryptoDeposit.txHash`, `SlikairPayment.requestId`, `InhouseCallbackReceipt.txnId`.
   - Compound query indexes prefixed with `tenantId`.
@@ -330,7 +347,6 @@ test('Bet, CasinoRound, and CryptoDeposit have currency field defaulting to TRY 
 ```
 
 - [ ] **Step 2: Update model definitions in all 10 files**:
-  - Add `tenantId: { type: mongoose.Schema.Types.ObjectId, ref: 'Tenant', required: false, index: true, immutable: true }` and `schema.set('autoIndex', false);`.
   - Add `currency: { type: String, default: 'TRY', uppercase: true, trim: true }` where missing (`Bet.js`, `CasinoRound.js`, `CasinoSession.js`, `InhousePlaySession.js`, `BankDepositRequest.js`, `CryptoDeposit.js`).
   - Add compound indexes:
     - `Transaction`: `{ tenantId: 1, userId: 1, createdAt: -1 }`, `{ tenantId: 1, userId: 1, type: 1, createdAt: -1 }`, `{ tenantId: 1, type: 1, status: 1, createdAt: -1 }`, `{ tenantId: 1, createdAt: -1 }`, `{ tenantId: 1, currency: 1, createdAt: -1 }`. Retain global `idempotencyKey` unique index.
@@ -372,7 +388,7 @@ git commit -m "feat(tenancy): add tenantId, currency and compound indexes to Mon
 **Interfaces:**
 - Consumes: `defineTenantModel`, `tenantContext`, `runWithTenant`.
 - Produces:
-  - Models updated with `tenantId: { type: ObjectId, ref: 'Tenant', required: false, index: true, immutable: true }` and `{ autoIndex: false }`.
+  - Models updated with `tenantId: { type: ObjectId, ref: 'Tenant', required: false, index: true, immutable: true }` (autoIndex unchanged; compound indexes via indexRegistry).
   - Added `currency: { type: String, default: 'TRY', uppercase: true, trim: true }` to `ReferralCommission` (K14).
   - Compound unique indexes:
     - `CasinoPromoGrant`: `{ tenantId: 1, callId: 1 }` (unique, sparse), `{ tenantId: 1, gplayId: 1 }` (unique, partialFilterExpression: `{ kind: 'bonusCall', status: 'pending' }`). Retains legacy unique indexes in single mode.
@@ -440,7 +456,6 @@ test('Agent and ReferralTree stamp tenantId from ambient context', async () => {
 ```
 
 - [ ] **Step 2: Update model definitions in all 5 files**:
-  - Add `tenantId: { type: mongoose.Schema.Types.ObjectId, ref: 'Tenant', required: false, index: true, immutable: true }` and `schema.set('autoIndex', false);`.
   - Add `currency: { type: String, default: 'TRY', uppercase: true, trim: true }` to `ReferralCommission.js`.
   - Add compound indexes:
     - `BonusWagering`: `{ tenantId: 1, userId: 1, status: 1 }`, `{ tenantId: 1, status: 1, deadline: 1 }`.
@@ -478,7 +493,7 @@ git commit -m "feat(tenancy): add tenantId, currency and compound indexes to Bon
 **Interfaces:**
 - Consumes: `defineTenantModel`, `tenantContext`, `runWithTenant`.
 - Produces:
-  - Models updated with `tenantId: { type: ObjectId, ref: 'Tenant', required: false, index: true, immutable: true }` and `{ autoIndex: false }`.
+  - Models updated with `tenantId: { type: ObjectId, ref: 'Tenant', required: false, index: true, immutable: true }` (autoIndex unchanged; compound indexes via indexRegistry).
   - Compound unique indexes:
     - `ChatRoom`: `{ tenantId: 1, name: 1 }` (unique), `{ tenantId: 1, slug: 1 }` (unique). Retains legacy global unique indexes in single mode.
   - Compound query indexes:
@@ -544,7 +559,6 @@ test('ChatRoom, Ticket and ActivityEvent stamp tenantId from ambient context', a
 ```
 
 - [ ] **Step 2: Update model definitions in all 6 files**:
-  - Add `tenantId: { type: mongoose.Schema.Types.ObjectId, ref: 'Tenant', required: false, index: true, immutable: true }` and `schema.set('autoIndex', false);`.
   - Add compound indexes:
     - `ChatRoom`: `{ tenantId: 1, name: 1 }` (unique: true), `{ tenantId: 1, slug: 1 }` (unique: true), `{ tenantId: 1, isActive: 1, isPublic: 1 }`.
     - `ChatMessage`: `{ tenantId: 1, roomId: 1, createdAt: -1 }`, `{ tenantId: 1, userId: 1, createdAt: -1 }`.
@@ -586,7 +600,7 @@ git commit -m "feat(tenancy): add tenantId and compound indexes to Chat, Support
 **Interfaces:**
 - Consumes: `defineTenantModel`, `tenantContext`, `runWithTenant`.
 - Produces:
-  - Models updated with `tenantId: { type: ObjectId, ref: 'Tenant', required: false, index: true, immutable: true }` and `{ autoIndex: false }`.
+  - Models updated with `tenantId: { type: ObjectId, ref: 'Tenant', required: false, index: true, immutable: true }` (autoIndex unchanged; compound indexes via indexRegistry).
   - `StaticPage`: adds `brandId: { type: ObjectId, ref: 'Brand', default: null, index: true }` per §2.1 TEN-BRAND definition.
   - Compound unique indexes:
     - `Brand`: `{ tenantId: 1, slug: 1 }` (unique).
@@ -666,7 +680,6 @@ test('VipLevel, PlayerSegment, SmsTemplate and SystemMailTemplate stamp tenantId
 ```
 
 - [ ] **Step 2: Update model definitions in all 10 files**:
-  - Add `tenantId: { type: mongoose.Schema.Types.ObjectId, ref: 'Tenant', required: false, index: true, immutable: true }` and `schema.set('autoIndex', false);`.
   - In `StaticPage.js`: add `brandId: { type: mongoose.Schema.Types.ObjectId, ref: 'Brand', default: null, index: true }`.
   - Add compound indexes:
     - `Brand`: `{ tenantId: 1, slug: 1 }` (unique: true), `{ tenantId: 1, isActive: 1 }`.
@@ -711,7 +724,7 @@ git commit -m "feat(tenancy): add tenantId, brandId and compound indexes to Bran
 **Interfaces:**
 - Consumes: `defineTenantModel`, `tenantContext`, `runWithTenant`, `runAsPlatform`.
 - Produces:
-  - Models updated with `tenantId` (nullable where platform operations occur) and `{ autoIndex: false }`.
+  - Models updated with `tenantId` (nullable where platform operations occur) (autoIndex unchanged; compound indexes via indexRegistry).
   - `RiskRule`: `tenantId: { type: ObjectId, ref: 'Tenant', default: null }`; partial unique indexes `{ tenantId: 1, name: 1 }` (when `tenantId != null`) and `{ name: 1 }` (when `tenantId == null` for platform templates) per §2.1.
   - `AuditLog` & `AdminAction`: add `tenantId` (null = platform), `actorScope: 'platform'|'partner'|'tenant'`, `onBehalfOfTenantId` per §4.3.7.
   - `Reconciliation`: exports `ReconciliationJob` and `ReconciliationItem` compiled via `defineTenantModel`.
@@ -798,7 +811,6 @@ test('AuditLog supports platform logs and tenant logs', async () => {
   - `AuditLog.js`: `tenantId: { type: ObjectId, ref: 'Tenant', required: false, default: null, index: true }`, `actorScope: { type: String, enum: ['platform', 'partner', 'tenant'], default: 'tenant' }`, `actorStaffId: { type: ObjectId, ref: 'StaffAccount', default: null }`, `partnerId: { type: ObjectId, ref: 'Partner', default: null }`, `onBehalfOfTenantId: { type: ObjectId, ref: 'Tenant', default: null }`, `capability: { type: String, default: null }`, `grantId: { type: ObjectId, ref: 'PartnerGrant', default: null }`. Index `{ tenantId: 1, createdAt: -1 }`.
   - `AdminAction.js`: `tenantId: { type: ObjectId, ref: 'Tenant', required: false, default: null, index: true }`, `actorScope: { type: String, enum: ['platform', 'partner', 'tenant'], default: 'tenant' }`, `onBehalfOfTenantId: { type: ObjectId, ref: 'Tenant', default: null }`. Index `{ tenantId: 1, createdAt: -1 }`.
   - `Reconciliation.js`: export `ReconciliationJob = defineTenantModel('ReconciliationJob', reconciliationJobSchema)` and `ReconciliationItem = defineTenantModel('ReconciliationItem', reconciliationItemSchema)`. Add `tenantId` to both schemas. Index `{ tenantId: 1, status: 1, createdAt: -1 }` on Job; `{ tenantId: 1, jobId: 1, status: 1 }` on Item.
-  - Set `schema.set('autoIndex', false);` on all schemas.
 
 - [ ] **Step 3: Run the test:**
 ```bash
@@ -1375,7 +1387,7 @@ git commit -m "test(tenancy): add §8.2 unique index and §8.6 migration upgrade
   Add documentation under a new `### Tenancy Migrations and Indexes (İP-2)` subsection explaining G2, G3 backfill runner and batching, G4 compound index builder, and dual index coexistence.
 
 - [ ] **Step 3: Update `AGENTS.md`**:
-  Document that all TEN models MUST use `defineTenantModel(name, schema)`, schemas MUST include `tenantId: { immutable: true, required: false }`, schemas set `{ autoIndex: false }`, and index modifications must never invoke `syncIndexes()`.
+  Document that all TEN models MUST use `defineTenantModel(name, schema)`, schemas MUST include `tenantId: { immutable: true, required: false }`, compound indexes go through `registerTenantIndexes` (autoIndex untouched), and index modifications must never invoke `syncIndexes()`.
 
 - [ ] **Step 4: Verify formatting and run changelog check:**
 ```bash
@@ -1400,7 +1412,7 @@ git commit -m "docs(tenancy): İP-2 changelog, operator configuration docs and m
 ## Decisions this plan makes where the spec leaves room
 
 1. **`required: false` on `tenantId` in İP-2 (G2):** Per §4.4 item 1 and §6.3 G2, `tenantId` is added without `required: true` so that existing unassigned documents do not fail validation before the G3 backfill runs. Strict requirement is enforced in İP-8.
-2. **`autoIndex: false` on all TEN schemas:** To prevent Mongoose from automatically building indexes on server startup (which can cause duplicate key errors on un-backfilled databases or block startup on large tables), all TEN schemas declare `{ autoIndex: false }`. Compound indexes are explicitly created online by the G4 migration.
+2. **Compound indexes outside the schema (reviewer correction):** autoIndex stays on so existing unique indexes keep being created on fresh installs; new `{tenantId, …}` indexes are listed in `indexRegistry.js` and created online by the G4 migration.
 3. **Resumable checkpoint schema in `Migration.progress`:** `Migration.progress.<collection>` stores `{ lastId, processed, status, updatedAt }`. This allows the G3 backfill to survive crashes or restarts and resume from the exact last ObjectId without scanning already-migrated documents.
 4. **Preservation of single-mode unique indexes:** Per §6.3 G4, legacy global unique indexes (`username_1`, `email_1`, etc.) are NOT dropped in single mode. Mongo 7 `listIndexes()` verifies the coexistence of both old global and new compound indexes.
 5. **Currency defaults (K14):** In compliance with K14 and §4.3.2, all money-bearing records receive `currency: { type: String, default: 'TRY', uppercase: true, trim: true }`, ensuring future multi-currency readiness without altering existing single-currency application logic.
