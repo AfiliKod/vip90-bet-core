@@ -36,8 +36,8 @@ Events are stored in `ActivityEvent` (`server/src/models/ActivityEvent.js`) and 
 
 ### Live updates
 
-- `logActivity()` emits **`activity:new`** to the `role:admin` Socket.IO room; growing a game session emits **`activity:update`**. The widget does not poll.
-- The admin panel joins `role:admin` by emitting `subscribe:admin` with its **access token**; the server checks the token's user is an admin (since 2026-10-03 — before that it trusted a client-supplied `userId`, see [09](09-bilinen-kisitlar.md#socket-rooms-trusted-the-clients-user-id--resolved-2026-10-03)).
+- `logActivity()` emits **`activity:new`** to the tenant admin room `t:<tenantId>:admin` (single mode before the default tenant exists: the legacy `role:admin` room); growing a game session emits **`activity:update`**. The widget does not poll.
+- The admin panel joins its tenant's admin room by emitting `subscribe:admin` with its **access token**; the server checks the token's user is an admin (since 2026-10-03 — before that it trusted a client-supplied `userId`, see [09](09-bilinen-kisitlar.md#socket-rooms-trusted-the-clients-user-id--resolved-2026-10-03)).
 - `server/src/jobs/closeStaleGameSessions.js` runs every 2 minutes and marks `game_session` rows that have been idle for 10 minutes as `ended`, emitting `activity:update`.
 - Clicking a row expands its details. "View user" opens `/admin/users?openUser=<username>`, which opens the user's slide-over directly.
 - The type filter in the widget works on the client side.
@@ -52,7 +52,7 @@ Events are stored in `ActivityEvent` (`server/src/models/ActivityEvent.js`) and 
 | Method + Path | Permission | Notes |
 |---|---|---|
 | `GET /api/admin/activity` | `admin:activity:read` | Query: `type?`, `page` (default 1), `limit` (default 20, max 100). Returns `{ events, total, page, pages }`, newest first, `userId` populated with `username`. |
-| `GET /api/admin/queues/counts` | `admin:activity:read` | Pending-work counters shared by the sidebar badges and Dashboard queue cards: `{ bank, crypto, tickets, kyc, riskFlags }`. Recomputed and pushed to `role:admin` whenever a queue item is processed. |
+| `GET /api/admin/queues/counts` | `admin:activity:read` | Pending-work counters shared by the sidebar badges and Dashboard queue cards: `{ bank, crypto, tickets, kyc, riskFlags }`. Recomputed and pushed to the tenant admin room whenever a queue item is processed. |
 
 ---
 
@@ -188,6 +188,14 @@ The provider has not documented these points. Each one is kept in a single const
 2. The provider's `win` field has no documented meaning. Leave it at 0.
 3. `freeround/create` may not return an id. Without `frId` the grant **cannot be cancelled** from the panel (`PROMO_NOT_CANCELLABLE`).
 4. Freeround winnings arrive as ordinary Win callbacks, so a freeround's `winTotal` stays `null` ("—" in the table). Bonus-call wins are matched by `call_id`.
+
+### Tenant-scoped live notifications
+
+Since İP-7 every admin-side notification is published through `server/src/socket/publish.js` into the emitting tenant's admin room, `t:<tenantId>:admin`: the activity feed (`activity:new`, `activity:update`), ticket events (`ticket:*`), KYC events (`kyc:*`) and the sidebar queue counts (`admin:counts`). Each tenant's staff therefore sees only its own activity, tickets, KYC submissions and queue counters; one operator's events never reach another operator's panel.
+
+Membership is tenant-bound. `subscribe:admin` binds the socket to the tenant of the handshake `Host` and admits a token only if it was issued for that same tenant (a tenant-scoped staff token whose `sid` is that tenant, or a legacy admin user in that tenant), the admin IP allowlist allows the address and the `admin:activity:read` permission holds **in tenant scope**. A valid admin token for one tenant cannot join another tenant's admin room, anonymous and player tokens are refused, and the bot/fake-winner simulation never runs in `multi` mode, so a simulated event cannot appear either.
+
+Live game rooms (`t:<tenantId>:live:<gameId>`) and chat rooms (`t:<tenantId>:chat:<roomId>`) carry the tenant prefix too. Campaigns follow the same rule on the delivery side: e-mail and SMS audiences (`resolveAudience`, `resolveRecipients`) always filter by the sending tenant, so a segment of another tenant resolves to zero recipients and a campaign never crosses operators.
 
 ---
 
