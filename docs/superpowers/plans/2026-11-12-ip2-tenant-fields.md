@@ -67,17 +67,17 @@
 | File | Responsibility | Task |
 |---|---|---|
 | `server/src/models/User.js`, `LoginAttempt.js`, `KycDocument.js` | Players/Auth TEN models: `tenantId`, compound unique indexes, `defineTenantModel` | 1 |
-| `server/test/models/playersAuthTenancy.test.js` | Unit tests for Players/Auth TEN models | 1 |
+| `server/test/playersAuthTenancy.test.js` | Unit tests for Players/Auth TEN models | 1 |
 | `server/src/models/Transaction.js`, `Bet.js`, `CasinoRound.js`, `CasinoSession.js`, `InhousePlaySession.js`, `BankDepositRequest.js`, `CryptoDeposit.js`, `SlikairPayment.js`, `SlikairPayout.js`, `InhouseCallbackReceipt.js` | Money/Gaming TEN models: `tenantId`, `currency` (K14), compound indexes, `defineTenantModel` | 2 |
-| `server/test/models/moneyTenancy.test.js` | Unit tests for Money/Gaming TEN models | 2 |
+| `server/test/moneyTenancy.test.js` | Unit tests for Money/Gaming TEN models | 2 |
 | `server/src/models/BonusWagering.js`, `CasinoPromoGrant.js`, `ReferralCommission.js`, `ReferralTree.js`, `Agent.js` | Bonus/Referral/Agent TEN models: `tenantId`, `currency`, compound unique indexes, `defineTenantModel` | 3 |
-| `server/test/models/bonusReferralAgentTenancy.test.js` | Unit tests for Bonus/Referral/Agent TEN models | 3 |
+| `server/test/bonusReferralAgentTenancy.test.js` | Unit tests for Bonus/Referral/Agent TEN models | 3 |
 | `server/src/models/ChatRoom.js`, `ChatMessage.js`, `ChatRain.js`, `ChatTip.js`, `Ticket.js`, `ActivityEvent.js` | Chat/Support/Activity TEN models: `tenantId`, compound unique indexes, `defineTenantModel` | 4 |
-| `server/test/models/chatSupportActivityTenancy.test.js` | Unit tests for Chat/Support/Activity TEN models | 4 |
+| `server/test/chatSupportActivityTenancy.test.js` | Unit tests for Chat/Support/Activity TEN models | 4 |
 | `server/src/models/Brand.js`, `StaticPage.js`, `Promotion.js`, `VipLevel.js`, `PlayerSegment.js`, `SmsTemplate.js`, `SmsSender.js`, `SmsLog.js`, `SystemMailTemplate.js`, `SystemMailLog.js` | Brand/Content/Messaging TEN models: `tenantId`, `brandId`, compound unique indexes, `defineTenantModel` | 5 |
-| `server/test/models/brandContentMarketingTenancy.test.js` | Unit tests for Brand/Content/Messaging TEN models | 5 |
+| `server/test/brandContentMarketingTenancy.test.js` | Unit tests for Brand/Content/Messaging TEN models | 5 |
 | `server/src/models/RiskProfile.js`, `RiskSignal.js`, `RiskFinding.js`, `RiskEvaluation.js`, `RiskRule.js`, `AuditLog.js`, `AdminAction.js`, `Reconciliation.js` | Risk/Audit/Operations TEN models: nullable platform scopes, compound indexes, `defineTenantModel` | 6 |
-| `server/test/models/riskAuditOperationsTenancy.test.js` | Unit tests for Risk/Audit/Operations TEN models | 6 |
+| `server/test/riskAuditOperationsTenancy.test.js` | Unit tests for Risk/Audit/Operations TEN models | 6 |
 | `server/src/models/Migration.js` | Add `progress: { type: Mixed, default: {} }` for resumable migrations | 7 |
 | `server/src/tenancy/backfill.js` | G3 backfill logic: 10k batching, cursor pagination, resumable progress, zero-count check | 7 |
 | `server/migrations/0005_tenancy_backfill_tenant_id.js` | G3 migration runner contract (`tenancy-002-backfill-tenant-id`, version 1.2.0) | 7 |
@@ -119,7 +119,7 @@ Tasks in the same wave run in parallel in separate worktrees without touching th
 - Modify: `server/src/models/User.js`
 - Modify: `server/src/models/LoginAttempt.js`
 - Modify: `server/src/models/KycDocument.js`
-- Test: `server/test/models/playersAuthTenancy.test.js`
+- Test: `server/test/playersAuthTenancy.test.js`
 
 **Interfaces:**
 - Consumes: `defineTenantModel` (`server/src/tenancy/models.js` or `server/src/tenancy/index.js`), `tenantContext`, `runWithTenant`, `runAsPlatform`.
@@ -129,7 +129,7 @@ Tasks in the same wave run in parallel in separate worktrees without touching th
   - `KycDocument`: schema with `tenantId`; compound indexes `{ tenantId: 1, userId: 1, documentType: 1 }`, `{ tenantId: 1, userId: 1, status: 1 }`, `{ tenantId: 1, status: 1, createdAt: -1 }`; compiled via `defineTenantModel('KycDocument', schema)`.
   - Compound indexes registered via `registerTenantIndexes`, not `schema.index`.
 
-- [ ] **Step 1: Write the failing tests** in `server/test/models/playersAuthTenancy.test.js`:
+- [ ] **Step 1: Write the failing tests** in `server/test/playersAuthTenancy.test.js`:
 ```js
 import test, { before, after } from 'node:test';
 import assert from 'node:assert/strict';
@@ -231,13 +231,13 @@ test('LoginAttempt and KycDocument stamp tenantId from ambient context', async (
 
 - [ ] **Step 3: Run the test:**
 ```bash
-node --test server/test/models/playersAuthTenancy.test.js
+node --test server/test/playersAuthTenancy.test.js
 ```
 Expected: `# pass 4`, `# fail 0`.
 
 - [ ] **Step 4: Commit:**
 ```bash
-git add server/src/models/User.js server/src/models/LoginAttempt.js server/src/models/KycDocument.js server/test/models/playersAuthTenancy.test.js
+git add server/src/models/User.js server/src/models/LoginAttempt.js server/src/models/KycDocument.js server/test/playersAuthTenancy.test.js
 git commit -m "feat(tenancy): add tenantId and compound indexes to Players and Auth models"
 ```
 
@@ -256,7 +256,7 @@ git commit -m "feat(tenancy): add tenantId and compound indexes to Players and A
 - Modify: `server/src/models/SlikairPayment.js`
 - Modify: `server/src/models/SlikairPayout.js`
 - Modify: `server/src/models/InhouseCallbackReceipt.js`
-- Test: `server/test/models/moneyTenancy.test.js`
+- Test: `server/test/moneyTenancy.test.js`
 
 **Interfaces:**
 - Consumes: `defineTenantModel`, `tenantContext`, `runWithTenant`.
@@ -267,7 +267,7 @@ git commit -m "feat(tenancy): add tenantId and compound indexes to Players and A
   - Compound query indexes prefixed with `tenantId`.
   - Registered via `defineTenantModel`.
 
-- [ ] **Step 1: Write the failing tests** in `server/test/models/moneyTenancy.test.js`:
+- [ ] **Step 1: Write the failing tests** in `server/test/moneyTenancy.test.js`:
 ```js
 import test, { before, after } from 'node:test';
 import assert from 'node:assert/strict';
@@ -363,13 +363,13 @@ test('Bet, CasinoRound, and CryptoDeposit have currency field defaulting to TRY 
 
 - [ ] **Step 3: Run the test:**
 ```bash
-node --test server/test/models/moneyTenancy.test.js
+node --test server/test/moneyTenancy.test.js
 ```
 Expected: `# pass 2`, `# fail 0`.
 
 - [ ] **Step 4: Commit:**
 ```bash
-git add server/src/models/Transaction.js server/src/models/Bet.js server/src/models/CasinoRound.js server/src/models/CasinoSession.js server/src/models/InhousePlaySession.js server/src/models/BankDepositRequest.js server/src/models/CryptoDeposit.js server/src/models/SlikairPayment.js server/src/models/SlikairPayout.js server/src/models/InhouseCallbackReceipt.js server/test/models/moneyTenancy.test.js
+git add server/src/models/Transaction.js server/src/models/Bet.js server/src/models/CasinoRound.js server/src/models/CasinoSession.js server/src/models/InhousePlaySession.js server/src/models/BankDepositRequest.js server/src/models/CryptoDeposit.js server/src/models/SlikairPayment.js server/src/models/SlikairPayout.js server/src/models/InhouseCallbackReceipt.js server/test/moneyTenancy.test.js
 git commit -m "feat(tenancy): add tenantId, currency and compound indexes to Money models"
 ```
 
@@ -383,7 +383,7 @@ git commit -m "feat(tenancy): add tenantId, currency and compound indexes to Mon
 - Modify: `server/src/models/ReferralCommission.js`
 - Modify: `server/src/models/ReferralTree.js`
 - Modify: `server/src/models/Agent.js`
-- Test: `server/test/models/bonusReferralAgentTenancy.test.js`
+- Test: `server/test/bonusReferralAgentTenancy.test.js`
 
 **Interfaces:**
 - Consumes: `defineTenantModel`, `tenantContext`, `runWithTenant`.
@@ -396,7 +396,7 @@ git commit -m "feat(tenancy): add tenantId, currency and compound indexes to Mon
     - `Agent`: `{ tenantId: 1, userId: 1 }`. Retains legacy unique `userId` index in single mode.
   - Registered via `defineTenantModel`.
 
-- [ ] **Step 1: Write the failing tests** in `server/test/models/bonusReferralAgentTenancy.test.js`:
+- [ ] **Step 1: Write the failing tests** in `server/test/bonusReferralAgentTenancy.test.js`:
 ```js
 import test, { before, after } from 'node:test';
 import assert from 'node:assert/strict';
@@ -467,13 +467,13 @@ test('Agent and ReferralTree stamp tenantId from ambient context', async () => {
 
 - [ ] **Step 3: Run the test:**
 ```bash
-node --test server/test/models/bonusReferralAgentTenancy.test.js
+node --test server/test/bonusReferralAgentTenancy.test.js
 ```
 Expected: `# pass 3`, `# fail 0`.
 
 - [ ] **Step 4: Commit:**
 ```bash
-git add server/src/models/BonusWagering.js server/src/models/CasinoPromoGrant.js server/src/models/ReferralCommission.js server/src/models/ReferralTree.js server/src/models/Agent.js server/test/models/bonusReferralAgentTenancy.test.js
+git add server/src/models/BonusWagering.js server/src/models/CasinoPromoGrant.js server/src/models/ReferralCommission.js server/src/models/ReferralTree.js server/src/models/Agent.js server/test/bonusReferralAgentTenancy.test.js
 git commit -m "feat(tenancy): add tenantId, currency and compound indexes to Bonus, Referral and Agent models"
 ```
 
@@ -488,7 +488,7 @@ git commit -m "feat(tenancy): add tenantId, currency and compound indexes to Bon
 - Modify: `server/src/models/ChatTip.js`
 - Modify: `server/src/models/Ticket.js`
 - Modify: `server/src/models/ActivityEvent.js`
-- Test: `server/test/models/chatSupportActivityTenancy.test.js`
+- Test: `server/test/chatSupportActivityTenancy.test.js`
 
 **Interfaces:**
 - Consumes: `defineTenantModel`, `tenantContext`, `runWithTenant`.
@@ -504,7 +504,7 @@ git commit -m "feat(tenancy): add tenantId, currency and compound indexes to Bon
     - `ActivityEvent`: `{ tenantId: 1, type: 1, createdAt: -1 }`, `{ tenantId: 1, userId: 1, status: 1, type: 1, updatedAt: -1 }`, `{ tenantId: 1, createdAt: -1 }`.
   - Registered via `defineTenantModel`.
 
-- [ ] **Step 1: Write the failing tests** in `server/test/models/chatSupportActivityTenancy.test.js`:
+- [ ] **Step 1: Write the failing tests** in `server/test/chatSupportActivityTenancy.test.js`:
 ```js
 import test, { before, after } from 'node:test';
 import assert from 'node:assert/strict';
@@ -570,13 +570,13 @@ test('ChatRoom, Ticket and ActivityEvent stamp tenantId from ambient context', a
 
 - [ ] **Step 3: Run the test:**
 ```bash
-node --test server/test/models/chatSupportActivityTenancy.test.js
+node --test server/test/chatSupportActivityTenancy.test.js
 ```
 Expected: `# pass 2`, `# fail 0`.
 
 - [ ] **Step 4: Commit:**
 ```bash
-git add server/src/models/ChatRoom.js server/src/models/ChatMessage.js server/src/models/ChatRain.js server/src/models/ChatTip.js server/src/models/Ticket.js server/src/models/ActivityEvent.js server/test/models/chatSupportActivityTenancy.test.js
+git add server/src/models/ChatRoom.js server/src/models/ChatMessage.js server/src/models/ChatRain.js server/src/models/ChatTip.js server/src/models/Ticket.js server/src/models/ActivityEvent.js server/test/chatSupportActivityTenancy.test.js
 git commit -m "feat(tenancy): add tenantId and compound indexes to Chat, Support and Activity models"
 ```
 
@@ -595,7 +595,7 @@ git commit -m "feat(tenancy): add tenantId and compound indexes to Chat, Support
 - Modify: `server/src/models/SmsLog.js`
 - Modify: `server/src/models/SystemMailTemplate.js`
 - Modify: `server/src/models/SystemMailLog.js`
-- Test: `server/test/models/brandContentMarketingTenancy.test.js`
+- Test: `server/test/brandContentMarketingTenancy.test.js`
 
 **Interfaces:**
 - Consumes: `defineTenantModel`, `tenantContext`, `runWithTenant`.
@@ -612,7 +612,7 @@ git commit -m "feat(tenancy): add tenantId and compound indexes to Chat, Support
     - `SystemMailTemplate`: `{ tenantId: 1, event: 1 }` (unique).
   - Registered via `defineTenantModel`.
 
-- [ ] **Step 1: Write the failing tests** in `server/test/models/brandContentMarketingTenancy.test.js`:
+- [ ] **Step 1: Write the failing tests** in `server/test/brandContentMarketingTenancy.test.js`:
 ```js
 import test, { before, after } from 'node:test';
 import assert from 'node:assert/strict';
@@ -696,13 +696,13 @@ test('VipLevel, PlayerSegment, SmsTemplate and SystemMailTemplate stamp tenantId
 
 - [ ] **Step 3: Run the test:**
 ```bash
-node --test server/test/models/brandContentMarketingTenancy.test.js
+node --test server/test/brandContentMarketingTenancy.test.js
 ```
 Expected: `# pass 3`, `# fail 0`.
 
 - [ ] **Step 4: Commit:**
 ```bash
-git add server/src/models/Brand.js server/src/models/StaticPage.js server/src/models/Promotion.js server/src/models/VipLevel.js server/src/models/PlayerSegment.js server/src/models/SmsTemplate.js server/src/models/SmsSender.js server/src/models/SmsLog.js server/src/models/SystemMailTemplate.js server/src/models/SystemMailLog.js server/test/models/brandContentMarketingTenancy.test.js
+git add server/src/models/Brand.js server/src/models/StaticPage.js server/src/models/Promotion.js server/src/models/VipLevel.js server/src/models/PlayerSegment.js server/src/models/SmsTemplate.js server/src/models/SmsSender.js server/src/models/SmsLog.js server/src/models/SystemMailTemplate.js server/src/models/SystemMailLog.js server/test/brandContentMarketingTenancy.test.js
 git commit -m "feat(tenancy): add tenantId, brandId and compound indexes to Brand, Content and Marketing models"
 ```
 
@@ -719,7 +719,7 @@ git commit -m "feat(tenancy): add tenantId, brandId and compound indexes to Bran
 - Modify: `server/src/models/AuditLog.js`
 - Modify: `server/src/models/AdminAction.js`
 - Modify: `server/src/models/Reconciliation.js`
-- Test: `server/test/models/riskAuditOperationsTenancy.test.js`
+- Test: `server/test/riskAuditOperationsTenancy.test.js`
 
 **Interfaces:**
 - Consumes: `defineTenantModel`, `tenantContext`, `runWithTenant`, `runAsPlatform`.
@@ -730,7 +730,7 @@ git commit -m "feat(tenancy): add tenantId, brandId and compound indexes to Bran
   - `Reconciliation`: exports `ReconciliationJob` and `ReconciliationItem` compiled via `defineTenantModel`.
   - Compound indexes matching §2.1 and §4.4.
 
-- [ ] **Step 1: Write the failing tests** in `server/test/models/riskAuditOperationsTenancy.test.js`:
+- [ ] **Step 1: Write the failing tests** in `server/test/riskAuditOperationsTenancy.test.js`:
 ```js
 import test, { before, after } from 'node:test';
 import assert from 'node:assert/strict';
@@ -814,13 +814,13 @@ test('AuditLog supports platform logs and tenant logs', async () => {
 
 - [ ] **Step 3: Run the test:**
 ```bash
-node --test server/test/models/riskAuditOperationsTenancy.test.js
+node --test server/test/riskAuditOperationsTenancy.test.js
 ```
 Expected: `# pass 3`, `# fail 0`.
 
 - [ ] **Step 4: Commit:**
 ```bash
-git add server/src/models/RiskProfile.js server/src/models/RiskSignal.js server/src/models/RiskFinding.js server/src/models/RiskEvaluation.js server/src/models/RiskRule.js server/src/models/AuditLog.js server/src/models/AdminAction.js server/src/models/Reconciliation.js server/test/models/riskAuditOperationsTenancy.test.js
+git add server/src/models/RiskProfile.js server/src/models/RiskSignal.js server/src/models/RiskFinding.js server/src/models/RiskEvaluation.js server/src/models/RiskRule.js server/src/models/AuditLog.js server/src/models/AdminAction.js server/src/models/Reconciliation.js server/test/riskAuditOperationsTenancy.test.js
 git commit -m "feat(tenancy): add tenantId and compound indexes to Risk, Audit and Operations models"
 ```
 
