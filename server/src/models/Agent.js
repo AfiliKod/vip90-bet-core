@@ -1,6 +1,9 @@
 import mongoose from 'mongoose';
+import { defineTenantModel } from '../tenancy/models.js';
+import { registerTenantIndexes } from '../tenancy/indexRegistry.js';
 
 const schema = new mongoose.Schema({
+  tenantId: { type: mongoose.Schema.Types.ObjectId, ref: 'Tenant', required: false, index: true, immutable: true },
   userId: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true, unique: true },
   // Agent's own players
   players: [{ type: mongoose.Schema.Types.ObjectId, ref: 'User' }],
@@ -18,4 +21,9 @@ const schema = new mongoose.Schema({
 
 schema.index({ isActive: 1 });
 
-export default mongoose.model('Agent', schema);
+registerTenantIndexes('Agent', [
+  { keys: { tenantId: 1, userId: 1 }, options: { name: 'tenant_userId' } },
+  { keys: { tenantId: 1, isActive: 1 }, options: { name: 'tenant_isActive' } },
+]);
+
+export default defineTenantModel('Agent', schema);
