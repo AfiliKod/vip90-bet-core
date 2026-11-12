@@ -20,6 +20,7 @@ import { logAuditEvent } from './audit.js';
 import { createSocketTenantResolver, socketPacketTenant, socketTenantMiddleware } from '../socket/tenant.js';
 import { chatRoom } from '../tenancy/tenantKeys.js';
 import { getTenancyMode } from '../config/tenancy.js';
+import { publishToRoom } from '../socket/publish.js';
 
 /**
  * Chat Room Management
@@ -159,7 +160,7 @@ export async function sendMessage(userId, roomId, message, type = 'text', option
     const populatedMsg = await ChatMessage.findById(msg._id)
       .populate('userId', 'username avatarColor')
       .session(session);
-    io.of('/chat').to(`room:${roomId}`).emit('chat:message', populatedMsg);
+    publishToRoom(chatRoom(null, roomId), 'chat:message', populatedMsg, { namespace: '/chat', io });
   }
   
   return msg;
@@ -223,7 +224,7 @@ export async function deleteMessage(messageId, actorId, options = {}) {
   // Emit real-time
   const io = getIO();
   if (io) {
-    io.of('/chat').to(`room:${message.roomId}`).emit('chat:messageDeleted', { messageId: message._id });
+    publishToRoom(chatRoom(null, message.roomId), 'chat:messageDeleted', { messageId: message._id }, { namespace: '/chat', io });
   }
   
   return message;
@@ -245,7 +246,7 @@ export async function editMessage(messageId, userId, newMessage, options = {}) {
   
   const io = getIO();
   if (io) {
-    io.of('/chat').to(`room:${message.roomId}`).emit('chat:messageEdited', { messageId: message._id, message: newMessage });
+    publishToRoom(chatRoom(null, message.roomId), 'chat:messageEdited', { messageId: message._id, message: newMessage }, { namespace: '/chat', io });
   }
   
   return message;
@@ -287,7 +288,7 @@ export async function banUserFromRoom(roomId, userId, adminId, options = {}) {
   // Remove user from room if connected
   const io = getIO();
   if (io) {
-    io.of('/chat').to(`room:${roomId}`).emit('chat:userBanned', { userId, roomId });
+    publishToRoom(chatRoom(null, roomId), 'chat:userBanned', { userId, roomId }, { namespace: '/chat', io });
   }
   
   return room;
@@ -336,7 +337,7 @@ export async function muteUserInRoom(roomId, userId, duration, reason, adminId, 
   
   const io = getIO();
   if (io) {
-    io.of('/chat').to(`room:${roomId}`).emit('chat:userMuted', { userId, roomId, until, reason });
+    publishToRoom(chatRoom(null, roomId), 'chat:userMuted', { userId, roomId, until, reason }, { namespace: '/chat', io });
   }
   
   return room;
@@ -354,7 +355,7 @@ export async function unmuteUserInRoom(roomId, userId, options = {}) {
   
   const io = getIO();
   if (io) {
-    io.of('/chat').to(`room:${roomId}`).emit('chat:userUnmuted', { userId, roomId });
+    publishToRoom(chatRoom(null, roomId), 'chat:userUnmuted', { userId, roomId }, { namespace: '/chat', io });
   }
   
   return room;
@@ -481,7 +482,7 @@ export async function createRain(roomId, createdBy, options = {}) {
   const io = getIO();
   let socketUserIds = [];
   if (io) {
-    const roomSockets = await io.of('/chat').in(`room:${roomId}`).fetchSockets();
+    const roomSockets = await io.of('/chat').in(chatRoom(null, roomId)).fetchSockets();
     socketUserIds = [...new Set(roomSockets.map(s => s.user?.id).filter(Boolean).map(String))]
       .filter(id => id !== String(createdBy) && mongoose.isValidObjectId(id));
   }
@@ -594,9 +595,9 @@ export async function createRain(roomId, createdBy, options = {}) {
     io.to(`user:${createdBy}`).emit('balance:update', { balance: outcome.creatorBalance });
     for (const { userId, amount, balance } of outcome.credited) {
       io.to(`user:${userId}`).emit('balance:update', { balance });
-      io.of('/chat').to(`room:${roomId}`).emit('chat:rainReceived', { userId, amount });
+      publishToRoom(chatRoom(null, roomId), 'chat:rainReceived', { userId, amount }, { namespace: '/chat', io });
     }
-    io.of('/chat').to(`room:${roomId}`).emit('chat:rain', { rainId: outcome.rain._id, totalAmount: total, recipients: outcome.rain.recipients.length });
+    publishToRoom(chatRoom(null, roomId), 'chat:rain', { rainId: outcome.rain._id, totalAmount: total, recipients: outcome.rain.recipients.length }, { namespace: '/chat', io });
   }
 
   return outcome.rain;
@@ -730,13 +731,13 @@ export async function sendTip(fromUserId, toUserId, roomId, amount, message, opt
   if (ioInstance) {
     ioInstance.to(`user:${fromUserId}`).emit('balance:update', { balance: outcome.fromBalance });
     ioInstance.to(`user:${toUserId}`).emit('balance:update', { balance: outcome.toBalance });
-    ioInstance.of('/chat').to(`room:${roomId}`).emit('chat:tip', {
+    publishToRoom(chatRoom(null, roomId), 'chat:tip', {
       tipId: tip._id,
       fromUser: outcome.fromUsername,
       toUser: outcome.toUsername,
       amount: value,
       message: text,
-    });
+    }, { namespace: '/chat', io: ioInstance });
   }
 
   // Chat announcement after commit; a failure here does not undo the tip.

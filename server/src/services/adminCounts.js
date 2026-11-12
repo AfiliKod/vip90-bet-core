@@ -7,7 +7,7 @@
 //     beş sayıyı gösterir — tek kaynaktan beslenmezlerse birbirinden
 //     kopar (bugün fixture'lardan geliyorlardı).
 //  2) Bir kayıt işlendiğinde (onay/red/kapat) sayı ANINDA düşmeli. Bunun
-//     tek yolu: işlem sonrası yeniden hesapla ve `role:admin` odasına
+//     tek yolu: işlem sonrası yeniden hesapla ve admin odasına
 //     yayınla. İstemci polling yapmaz (bkz. useOnlineCount.js dokümanı).
 //
 // Not: seed/demo veri bu sayçalara dahildir — analytics ile aynı karar
@@ -20,6 +20,7 @@ import Ticket from '../models/Ticket.js';
 import User from '../models/User.js';
 import RiskFinding from '../models/RiskFinding.js';
 import { getIO } from './socketEmitter.js';
+import { publishToTenantAdmins } from '../socket/publish.js';
 
 export const ADMIN_COUNT_KEYS = ['bank', 'crypto', 'tickets', 'kyc', 'riskFlags'];
 
@@ -46,7 +47,7 @@ export async function getAdminCounts() {
 }
 
 /**
- * Sayıları `role:admin` odasına yayınlar. Bir kayıt işlendiğinde çağrılır.
+ * Sayıları admin odasına yayınlar. Bir kayıt işlendiğinde çağrılır.
  * Yayın başarısız olursa istek patlamaz — sayaç bir sonraki REST çağrısında
  * kendiliğinden düzelir.
  */
@@ -54,6 +55,6 @@ export function broadcastAdminCounts() {
   const io = getIO();
   if (!io) return;
   Promise.resolve(getAdminCounts())
-    .then((counts) => io.to('role:admin').emit('admin:counts', counts))
+    .then((counts) => publishToTenantAdmins('admin:counts', counts, { io }))
     .catch(() => { /* yayarak bozma; sessizce geç */ });
 }

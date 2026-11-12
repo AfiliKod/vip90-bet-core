@@ -1,5 +1,6 @@
 import ActivityEvent from '../models/ActivityEvent.js';
 import { getIO as _getIO } from './socketEmitter.js';
+import { publishToTenantAdmins } from '../socket/publish.js';
 
 // slikairController.js'teki _setSlikairService deseniyle tutarlı — testlerin
 // mock.method() ile mocklayamayacağı bir ESM namespace importu yerine
@@ -29,7 +30,7 @@ export async function logActivity({ type, userId, status, summary, amount = null
         // da REST'ten ilk yüklemede olduğu gibi username hazır olmalı (bkz.
         // Task 10'daki .populate('userId','username') ve Task 11).
         const populated = await event.populate('userId', 'username');
-        io.to('role:admin').emit('activity:new', populated.toObject());
+        publishToTenantAdmins('activity:new', populated.toObject(), { io });
       }
     } catch (e) {
       console.error('[activityFeed] socket emit hatası:', e.message);
@@ -62,7 +63,7 @@ export async function upsertGameSession({ userId, gameId, gameTitle, bet, net })
         const io = _ioGetter();
         if (io) {
           const populated = await existing.populate('userId', 'username');
-          io.to('role:admin').emit('activity:update', populated.toObject());
+          publishToTenantAdmins('activity:update', populated.toObject(), { io });
         }
       } catch (e) {
         console.error('[activityFeed] socket emit hatası:', e.message);

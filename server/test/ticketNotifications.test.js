@@ -5,10 +5,13 @@ import User from '../src/models/User.js';
 import Ticket from '../src/models/Ticket.js';
 import { createTicket, addMessage, updateStatus } from '../src/services/ticket.js';
 import { setIO } from '../src/services/socketEmitter.js';
+import { adminRoom } from '../src/tenancy/tenantKeys.js';
+import { setDefaultTenantId } from '../src/tenancy/defaultTenantId.js';
 
 // ticket.test.js ile AYNI DB'yi paylaşmamalı — node --test dosyaları paralel
 // çalıştırdığında beforeEach temizlikleri çakışıp "duplicate key" hatası verir.
 const DB_URI = process.env.MONGODB_URI_TICKET_NOTIF_TEST || 'mongodb://localhost:27017/betzone_test_ticket_notif';
+const T1 = new mongoose.Types.ObjectId();
 
 /** Gerçek socket.io yerine emit çağrılarını kaydeden basit bir sahte io. */
 function createMockIo() {
@@ -23,10 +26,12 @@ function createMockIo() {
 
 before(async () => {
   await mongoose.connect(DB_URI);
+  setDefaultTenantId(T1);
 });
 
 after(async () => {
   setIO(null);
+  setDefaultTenantId(null);
   await mongoose.disconnect();
 });
 
@@ -47,7 +52,7 @@ describe('ticket bildirimleri (socket)', () => {
     const player = await makeUser('oyuncu1');
     const ticket = await createTicket(player._id, 'Konu', 'İlk mesaj');
 
-    const adminEvent = calls.find(c => c.room === 'role:admin' && c.event === 'ticket:new');
+    const adminEvent = calls.find(c => c.room === adminRoom(T1) && c.event === 'ticket:new');
     assert.ok(adminEvent, 'ticket:new admin odasına emit edilmeli');
     assert.equal(String(adminEvent.payload.ticketId), String(ticket._id));
     assert.equal(adminEvent.payload.subject, 'Konu');
