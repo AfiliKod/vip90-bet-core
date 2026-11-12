@@ -1,0 +1,26 @@
+import test from 'node:test';
+import assert from 'node:assert/strict';
+import { checkRunAsPlatformUsage, checkControllerQueries } from './lint-tenancy.mjs';
+
+test('checkRunAsPlatformUsage permits allow-listed files', () => {
+  const code = "import { runAsPlatform } from './context.js'; runAsPlatform('test-reason', fn);";
+  const allowedFile = 'server/src/services/tenantDailyStat.js';
+  const errors = checkRunAsPlatformUsage(allowedFile, code);
+  assert.equal(errors.length, 0);
+});
+
+test('checkRunAsPlatformUsage flags unauthorized file usage', () => {
+  const code = "import { runAsPlatform } from '../tenancy/context.js'; runAsPlatform('leak', fn);";
+  const forbiddenFile = 'server/src/controllers/promotions.js';
+  const errors = checkRunAsPlatformUsage(forbiddenFile, code);
+  assert.equal(errors.length, 1);
+  assert.match(errors[0], /runAsPlatform is not permitted in server\/src\/controllers\/promotions\.js/);
+});
+
+test('checkControllerQueries flags bare Model.collection access on tenant models', () => {
+  const code = "const users = await User.collection.find({});";
+  const file = 'server/src/controllers/testController.js';
+  const errors = checkControllerQueries(file, code);
+  assert.equal(errors.length, 1);
+  assert.match(errors[0], /bare collection access prohibited/);
+});
