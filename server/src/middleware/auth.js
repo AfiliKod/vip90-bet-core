@@ -10,6 +10,8 @@ import { getStaffAuthState, verifyStaffAccess } from '../services/staffSession.j
 import { staffHasPermission } from '../services/permissions.js';
 import PlatformWriteGrant from '../models/PlatformWriteGrant.js';
 import Partner from '../models/Partner.js';
+import PartnerOperatorLink from '../models/PartnerOperatorLink.js';
+import PartnerGrant from '../models/PartnerGrant.js';
 
 const SAFE_TENANT_ROUTE_METHODS = new Set(['GET', 'HEAD', 'OPTIONS']);
 
@@ -229,12 +231,16 @@ export function requireStaff(allowedScope = null) {
         }
       }
 
-      if (allowedScope && payload.scp !== allowedScope && payload.scp !== 'platform') {
+      const partnerTenantRequest = allowedScope === 'tenant' && payload.scp === 'partner';
+      if (allowedScope && payload.scp !== allowedScope && payload.scp !== 'platform' && !partnerTenantRequest) {
         return next(createError(403, 'FORBIDDEN', 'Bu işlem için yetki yok'));
       }
       if (payload.scp === 'partner') {
         const partner = await Partner.findById(payload.sid).lean();
         if (!partner) {
+          if (partnerTenantRequest) {
+            return next(createError(403, 'FORBIDDEN', 'Bu işlem için yetki yok'));
+          }
           return next(createError(404, 'PARTNER_NOT_FOUND', 'Partner bulunamadı'));
         }
         if (partner.status === 'suspended') {
@@ -261,6 +267,38 @@ export function requireStaff(allowedScope = null) {
           id: tenant._id,
           brandId: null,
         };
+      }
+      if (partnerTenantRequest) {
+        const tenantId = req.headers['x-tenant-id'];
+        if (!tenantId) {
+          return next(createError(400, 'TENANT_REQUIRED', 'Kiracı kimliği gerekli'));
+        }
+        if (!mongoose.isObjectIdOrHexString(tenantId)) {
+          return next(createError(404, 'TENANT_NOT_FOUND', 'Kiracı bulunamadı'));
+        }
+        const link = await PartnerOperatorLink.findOne({
+          partnerId: payload.sid,
+          tenantId,
+          validTo: null,
+        }).lean();
+        if (!link) {
+          return next(createError(404, 'TENANT_NOT_FOUND', 'Kiracı bulunamadı'));
+        }
+        // A partner reaches tenant routes only under an active PartnerGrant
+        // (spec §4.3, K27); route-level scopes are checked by enforcePartnerGrant.
+        const now = new Date();
+        const grant = await PartnerGrant.findOne({
+          partnerId: payload.sid,
+          tenantId: link.tenantId,
+          validFrom: { $lte: now },
+          expiresAt: { $gt: now },
+          revokedAt: null,
+        }).lean();
+        if (!grant) {
+          return next(createError(403, 'PARTNER_GRANT_REQUIRED', 'Bu kiracı için etkin partner izni yok'));
+        }
+        req.partnerGrant = grant;
+        req.tenant = { id: link.tenantId, brandId: null };
       }
       if (payload.scp === 'tenant' && String(payload.sid) !== String(req.tenant?.id)) {
         return next(createError(403, 'CROSS_TENANT_ACCESS', 'Farklı kiracıya erişim reddedildi'));
