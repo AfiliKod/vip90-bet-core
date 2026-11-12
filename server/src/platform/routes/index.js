@@ -13,9 +13,16 @@ import {
 import { listDomains, verifyDns, refreshTls } from '../controllers/platformDomainsController.js';
 import { getScopeGates } from '../controllers/platformSystemController.js';
 import { listPlatformStaff } from '../controllers/platformStaffController.js';
+import {
+  listPartners,
+  createPartner,
+  getPartner,
+  updatePartner,
+} from '../controllers/platformPartnersController.js';
 
 const TENANTS_MANAGE = 'platform:tenants:manage';
 const ROLES_MANAGE = 'platform:roles:manage';
+const PARTNERS_MANAGE = 'platform:partners:manage';
 
 export function createPlatformRouter() {
   const router = Router();
@@ -35,6 +42,10 @@ export function createPlatformRouter() {
   router.post('/tenants/:id/domains/:domainId/sync-tls', requireStaffPermission(TENANTS_MANAGE), refreshTls);
   router.get('/domains', requireStaffPermission(TENANTS_MANAGE), listDomains);
   router.get('/staff', requireStaffPermission(ROLES_MANAGE), listPlatformStaff);
+  router.get('/partners', requireStaffPermission(PARTNERS_MANAGE), listPartners);
+  router.post('/partners', requireStaffPermission(PARTNERS_MANAGE), createPartner);
+  router.get('/partners/:id', requireStaffPermission(PARTNERS_MANAGE), getPartner);
+  router.patch('/partners/:id', requireStaffPermission(PARTNERS_MANAGE), updatePartner);
 
   return router;
 }

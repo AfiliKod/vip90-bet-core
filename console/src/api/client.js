@@ -21,62 +21,72 @@ export const apiClient = axios.create({
   withCredentials: true,
 });
 
-apiClient.interceptors.request.use((config) => {
-  const token = getAccessToken();
-  if (token && !config.headers.Authorization) {
-    config.headers.Authorization = `Bearer ${token}`;
-  }
-  return config;
+export const partnerClient = axios.create({
+  baseURL: '/api/partner',
+  withCredentials: true,
 });
 
-apiClient.interceptors.response.use(
-  (response) => response,
-  async (error) => {
-    const originalRequest = error.config;
-    if (!originalRequest) return Promise.reject(error);
-
-    const is401 = error.response?.status === 401;
-    const isRefreshCall = originalRequest.url?.includes('/api/staff/auth/refresh');
-
-    if (is401 && !originalRequest._retry && !isRefreshCall) {
-      originalRequest._retry = true;
-
-      try {
-        if (!refreshPromise) {
-          refreshPromise = axios
-            .post('/api/staff/auth/refresh', {}, { withCredentials: true })
-            .then((res) => {
-              const newToken = res.data?.accessToken;
-              if (newToken) {
-                usePlatformAuthStore.getState().setAccessToken(newToken);
-                if (res.data?.staff) {
-                  usePlatformAuthStore.getState().setStaff(res.data.staff);
-                }
-              }
-              return newToken;
-            })
-            .finally(() => {
-              refreshPromise = null;
-            });
-        }
-
-        const newToken = await refreshPromise;
-        if (newToken) {
-          originalRequest.headers.Authorization = `Bearer ${newToken}`;
-          return apiClient(originalRequest);
-        }
-      } catch (refreshErr) {
-        usePlatformAuthStore.getState().logout();
-        if (typeof window !== 'undefined' && window.location.pathname !== '/login') {
-          window.location.href = '/console/login';
-        }
-        return Promise.reject(refreshErr);
-      }
+function attachAuthInterceptors(instance) {
+  instance.interceptors.request.use((config) => {
+    const token = getAccessToken();
+    if (token && !config.headers.Authorization) {
+      config.headers.Authorization = `Bearer ${token}`;
     }
+    return config;
+  });
 
-    return Promise.reject(error);
-  }
-);
+  instance.interceptors.response.use(
+    (response) => response,
+    async (error) => {
+      const originalRequest = error.config;
+      if (!originalRequest) return Promise.reject(error);
+
+      const is401 = error.response?.status === 401;
+      const isRefreshCall = originalRequest.url?.includes('/api/staff/auth/refresh');
+
+      if (is401 && !originalRequest._retry && !isRefreshCall) {
+        originalRequest._retry = true;
+
+        try {
+          if (!refreshPromise) {
+            refreshPromise = axios
+              .post('/api/staff/auth/refresh', {}, { withCredentials: true })
+              .then((res) => {
+                const newToken = res.data?.accessToken;
+                if (newToken) {
+                  usePlatformAuthStore.getState().setAccessToken(newToken);
+                  if (res.data?.staff) {
+                    usePlatformAuthStore.getState().setStaff(res.data.staff);
+                  }
+                }
+                return newToken;
+              })
+              .finally(() => {
+                refreshPromise = null;
+              });
+          }
+
+          const newToken = await refreshPromise;
+          if (newToken) {
+            originalRequest.headers.Authorization = `Bearer ${newToken}`;
+            return instance(originalRequest);
+          }
+        } catch (refreshErr) {
+          usePlatformAuthStore.getState().logout();
+          if (typeof window !== 'undefined' && window.location.pathname !== '/login') {
+            window.location.href = '/console/login';
+          }
+          return Promise.reject(refreshErr);
+        }
+      }
+
+      return Promise.reject(error);
+    }
+  );
+}
+
+attachAuthInterceptors(apiClient);
+attachAuthInterceptors(partnerClient);
 
 // Staff authentication API endpoints (outside /api/platform base)
 export const authApi = {
@@ -122,6 +132,76 @@ export const authApi = {
     } finally {
       usePlatformAuthStore.getState().logout();
     }
+  },
+};
+
+export const partnerApi = {
+  me: async () => {
+    const res = await partnerClient.get('/me');
+    return res.data;
+  },
+  listTenants: async () => {
+    const res = await partnerClient.get('/tenants');
+    return res.data;
+  },
+  getTenant: async (id) => {
+    const res = await partnerClient.get(`/tenants/${id}`);
+    return res.data;
+  },
+  provisionTenant: async (data) => {
+    const res = await partnerClient.post('/tenants', data);
+    return res.data;
+  },
+  changeTenantStatus: async (id, status, reason) => {
+    const res = await partnerClient.patch(`/tenants/${id}/status`, { status, reason });
+    return res.data;
+  },
+  reissueOwnerInvite: async (id) => {
+    const res = await partnerClient.post(`/tenants/${id}/owner-invite`);
+    return res.data;
+  },
+  getPortfolioMetrics: async (params) => {
+    const res = await partnerClient.get('/metrics', { params });
+    return res.data;
+  },
+  getTenantMetrics: async (id, params) => {
+    const res = await partnerClient.get(`/tenants/${id}/metrics`, { params });
+    return res.data;
+  },
+  updateIntegrations: async (id, data) => {
+    const res = await partnerClient.put(`/tenants/${id}/integrations`, data);
+    return res.data;
+  },
+  listStaff: async () => {
+    const res = await partnerClient.get('/staff');
+    return res.data;
+  },
+  inviteStaff: async (data) => {
+    const res = await partnerClient.post('/staff', data);
+    return res.data;
+  },
+  suspendStaff: async (id) => {
+    const res = await partnerClient.patch(`/staff/${id}/suspend`);
+    return res.data;
+  },
+};
+
+export const partnersApi = {
+  list: async () => {
+    const res = await apiClient.get('/partners');
+    return res.data;
+  },
+  get: async (id) => {
+    const res = await apiClient.get(`/partners/${id}`);
+    return res.data;
+  },
+  create: async (data) => {
+    const res = await apiClient.post('/partners', data);
+    return res.data;
+  },
+  update: async (id, data) => {
+    const res = await apiClient.patch(`/partners/${id}`, data);
+    return res.data;
   },
 };
 

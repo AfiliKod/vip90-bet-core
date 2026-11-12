@@ -6,6 +6,9 @@ import StaffAccount from '../../models/StaffAccount.js';
 import Role from '../../models/Role.js';
 import RoleAssignment from '../../models/RoleAssignment.js';
 import AuditLog from '../../models/AuditLog.js';
+import Partner from '../../models/Partner.js';
+import PartnerOperatorLink from '../../models/PartnerOperatorLink.js';
+import { createError } from '../../middleware/error.js';
 import { runWithTenant } from '../../tenancy/context.js';
 import { runTenantProvisioningHooks } from '../../tenancy/provisioning.js';
 import { seedTenantSubset } from './tenantSeed.js';
@@ -27,7 +30,7 @@ import { createStaffInvite } from './staffInvite.js';
  * @param {string} [data.ownerUsername]
  * @param {object} [data.entitlements]
  * @param {object} [data.credentials]
- * @param {{ createdByStaffId?: import('mongoose').Types.ObjectId|string|null }} [options]
+ * @param {{ createdByStaffId?: import('mongoose').Types.ObjectId|string|null, partnerId?: import('mongoose').Types.ObjectId|string|null, createdVia?: 'platform'|'partner' }} [options]
  */
 export async function provisionTenant({
   key,
@@ -41,7 +44,7 @@ export async function provisionTenant({
   ownerUsername,
   entitlements = {},
   credentials = {},
-} = {}, { createdByStaffId = null } = {}) {
+} = {}, { createdByStaffId = null, partnerId = null, createdVia = 'platform' } = {}) {
   if (!key || typeof key !== 'string') throw new Error('Tenant key is required');
   if (!name || typeof name !== 'string') throw new Error('Tenant name is required');
   if (!domain || typeof domain !== 'string') throw new Error('Primary domain is required');
@@ -54,6 +57,49 @@ export async function provisionTenant({
   const normalizedDomain = domain.toLowerCase().trim();
 
   let tenant = await Tenant.findOne({ key: normalizedKey });
+
+  let effectiveOwnership = 'direct';
+  let effectiveCreatedVia = createdVia;
+  let partner = null;
+
+  if (partnerId) {
+    partner = await Partner.findById(partnerId);
+    if (!partner) throw createError(404, 'PARTNER_NOT_FOUND', 'PARTNER_NOT_FOUND: Partner not found');
+    if (partner.status !== 'active') {
+      throw createError(403, 'PARTNER_NOT_ACTIVE', 'PARTNER_NOT_ACTIVE: Partner is not active');
+    }
+
+    const allowedModules = new Set(partner.provisioningLimits.allowedModules || []);
+    const forbidden = (entitlements.modules || []).filter((m) => !allowedModules.has(m));
+    if (forbidden.length > 0) {
+      throw createError(400, 'MODULE_NOT_ALLOWED', `MODULE_NOT_ALLOWED: Requested modules not allowed for this partner: ${forbidden.join(', ')}`);
+    }
+
+    // Re-provisioning an operator already linked to this partner is not a new
+    // tenant, so it must not count against the quota.
+    const activeLinksCount = await PartnerOperatorLink.countDocuments({
+      partnerId: partner._id,
+      validTo: null,
+      ...(tenant ? { tenantId: { $ne: tenant._id } } : {}),
+    });
+    if (activeLinksCount >= partner.provisioningLimits.maxTenants) {
+      throw createError(400, 'MAX_TENANTS_EXCEEDED', `MAX_TENANTS_EXCEEDED: Tenant limit reached (${partner.provisioningLimits.maxTenants})`);
+    }
+
+    // An existing key belongs to whoever created it: a partner can only
+    // re-run provisioning for its own operator, never adopt another tenant.
+    if (tenant) {
+      const ownLink = await PartnerOperatorLink.exists({ partnerId: partner._id, tenantId: tenant._id, validTo: null });
+      if (!ownLink) throw createError(409, 'TENANT_KEY_TAKEN', 'TENANT_KEY_TAKEN: Tenant key is already in use');
+    }
+
+    effectiveOwnership = 'partner';
+    effectiveCreatedVia = 'partner';
+  } else if (tenant && tenant.ownership === 'partner') {
+    // The platform path must not silently rewrite a partner-owned operator.
+    throw createError(409, 'TENANT_KEY_TAKEN', 'TENANT_KEY_TAKEN: Tenant key is already in use');
+  }
+
   if (!tenant) {
     tenant = await Tenant.create({
       key: normalizedKey,
@@ -64,8 +110,8 @@ export async function provisionTenant({
         address: legalEntity.address || null,
       },
       status: 'provisioning',
-      ownership: 'direct',
-      createdVia: 'platform',
+      ownership: effectiveOwnership,
+      createdVia: effectiveCreatedVia,
       createdBy: createdByStaffId,
       baseCurrency,
       timezone,
@@ -167,9 +213,50 @@ export async function provisionTenant({
     { upsert: true, setDefaultsOnInsert: true },
   ));
 
+  if (partner) {
+    await PartnerOperatorLink.findOneAndUpdate(
+      { partnerId: partner._id, tenantId: tenant._id, validTo: null },
+      {
+        $setOnInsert: {
+          partnerId: partner._id,
+          tenantId: tenant._id,
+          validFrom: new Date(),
+          validTo: null,
+          capabilities: null,
+          commercialTerms: partner.defaultCommercialTerms,
+          createdBy: createdByStaffId,
+        },
+      },
+      { upsert: true, setDefaultsOnInsert: true },
+    );
+
+    await runWithTenant(tenant._id, () => AuditLog.findOneAndUpdate(
+      { action: 'PARTNER_TENANT_PROVISIONED', targetType: 'system', targetId: tenant._id.toString() },
+      {
+        $setOnInsert: {
+          tenantId: tenant._id,
+          actorType: 'admin',
+          actorUsername: 'partner',
+          actorScope: 'partner',
+          actorStaffId: createdByStaffId,
+          partnerId: partner._id,
+          onBehalfOfTenantId: tenant._id,
+          action: 'PARTNER_TENANT_PROVISIONED',
+          category: 'system',
+          targetType: 'system',
+          targetId: tenant._id.toString(),
+          capability: 'tenants.create',
+          metadata: { tenantKey: tenant.key, domain: normalizedDomain },
+        },
+      },
+      { upsert: true, setDefaultsOnInsert: true },
+    ));
+  }
+
   return {
     success: true,
     tenantId: tenant._id,
+    tenant,
     key: tenant.key,
     domain: domainDoc.host,
     status: tenant.status,

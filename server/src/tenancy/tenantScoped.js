@@ -175,7 +175,9 @@ function stampDefaultTenantOnUpsert() {
   this.setUpdate({ ...update, $setOnInsert: { ...(update.$setOnInsert || {}), tenantId } });
 }
 
-/** Query pre-hook: inject/check `tenantId` in the filter. */
+// Query pre-hook: inject/check `tenantId` in the filter. Registered without
+// `next` on purpose: Mongoose would still treat a returned thenable as a signal
+// to execute the query before its hooks finish.
 function scopeQuery() {
   if (getTenancyEnforcement() === 'off') return;
   const ctx = queryContext(this);
