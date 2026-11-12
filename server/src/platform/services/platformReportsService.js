@@ -3,7 +3,7 @@ import OperatorFeePlan from '../../models/OperatorFeePlan.js';
 import PartnerStatement from '../../models/PartnerStatement.js';
 import Tenant from '../../models/Tenant.js';
 import Partner from '../../models/Partner.js';
-import { roundMoney } from './commissionCalculator.js';
+import { roundMoney, findActiveFeePlan, toMinorUnits, fromMinorUnits, multiplyMinorUnitsByRate } from './commissionCalculator.js';
 
 /**
  * Cross-tenant performance report aggregating turnover and GGR across operators.
@@ -101,18 +101,19 @@ export async function getSportsbookOddsReport({ from, to, currency = 'TRY' }) {
     .populate('tenantId', 'key name')
     .lean();
 
-  const feePlans = await OperatorFeePlan.find({ validTo: null }).lean();
-  const feeMap = new Map(feePlans.map((fp) => [String(fp.tenantId), fp]));
+  // Every plan that may have applied in the period; each day uses the plan
+  // valid on that day (K20), the fixed fee uses the plan valid at period end.
+  const feePlans = await OperatorFeePlan.find({}).lean();
+  const sportsbookModel = (fp) => fp?.sportsbookFee?.model || 'none';
+  const dayRate = (fp) => (['turnover_percentage', 'both'].includes(sportsbookModel(fp)) ? (fp.sportsbookFee?.turnoverRate || 0) : 0);
 
   const byTenant = {};
   for (const s of stats) {
     const tid = String(s.tenantId?._id || s.tenantId);
     if (!byTenant[tid]) {
-      const fp = feeMap.get(tid);
-      const sbFee = fp?.sportsbookFee;
-      const model = sbFee?.model || 'none';
-      const fixedMonthlyFee = (model === 'fixed' || model === 'both') ? (sbFee?.fixedMonthlyFee || 0) : 0;
-      const turnoverRate = (model === 'turnover_percentage' || model === 'both') ? (sbFee?.turnoverRate || 0) : 0;
+      const fp = findActiveFeePlan(feePlans, tid, to);
+      const fixedMonthlyFee = ['fixed', 'both'].includes(sportsbookModel(fp)) ? (fp.sportsbookFee?.fixedMonthlyFee || 0) : 0;
+      const turnoverRate = dayRate(fp);
 
       byTenant[tid] = {
         tenantId: tid,
@@ -124,8 +125,11 @@ export async function getSportsbookOddsReport({ from, to, currency = 'TRY' }) {
         turnoverRate,
         turnoverFee: 0,
         totalFee: 0,
+        _turnoverFeeCents: 0,
       };
     }
+    const dayPlan = findActiveFeePlan(feePlans, tid, s.date);
+    byTenant[tid]._turnoverFeeCents += multiplyMinorUnitsByRate(toMinorUnits(s.sportsTurnover || 0), dayRate(dayPlan));
     byTenant[tid].sportsTurnover += s.sportsTurnover || 0;
     byTenant[tid].sportsGgr += s.sportsGgrRealized || 0;
   }
@@ -142,7 +146,8 @@ export async function getSportsbookOddsReport({ from, to, currency = 'TRY' }) {
     item.sportsTurnover = roundMoney(item.sportsTurnover);
     item.sportsGgr = roundMoney(item.sportsGgr);
     item.fixedFee = roundMoney(item.fixedFee);
-    item.turnoverFee = roundMoney(item.sportsTurnover * item.turnoverRate);
+    item.turnoverFee = fromMinorUnits(item._turnoverFeeCents);
+    delete item._turnoverFeeCents;
     item.totalFee = roundMoney(item.fixedFee + item.turnoverFee);
 
     totals.sportsTurnover = roundMoney(totals.sportsTurnover + item.sportsTurnover);
