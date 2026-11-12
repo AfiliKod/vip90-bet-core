@@ -8,30 +8,31 @@
  * prompt-injection filtresi ve rate-limit D8'in kapsamı — burası yalnızca
  * D6'nın pull() sözleşmesini gerçek bir kaynağa bağlamak için var.
  */
-import mongoose from 'mongoose';
-import Setting from '../../models/Setting.js';
 import { createAgentToggleStore } from './agentToggle.js';
 import { filterPayload } from '../../agent/promptFirewall.js';
+import { mongoLoad } from '../../config/secretSettingsStore.js';
+import { saveScopedSetting, createTenantStoreFacade } from '../settings.js';
 
 const TOGGLE_KEY = 'support.agentEnabled';
 
-export const agentToggleStore = createAgentToggleStore({
+// Tenant-keyed instances (İP-4 Task 4): the registry cache is per instance.
+const stores = createTenantStoreFacade(({ tenantId, brandId }) => createAgentToggleStore({
   load: async () => {
-    if (mongoose.connection.readyState !== 1) return {};
-    const row = await Setting.findOne({ key: TOGGLE_KEY }).lean();
-    return { enabled: row?.value === 'true' };
+    const raw = await mongoLoad([TOGGLE_KEY], { tenantId, brandId });
+    return { enabled: raw[TOGGLE_KEY] === 'true' };
   },
-});
+}));
+
+export const agentToggleStore = {
+  isEnabled: () => stores.current().isEnabled(),
+  invalidate: () => stores.invalidateAll(),
+};
 
 export const isAgentEnabled = () => agentToggleStore.isEnabled();
 
 /** Admin panelinden ajanı açar/kapatır. */
 export async function setAgentEnabled(enabled, updatedBy) {
-  await Setting.updateOne(
-    { key: TOGGLE_KEY },
-    { $set: { value: String(!!enabled), updatedBy } },
-    { upsert: true },
-  );
+  await saveScopedSetting(TOGGLE_KEY, String(!!enabled), updatedBy);
   agentToggleStore.invalidate();
 }
 

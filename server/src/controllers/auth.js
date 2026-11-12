@@ -11,6 +11,7 @@ import { invalidateTokenVersionCache } from '../middleware/auth.js';
 import { renderBuiltinTemplate } from '../services/email.js';
 import { sendActionMail } from '../services/systemMail.js';
 import { hashToken } from '../utils/tokenHash.js';
+import { getTenantBaseUrl } from '../tenancy/tenantBaseUrl.js';
 import { signAccess, signRefresh, setRefreshCookie, issueSession, reserveTwoFactorAttempt, assertAccountCanSession } from '../services/session.js';
 import { claimChallenge, markChallengeUsed, recordChallengeFailure, acquireChallenge, releaseChallenge } from '../services/twoFactorChallenge.js';
 import { verifySecondFactor, writeBackupCodes } from '../services/twoFactorAuth.js';
@@ -107,7 +108,7 @@ export async function register(req, res, next) {
     // Email doğrulama maili gönder (best-effort). İçerik admin panelindeki
     // "Sistem E-postaları" sayfasından düzenlenir; şablon pasif/yoksa gömülü
     // şablonla aynı içerik gönderilir (davranış değişmez).
-    const verifyUrl = `${getBaseUrl(req)}/verify-email?token=${rawVerificationToken}`;
+    const verifyUrl = `${await getBaseUrl(req)}/verify-email?token=${rawVerificationToken}`;
     let emailResult;
     try {
       emailResult = await sendActionMail('user.emailVerify', {
@@ -401,7 +402,7 @@ export async function resendVerification(req, res, next) {
       user.emailVerificationToken = hashToken(token);
       user.emailVerificationExpires = new Date(Date.now() + EMAIL_VERIFY_TTL_HOURS * 3600 * 1000);
       await user.save();
-      verifyUrl = `${getBaseUrl(req)}/verify-email?token=${token}`;
+      verifyUrl = `${await getBaseUrl(req)}/verify-email?token=${token}`;
       try {
         emailResult = await sendActionMail('user.emailVerify', {
           user,
@@ -436,7 +437,7 @@ export async function forgotPassword(req, res, next) {
       user.passwordResetToken = hashToken(token);
       user.passwordResetExpires = new Date(Date.now() + PASSWORD_RESET_TTL_HOURS * 3600 * 1000);
       await user.save();
-      resetUrl = `${getBaseUrl(req)}/reset-password?token=${token}`;
+      resetUrl = `${await getBaseUrl(req)}/reset-password?token=${token}`;
       try {
         emailResult = await sendActionMail('user.passwordReset', {
           user,
@@ -476,13 +477,12 @@ export async function resetPassword(req, res, next) {
   } catch (e) { next(e); }
 }
 
-function getBaseUrl(req) {
+async function getBaseUrl(req) {
   // Production'da client aynı origin'den (Express static) servis edilir, req.host doğrudur.
-  // Dev'de client ayrı bir Vite sunucusunda çalışır — API'nin kendi host'u yanlış link üretir.
+  // Dev'de client ayrı bir Vite sunucusunda çalışır — site adresi kiracının
+  // birincil Domain kaydından çözülür (tek modda CLIENT_URL'e düşer).
   if (process.env.NODE_ENV !== 'production') {
-    // CLIENT_URL CORS için virgülle ayrılmış çoklu origin olabilir — linkte ilkini kullan.
-    const first = (process.env.CLIENT_URL || 'http://localhost:5173').split(',')[0].trim();
-    return first;
+    return getTenantBaseUrl();
   }
   const proto = req.headers['x-forwarded-proto'] || 'https';
   const host = req.headers['x-forwarded-host'] || req.headers.host;

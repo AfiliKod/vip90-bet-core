@@ -1,44 +1,25 @@
-/**
- * SMS Gateway ayar deposu — DB önce, `.env` yedek (`services/settings.js`
- * deseninin aynısı: kısa TTL önbellek, `sourceOf` ile panelde rozet).
- *
- * Neden `services/settings.js` yerine ayrı depo: o depo düz metin saklar ve
- * yalnızca alarm kanalları (`ALERT_KEYS`) için kabul edilmiş durumda. Twilio
- * Auth Token bir SAHAYICI'dIR — DB'de düz metin durması kabul edilemez, bu
- * yüzden `utils/secretCrypto.js` (AES-256-GCM) ile şifrelenir. Geri döndürülebilir
- * şifreleme gerekli çünkü sunucu mesajı gönderirken token'ı Twilio'ya sunmak
- * zorunda (aynı gerekçe `secretCrypto.js` başındaki operatör senaryosuyla aynı).
- *
- * `OPERATOR_SECRET_ENCRYPTION_KEY` tanımlı değilse token DB'ye YAZILMAZ; çağıran
- * tarafa açık bir hata döner. .env'den gelen token şifrelenmez — orası zaten
- * JWT_SECRET gibi düz metin duruyor, aynı güven düzeyi.
- */
-import mongoose from 'mongoose';
-import Setting from '../models/Setting.js';
-import { encryptSecret, decryptSecret } from '../utils/secretCrypto.js';
+import { decryptSecret, decryptSensitive, encryptSensitive, isEncryptedSecret } from '../utils/secretCrypto.js';
+import { mongoLoad, mongoSave } from '../config/secretSettingsStore.js';
+import { getTenancyMode } from '../config/tenancy.js';
+import { getDefaultTenantId } from '../tenancy/defaultTenantId.js';
+import { tenantContext } from '../tenancy/context.js';
 import { maskSecret } from './settings.js';
 
 export const SMS_PROVIDERS = ['twilio'];
-
 const TTL_MS = 30 * 1000;
 
-/** DB'de tutulan ayar anahtarları (panel yalnızca bunları yazabilir). */
 export const SMS_SETTING_KEYS = [
   'sms.provider',
   'sms.twilio.accountSid',
-  'sms.twilio.authToken',      // şifreli saklanır
+  'sms.twilio.authToken',
   'sms.twilio.fromNumber',
   'sms.twilio.messagingServiceSid',
   'sms.twilio.defaultCountryCode',
-  // Hesap seviyesi: trial mı paid mi? Panelden elle de ayarlanabilir, ama
-  // gerçek değer Twilio API'sinden okunur (smsGateway.checker → type).
   'sms.accountType',
   'sms.trialSignUpCountry',
 ];
 
-/** Panelde maskeli gösterilen sırlar (düz değeri asla dönmeyiz). */
 export const SMS_SECRET_KEYS = new Set(['sms.twilio.authToken']);
-
 export const SMS_ACCOUNT_TYPES = ['unknown', 'trial', 'paid'];
 
 const ENV_KEYS = {
@@ -61,87 +42,108 @@ export class SmsCredentialError extends Error {
   }
 }
 
-/**
- * İzole depo üretir — `load`/`env` enjekte edilebildiği için DB'siz test edilir.
- */
-export function createSmsSettingsStore({ load, env = process.env, ttlMs = TTL_MS } = {}) {
-  let cache = null;
-  let loadedAt = 0;
+function cacheKey(tenantId, brandId) {
+  return `${tenantId ? String(tenantId) : 'platform'}:${brandId ? String(brandId) : 'none'}`;
+}
 
-  async function snapshot() {
-    if (cache && Date.now() - loadedAt < ttlMs) return cache;
-    try {
-      cache = await load();
-    } catch {
-      // DB okunamıyor — .env yedeğiyle devam (alarm hattı mantığı).
-      cache = {};
-    }
-    loadedAt = Date.now();
-    return cache;
+function decryptToken(stored) {
+  return isEncryptedSecret(stored) ? decryptSensitive(stored) : decryptSecret(stored);
+}
+
+/** Tenant-keyed Twilio settings store with strict multi-mode env isolation. */
+export function createSmsSettingsStore({
+  load = options => mongoLoad(SMS_SETTING_KEYS, options),
+  save = (key, value, adminId, options) => mongoSave(key, value, adminId, options),
+  env = process.env,
+  now = Date.now,
+  ttlMs = TTL_MS,
+} = {}) {
+  const caches = new Map();
+
+  function resolveContext(options = {}) {
+    const ambient = tenantContext.get();
+    return {
+      tenantId: options.tenantId !== undefined
+        ? options.tenantId
+        : (ambient?.tenantId ?? (getTenancyMode(env) === 'single' ? getDefaultTenantId() : null)),
+      brandId: options.brandId !== undefined ? options.brandId : (ambient?.brandId ?? null),
+    };
   }
 
-  /** DB'deki ham (şifreli) değer — UI'a verilmez. */
-  async function raw(key) {
-    return (await snapshot())[key] || null;
+  async function snapshot(options = {}) {
+    const scope = resolveContext(options);
+    const key = cacheKey(scope.tenantId, scope.brandId);
+    const cached = caches.get(key);
+    if (cached && now() - cached.loadedAt < ttlMs) return cached.data;
+    let data = {};
+    try { data = await load(scope) || {}; } catch { data = {}; }
+    caches.set(key, { data, loadedAt: now() });
+    return data;
   }
 
-  /** Gerçek (şifre çözülmüş) değer: DB → env → null. */
-  async function secret(key) {
-    const stored = await raw(key);
+  const allowsEnv = () => getTenancyMode(env) === 'single';
+
+  async function raw(key, options = {}) {
+    return (await snapshot(options))[key] || null;
+  }
+
+  async function secret(key, options = {}) {
+    const stored = await raw(key, options);
     if (stored) {
-      try {
-        return decryptSecret(stored);
-      } catch {
-        // Anahtar döndü veya payload bozuk — sessizce env'e düşmek yanıltıcı
-        // olur, bu yüzden yoksayılıp aşağıdaki env yedeğine geçilir.
-      }
+      try { return decryptToken(stored); } catch { /* unreadable credentials stay unavailable */ }
     }
-    return env[ENV_KEYS[key]] || null;
+    return allowsEnv() ? (env[ENV_KEYS[key]] || null) : null;
   }
 
-  /** Düz (şifre gerektirmeyen) değer: DB → env → null. */
-  async function plain(key) {
-    const stored = await raw(key);
+  async function plain(key, options = {}) {
+    const stored = await raw(key, options);
     if (stored) return stored;
-    return env[ENV_KEYS[key]] || null;
+    return allowsEnv() ? (env[ENV_KEYS[key]] || null) : null;
   }
 
-  async function sourceOf(key) {
-    if (await raw(key)) return 'db';
-    if (env[ENV_KEYS[key]]) return 'env';
-    return 'unset';
+  async function sourceOf(key, options = {}) {
+    if (await raw(key, options)) return 'db';
+    return allowsEnv() && env[ENV_KEYS[key]] ? 'env' : 'unset';
+  }
+
+  async function update(patch = {}, { clear = [], adminId, tenantId, brandId, scope } = {}) {
+    for (const key of [...Object.keys(patch), ...clear]) {
+      if (!SMS_SETTING_KEYS.includes(key)) throw new Error(`Unknown SMS setting: ${key}`);
+    }
+    const resolved = resolveContext({ tenantId, brandId });
+    const effectiveScope = scope || (resolved.brandId ? 'brand' : (resolved.tenantId ? 'tenant' : 'tenant'));
+    for (const [key, rawValue] of Object.entries(patch)) {
+      const value = rawValue == null ? '' : String(rawValue).trim();
+      if (!value && SMS_SECRET_KEYS.has(key)) continue;
+      await save(key, value ? (SMS_SECRET_KEYS.has(key) ? encryptSensitive(value) : value) : null, adminId, {
+        ...resolved,
+        scope: effectiveScope,
+      });
+    }
+    for (const key of clear) {
+      await save(key, null, adminId, { ...resolved, scope: effectiveScope });
+    }
+    caches.delete(cacheKey(resolved.tenantId, resolved.brandId));
   }
 
   return {
+    raw,
     secret,
     plain,
     sourceOf,
-    invalidate() {
-      cache = null;
-      loadedAt = 0;
+    update,
+    invalidate(tenantId, brandId) {
+      if (tenantId === undefined && brandId === undefined) return caches.clear();
+      if (tenantId !== undefined && brandId !== undefined) return caches.delete(cacheKey(tenantId, brandId));
+      const prefix = `${tenantId ? String(tenantId) : 'platform'}:`;
+      for (const key of caches.keys()) if (key.startsWith(prefix)) caches.delete(key);
     },
   };
 }
 
-/** Uygulama genelinde kullanılan tekil depo. */
-export const smsSettings = createSmsSettingsStore({
-  load: async () => {
-    // mongoose sorgusu bağlanmadan 10 sn buffer'da bekler; gönderim yolu
-    // bunu beklemesin, doğrudan env yedeğine düşer.
-    if (mongoose.connection.readyState !== 1) return {};
-    const rows = await Setting.find({ key: { $in: SMS_SETTING_KEYS } }).lean();
-    return Object.fromEntries(rows.map(r => [r.key, r.value]));
-  },
-});
-
+export const smsSettings = createSmsSettingsStore();
 export const invalidateSmsSettings = () => smsSettings.invalidate();
 
-/**
- * Gönderim yolunun kullandığı birleşik yapılandırma.
- * `configured` = gönderim denemesi için asgari kimlik bilgileri var mı
- * (Account SID + Auth Token + gönderici: From numarası VEYA Messaging
- * Service SID). Eksik olanlar panelin "eksik alanlar" listesinde gösterilir.
- */
 export function configMissing(cfg = {}) {
   const missing = [];
   if (!cfg.accountSid) missing.push('accountSid');
@@ -157,18 +159,9 @@ export async function getSmsConfig() {
   const fromNumber = await smsSettings.plain('sms.twilio.fromNumber');
   const messagingServiceSid = await smsSettings.plain('sms.twilio.messagingServiceSid');
   const defaultCountryCode = await smsSettings.plain('sms.twilio.defaultCountryCode');
-  // Twilio API'sinden okunan gerçek tip (bkz. smsGateway.checker → type).
-  // Operatör elle ayarlamışsa o kazanır; hiçbiri yoksa 'unknown'.
-  //
-  // 'unknown' neden varsayılan: 'paid' varsaymak trial hesapta yanlış olurdu
-  // (trial kısıtları uygulanmaz, Twilio 14111 döner ve mesajlar boşa gider).
-  // 'trial' varsaymak ise ücretli hesapta gönderimi gereksiz engellerdi. Bu
-  // yüzden belirsizlikle engellemiyoruz; panel "hesap tipi bilinmiyor, Bağlantıyı
-  // Test Et" uyarısı gösteriyor.
   const rawAccountType = await smsSettings.plain('sms.accountType');
   const accountType = ['trial', 'paid'].includes(rawAccountType) ? rawAccountType : 'unknown';
   const trialSignUpCountry = await smsSettings.plain('sms.trialSignUpCountry');
-
   const missing = configMissing({ accountSid, authToken, fromNumber, messagingServiceSid });
   return {
     defaultCountryCode,
@@ -184,12 +177,10 @@ export async function getSmsConfig() {
   };
 }
 
-/** Panel için — sırlar maskelenir, yalnızca "var/yok + kaynak" bilgisi verilir. */
 export async function getSmsSettingsStatus() {
   const cfg = await getSmsConfig();
   const sources = {};
   for (const key of SMS_SETTING_KEYS) sources[key] = await smsSettings.sourceOf(key);
-
   return {
     provider: cfg.provider,
     accountSid: cfg.accountSid,
@@ -214,62 +205,34 @@ export async function getSmsSettingsStatus() {
   };
 }
 
-/**
- * "Bağlantıyı Test Et" sırasında Twilio API'sinden gelen gerçek hesap tipini
- * kalıcılaştırır — AMA operatör elle bir değer girdiyse onu EZMEZ.
- * Bu sayede "test et" dediğinde panel gerçek durumu (trial/paid) gösterir,
- * elle girdiği değer de yanlışlıkla silinmez.
- */
 export async function persistDetectedAccountType(detected, adminId = null) {
   if (!SMS_ACCOUNT_TYPES.includes(detected) || detected === 'unknown') return false;
   if ((await smsSettings.sourceOf('sms.accountType')) !== 'unset') return false;
-  await Setting.updateOne(
-    { key: 'sms.accountType' },
-    { $set: { key: 'sms.accountType', value: detected, updatedBy: adminId } },
-    { upsert: true },
-  );
-  invalidateSmsSettings();
+  await smsSettings.update({ 'sms.accountType': detected }, { adminId });
   return true;
 }
 
-/**
- * Panelden kayıt. Boş string gönderilen alanlar "değiştirme" değildir —
- * hiç gönderilmezse mevcut değer korunur (Igames/Slikair deseni).
- * `authToken` şifrelenir; şifreleme anahtarı yoksa yazılmaz ve hata döner.
- */
 export async function saveSmsSettings(patch, adminId = null) {
-  const writes = [];
-
-  if (patch.provider !== undefined) writes.push(['sms.provider', String(patch.provider)]);
-  if (patch.accountSid) writes.push(['sms.twilio.accountSid', String(patch.accountSid)]);
-  if (patch.fromNumber) writes.push(['sms.twilio.fromNumber', String(patch.fromNumber)]);
-  if (patch.messagingServiceSid) writes.push(['sms.twilio.messagingServiceSid', String(patch.messagingServiceSid)]);
-  if (patch.defaultCountryCode) writes.push(['sms.twilio.defaultCountryCode', String(patch.defaultCountryCode).replace(/\D/g, '')]);
+  const writes = {};
+  if (patch.provider !== undefined) writes['sms.provider'] = String(patch.provider);
+  if (patch.accountSid) writes['sms.twilio.accountSid'] = String(patch.accountSid);
+  if (patch.fromNumber) writes['sms.twilio.fromNumber'] = String(patch.fromNumber);
+  if (patch.messagingServiceSid) writes['sms.twilio.messagingServiceSid'] = String(patch.messagingServiceSid);
+  if (patch.defaultCountryCode) writes['sms.twilio.defaultCountryCode'] = String(patch.defaultCountryCode).replace(/\D/g, '');
   if (patch.accountType) {
     if (!SMS_ACCOUNT_TYPES.includes(patch.accountType)) {
       throw new SmsCredentialError(`Geçersiz hesap tipi: ${patch.accountType}`, 'SMS_ACCOUNT_TYPE_INVALID');
     }
-    writes.push(['sms.accountType', patch.accountType]);
+    writes['sms.accountType'] = patch.accountType;
   }
-  if (patch.trialSignUpCountry) writes.push(['sms.trialSignUpCountry', String(patch.trialSignUpCountry).trim().toUpperCase()]);
-
+  if (patch.trialSignUpCountry) writes['sms.trialSignUpCountry'] = String(patch.trialSignUpCountry).trim().toUpperCase();
   if (patch.authToken) {
     if (!process.env.OPERATOR_SECRET_ENCRYPTION_KEY) {
-      throw new SmsCredentialError(
-        'OPERATOR_SECRET_ENCRYPTION_KEY tanımlı değil; Auth Token şifrelenerek saklanamaz. Anahtarı .env\'e ekleyin veya token\'ı TWILIO_AUTH_TOKEN ile sunucuya verin.',
-        'SMS_ENCRYPTION_KEY_MISSING',
-      );
+      throw new SmsCredentialError('OPERATOR_SECRET_ENCRYPTION_KEY tanımlı değil; Auth Token şifrelenerek saklanamaz. Anahtarı .env\'e ekleyin veya token\'ı TWILIO_AUTH_TOKEN ile sunucuya verin.', 'SMS_ENCRYPTION_KEY_MISSING');
     }
-    writes.push(['sms.twilio.authToken', encryptSecret(String(patch.authToken))]);
+    writes['sms.twilio.authToken'] = String(patch.authToken);
   }
-
-  if (writes.length === 0) return getSmsSettingsStatus();
-
-  await Setting.bulkWrite(
-    writes.map(([key, value]) => ({
-      updateOne: { filter: { key }, update: { $set: { key, value, updatedBy: adminId } }, upsert: true },
-    })),
-  );
-  invalidateSmsSettings();
+  if (Object.keys(writes).length === 0) return getSmsSettingsStatus();
+  await smsSettings.update(writes, { adminId });
   return getSmsSettingsStatus();
 }

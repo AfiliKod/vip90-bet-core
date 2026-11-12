@@ -10,8 +10,9 @@
  *
  * DB okunamazsa varsayılanlara düşülür (komisyon ödemesi durmaz).
  */
-import Setting from '../models/Setting.js';
 import { REFERRAL_SETTINGS as DEFAULTS } from '../config/referral.js';
+import { mongoLoad as loadScopedSettings } from '../config/secretSettingsStore.js';
+import { saveScopedSetting, createTenantStoreFacade } from './settings.js';
 
 const TTL_MS = 30 * 1000;
 export const REFERRAL_KEYS = { enabled: 'referral.enabled', commissionRate: 'referral.commissionRate' };
@@ -29,13 +30,12 @@ function parse(rows) {
 }
 
 async function mongoLoad() {
-  return Setting.find({ key: { $in: Object.values(REFERRAL_KEYS) } }).select('key value').lean();
+  const raw = await loadScopedSettings(Object.values(REFERRAL_KEYS));
+  return Object.entries(raw).map(([key, value]) => ({ key, value }));
 }
 
 async function mongoSave(entries, updatedBy) {
-  await Setting.bulkWrite(entries.map(([key, value]) => ({
-    updateOne: { filter: { key }, update: { $set: { value, updatedBy } }, upsert: true },
-  })));
+  for (const [key, value] of entries) await saveScopedSetting(key, value, updatedBy);
 }
 
 export function createReferralSettingsStore({ load = mongoLoad, save = mongoSave, now = Date.now, ttlMs = TTL_MS } = {}) {
@@ -65,5 +65,18 @@ export function createReferralSettingsStore({ load = mongoLoad, save = mongoSave
   return { get, update, invalidate: () => { cache = null; } };
 }
 
-export const referralSettings = createReferralSettingsStore();
+// Tenant-keyed instances (İP-4 Task 4): the factory cache is per instance, so
+// each ambient tenant/brand gets its own — values never leak across tenants.
+const stores = createTenantStoreFacade(({ tenantId, brandId }) => createReferralSettingsStore({
+  load: async () => {
+    const raw = await loadScopedSettings(Object.values(REFERRAL_KEYS), { tenantId, brandId });
+    return Object.entries(raw).map(([key, value]) => ({ key, value }));
+  },
+}));
+
+export const referralSettings = {
+  get: () => stores.current().get(),
+  update: (patch, updatedBy) => stores.current().update(patch, updatedBy),
+  invalidate: () => stores.invalidateAll(),
+};
 export const getReferralSettings = () => referralSettings.get();

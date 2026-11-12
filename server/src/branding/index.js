@@ -4,23 +4,31 @@
  * DB anahtarı biçimi: `branding.<id>` — mevcut Setting koleksiyonunu kullanır,
  * theme/index.js ve modules/index.js'teki aynı yaklaşım.
  */
-import mongoose from 'mongoose';
-import Setting from '../models/Setting.js';
 import { createBrandingStore, BRANDING_FIELD_DEFINITIONS } from './registry.js';
+import { mongoLoad } from '../config/secretSettingsStore.js';
+import { saveScopedSetting, createTenantStoreFacade } from '../services/settings.js';
 
 const KEY_PREFIX = 'branding.';
 const dbKey = id => `${KEY_PREFIX}${id}`;
 
-export const brandingStore = createBrandingStore({
+// Tenant-keyed instances (İP-4 Task 4): the registry cache is per instance.
+const stores = createTenantStoreFacade(({ tenantId, brandId }) => createBrandingStore({
   load: async () => {
-    if (mongoose.connection.readyState !== 1) return {};
     const keys = BRANDING_FIELD_DEFINITIONS.map(f => dbKey(f.id));
-    const rows = await Setting.find({ key: { $in: keys } }).lean();
+    const raw = await mongoLoad(keys, { tenantId, brandId });
     const overrides = {};
-    for (const r of rows) overrides[r.key.slice(KEY_PREFIX.length)] = r.value;
+    for (const key of keys) {
+      if (raw[key] != null) overrides[key.slice(KEY_PREFIX.length)] = raw[key];
+    }
     return overrides;
   },
-});
+}));
+
+export const brandingStore = {
+  getValues: () => stores.current().getValues(),
+  list: () => stores.current().list(),
+  invalidate: () => stores.invalidateAll(),
+};
 
 export const getBrandingValues = () => brandingStore.getValues();
 export const listBranding = () => brandingStore.list();
@@ -44,10 +52,6 @@ export async function setBrandingField(id, value, updatedBy) {
   if (!BRANDING_FIELD_DEFINITIONS.some(f => f.id === id)) {
     throw new Error(`Bilinmeyen marka alanı: ${id}`);
   }
-  await Setting.updateOne(
-    { key: dbKey(id) },
-    { $set: { value: String(value), updatedBy } },
-    { upsert: true },
-  );
+  await saveScopedSetting(dbKey(id), String(value), updatedBy);
   invalidateBranding();
 }
