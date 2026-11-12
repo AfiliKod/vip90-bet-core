@@ -1631,8 +1631,27 @@ export async function runCleanupOnce({
 } = {}) {
   return platform(PLATFORM_JOB_REASONS.EVENT_CLEANUP, async () => {
     onPlatform();
-    // the four existing filter bodies, now using updateMany/deleteMany
-    return { archived, stale, farFuture, deleted };
+    const cutoff24h = new Date(Date.now() - 24 * 60 * 60 * 1000);
+    const horizon30d = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000);
+    const archive = await updateMany(
+      { status: 'finished', archivedAt: null, startTime: { $lte: new Date() } },
+      { $set: { archivedAt: new Date() } },
+    );
+    const stale = await updateMany(
+      { status: 'upcoming', startTime: { $lt: cutoff24h } },
+      { $set: { status: 'finished' } },
+    );
+    const farFuture = await updateMany(
+      { status: 'upcoming', startTime: { $gt: horizon30d } },
+      { $set: { status: 'finished' } },
+    );
+    const deleted = await deleteMany({ status: 'cancelled', startTime: { $lt: cutoff24h } });
+    return {
+      archived: archive.modifiedCount,
+      stale: stale.modifiedCount,
+      farFuture: farFuture.modifiedCount,
+      deleted: deleted.deletedCount,
+    };
   });
 }
 ```
