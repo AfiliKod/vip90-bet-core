@@ -64,3 +64,12 @@ test('migration up() executes buildCompoundIndexes successfully', async () => {
   const indexes = await User.collection.listIndexes().toArray();
   assert.ok(indexes.map(i => i.name).includes('tenant_username_uniq'));
 });
+
+test('loadAllModels registers the tenant indexes of every model file', async () => {
+  const { loadAllModels } = await import('../src/tenancy/indexBuilder.js');
+  const { listTenantIndexes } = await import('../src/tenancy/indexRegistry.js');
+  const n = await loadAllModels();
+  assert.ok(n > 20);
+  const models = new Set(listTenantIndexes().map((i) => i.modelName));
+  for (const m of ['User', 'Transaction', 'Bet', 'ChatRoom', 'RiskRule']) assert.ok(models.has(m), m);
+});

@@ -1,4 +1,7 @@
 import mongoose from 'mongoose';
+import { readdir } from 'node:fs/promises';
+import { fileURLToPath, pathToFileURL } from 'node:url';
+import { join, dirname } from 'node:path';
 import { runAsPlatform, tenantContext } from './context.js';
 import { getTenantModel } from './models.js';
 import { listTenantIndexes } from './indexRegistry.js';
@@ -18,6 +21,19 @@ function getCollectionForModel(modelName) {
   }
 }
 
+const MODELS_DIR = join(dirname(fileURLToPath(import.meta.url)), '..', 'models');
+
+/**
+ * Import every model file so their registerTenantIndexes calls run. The
+ * migration CLI does not load the app, so without this the registry could be
+ * empty and the migration would be recorded as done without building anything.
+ */
+export async function loadAllModels(dir = MODELS_DIR) {
+  const files = (await readdir(dir)).filter((f) => f.endsWith('.js')).sort();
+  for (const f of files) await import(pathToFileURL(join(dir, f)).href);
+  return files.length;
+}
+
 /**
  * Builds compound tenant indexes online from indexRegistry without dropping legacy unique indexes.
  * Never calls syncIndexes / ensureIndexes.
@@ -26,8 +42,12 @@ function getCollectionForModel(modelName) {
  * @returns {Promise<{ created: string[], preserved: string[] }>}
  */
 export async function buildCompoundIndexes({ background = true } = {}) {
+  await loadAllModels();
   return runAsPlatform('build-compound-indexes', async () => {
     const tenantIndexes = listTenantIndexes();
+    if (tenantIndexes.length === 0) {
+      throw new Error('[tenancy] G4: no tenant indexes registered after loading models; refusing to mark the migration done');
+    }
     const created = [];
     const preserved = [];
 
