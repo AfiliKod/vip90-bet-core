@@ -1,7 +1,11 @@
 import crypto from 'crypto';
 import User from '../models/User.js';
-import { getIO } from './socketEmitter.js';
 import { signAccess } from '../controllers/auth.js';
+import { getTenancyMode } from '../config/tenancy.js';
+import { getDefaultTenantId } from '../tenancy/defaultTenantId.js';
+import { runWithTenant, getCurrentTenantId } from '../tenancy/context.js';
+import { publishToTenant } from '../socket/publish.js';
+import { buildInternalHeaders } from './internalApi.js';
 
 /**
  * Bot Service — AI oyuncu botları.
@@ -54,7 +58,10 @@ const BOT_GAME_PATH = {
 };
 
 /** Bot adına kısa ömürlü bir JWT üretir — gerçek oyun route'larını kendi kimliğiyle çağırabilsin diye. */
-function botAccessToken(botUser) {
+function botAccessToken(botUser, effectiveTenantId = null) {
+  if (!botUser.tenantId && effectiveTenantId) {
+    return signAccess({ ...(botUser.toObject ? botUser.toObject() : botUser), tenantId: effectiveTenantId });
+  }
   return signAccess(botUser);
 }
 
@@ -160,6 +167,11 @@ export async function executeBotAction(botId) {
   const bot = await User.findOne({ _id: botId, isBot: true });
   if (!bot || !bot.isActive) return null;
 
+  const effectiveTenantId = bot.tenantId || getCurrentTenantId() || getDefaultTenantId();
+  if (getTenancyMode() === 'multi' && String(bot.tenantId) !== String(getCurrentTenantId())) {
+    return { executed: false, reason: 'TENANT_MISMATCH' };
+  }
+
   const now = Date.now();
   const profile = bot.botProfile;
 
@@ -200,7 +212,7 @@ export async function executeBotAction(botId) {
     case 'playing':
     case 'idle':
       profile.currentState = 'playing';
-      return await executeBotBet(bot);
+      return await executeBotBet(bot, effectiveTenantId);
     case 'on_break':
       profile.currentState = 'playing';
       profile.nextActionAt = new Date(now + 5000);
@@ -213,8 +225,12 @@ export async function executeBotAction(botId) {
   }
 }
 
+export function emitBotAction(bot, payload) {
+  publishToTenant('bot:action', payload, { tenantId: bot.tenantId || getDefaultTenantId() });
+}
+
 /** Bot adına gerçek bir oyun API'sine dahili HTTP isteği atarak bahis oynar. */
-async function executeBotBet(bot) {
+async function executeBotBet(bot, effectiveTenantId = (bot.tenantId || getCurrentTenantId() || getDefaultTenantId())) {
   const profile = bot.botProfile;
   const betPercent = Math.random() * (profile.behavior.maxBetPercent - profile.behavior.minBetPercent) + profile.behavior.minBetPercent;
   const betAmount = Math.max(1, Math.floor(bot.balance * betPercent / 100));
@@ -227,14 +243,18 @@ async function executeBotBet(bot) {
   }
 
   const gameId = BOT_GAMES[Math.floor(Math.random() * BOT_GAMES.length)];
-  const token = botAccessToken(bot);
+  const token = botAccessToken(bot, effectiveTenantId);
   const body = randomBetBody(gameId, betAmount);
 
   let result;
   try {
     const res = await fetch(`${INTERNAL_API_BASE}/api/inhouse${BOT_GAME_PATH[gameId]}`, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${token}`,
+        ...buildInternalHeaders(effectiveTenantId),
+      },
       body: JSON.stringify(body),
     });
     result = await res.json();
@@ -254,7 +274,7 @@ async function executeBotBet(bot) {
   // Gerçek route zaten bot.balance'ı güncelledi (aynı User kaydı) —
   // burada yalnızca güncel bakiyeyi taze okuyup istatistikleri işliyoruz.
   const fresh = await User.findById(bot._id).select('balance');
-  bot.balance = fresh.balance;
+  if (fresh) bot.balance = fresh.balance;
 
   profile.stats.totalBets += 1;
   profile.stats.totalWagered += betAmount;
@@ -264,13 +284,10 @@ async function executeBotBet(bot) {
   scheduleNextAction(bot);
   await bot.save();
 
-  const io = getIO();
-  if (io) {
-    io.emit('bot:action', {
-      botId: bot._id, username: bot.username, gameId,
-      betAmount, payout, net, balance: bot.balance,
-    });
-  }
+  emitBotAction(bot, {
+    botId: bot._id, username: bot.username, gameId,
+    betAmount, payout, net, balance: bot.balance,
+  });
 
   return { executed: true, gameId, betAmount, payout, net };
 }
@@ -325,4 +342,12 @@ export async function runBotScheduler() {
 
 export function getBotPresets() {
   return BOT_PRESETS;
+}
+
+// Demo botları yalnız tek kiracılı kurulumda koşar (İP-7 planı, Task 7).
+// Varsayılan kiracı henüz yoksa (G1 çalışmadı) eskisi gibi bağlamsız koşar.
+export async function runBotSchedulerForTenant({ tenantId = getDefaultTenantId() } = {}) {
+  if (getTenancyMode() === 'multi') return [];
+  if (!tenantId) return runBotScheduler();
+  return runWithTenant(tenantId, () => runBotScheduler());
 }
