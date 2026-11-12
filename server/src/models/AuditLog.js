@@ -20,7 +20,7 @@ const schema = new mongoose.Schema({
   actorUsername: { type: String, required: true },
   action: { type: String, required: true },
   category: { type: String, enum: ['auth', 'player', 'finance', 'kyc', 'responsible_gaming', 'module', 'provider', 'system', 'chat', 'betting', 'casino'], required: true },
-  targetType: { type: String, enum: ['user', 'transaction', 'bet', 'event', 'module', 'setting', 'role', 'permission', 'chat', 'system', 'game', 'promotion', 'vip', 'player', 'risk_rule', 'risk_finding'] },
+  targetType: { type: String, enum: ['user', 'transaction', 'bet', 'event', 'module', 'setting', 'role', 'permission', 'chat', 'system', 'game', 'promotion', 'vip', 'player', 'risk_rule', 'risk_finding', 'partner', 'partner_statement', 'fee_plan'] },
   targetId: { type: String },
   before: { type: mongoose.Schema.Types.Mixed },
   after: { type: mongoose.Schema.Types.Mixed },
