@@ -2,8 +2,8 @@
  * SEO ayar deposu — `Setting` koleksiyonunda tek bir JSON kaydı (`seo.config`),
  * kısa TTL cache + kayıtta geçersiz kılma (branding/index.js ile aynı DI deseni).
  *
- * `isConfigured()` = hiç kayıt yok → enjeksiyon yapılmaz, index.html olduğu gibi
- * servis edilir (mevcut davranış korunur).
+ * `isConfigured()` = hiç kayıt yok → DB SEO alanı yoktur; SPA fallback yine de
+ * kiracı markası etiketlerini enjekte eder (marka, SEO ayarına bağlı değildir).
  */
 import { SEO_DEFAULTS, sanitizeStored } from './schema.js';
 import { mongoLoad } from '../config/secretSettingsStore.js';

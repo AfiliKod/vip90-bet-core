@@ -54,6 +54,9 @@ const meta = (attr, name, content) => `<meta ${attr}="${name}" content="${escape
 
 /**
  * `<head>` blokları + `<body>` başı noscript'leri.
+ *
+ * SEO kaydı hiç yoksa (ya da başlık alanı boşsa) etiketler kiracı markasıyla
+ * (`siteName`) üretilir: marka kimliği DB SEO ayarına bağlı değildir.
  * @returns {{ title: string|null, head: string, bodyStart: string }}
  */
 export function buildSeoTags(seo, { path = '/', baseUrl = null, siteName = '' } = {}) {
@@ -61,7 +64,7 @@ export function buildSeoTags(seo, { path = '/', baseUrl = null, siteName = '' } 
   const site = seo.siteTitle || siteName || '';
   const head = [];
   const bodyStart = [];
-  const title = seo.siteTitle || null;
+  const title = seo.siteTitle || siteName || null;
 
   if (seo.description) head.push(meta('name', 'description', seo.description));
   if (seo.keywords) head.push(meta('name', 'keywords', seo.keywords));

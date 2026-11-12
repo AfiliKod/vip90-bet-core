@@ -116,10 +116,14 @@ describe('SPA fallback', () => {
   });
   after(() => { server.close(); rmSync(dir, { recursive: true, force: true }); });
 
-  test('ayar kaydı yoksa sade index.html (değişmeden) servis edilir', async () => {
+  test('ayar kaydı yoksa da kiracı markası enjekte edilir (marka, SEO ayarına bağlı değil)', async () => {
     configured = false;
     const body = await (await fetch(`${base}/casino`)).text();
-    assert.equal(body, INDEX);
+    assert.match(body, /<title>Marka<\/title>/);
+    assert.match(body, /<meta property="og:title" content="Marka">/);
+    assert.match(body, /<meta property="og:site_name" content="Marka">/);
+    assert.match(body, /<div id="root">/);
+    assert.doesNotMatch(body, /VIP90\.bet/, 'derleme-anı sabit başlık kalmamalı');
   });
 
   test('ayar varsa etiketler enjekte edilir; Host canonical\'a yansır', async () => {
