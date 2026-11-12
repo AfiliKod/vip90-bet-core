@@ -28,3 +28,10 @@ test('multi mode: a request without a tenant is refused', () => {
     assert.throws(() => tenantFilter({}, { _id: 'x' }), TenantScopeError);
   });
 });
+
+test('scopeTenantId: null in single mode, the tenant in multi mode', async () => {
+  const { scopeTenantId } = await import('../src/tenancy/tenantFilter.js');
+  withMode('single', () => assert.equal(scopeTenantId({ tenant: { id: 'T1' } }), null));
+  withMode('multi', () => assert.equal(scopeTenantId({ tenant: { id: 'T1' } }), 'T1'));
+  withMode('multi', () => assert.throws(() => scopeTenantId({}), TenantScopeError));
+});
