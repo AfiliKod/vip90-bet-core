@@ -147,20 +147,15 @@ test('§8.4 Scenario 3: Sumsub webhook to T1 URL with T2 externalUserId returns 
   assert.equal(refreshedU2.kycStatus, 'pending');
 });
 
-test('§8.4 Scenario 4: OAuth callback state tenant mismatch is rejected', async () => {
-  const stateTenant = String(T2);
-  const hostTenant = String(T1);
-  assert.notEqual(stateTenant, hostTenant);
+test('§8.4 Scenario 4: OAuth state from tenant T2 is rejected on a T1 callback', async () => {
+  const { setOAuthState, consumeOAuthState } = await import('../src/services/socialAuth.js');
+  const { runWithTenant } = await import('../src/tenancy/context.js');
+  const foreign = await runWithTenant(T2, async () => setOAuthState('google'));
+  assert.equal(await runWithTenant(T1, async () => consumeOAuthState(foreign)), null);
+  const own = await runWithTenant(T1, async () => setOAuthState('google'));
+  assert.equal((await runWithTenant(T1, async () => consumeOAuthState(own)))?.provider, 'google');
 });
 
-test('§8.4 Scenario 5: Igames callback verifies tenant token and rejects cross-tenant user', {
-  skip: !fs.existsSync('server/src/premium/igames') && 'add-on not installed',
-}, async () => {
-  assert.ok(true);
-});
-
-test('§8.4 Scenario 6: In-house provider callback verifies operator key and player-tenant boundary', {
-  skip: (!fs.existsSync('server/src/premium/inhouse-provider') && !fs.existsSync('server/src/premium/in-house')) && 'add-on not installed',
-}, async () => {
-  assert.ok(true);
-});
+// Scenarios 5 and 6 (igames, in-house) are covered in the add-on repositories'
+// own suites (test/igamesCallbackAttribution.test.js,
+// engine/test/inhouseCallbackAttribution.test.js); core CI has no add-ons.
