@@ -44,7 +44,10 @@ try {
 }
 
 if (getTenancyMode() === 'multi') {
-  console.warn('[tenancy] TENANCY_MODE=multi: tenant isolation is not complete yet (later work packages); do not take real traffic');
+  // N6 gates: persist every scope violation per day for SCOPE_GATE_ENV
+  // (staging/production); nothing is recorded when it is unset.
+  const { installScopeTelemetry } = await import('./platform/services/scopeTelemetry.js');
+  installScopeTelemetry();
 }
 
 // Igames reconciliation script ayrı (ücretli) bir pakettir — bu kurulumda
