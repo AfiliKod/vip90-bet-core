@@ -17,6 +17,8 @@ jobs:
           node-version: '24'
       - name: Sızıntı taraması
         run: node --test scripts/leak-scan.test.mjs && node scripts/leak-scan.mjs
+      - name: Tenant socket lint
+        run: node scripts/lint-tenant-sockets.mjs
       - name: Kiracı lint kuralları
         run: node --test scripts/lint-tenancy.test.mjs && node scripts/lint-tenancy.mjs
 

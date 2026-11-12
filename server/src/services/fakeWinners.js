@@ -4,6 +4,10 @@ import { addRecentWinner } from './liveGameStream.js';
 import { getActiveCasinoAggregator } from './casinoAggregators/index.js';
 import { isModuleUsable } from './licensing/index.js';
 import { getIO } from './socketEmitter.js';
+import { getTenancyMode } from '../config/tenancy.js';
+import { getDefaultTenantId } from '../tenancy/defaultTenantId.js';
+import { clientsRoom } from '../tenancy/tenantKeys.js';
+import { publishToTenant } from '../socket/publish.js';
 
 /**
  * "Son Kazananlar" simülasyonu — kullanıcı isteği üzerine P3'ün gerçek
@@ -120,11 +124,14 @@ export function getConfig() {
   return config;
 }
 
-export function getPoolSize() {
+export function getPoolSize(tenantId = null) {
+  if (getTenancyMode() === 'multi') return 0;
+  const fallback = getDefaultTenantId();
+  if (fallback && tenantId && String(fallback) !== String(tenantId)) return 0;
   return pool.length;
 }
 
-export function regeneratePool() {
+export function regeneratePool(tenantId = getDefaultTenantId()) {
   const size = randomInt(config.poolMin, config.poolMax);
   const used = new Set();
   const next = [];
@@ -140,7 +147,10 @@ export function regeneratePool() {
   // o dosya getPoolSize() için bu dosyayı import ediyor, döngüsel import'tan
   // kaçınmak için formül burada kısaca tekrarlanıyor).
   const io = getIO();
-  if (io) io.emit('online:count', { count: (io.engine.clientsCount ?? 0) + pool.length });
+  if (!io) return;
+  const room = clientsRoom(tenantId);
+  const roomSize = room ? io.sockets?.adapter?.rooms?.get(room)?.size ?? 0 : io.engine?.clientsCount ?? 0;
+  publishToTenant('online:count', { count: roomSize + pool.length }, { tenantId, io });
 }
 
 /** Oyunun tipik bahis ölçeğine göre kabaca inandırıcı bir kazanç üretir. */
@@ -156,6 +166,7 @@ function fireInhouseWin() {
   const username = pool[randomInt(0, pool.length - 1)];
   const gameId = INHOUSE_GAME_IDS[randomInt(0, INHOUSE_GAME_IDS.length - 1)];
   addRecentWinner({
+    tenantId: getDefaultTenantId(),
     isSynthetic: true,
     username,
     gameId: `inhouse-${gameId}`,
@@ -192,6 +203,7 @@ async function fireCasinoWin() {
   const username = pool[randomInt(0, pool.length - 1)];
   const game = games[randomInt(0, games.length - 1)];
   addRecentWinner({
+    tenantId: getDefaultTenantId(),
     isSynthetic: true,
     username,
     gameId: `igames-${game.game_code}`,
@@ -233,6 +245,7 @@ export function releaseBettingWinsForEvent(event) {
   for (let i = 0; i < count; i++) {
     const username = pool[randomInt(0, pool.length - 1)];
     addRecentWinner({
+      tenantId: getDefaultTenantId(),
       isSynthetic: true,
       username,
       gameId: `bet-${key}`,
@@ -266,6 +279,7 @@ function scheduleNextFire() {
 
 /** server.js açılışında bir kez çağrılır. */
 export async function startFakeWinnersScheduler() {
+  if (getTenancyMode() === 'multi') return;
   await loadConfig();
   regeneratePool();
   scheduleNextFire();

@@ -3,6 +3,7 @@ import User from '../models/User.js';
 import { getIO } from './socketEmitter.js';
 import { sendActionMail } from './systemMail.js';
 import { getSiteName } from '../branding/index.js';
+import { publishToTenantAdmins } from '../socket/publish.js';
 
 /**
  * KYC configuration - which pages/features require KYC
@@ -417,7 +418,7 @@ export async function expireOldKyc() {
 async function notifyAdminsNewKycSubmission(userId, docCount) {
   const io = getIO();
   if (io) {
-    io.to('role:admin').emit('kyc:new_submission', { userId, docCount });
+    publishToTenantAdmins('kyc:new_submission', { userId, docCount }, { io });
   }
   try {
     const { logActivity } = await import('./activityFeed.js');

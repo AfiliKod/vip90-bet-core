@@ -1,5 +1,7 @@
 import ActivityEvent from '../models/ActivityEvent.js';
 import { getIO as _getIO } from '../services/socketEmitter.js';
+import { forEachTenant } from '../tenancy/forEachTenant.js';
+import { adminRoom } from '../tenancy/tenantKeys.js';
 
 // activityFeed.js'teki _setIOGetter deseniyle tutarlı — ESM namespace importu
 // (import * as) non-configurable olduğu için mock.method ile mocklanamaz
@@ -13,24 +15,28 @@ export function _getIOGetter() { return _ioGetter; }
 const SESSION_GAP_MS = 10 * 60 * 1000;
 
 export async function closeStaleGameSessions() {
-  const cutoff = new Date(Date.now() - SESSION_GAP_MS);
-  const stale = await ActivityEvent.find({ type: 'game_session', status: 'active', updatedAt: { $lt: cutoff } });
+  const results = await forEachTenant(async () => {
+    const cutoff = new Date(Date.now() - SESSION_GAP_MS);
+    const stale = await ActivityEvent.find({ type: 'game_session', status: 'active', updatedAt: { $lt: cutoff } });
 
-  for (const ev of stale) {
-    ev.status = 'ended';
-    await ev.save();
-    try {
-      const io = _ioGetter();
-      if (io) {
-        const populated = await ev.populate('userId', 'username');
-        io.to('role:admin').emit('activity:update', populated.toObject());
+    for (const ev of stale) {
+      ev.status = 'ended';
+      await ev.save();
+      try {
+        const io = _ioGetter();
+        if (io) {
+          const populated = await ev.populate('userId', 'username');
+          io.to(adminRoom()).emit('activity:update', populated.toObject());
+        }
+      } catch (e) {
+        console.error('[closeStaleGameSessions] socket emit hatası:', e.message);
       }
-    } catch (e) {
-      console.error('[closeStaleGameSessions] socket emit hatası:', e.message);
     }
-  }
 
-  return stale.length;
+    return stale.length;
+  });
+
+  return results.reduce((n, r) => n + (r.result || 0), 0);
 }
 
 export function startCloseStaleGameSessionsJob() {

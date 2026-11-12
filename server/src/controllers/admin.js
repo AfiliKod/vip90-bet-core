@@ -4,6 +4,7 @@ import { withTransactionRetry } from '../utils/transactionRetry.js';
 import { invalidateUserTokens } from '../middleware/auth.js';
 import { adjustBalance, createTransaction } from '../services/ledger.js';
 import { logAuditEvent } from '../services/audit.js';
+import { publishToAllTenants } from '../socket/publish.js';
 import User from '../models/User.js';
 import Role from '../models/Role.js';
 import Event from '../models/Event.js';
@@ -553,11 +554,7 @@ export async function updateEvent(req, res, next) {
     );
     const event = await Event.findByIdAndUpdate(req.params.id, filtered, { new:true });
     if (!event) throw createError(404,'NOT_FOUND','Etkinlik bulunamadı');
-    // emit odds update via socket if available
-    try {
-      const { io } = await import('../server.js');
-      io.emit('odds:update', { eventId: event._id, markets: event.markets });
-    } catch {}
+    await publishToAllTenants('odds:update', { eventId: event._id, markets: event.markets });
     res.json({ event });
   } catch(e) { next(e); }
 }

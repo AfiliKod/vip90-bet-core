@@ -63,6 +63,7 @@ import healthRoutes from './routes/health.js';
 import { createSeoPublicRouter, createSpaFallback, createSecurityHeaders } from './seo/http.js';
 import { getSiteName } from './branding/index.js';
 import { resolveTenantHost } from './middleware/tenantHost.js';
+import { resolveInternalTenant } from './middleware/internalTenant.js';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const isProd = process.env.NODE_ENV === 'production';
@@ -211,6 +212,7 @@ export function createApp() {
   app.use(express.urlencoded({ extended: false, limit: '10kb' }));
   app.use(mongoSanitize()); // Phase B12
   app.use(cookieParser());
+  app.use(resolveInternalTenant());
   app.use(resolveTenantHost());
 
   // Global rate limit (Phase B1)

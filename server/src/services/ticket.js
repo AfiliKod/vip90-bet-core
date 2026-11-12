@@ -14,6 +14,7 @@ import User from '../models/User.js';
 import { getIO } from './socketEmitter.js';
 import { sendEmail } from './email.js';
 import { getSiteName } from '../branding/index.js';
+import { publishToTenantAdmins } from '../socket/publish.js';
 
 const VALID_STATUSES = ['open', 'in_progress', 'resolved', 'closed'];
 
@@ -28,7 +29,7 @@ export async function createTicket(userId, subject, firstMessage) {
   });
 
   const io = getIO();
-  if (io) io.to('role:admin').emit('ticket:new', { ticketId: ticket._id, subject: ticket.subject, userId });
+  if (io) publishToTenantAdmins('ticket:new', { ticketId: ticket._id, subject: ticket.subject, userId }, { io });
 
   return ticket;
 }

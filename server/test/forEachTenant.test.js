@@ -52,4 +52,21 @@ describe('forEachTenant', () => {
     await forEachTenant(async () => { active++; max = Math.max(max, active); await new Promise((r) => setTimeout(r, 5)); active--; });
     assert.equal(max, 1);
   });
+  it('single mode without any tenant runs the job once without context (legacy behaviour)', async () => {
+    const { default: TenantModel } = await import('../src/models/Tenant.js');
+    const prev = process.env.TENANCY_MODE;
+    process.env.TENANCY_MODE = 'single';
+    const saved = await TenantModel.find({}).lean();
+    await TenantModel.deleteMany({});
+    try {
+      let calls = 0; let ctx = 'unset';
+      const results = await forEachTenant(async () => { calls += 1; ctx = getCurrentTenantId(); return 'ok'; });
+      assert.equal(calls, 1);
+      assert.equal(ctx, null);
+      assert.deepEqual(results, [{ tenantId: null, result: 'ok' }]);
+    } finally {
+      if (saved.length) await TenantModel.collection.insertMany(saved);
+      if (prev === undefined) delete process.env.TENANCY_MODE; else process.env.TENANCY_MODE = prev;
+    }
+  });
 });

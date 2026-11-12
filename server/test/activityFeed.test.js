@@ -16,15 +16,19 @@ import mongoose from 'mongoose';
 import ActivityEvent from '../src/models/ActivityEvent.js';
 import User from '../src/models/User.js';
 import { logActivity, upsertGameSession, _setIOGetter, _getIOGetter } from '../src/services/activityFeed.js';
+import { adminRoom } from '../src/tenancy/tenantKeys.js';
+import { setDefaultTenantId } from '../src/tenancy/defaultTenantId.js';
 
 const ORIGINAL_IO_GETTER = _getIOGetter();
 
 describe('activityFeed — logActivity', () => {
   before(async () => {
     await mongoose.connect('mongodb://localhost:27017/betzone_test_activity_feed');
+    setDefaultTenantId(new mongoose.Types.ObjectId());
   });
   after(async () => {
     _setIOGetter(ORIGINAL_IO_GETTER);
+    setDefaultTenantId(null);
     await mongoose.disconnect();
   });
   beforeEach(async () => {
@@ -33,7 +37,7 @@ describe('activityFeed — logActivity', () => {
     _setIOGetter(ORIGINAL_IO_GETTER);
   });
 
-  it('ActivityEvent oluşturur ve role:admin odasına username populate edilmiş activity:new yayınlar', async () => {
+  it('ActivityEvent oluşturur ve tenant admin odasına username populate edilmiş activity:new yayınlar', async () => {
     const emit = mock.fn();
     const to = mock.fn(() => ({ emit }));
     _setIOGetter(() => ({ to }));
@@ -48,7 +52,7 @@ describe('activityFeed — logActivity', () => {
     const stored = await ActivityEvent.findById(ev._id);
     assert.equal(stored.type, 'deposit');
 
-    assert.equal(to.mock.calls[0].arguments[0], 'role:admin');
+    assert.equal(to.mock.calls[0].arguments[0], adminRoom());
     assert.equal(emit.mock.calls[0].arguments[0], 'activity:new');
     assert.equal(emit.mock.calls[0].arguments[1].type, 'deposit');
     assert.equal(emit.mock.calls[0].arguments[1].userId.username, 'activitytestuser', 'Canlı push\'ta userId username ile populate edilmiş olmalı (Users.jsx ?openUser= linki buna dayanıyor)');

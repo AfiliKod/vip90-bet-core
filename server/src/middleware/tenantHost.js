@@ -34,6 +34,25 @@ export function clearDomainHostCache(host = null) {
 }
 
 /**
+ * Resolve a host string to a tenant via the Domain collection.
+ * Normalizes the host and returns only verified domains.
+ * @param {string} host
+ * @returns {Promise<{ id: string, brandId: string|null, host: string, isPrimary: boolean, purpose: string|null } | null>}
+ */
+export async function resolveTenantByHost(host) {
+  const normalized = normalizeHost(host);
+  const domain = await findDomainByHost(normalized);
+  if (!domain) return null;
+  return {
+    id: String(domain.tenantId),
+    brandId: domain.brandId ? String(domain.brandId) : null,
+    host: domain.host,
+    isPrimary: Boolean(domain.isPrimary),
+    purpose: domain.purpose ?? null,
+  };
+}
+
+/**
  * Resolve the request hostname to a tenant and bind it to the request context.
  * @param {{ getTenancyMode?: () => 'single'|'multi' }} [options]
  * @returns {import('express').RequestHandler}
@@ -43,6 +62,11 @@ export function resolveTenantHost(options = {}) {
 
   return async function tenantHostResolution(req, res, next) {
     try {
+      // Only the trusted internal binding (internalTenant.js) may pre-set the tenant.
+      if (req.tenant?.id && req.tenant.source === 'internal') {
+        return runWithTenant(req.tenant.id, next, { brandId: req.tenant.brandId ?? null });
+      }
+
       // req.hostname honours X-Forwarded-Host only when Express 'trust proxy' is
       // set; reading the raw header would let any client pick another tenant.
       const host = normalizeHost(req.hostname);
@@ -60,17 +84,11 @@ export function resolveTenantHost(options = {}) {
           isDefault: true,
         };
       } else {
-        const domain = await findDomainByHost(host);
-        if (!domain) {
+        const tenant = await resolveTenantByHost(host);
+        if (!tenant) {
           return res.status(404).json({ error: 'TENANT_NOT_FOUND', message: 'Domain not registered' });
         }
-        req.tenant = {
-          id: domain.tenantId,
-          brandId: domain.brandId,
-          host: domain.host,
-          isPrimary: domain.isPrimary,
-          purpose: domain.purpose,
-        };
+        req.tenant = tenant;
       }
 
       return runWithTenant(req.tenant.id, next, { brandId: req.tenant.brandId ?? null });

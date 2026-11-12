@@ -1,5 +1,7 @@
 import { getIO } from './socketEmitter.js';
 import { getPoolSize } from './fakeWinners.js';
+import { clientsRoom, optionalTenantId } from '../tenancy/tenantKeys.js';
+import { publishToTenant } from '../socket/publish.js';
 
 /**
  * "Çevrimiçi kullanıcı" sayısı = gerçek socket bağlantı sayısı + anlık
@@ -14,14 +16,17 @@ import { getPoolSize } from './fakeWinners.js';
  * `GET /api/health/status` hâlâ duruyor: guest kullanıcılar (socket bağlı
  * olmayabilir) ve ilk yükleme için tek seferlik bir başlangıç değeri sağlıyor.
  */
-export function getOnlineCount() {
+export function getOnlineCount(tenantId = null) {
   const io = getIO();
-  const realOnline = io?.engine.clientsCount ?? 0;
-  return realOnline + getPoolSize();
+  const id = optionalTenantId(tenantId);
+  const room = id ? clientsRoom(id) : null;
+  const roomSize = room ? io?.sockets?.adapter?.rooms?.get(room)?.size : null;
+  const realOnline = roomSize ?? io?.engine?.clientsCount ?? 0;
+  return realOnline + getPoolSize(id);
 }
 
-export function broadcastOnlineCount() {
+export function broadcastOnlineCount(tenantId = null) {
   const io = getIO();
   if (!io) return;
-  io.emit('online:count', { count: getOnlineCount() });
+  publishToTenant('online:count', { count: getOnlineCount(tenantId) }, { tenantId, io });
 }

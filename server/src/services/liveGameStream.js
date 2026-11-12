@@ -1,5 +1,6 @@
 import crypto from 'node:crypto';
-import { getIO } from './socketEmitter.js';
+import { optionalTenantId, liveRoom } from '../tenancy/tenantKeys.js';
+import { publishToRoom, publishToTenant } from '../socket/publish.js';
 
 /**
  * Live Game Stream Service
@@ -7,31 +8,41 @@ import { getIO } from './socketEmitter.js';
  */
 
 // Store active game streams
-const activeStreams = new Map(); // gameId -> { subscribers: Set<socketId>, lastUpdate: number }
+const activeStreams = new Map(); // `${tenantKey}:${gameId}` -> { subscribers, lastUpdate }
 
 // Store recent winners
-const recentWinners = []; // Array of { id, username (masked), gameId, gameTitle, amount, currency, timestamp }
+const recentWinners = new Map(); // tenantKey -> entry[]
 const MAX_WINNERS = 50;
+
+function tenantKey(tenantId) {
+  return optionalTenantId(tenantId) || 'g';
+}
+
+function streamKey(gameId, tenantId) {
+  return `${tenantKey(tenantId)}:${gameId}`;
+}
 
 /**
  * Subscribe to a live game stream
  */
-export function subscribeToGameStream(socketId, gameId) {
-  if (!activeStreams.has(gameId)) {
-    activeStreams.set(gameId, { subscribers: new Set(), lastUpdate: Date.now() });
+export function subscribeToGameStream(socketId, gameId, tenantId = null) {
+  const key = streamKey(gameId, tenantId);
+  if (!activeStreams.has(key)) {
+    activeStreams.set(key, { subscribers: new Set(), lastUpdate: Date.now() });
   }
-  activeStreams.get(gameId).subscribers.add(socketId);
+  activeStreams.get(key).subscribers.add(socketId);
 }
 
 /**
  * Unsubscribe from a live game stream
  */
-export function unsubscribeFromGameStream(socketId, gameId) {
-  const stream = activeStreams.get(gameId);
+export function unsubscribeFromGameStream(socketId, gameId, tenantId = null) {
+  const key = streamKey(gameId, tenantId);
+  const stream = activeStreams.get(key);
   if (stream) {
     stream.subscribers.delete(socketId);
     if (stream.subscribers.size === 0) {
-      activeStreams.delete(gameId);
+      activeStreams.delete(key);
     }
   }
 }
@@ -39,28 +50,23 @@ export function unsubscribeFromGameStream(socketId, gameId) {
 /**
  * Emit live game update to subscribers
  */
-export function emitGameUpdate(gameId, update) {
-  const stream = activeStreams.get(gameId);
+export function emitGameUpdate(gameId, update, tenantId = null) {
+  const stream = activeStreams.get(streamKey(gameId, tenantId));
   if (stream && stream.subscribers.size > 0) {
-    const io = getIO();
-    if (io) {
-      // DÜZELTME: socket/handler.js ve client'ın bağlandığı namespace '/live'
-      // — burası önceden '/stream' idi (hiç kimsenin bağlı olmadığı, ölü bir
-      // namespace), bu yüzden bu event hiçbir zaman kimseye ulaşmıyordu.
-      io.of('/live').to(`game:${gameId}`).emit('game:update', update);
-      stream.lastUpdate = Date.now();
-    }
+    const id = optionalTenantId(tenantId);
+    const room = id ? liveRoom(id, gameId) : `game:${gameId}`;
+    publishToRoom(room, 'game:update', update, { namespace: '/live' });
+    stream.lastUpdate = Date.now();
   }
 }
 
 /**
  * Emit live spin/round result
  */
-export function emitSpinResult(gameId, result) {
-  const io = getIO();
-  if (io) {
-    io.of('/live').to(`game:${gameId}`).emit('game:spinResult', result);
-  }
+export function emitSpinResult(gameId, result, tenantId = null) {
+  const id = optionalTenantId(tenantId);
+  const room = id ? liveRoom(id, gameId) : `game:${gameId}`;
+  publishToRoom(room, 'game:spinResult', result, { namespace: '/live' });
 }
 
 /** Public display mask: first 2 chars + `***`; empty/short -> `***`. */
@@ -76,6 +82,7 @@ export function maskUsername(username) {
  * (real and synthetic winners look identical).
  */
 export function addRecentWinner(winner) {
+  const id = winner.tenantId || optionalTenantId();
   const entry = {
     id: crypto.randomUUID(),
     username: maskUsername(winner.username),
@@ -90,15 +97,18 @@ export function addRecentWinner(winner) {
     timestamp: Date.now(),
   };
   
-  recentWinners.unshift(entry);
-  if (recentWinners.length > MAX_WINNERS) {
-    recentWinners.pop();
-  }
-  
-  // Emit to all connected clients
-  const io = getIO();
-  if (io) {
-    io.emit('winners:new', entry);
+  if (id) {
+    const list = recentWinners.get(String(id)) || [];
+    list.unshift(entry);
+    if (list.length > MAX_WINNERS) list.pop();
+    recentWinners.set(String(id), list);
+    publishToTenant('winners:new', entry, { tenantId: id });
+  } else {
+    const list = recentWinners.get('g') || [];
+    list.unshift(entry);
+    if (list.length > MAX_WINNERS) list.pop();
+    recentWinners.set('g', list);
+    publishToTenant('winners:new', entry);
   }
   
   return entry;
@@ -107,17 +117,19 @@ export function addRecentWinner(winner) {
 /**
  * Get recent winners for ticker
  */
-export function getRecentWinners(limit = 20) {
-  return recentWinners.slice(0, limit);
+export function getRecentWinners(limit = 20, tenantId = null) {
+  return (recentWinners.get(tenantKey(tenantId)) || []).slice(0, limit);
 }
 
 /**
  * Get active game streams info
  */
-export function getActiveStreamsInfo() {
+export function getActiveStreamsInfo(tenantId = null) {
+  const prefix = `${tenantKey(tenantId)}:`;
   const info = {};
-  for (const [gameId, stream] of activeStreams.entries()) {
-    info[gameId] = {
+  for (const [key, stream] of activeStreams.entries()) {
+    if (!key.startsWith(prefix)) continue;
+    info[key.slice(prefix.length)] = {
       subscriberCount: stream.subscribers.size,
       lastUpdate: stream.lastUpdate,
     };
@@ -128,9 +140,10 @@ export function getActiveStreamsInfo() {
 /**
  * Initialize live stream for a game
  */
-export function initializeGameStream(gameId) {
-  if (!activeStreams.has(gameId)) {
-    activeStreams.set(gameId, { subscribers: new Set(), lastUpdate: Date.now() });
+export function initializeGameStream(gameId, tenantId = null) {
+  const key = streamKey(gameId, tenantId);
+  if (!activeStreams.has(key)) {
+    activeStreams.set(key, { subscribers: new Set(), lastUpdate: Date.now() });
   }
 }
 

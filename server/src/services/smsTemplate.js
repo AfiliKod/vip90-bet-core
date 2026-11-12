@@ -20,6 +20,8 @@ import { getSmsConfig } from './smsSettings.js';
 import { createSender, normalizePhone } from './smsGateway.js';
 import { resolveSenderGate } from './smsSender.js';
 import { moduleStore } from '../modules/index.js';
+import { getCurrentTenantId } from '../tenancy/context.js';
+import { forEachTenant } from '../tenancy/forEachTenant.js';
 
 /** Tek istekteki üst alıcı sınırı — operatörün yanlışlıkla tüm tabloyu
  *  tek seferde patlatmasını engeller (SMS maliyeti geri alınamaz). */
@@ -291,9 +293,16 @@ export async function deleteTemplate(id, options = {}) {
  * Hedef kitleyi SMS gönderebilecek kullanıcılı çözümler.
  * Telefonu olmayanlar BURADA elenir (log'da `skipped` yazılmaz — hiç denenmemek
  * daha dürüst; sayısal özet `withoutPhone` ile raporlanır).
+ *
+ * `tenantId` verildiğinde (veya çağrı bir kiracı bağlamında çalışırken) temel
+ * sorguya ve segment aramasına AÇIKÇA eklenir; `log` modunda bile bir segment
+ * başka kiracının alıcılarına çözülemez.
  */
-export async function resolveRecipients({ audienceType, segmentId, userIds }) {
+export async function resolveRecipients({ audienceType, segmentId, userIds }, {
+  tenantId = getCurrentTenantId(),
+} = {}) {
   const base = { isActive: true, phone: { $nin: [null, ''] } };
+  if (tenantId) base.tenantId = tenantId;
   let query = null;
   let usedSegmentId = null;
 
@@ -301,7 +310,9 @@ export async function resolveRecipients({ audienceType, segmentId, userIds }) {
     query = base;
   } else if (audienceType === 'segment') {
     if (!segmentId) throw new SmsError('Segment seçilmedi', 'SMS_SEGMENT_REQUIRED');
-    const segment = await PlayerSegment.findById(segmentId).lean();
+    const segmentFilter = { _id: segmentId };
+    if (tenantId) segmentFilter.tenantId = tenantId;
+    const segment = await PlayerSegment.findOne(segmentFilter).lean();
     if (!segment) throw new SmsError('Segment bulunamadı', 'NOT_FOUND', 404);
     const segmentQuery = await buildSegmentQuery(segment.criteria || {});
     // Kriteri OLMAYAN (veya tamamı null olan) bir segment boş sorguya çevrilir
@@ -603,11 +614,16 @@ export async function runDueScheduledSms(now = new Date(), deps = {}) {
 
 const _timers = new Set();
 
+/** Vadesi gelen zamanlanmış SMS'leri her aktif kiracı için bir kez gönderir. */
+export async function runDueScheduledSmsForAllTenants(now = new Date(), { run = runDueScheduledSms } = {}) {
+  return forEachTenant(async () => run(now));
+}
+
 /** 15 dakikada bir vadesi gelen zamanlanmış şablonları gönderir. */
 export function startScheduledSmsJob(intervalMs = 15 * 60 * 1000) {
   if (_timers.size > 0) return;
   const run = () => {
-    runDueScheduledSms().catch((e) => console.error('[smsTemplate] job hatası:', e.message));
+    runDueScheduledSmsForAllTenants().catch((e) => console.error('[smsTemplate] job hatası:', e.message));
   };
   // İlk çalıştırmayı boot'tan sonraya bırak — DB bağlanmadan sorgu atmasın.
   const bootDelay = setTimeout(run, 30 * 1000);

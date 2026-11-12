@@ -1,5 +1,6 @@
 import ActivityEvent from '../models/ActivityEvent.js';
 import { getIO as _getIO } from './socketEmitter.js';
+import { publishToTenantAdmins } from '../socket/publish.js';
 import { getCurrentTenantId } from '../tenancy/context.js';
 import { getTenancyMode } from '../config/tenancy.js';
 
@@ -25,14 +26,14 @@ export async function logActivity({ type, userId, status, summary, amount = null
     try {
       const io = _ioGetter();
       if (io) {
-        const scopedTenant = getTenancyMode() === 'multi' ? tenantId : null;
+        const scopedTenant = getTenancyMode() === 'multi' ? tenantId : null; // tek modda oda tenantKeys'ten
         // userId'yi username ile populate ederek yayınlıyoruz — frontend'in
         // "Kullanıcıyı Görüntüle" linki mevcut /admin/users?search= endpoint'ini
         // (username ile arıyor, ID ile değil) yeniden kullanıyor; canlı push'ta
         // da REST'ten ilk yüklemede olduğu gibi username hazır olmalı (bkz.
         // Task 10'daki .populate('userId','username') ve Task 11).
         const populated = await event.populate('userId', 'username');
-        io.to(scopedTenant ? `t:${scopedTenant}:admin` : 'role:admin').emit('activity:new', populated.toObject());
+        publishToTenantAdmins('activity:new', populated.toObject(), { tenantId: scopedTenant, io });
       }
     } catch (e) {
       console.error('[activityFeed] socket emit hatası:', e.message);
@@ -67,7 +68,7 @@ export async function upsertGameSession({ userId, gameId, gameTitle, bet, net })
         const io = _ioGetter();
         if (io) {
           const populated = await existing.populate('userId', 'username');
-          io.to(tenantId ? `t:${tenantId}:admin` : 'role:admin').emit('activity:update', populated.toObject());
+          publishToTenantAdmins('activity:update', populated.toObject(), { tenantId, io });
         }
       } catch (e) {
         console.error('[activityFeed] socket emit hatası:', e.message);

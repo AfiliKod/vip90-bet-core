@@ -35,6 +35,7 @@ import {
 } from './mailTemplates.js';
 import { getTenantBaseUrl } from '../tenancy/tenantBaseUrl.js';
 import { getCurrentTenantId } from '../tenancy/context.js';
+import { forEachTenant } from '../tenancy/forEachTenant.js';
 import { getTenancyMode } from '../config/tenancy.js';
 
 export const AUDIENCE_TYPES = ['all', 'segments', 'users', 'inactive'];
@@ -223,11 +224,20 @@ export async function sendActionMail(event, { user = null, userId = null, to = n
 
 /**
  * Audience tanımını alıcı listesine çevirir.
+ *
+ * `tenantId` verildiğinde (veya çağrı bir kiracı bağlamında çalışırken) kullanıcı
+ * sorgusu ve segment araması AÇIKÇA kiracıya daraltılır — `tenantScoped` eklentisi
+ * `log` modunda sorguyu genişletmediği için kampanya kitlesi kiracı sınırını
+ * aşamaz.
  * @returns {Promise<{users: Array, matched: number}>}
  */
-export async function resolveAudience(audience = {}, { limit = getBatchLimit() } = {}) {
+export async function resolveAudience(audience = {}, {
+  limit = getBatchLimit(),
+  tenantId = getCurrentTenantId(),
+} = {}) {
   const type = audience?.type || 'all';
   const filter = applyDomainSuppression({ ...BASE_USER_FILTER });
+  if (tenantId) filter.tenantId = tenantId;
 
   if (type === 'users') {
     const ids = (audience.userIds || []).filter((id) => mongoose.isValidObjectId(id));
@@ -236,7 +246,9 @@ export async function resolveAudience(audience = {}, { limit = getBatchLimit() }
   } else if (type === 'segments') {
     const ids = (audience.segmentIds || []).filter((id) => mongoose.isValidObjectId(id));
     if (ids.length === 0) return { users: [], matched: 0 };
-    const segments = await PlayerSegment.find({ _id: { $in: ids } }).lean();
+    const segmentQuery = { _id: { $in: ids } };
+    if (tenantId) segmentQuery.tenantId = tenantId;
+    const segments = await PlayerSegment.find(segmentQuery).lean();
     const ors = await Promise.all(segments.map((s) => buildQueryFromCriteria(s.criteria || {})));
     if (ors.length === 0) return { users: [], matched: 0 };
     filter.$or = ors;
@@ -316,7 +328,7 @@ export async function sendBulk(templateOrId, { audience = null, triggeredBy = nu
   const effectiveTenantId = tenantId || tpl.tenantId || getCurrentTenantId();
   const effectiveAudience = audience || tpl.audience || { type: 'all' };
   const limit = getBatchLimit();
-  const { users, matched } = await resolveAudience(effectiveAudience, { limit });
+  const { users, matched } = await resolveAudience(effectiveAudience, { limit, tenantId: effectiveTenantId });
   const common = await commonVars(null, effectiveTenantId);
   const batchId = randomUUID();
 
@@ -432,11 +444,19 @@ export async function runDueScheduledMails(now = new Date()) {
 
 const _timers = new Set();
 
+/**
+ * Vadesi gelen zamanlanmış şablonları her aktif kiracı için bir kez gönderir.
+ * @returns {Promise<Array<{tenantId: object, result?: number, error?: Error}>>}
+ */
+export async function runDueScheduledMailsForAllTenants(now = new Date(), { run = runDueScheduledMails } = {}) {
+  return forEachTenant(async () => run(now));
+}
+
 /** 15 dakikada bir vadesi gelen zamanlanmış şablonları gönderir. */
 export function startScheduledMailJob(intervalMs = 15 * 60 * 1000) {
   if (_timers.size > 0) return;
   const run = () => {
-    runDueScheduledMails().catch((e) => console.error('[systemMail] job hatası:', e.message));
+    runDueScheduledMailsForAllTenants().catch((e) => console.error('[systemMail] job hatası:', e.message));
   };
   // İlk çalıştırmayı boot'tan sonraya bırak — DB bağlanmadan sorgu atmasın.
   const bootDelay = setTimeout(run, 30 * 1000);
