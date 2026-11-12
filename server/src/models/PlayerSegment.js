@@ -1,6 +1,9 @@
 import mongoose from 'mongoose';
+import { defineTenantModel } from '../tenancy/models.js';
+import { registerTenantIndexes } from '../tenancy/indexRegistry.js';
 
 const schema = new mongoose.Schema({
+  tenantId: { type: mongoose.Schema.Types.ObjectId, ref: 'Tenant', required: false, index: true, immutable: true },
   name: { type: String, required: true, trim: true },
   slug: { type: String, required: true, unique: true, lowercase: true, trim: true },
   description: { type: String, default: '' },
@@ -78,4 +81,8 @@ const schema = new mongoose.Schema({
 schema.index({ isActive: 1 });
 schema.index({ createdAt: -1 });
 
-export default mongoose.model('PlayerSegment', schema);
+registerTenantIndexes('PlayerSegment', [
+  { keys: { tenantId: 1, slug: 1 }, options: { unique: true, name: 'tenant_slug_uniq' } },
+]);
+
+export default defineTenantModel('PlayerSegment', schema);

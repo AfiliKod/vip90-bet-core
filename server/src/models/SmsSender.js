@@ -1,4 +1,6 @@
 import mongoose from 'mongoose';
+import { defineTenantModel } from '../tenancy/models.js';
+import { registerTenantIndexes } from '../tenancy/indexRegistry.js';
 
 /**
  * SMS gönderici kaydı — "bu numara/Servis hangi ülkeden, hangi mevzuata
@@ -38,6 +40,7 @@ export const SMS_APPROVAL_STATUSES = [
 export const SMS_APPROVED_STATUSES = ['not_required', 'approved'];
 
 const schema = new mongoose.Schema({
+  tenantId: { type: mongoose.Schema.Types.ObjectId, ref: 'Tenant', required: false, index: true, immutable: true },
   provider: { type: String, enum: ['twilio'], default: 'twilio' },
   label: { type: String, required: true, trim: true, maxlength: 80 },
 
@@ -97,4 +100,9 @@ const schema = new mongoose.Schema({
 schema.index({ isActive: 1 });
 schema.index({ provider: 1, senderNumber: 1 });
 
-export default mongoose.model('SmsSender', schema);
+registerTenantIndexes('SmsSender', [
+  { keys: { tenantId: 1, provider: 1, senderNumber: 1 }, options: { name: 'tenant_provider_senderNumber' } },
+  { keys: { tenantId: 1, isActive: 1 }, options: { name: 'tenant_isActive' } },
+]);
+
+export default defineTenantModel('SmsSender', schema);

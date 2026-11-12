@@ -1,4 +1,6 @@
 import mongoose from 'mongoose';
+import { defineTenantModel } from '../tenancy/models.js';
+import { registerTenantIndexes } from '../tenancy/indexRegistry.js';
 
 /**
  * Sistem e-posta şablonu — admin panelinden CRUD edilir.
@@ -36,6 +38,7 @@ const statsSchema = new mongoose.Schema({
 }, { _id: false });
 
 const schema = new mongoose.Schema({
+  tenantId: { type: mongoose.Schema.Types.ObjectId, ref: 'Tenant', required: false, index: true, immutable: true },
   // MAIL_EVENTS kataloğundaki olay adı — hem kimlik hem çözüm anahtarı.
   event: { type: String, required: true, unique: true, index: true },
   category: { type: String, enum: ['action', 'scheduled'], required: true, index: true },
@@ -64,4 +67,9 @@ schema.index({ category: 1, enabled: 1 });
 schema.index({ 'schedule.enabled': 1, 'schedule.nextSentAt': 1 });
 schema.index({ createdAt: -1 });
 
-export default mongoose.model('SystemMailTemplate', schema);
+registerTenantIndexes('SystemMailTemplate', [
+  { keys: { tenantId: 1, event: 1 }, options: { unique: true, name: 'tenant_event_uniq' } },
+  { keys: { tenantId: 1, category: 1, enabled: 1 }, options: { name: 'tenant_category_enabled' } },
+]);
+
+export default defineTenantModel('SystemMailTemplate', schema);
