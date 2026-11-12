@@ -21,7 +21,7 @@ const staffAccountSchema = new mongoose.Schema({
 }, { timestamps: true });
 
 staffAccountSchema.pre('save', async function() {
-  if (this.isModified('password')) this.password = await bcrypt.hash(this.password, 10);
+  if (this.isModified('password')) this.password = await bcrypt.hash(this.password, 12); // same cost as User
 });
 
 staffAccountSchema.methods.comparePassword = function(candidate) {

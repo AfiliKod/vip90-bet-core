@@ -9,6 +9,7 @@ describe('StaffAccount Model', () => {
   before(async () => {
     await mongoose.connect(TEST_DB);
     await StaffAccount.deleteMany({});
+    await StaffAccount.init(); // unique email index must exist before the duplicate test
   });
 
   after(async () => {
