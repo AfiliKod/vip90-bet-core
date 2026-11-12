@@ -42,6 +42,23 @@ export const WARN_WINDOW_MS = 60_000;
 const lastWarnAt = new Map();
 
 /** Violation counters collected in `log` mode. */
+// N6 gate telemetry: every scope violation (log or enforce, unscoped or
+// cross-tenant) is reported to the registered listeners before the guard logs
+// or throws. Listeners must be cheap and never throw into the query path.
+const scopeErrorListeners = new Set();
+
+/** Register a listener for scope violations; returns an unsubscribe function. */
+export function onScopeViolation(listener) {
+  scopeErrorListeners.add(listener);
+  return () => scopeErrorListeners.delete(listener);
+}
+
+function notifyScopeViolation(event) {
+  for (const listener of scopeErrorListeners) {
+    try { listener(event); } catch { /* telemetry never breaks a query */ }
+  }
+}
+
 export function getScopeViolationStats() {
   return { count: stats.count, lastSample: stats.lastSample };
 }
@@ -64,6 +81,7 @@ export function reportViolation(
   { model, op, reason = 'unscoped' },
   { now = Date.now(), windowMs = WARN_WINDOW_MS } = {},
 ) {
+  notifyScopeViolation({ model, op, reason });
   if (getTenancyEnforcement() === 'enforce') {
     throw new TenantScopeError(`[tenancy] ${reason} ${op} on ${model}`, { model, op, reason });
   }
@@ -86,6 +104,7 @@ function hasValue(v) {
 }
 
 function crossTenant(model, op) {
+  notifyScopeViolation({ model, op, reason: 'cross_tenant' });
   return new TenantScopeError(`[tenancy] cross_tenant ${op} on ${model}`, {
     model,
     op,

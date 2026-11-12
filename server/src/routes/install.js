@@ -20,6 +20,7 @@ import { invalidateModules } from '../modules/index.js';
 import { INSTALL_PAGE_HTML } from '../../../installer/page.js';
 import Role from '../models/Role.js';
 import { assignRoleToUser } from '../services/permissions.js';
+import { getTenancyMode } from '../config/tenancy.js';
 
 export function createInstallHandlers({
   userModel, settingModel, dbState,
@@ -30,15 +31,33 @@ export function createInstallHandlers({
   const installer = createInstaller({ userModel, settingModel, dbState, currencyCodes, afterSettingsWritten, assignOwnerRole });
 
   async function pageHandler(req, res) {
+    if (getTenancyMode() === 'multi') {
+      return res.status(404).json({
+        error: 'INSTALL_WIZARD_DISABLED',
+        message: 'Setup wizard is disabled in multi-tenant mode. Use scripts/platform-bootstrap.mjs instead.',
+      });
+    }
     res.set('Cache-Control', 'no-store');
     res.send(INSTALL_PAGE_HTML);
   }
 
   async function statusHandler(req, res) {
+    if (getTenancyMode() === 'multi') {
+      return res.status(404).json({
+        error: 'INSTALL_WIZARD_DISABLED',
+        message: 'Setup wizard is disabled in multi-tenant mode. Use scripts/platform-bootstrap.mjs instead.',
+      });
+    }
     res.json(await installer.status());
   }
 
   async function runHandler(req, res) {
+    if (getTenancyMode() === 'multi') {
+      return res.status(404).json({
+        error: 'INSTALL_WIZARD_DISABLED',
+        message: 'Setup wizard is disabled in multi-tenant mode. Use scripts/platform-bootstrap.mjs instead.',
+      });
+    }
     try {
       const result = await installer.run(req.body || {});
       // .env üretimi: JWT anahtarları kurulumda bir kez üretilir; operatör

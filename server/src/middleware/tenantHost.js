@@ -1,4 +1,5 @@
 import Domain from '../models/Domain.js';
+import Tenant from '../models/Tenant.js';
 import { getTenancyMode } from '../config/tenancy.js';
 import { runWithTenant } from '../tenancy/context.js';
 import { getDefaultTenantId } from '../tenancy/defaultTenantId.js';
@@ -8,6 +9,22 @@ const domainHostCache = new Map();
 
 function normalizeHost(host) {
   return String(host || '').trim().toLowerCase().replace(/:(?:80|443)$/, '');
+}
+
+// Platform paths are served only on PLATFORM_HOST when it is configured; without
+// it (development), the path alone decides. A tenant domain never serves them.
+function isPlatformRequest(host, req) {
+  const platformHost = process.env.PLATFORM_HOST ? normalizeHost(process.env.PLATFORM_HOST) : null;
+  if (platformHost) return host === platformHost;
+  const path = req?.path || req?.originalUrl || '';
+  return path.startsWith('/api/platform') || path.startsWith('/console');
+}
+
+// A tenant that is not yet live still needs its own staff (go-live checklist,
+// credentials, legal entity); only player/public traffic is held back (spec N4).
+function isStaffPath(req) {
+  const path = req?.path || req?.originalUrl || '';
+  return path.startsWith('/api/admin') || path.startsWith('/api/staff') || path.startsWith('/admin');
 }
 
 async function findDomainByHost(host) {
@@ -84,9 +101,24 @@ export function resolveTenantHost(options = {}) {
           isDefault: true,
         };
       } else {
+        if (isPlatformRequest(host, req)) {
+          req.tenant = null;
+          return next();
+        }
+
         const tenant = await resolveTenantByHost(host);
         if (!tenant) {
           return res.status(404).json({ error: 'TENANT_NOT_FOUND', message: 'Domain not registered' });
+        }
+        const tenantDoc = await Tenant.findById(tenant.id).select('status').lean();
+        if (tenantDoc?.status === 'provisioning' && !isStaffPath(req)) {
+          return res.status(503).json({ error: 'TENANT_NOT_READY', message: 'Tenant is currently being provisioned' });
+        }
+        if (tenantDoc?.status === 'suspended') {
+          return res.status(503).json({ error: 'TENANT_SUSPENDED', message: 'Tenant is suspended' });
+        }
+        if (tenantDoc?.status === 'closed') {
+          return res.status(404).json({ error: 'TENANT_CLOSED', message: 'Tenant is closed' });
         }
         req.tenant = tenant;
       }

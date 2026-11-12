@@ -64,6 +64,7 @@ jobs:
       - run: npm ci
       - run: npm ci --prefix server
       - run: npm ci --prefix client
+      - run: npm ci --prefix console
       # MONGODB_URI is deliberately not set: each test file falls back to its own
       # database on localhost; a shared URI makes parallel files wipe each other.
       - name: Test
