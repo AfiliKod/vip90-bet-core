@@ -1,4 +1,6 @@
 import mongoose from 'mongoose';
+import { defineTenantModel } from '../tenancy/models.js';
+import { registerTenantIndexes } from '../tenancy/indexRegistry.js';
 
 export const SIGNAL_CATEGORY = {
   ACCOUNT: 'account',
@@ -19,6 +21,7 @@ export const SIGNAL_SEVERITY = {
 };
 
 const schema = new mongoose.Schema({
+  tenantId: { type: mongoose.Schema.Types.ObjectId, ref: 'Tenant', required: false, index: true, immutable: true },
   playerId: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true },
   brandId: { type: mongoose.Schema.Types.ObjectId, ref: 'Brand', default: null },
   jurisdictionId: { type: mongoose.Schema.Types.ObjectId, ref: 'Jurisdiction', default: null },
@@ -39,4 +42,8 @@ schema.index({ playerId: 1, category: 1 });
 schema.index({ code: 1, createdAt: -1 });
 schema.index({ processed: 1, createdAt: 1 });
 
-export default mongoose.model('RiskSignal', schema);
+registerTenantIndexes('RiskSignal', [
+  { keys: { tenantId: 1, playerId: 1, createdAt: -1 }, options: { name: 'tenant_playerId_createdAt' } },
+]);
+
+export default defineTenantModel('RiskSignal', schema);

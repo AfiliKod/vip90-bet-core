@@ -1,6 +1,15 @@
 import mongoose from 'mongoose';
+import { defineTenantModel } from '../tenancy/models.js';
+import { registerTenantIndexes } from '../tenancy/indexRegistry.js';
 
 const schema = new mongoose.Schema({
+  tenantId: { type: mongoose.Schema.Types.ObjectId, ref: 'Tenant', required: false, default: null, index: true, immutable: true },
+  actorScope: { type: String, enum: ['platform', 'partner', 'tenant'], default: 'tenant' },
+  actorStaffId: { type: mongoose.Schema.Types.ObjectId, ref: 'StaffAccount', default: null },
+  partnerId: { type: mongoose.Schema.Types.ObjectId, ref: 'Partner', default: null },
+  onBehalfOfTenantId: { type: mongoose.Schema.Types.ObjectId, ref: 'Tenant', default: null },
+  capability: { type: String, default: null },
+  grantId: { type: mongoose.Schema.Types.ObjectId, ref: 'PartnerGrant', default: null },
   actorId: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
   actorType: { type: String, enum: ['admin', 'player', 'system'], required: true },
   actorUsername: { type: String, required: true },
@@ -26,4 +35,8 @@ schema.index({ action: 1, createdAt: -1 });
 schema.index({ targetType: 1, targetId: 1 });
 schema.index({ createdAt: -1 }, { expireAfterSeconds: 60 * 60 * 24 * 365 }); // 1 year TTL
 
-export default mongoose.model('AuditLog', schema);
+registerTenantIndexes('AuditLog', [
+  { keys: { tenantId: 1, createdAt: -1 }, options: { name: 'tenant_createdAt' } },
+]);
+
+export default defineTenantModel('AuditLog', schema);
