@@ -17,7 +17,7 @@ function isPlatformRequest(host, req) {
   const platformHost = process.env.PLATFORM_HOST ? normalizeHost(process.env.PLATFORM_HOST) : null;
   if (platformHost) return host === platformHost;
   const path = req?.path || req?.originalUrl || '';
-  return path.startsWith('/api/platform') || path.startsWith('/console');
+  return path.startsWith('/api/platform') || path.startsWith('/api/partner') || path.startsWith('/console');
 }
 
 // A tenant that is not yet live still needs its own staff (go-live checklist,
