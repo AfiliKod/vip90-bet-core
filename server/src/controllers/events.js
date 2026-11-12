@@ -1,4 +1,6 @@
 import Event from '../models/Event.js';
+import Bet from '../models/Bet.js';
+import { createError } from '../middleware/error.js';
 import { buildSummaryTree } from '../utils/summaryTree.js';
 import { getBettingDisplaySettings } from '../services/bettingDisplaySettings.js';
 import escapeStringRegexp from 'escape-string-regexp';
@@ -193,4 +195,59 @@ export async function summary(req, res, next) {
     setCachedList(cacheKey, tree);
     res.json(tree);
   } catch (e) { next(e); }
+}
+
+/**
+ * Settle an event manually.
+ * Requires platform-scoped staff or platform:events:settle permission (§4.6, G-14).
+ * Tenant-scoped staff is rejected with 403 FORBIDDEN.
+ */
+export async function settle(req, res, next) {
+  try {
+    const isPlatformScope = req.staff?.scope === 'platform';
+    const hasPlatformPerm = Array.isArray(req.staff?.permissions) && req.staff.permissions.includes('platform:events:settle');
+    if (req.staff?.scope === 'tenant' || (req.staff && !isPlatformScope && !hasPlatformPerm)) {
+      throw createError(403, 'FORBIDDEN', 'Manuel etkinlik sonuçlandırma platform yetkisi gerektirir');
+    }
+
+    const { results, score, outcome } = req.validated || req.body || {};
+    const event = await Event.findById(req.params.id);
+    if (!event) throw createError(404, 'NOT_FOUND', 'Etkinlik bulunamadı');
+
+    if (event.status === 'finished') {
+      const hasPendingBets = await Bet.exists({
+        status: 'pending',
+        selections: { $elemMatch: { eventId: event._id, outcome: 'pending' } },
+      });
+      if (!hasPendingBets) throw createError(409, 'ALREADY_SETTLED', 'Etkinlik zaten sonuçlandırılmış');
+    }
+
+    let settleEvent = null;
+    try {
+      const mod = await import('../premium/betting/settlement.js');
+      settleEvent = mod.settleEvent;
+    } catch {}
+
+    event.status = 'finished';
+    const winner = results?.maç_sonucu || outcome || '';
+    event.result = { winner, score: score || '' };
+    event.archivedAt = new Date();
+
+    if (Array.isArray(event.markets)) {
+      for (const market of event.markets) {
+        const r = results?.[market.type];
+        if (r) market.result = Array.isArray(r) ? r.join(',') : r;
+      }
+    }
+    await event.save();
+
+    if (settleEvent) {
+      const eventTitle = `${event.homeTeam?.name || ''} vs ${event.awayTeam?.name || ''}`;
+      await settleEvent(event._id, results || { outcome }, eventTitle);
+    }
+
+    res.json({ message: 'Etkinlik sonuçlandırıldı', event });
+  } catch (e) {
+    next(e);
+  }
 }

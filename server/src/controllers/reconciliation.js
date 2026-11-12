@@ -1,5 +1,7 @@
 import * as reconciliationService from '../services/reconciliation.js';
 import User from '../models/User.js';
+import { ReconciliationJob, ReconciliationItem } from '../models/Reconciliation.js';
+import { createError } from '../middleware/error.js';
 import { deriveDepositAddress, fetchIncomingUSDT } from '../services/cryptoService.js';
 import { errorLogger } from '../services/errorLogger.js';
 
@@ -125,17 +127,28 @@ export async function createJob(req, res, next) {
  */
 export async function getJob(req, res, next) {
   try {
-    const job = await reconciliationService.getReconciliationJob(req.params.id);
-    if (!job) return res.status(404).json({ error: { code: 'NOT_FOUND', message: 'İş bulunamadı' } });
+    const tenantId = req.tenant?.id;
+    const filter = { _id: req.params.id };
+    if (tenantId) filter.tenantId = tenantId;
+    const job = await ReconciliationJob.findOne(filter);
+    if (!job) throw createError(404, 'NOT_FOUND', 'İş bulunamadı');
     res.json({ job });
   } catch (e) { next(e); }
 }
+
+export const getReconciliationJob = getJob;
 
 /**
  * Start a reconciliation job
  */
 export async function startJob(req, res, next) {
   try {
+    const tenantId = req.tenant?.id;
+    if (tenantId) {
+      const job = await ReconciliationJob.findOne({ _id: req.params.id, tenantId });
+      if (!job) throw createError(404, 'NOT_FOUND', 'İş bulunamadı');
+    }
+
     // cryptoDeposit: gerçek dış kaynak (TronGrid, bkz. fetchCryptoExternalRecords).
     // Diğer tipler (bank/Slikair kanalları) için henüz gerçek bir entegratör
     // yok — bkz. docs/product/09-bilinen-kisitlar.md § Reconciliation.
@@ -156,6 +169,12 @@ export async function startJob(req, res, next) {
  */
 export async function getJobItems(req, res, next) {
   try {
+    const tenantId = req.tenant?.id;
+    if (tenantId) {
+      const job = await ReconciliationJob.findOne({ _id: req.params.id, tenantId });
+      if (!job) throw createError(404, 'NOT_FOUND', 'İş bulunamadı');
+    }
+
     const { status } = req.query;
     const { page, limit } = parsePagination(req.query);
     const result = await reconciliationService.getReconciliationItems(req.params.id, {
@@ -170,6 +189,12 @@ export async function getJobItems(req, res, next) {
  */
 export async function resolveItem(req, res, next) {
   try {
+    const tenantId = req.tenant?.id;
+    if (tenantId) {
+      const item = await ReconciliationItem.findOne({ _id: req.params.itemId, tenantId });
+      if (!item) throw createError(404, 'NOT_FOUND', 'Kayıt bulunamadı');
+    }
+
     const { status, notes } = req.body;
     const item = await reconciliationService.resolveReconciliationItem(
       req.params.itemId,
