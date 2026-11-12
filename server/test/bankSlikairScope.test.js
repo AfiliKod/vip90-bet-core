@@ -22,8 +22,8 @@ before(async () => {
   await mongoose.connect(TEST_DB);
   await mongoose.connection.dropDatabase();
 
-  u1 = await runWithTenant(T1, () => User.create({ username: 'player1_t1', email: 'p1@t1.com', password: 'test-password', balance: 500 }));
-  u2 = await runWithTenant(T2, () => User.create({ username: 'player2_t2', email: 'p2@t2.com', password: 'test-password', balance: 500 }));
+  u1 = await runWithTenant(T1, () => User.create({ username: 'player1_t1', email: 'p1@t1.example.com', password: 'test-password', balance: 500 }));
+  u2 = await runWithTenant(T2, () => User.create({ username: 'player2_t2', email: 'p2@t2.example.com', password: 'test-password', balance: 500 }));
 
   bankReqT1 = await runWithTenant(T1, () => BankDepositRequest.create({
     userId: u1._id,
@@ -41,7 +41,7 @@ before(async () => {
     amount: 100,
     currency: 'TRY',
     paymentMethod: 'bank',
-    email: 'p1@t1.com',
+    email: 'p1@t1.example.com',
     country: 'TR',
     status: 'created',
   }));
