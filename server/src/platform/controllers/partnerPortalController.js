@@ -108,8 +108,9 @@ export async function listPartnerTenants(req, res, next) {
 
 export async function getPartnerTenant(req, res, next) {
   try {
-    await assertLinkedTenant(req.partner._id, req.params.id);
-    const tenant = await Tenant.findById(req.params.id).lean();
+    // The verified link (not the raw URL id) names the tenant to load.
+    const link = await assertLinkedTenant(req.partner._id, req.params.id);
+    const tenant = await Tenant.findById(link.tenantId).lean();
     if (!tenant) throw createError(404, 'TENANT_NOT_FOUND', 'Tenant not found');
     const domains = await Domain.find({ tenantId: tenant._id }).lean();
     res.json({ tenant, domains });
