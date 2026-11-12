@@ -18,6 +18,15 @@ Madde formatı ve kategoriler için `docs/CHANGELOG_GUIDE.md`'ye bakın —
 
 ## [Yayınlanmadı]
 
+### İP-1: çok kiracılı temel (kiracı modeli, kiracı bağlamı, kapsam eklentisi, demo bayrakları)
+**Kırılan Değişiklikler**
+- Demo davranışları artık açık bayrak ister; hepsinin varsayılanı kapalıdır: `DEMO_BOTS` (bot oyuncu zamanlayıcısı ve `/api/admin/bots*`), `DEMO_FAKE_WINNERS` (Son Kazananlar simülasyonu ve `/api/admin/fake-winners`), `DEMO_DATA` (`/api/admin/demo-data/*` ve canlı demo simülasyonunun açılışta geri yüklenmesi). Kapalıyken iş başlatılmaz, uçlar `404 DEMO_FEATURE_DISABLED` döner, admin menüsündeki ilgili öğeler gizlenir. Sahte kazananlar bugüne kadar varsayılan olarak açıktı. Demo kurulumları güncellemeden önce kullandıkları bayrakları `server/.env`'de `true` yapar; gerçek operatör kurulumlarının bir şey yapması gerekmez.
+- `TENANCY_MODE` ve `TENANCY_ENFORCEMENT` açılışta doğrulanır. Geçersiz değer ya da `TENANCY_MODE=multi` iken `enforce` dışında bir zorlama değeri, açık bir `DEMO_*` bayrağı, eksik `JWT_STAFF_SECRET` veya `OPERATOR_SECRET_ENCRYPTION_KEY` sunucunun başlamasını engeller. Bu değişkenleri tanımlamayan tek operatörlü kurulumlar etkilenmez.
+**Eklendi**
+- `Tenant` ve `Domain` modelleri. Açılış geçişi `tenancy-001-default-tenant` tek modda varsayılan kiracıyı (`key: 'default'`) oluşturur, in-house sağlayıcının `vip90` operatörü varsa ona bağlar ve varsayılan markanın alan adlarıyla `CLIENT_URL` kökenlerinden `Domain` kayıtları üretir. Bu kayıtları henüz hiçbir kod okumaz; davranış değişmez. Aynı geçiş `node scripts/migrate.js` ile de çalışır.
+- Kiracı bağlamı (`server/src/tenancy/`): `tenantContext`, `runWithTenant`, `runAsPlatform`, `forEachTenant`, `tenantScoped` eklentisi (`TENANCY_ENFORCEMENT=off|log|enforce`, tek modda varsayılan `off`), `defineTenantModel`/`getTenantModel` ve bağlantı çözümleyici; eklentiler için `registerTenantProvisioningHook` ve `registerTenantCredentialSchema`. Bu sürümde hiçbir üretim modeli eklentiyi kullanmaz.
+- `GET /api/admin/demo-flags`: admin istemcisinin demo öğelerini gösterip gizlemek için okuduğu etkin bayraklar.
+
 ### Admin kullanıcı listesi: güncelleme sonrası seçili kullanıcı korunuyor
 **Düzeltildi**
 - Admin → Kullanıcılar'da bir kullanıcıyı güncelledikten sonra yan paneldeki kullanıcı `search=<kullanıcı adı>&limit=1` ile yeniden çekiliyordu; benzer adlı daha yeni bir hesap (`ahmet` → `ahmet1907`) seçili kullanıcının yerine geçebiliyordu. Panel artık güncelleme yanıtındaki kullanıcıyı kullanır; yanıt yoksa sonuçlar içinde `_id` ile eşleştirir.

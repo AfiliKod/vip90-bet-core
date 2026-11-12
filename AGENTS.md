@@ -33,6 +33,14 @@ Versions follow SemVer; core tags are primary, downstream installs record which 
 
 - Design: `docs/superpowers/specs/2026-11-09-multi-tenant-design.md`. Plans per work package live in
   `docs/superpowers/plans/`. Dated records under `docs/superpowers/` are not rewritten.
+- **`2026-11-09`: tenant data isolation is mandatory.** Every operator-owned collection carries `tenantId`;
+  unscoped queries on operator-owned models are rejected by the `tenantScoped` plugin; platform work that runs
+  outside a tenant is marked explicitly with `runAsPlatform(reason, fn)`. The tenant model is `Tenant`; the name
+  `Operator` belongs to the in-house provider's B2B customer model and is never used in the tenant sense.
+  Brand/Jurisdiction pages are functional: a Brand belongs to a tenant, and host → tenant resolution reads the
+  `Domain` collection. The central multi-tenant installation is a new, clean install; existing single-operator
+  demo installs stay single-mode and are not migrated. In multi mode bots, fake winners and the demo deposit never
+  run; staff 2FA is mandatory only in multi mode.
 - Single-operator installs keep working unchanged on the default tenant (`TENANCY_MODE=single`).
 - Agent (reseller) and Partner are different concepts; do not merge them.
 

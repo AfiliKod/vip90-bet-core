@@ -75,6 +75,10 @@ describe('Slikair — initiatePayout (admin)', () => {
   before(async () => {
     for (const k of Object.keys(SLIKAIR_TEST_ENV)) { savedEnv[k] = process.env[k]; process.env[k] = SLIKAIR_TEST_ENV[k]; }
     await mongoose.connect('mongodb://localhost:27017/betzone_test_slikair_payout');
+    // Create collections and indexes up front: the first write happens inside a
+    // transaction, and on a fresh database Mongo rejects it while the catalog is
+    // still changing ("Unable to write ... due to catalog changes").
+    await Promise.all([User.init(), Transaction.init(), SlikairPayout.init()]);
   });
 
   after(async () => {

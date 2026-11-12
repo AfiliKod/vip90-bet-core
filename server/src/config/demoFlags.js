@@ -1,3 +1,5 @@
+import { getTenancyMode } from './tenancy.js';
+import { requireDemoFlag } from './tenancy.js';
 import { createError } from '../middleware/error.js';
 
 /**
@@ -6,7 +8,7 @@ import { createError } from '../middleware/error.js';
  * features. Anything other than "multi" is single-tenant mode.
  */
 export function isMultiTenancyMode(env = process.env) {
-  return String(env.TENANCY_MODE || 'single').toLowerCase() === 'multi';
+  return getTenancyMode(env) === 'multi';
 }
 
 /**
@@ -19,9 +21,4 @@ export function isDemoInstantDepositEnabled(env = process.env) {
     && !isMultiTenancyMode(env);
 }
 
-export function requireDemoInstantDeposit(req, res, next) {
-  if (!isDemoInstantDepositEnabled()) {
-    return next(createError(404, 'DEMO_FEATURE_DISABLED', 'This feature is disabled on this installation'));
-  }
-  next();
-}
+export const requireDemoInstantDeposit = requireDemoFlag('instantDeposit');

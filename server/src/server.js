@@ -20,21 +20,32 @@ import { startBonusExpiryJob } from './jobs/bonusExpiry.js';
 import { startCloseStaleGameSessionsJob } from './jobs/closeStaleGameSessions.js';
 import { startKycExpiryJob } from './jobs/kycExpiry.js';
 import { startCryptoWithdrawalReconcileJob } from './jobs/cryptoWithdrawalReconcile.js';
-import Setting from './models/Setting.js';
 import { hydrateCryptoSettings } from './services/cryptoSettings.js';
 import { initSentry } from './services/sentry.js';
 import { errorLogger } from './services/errorLogger.js';
 import { initDefaultPermissions, initDefaultRoles, migrateOrphanedAdminRoles, syncMissingPermissions } from './services/permissions.js';
 import { seedDefaultEnabledModules } from './modules/index.js';
 import { initDefaultVipLevels, migrateLegacyVipIcons } from './services/vip.js';
-import { startBotScheduler } from './jobs/botScheduler.js';
-import { startFakeWinnersScheduler } from './services/fakeWinners.js';
 import { seedDefaultPages } from './services/staticPages.js';
 import { initDefaultChatRoom } from './services/chat.js';
 import { initDefaultRules, dedupeRuleNames } from './services/riskRule.js';
 import { initDefaultSegments } from './services/playerSegment.js';
 import { initDefaultSmsTemplates } from './services/smsTemplate.js';
 import { initDefaultSmsSender } from './services/smsSender.js';
+import { assertTenancyStartup, getTenancyMode } from './config/tenancy.js';
+import { runTenancyBoot } from './tenancy/defaultTenant.js';
+import { startDemoJobs } from './jobs/demoJobs.js';
+
+try {
+  assertTenancyStartup();
+} catch (e) {
+  for (const p of e.problems ?? [e.message]) console.error('[tenancy] ' + p);
+  process.exit(1);
+}
+
+if (getTenancyMode() === 'multi') {
+  console.warn('[tenancy] TENANCY_MODE=multi: tenant isolation is not complete yet (later work packages); do not take real traffic');
+}
 
 // Igames reconciliation script ayrı (ücretli) bir pakettir — bu kurulumda
 // hiç bulunmayabilir (bkz. app.js'deki aynı opsiyonel yükleme deseni).
@@ -161,6 +172,7 @@ connectDB()
   .then(async () => {
     // Admin-adjusted crypto limits/rate/network survive a restart (V17); never throws.
     await hydrateCryptoSettings({ force: true });
+    await runTenancyBoot();
     httpServer.listen(PORT, () => console.log(`Server running on :${PORT}`));
     // O4 — kademeli yönetici yetkileri: varsayılan izin/rol setini oluşturur
     // (idempotent, koleksiyon boşsa doldurur). Daha önce hiçbir yerden
@@ -208,15 +220,6 @@ connectDB()
     startCloseStaleGameSessionsJob();
     startKycExpiryJob();
     startCryptoWithdrawalReconcileJob();
-    // Demo veri canlı simülasyonu — sunucu restart sonrası önceki durumu geri yükler
-    const demoDataLiveRow = await Setting.findOne({ key: 'demoData.live.config' }).lean();
-    if (demoDataLiveRow?.value) {
-      const config = JSON.parse(demoDataLiveRow.value);
-      if (config.enabled) {
-        const { startDemoDataLiveJob } = await import('./jobs/demoDataLiveSimulation.js');
-        startDemoDataLiveJob((config.tickIntervalMinutes || 2) * 60 * 1000);
-      }
-    }
     // Sistem e-postaları: eksik varsayılan (demo) şablonları ekle + zamanlanmış
     // gönderim işini başlat — panel "Sistem E-postaları" sayfası açılışta dolu gelsin.
     import('./services/mailTemplates.js')
@@ -236,11 +239,11 @@ connectDB()
     startStatusTransition(io);
     startOddsSourceLiveSync(io);
     startOddsSourceUpcomingSync(io);
-    // P3 — bot oyuncular: aksiyonu hazır botları periyodik tetikler
-    startBotScheduler();
-    // Son Kazananlar simülasyonu — gerçek User/bakiye kullanmadan, değişen
-    // aralıklarla kozmetik "kazanan" akışı üretir (bkz. services/fakeWinners.js)
-    startFakeWinnersScheduler();
+    startDemoJobs()
+      .then((started) => {
+        if (started.length) console.log('[demo] started: ' + started.join(', '));
+      })
+      .catch((err) => console.error('startDemoJobs error:', err.message));
     // Job'lar tamamen asılıp hiç rapor vermediğinde de bayatlığı yakala
     startMonitor();
     startReconciliation();
