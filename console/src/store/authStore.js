@@ -9,6 +9,19 @@ function getStoredToken() {
   }
 }
 
+function decodePayload(token) {
+  if (!token || typeof token !== 'string') return null;
+  try {
+    const parts = token.split('.');
+    if (parts.length !== 3) return null;
+    const base64 = parts[1].replace(/-/g, '+').replace(/_/g, '/');
+    const json = typeof atob === 'function' ? atob(base64) : Buffer.from(base64, 'base64').toString('utf8');
+    return JSON.parse(json);
+  } catch {
+    return null;
+  }
+}
+
 function storeToken(token) {
   if (typeof window === 'undefined') return;
   try {
@@ -22,12 +35,15 @@ function storeToken(token) {
   }
 }
 
-export const usePlatformAuthStore = create((set) => ({
+const storedToken = getStoredToken();
+const initialDecoded = decodePayload(storedToken);
+
+export const usePlatformAuthStore = create((set, get) => ({
   isAuthenticated: false,
   requires2fa: false,
   requires2faSetup: false,
-  accessToken: getStoredToken(),
-  staff: null,
+  accessToken: storedToken,
+  staff: initialDecoded ? { id: initialDecoded.sub, scope: initialDecoded.scp, scopeId: initialDecoded.sid } : null,
   challengeToken: null,
   setupToken: null,
   loading: false,
@@ -60,10 +76,19 @@ export const usePlatformAuthStore = create((set) => ({
 
     if (data?.accessToken) {
       storeToken(data.accessToken);
+      const decoded = decodePayload(data.accessToken);
+      let staff = data.staff ? { ...data.staff } : null;
+      if (!staff && decoded) {
+        staff = { id: decoded.sub, scope: decoded.scp, scopeId: decoded.sid };
+      } else if (staff && decoded) {
+        if (!staff.scope && decoded.scp) staff.scope = decoded.scp;
+        if (!staff.scopeId && decoded.sid) staff.scopeId = decoded.sid;
+      }
+
       set({
         isAuthenticated: true,
         accessToken: data.accessToken,
-        staff: data.staff || null,
+        staff,
         requires2fa: false,
         requires2faSetup: false,
         challengeToken: null,
@@ -75,13 +100,36 @@ export const usePlatformAuthStore = create((set) => ({
 
   setAccessToken: (accessToken) => {
     storeToken(accessToken);
-    set({
-      accessToken,
-      isAuthenticated: Boolean(accessToken),
+    const decoded = decodePayload(accessToken);
+    set((state) => {
+      let staff = state.staff ? { ...state.staff } : null;
+      if (!staff && decoded) {
+        staff = { id: decoded.sub, scope: decoded.scp, scopeId: decoded.sid };
+      } else if (staff && decoded) {
+        if (!staff.scope && decoded.scp) staff.scope = decoded.scp;
+        if (!staff.scopeId && decoded.sid) staff.scopeId = decoded.sid;
+      }
+      return {
+        accessToken,
+        isAuthenticated: Boolean(accessToken),
+        staff,
+      };
     });
   },
 
-  setStaff: (staff) => set({ staff }),
+  setStaff: (staff) => set((state) => ({
+    staff: typeof staff === 'function' ? staff(state.staff) : staff,
+  })),
+
+  isPartnerScope: () => {
+    const staff = get().staff;
+    return staff?.scope === 'partner';
+  },
+
+  isPlatformScope: () => {
+    const staff = get().staff;
+    return staff?.scope === 'platform' || !staff?.scope;
+  },
 
   setRequires2fa: (requires2fa, challengeToken = null) =>
     set({ requires2fa, challengeToken }),
