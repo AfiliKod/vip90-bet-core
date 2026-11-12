@@ -5,9 +5,9 @@
  * `isConfigured()` = hiç kayıt yok → enjeksiyon yapılmaz, index.html olduğu gibi
  * servis edilir (mevcut davranış korunur).
  */
-import mongoose from 'mongoose';
-import Setting from '../models/Setting.js';
 import { SEO_DEFAULTS, sanitizeStored } from './schema.js';
+import { mongoLoad } from '../config/secretSettingsStore.js';
+import { saveScopedSetting, createTenantStoreFacade } from '../services/settings.js';
 
 export const SEO_DB_KEY = 'seo.config';
 const TTL_MS = 30 * 1000;
@@ -41,20 +41,23 @@ export function createSeoStore({ load, save, now = Date.now, ttlMs = TTL_MS } = 
   };
 }
 
-export const seoStore = createSeoStore({
+// Tenant-keyed instances (İP-4 Task 4): the factory cache is per instance.
+const stores = createTenantStoreFacade(({ tenantId, brandId }) => createSeoStore({
   load: async () => {
-    if (mongoose.connection.readyState !== 1) return null;
-    const row = await Setting.findOne({ key: SEO_DB_KEY }).lean();
-    if (!row?.value) return null;
-    try { return JSON.parse(row.value); } catch { return null; }
+    const value = (await mongoLoad([SEO_DB_KEY], { tenantId, brandId }))[SEO_DB_KEY];
+    if (!value) return null;
+    try { return JSON.parse(value); } catch { return null; }
   },
   save: async (values, updatedBy) => {
-    await Setting.updateOne(
-      { key: SEO_DB_KEY },
-      { $set: { value: JSON.stringify(values), ...(updatedBy ? { updatedBy } : {}) } },
-      { upsert: true },
-    );
+    await saveScopedSetting(SEO_DB_KEY, JSON.stringify(values), updatedBy);
   },
-});
+}));
+
+export const seoStore = {
+  get: () => stores.current().get(),
+  isConfigured: () => stores.current().isConfigured(),
+  update: (patch, updatedBy) => stores.current().update(patch, updatedBy),
+  invalidate: () => stores.invalidateAll(),
+};
 
 export { SEO_DEFAULTS };

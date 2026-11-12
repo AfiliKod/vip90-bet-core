@@ -16,6 +16,7 @@ import mongoose from 'mongoose';
 import SystemMailTemplate from '../models/SystemMailTemplate.js';
 import SystemMailLog from '../models/SystemMailLog.js';
 import { layout, button, fallbackLink, SUPPORT_EMAIL } from './email.js';
+import { clientUrlFallback } from '../tenancy/tenantBaseUrl.js';
 
 export const CATEGORY_ACTION = 'action';
 export const CATEGORY_SCHEDULED = 'scheduled';
@@ -168,15 +169,18 @@ export function renderTemplateDocument({ subject, preheader = '', body, ctaLabel
 
 /** Önizleme/örnek amaçlı gerçekçi değişken değerleri. */
 export function buildSampleVars(event, overrides = {}) {
+  // Preview links use the same single-mode fallback the real mail paths use;
+  // tenant-aware callers may override `siteUrl` via `overrides`.
+  const siteUrl = clientUrlFallback('https://vip90.bet');
   const sample = {
     siteName: 'VIP90.bet',
     username: 'ayse_demo',
     supportEmail: SUPPORT_EMAIL,
     currentYear: String(new Date().getFullYear()),
-    siteUrl: (process.env.CLIENT_URL || 'https://vip90.bet').split(',')[0].trim(),
-    verifyUrl: `${(process.env.CLIENT_URL || 'https://vip90.bet').split(',')[0].trim()}/verify-email?token=demo-token`,
+    siteUrl,
+    verifyUrl: `${siteUrl}/verify-email?token=demo-token`,
     expiresHours: 24,
-    resetUrl: `${(process.env.CLIENT_URL || 'https://vip90.bet').split(',')[0].trim()}/reset-password?token=demo-token`,
+    resetUrl: `${siteUrl}/reset-password?token=demo-token`,
     expiresMinutes: 60,
     changedAt: new Date().toISOString(),
     note: 'Belgeleriniz onaylandı.',

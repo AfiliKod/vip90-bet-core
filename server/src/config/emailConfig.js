@@ -72,14 +72,28 @@ export function emailEnvView(env = process.env) {
   return out;
 }
 
+function normalizeOptions(options) {
+  if (!options) return {};
+  if (typeof options === 'string' || options._bsontype || options.constructor?.name === 'ObjectId') {
+    return { tenantId: options };
+  }
+  return options;
+}
+
 export function createEmailConfigStore(deps = {}) {
-  return createSecretSettingsStore({
+  const store = createSecretSettingsStore({
     prefix: 'smtp',
     fields: EMAIL_FIELDS,
     load: mongoLoad,
     save: mongoSave,
+    scope: 'tenant',
     ...deps,
   });
+  const originalGetAll = store.getAll;
+  store.getAll = function (options = {}) {
+    return originalGetAll.call(this, normalizeOptions(options));
+  };
+  return store;
 }
 
 export const emailConfig = createEmailConfigStore();

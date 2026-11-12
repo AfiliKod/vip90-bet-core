@@ -8,7 +8,8 @@ import http from 'http';
 import { fileURLToPath } from 'url';
 import { dirname, join } from 'path';
 import { existsSync, readFileSync } from 'fs';
-import { expandOrigins, canonicalHostRedirect } from './utils/origins.js';
+import { canonicalHostRedirect } from './utils/origins.js';
+import { getDomainOrigins } from './tenancy/corsDomains.js';
 import { getOnlineCount } from './services/onlineCount.js';
 import { errorHandler, notFound } from './middleware/error.js';
 import { globalLimiter } from './middleware/rateLimit.js';
@@ -103,22 +104,11 @@ try {
   // In-house oyun provider'ı bu kurulumda mevcut değil.
 }
 
-const baseOrigins = expandOrigins(
-  (process.env.CLIENT_URL || 'http://localhost:5173')
-    .split(',').map(s => s.trim()).filter(Boolean),
-);
-
-// game-host: in-house oyunların ayrı barındırılan uygulaması (provider
-// formatı — bkz. GAME_HOST_URL). Ana site ile farklı origin'de servis
-// edildiği için hem REST hem Socket.IO CORS listesine eklenmesi gerekiyor.
-if (process.env.GAME_HOST_URL) {
-  baseOrigins.push(...process.env.GAME_HOST_URL.split(',').map(s => s.trim()).filter(Boolean));
-}
-
-// Railway injects RAILWAY_PUBLIC_DOMAIN automatically — add it so <script crossorigin>
-// same-origin requests pass CORS when CLIENT_URL isn't explicitly configured.
-if (process.env.RAILWAY_PUBLIC_DOMAIN) {
-  baseOrigins.push(`https://${process.env.RAILWAY_PUBLIC_DOMAIN}`);
+// CORS allowlist: single mode keeps the historical CLIENT_URL / GAME_HOST_URL /
+// Railway origins; multi mode derives it from the Domain collection (30s TTL,
+// www/apex expanded). See tenancy/corsDomains.js.
+function isDevTunnel(origin) {
+  return !isProd && (origin.endsWith('.ngrok-free.dev') || origin === 'https://ngrok-free.dev');
 }
 
 // V15 — operator origins (Operator.allowedOrigins, DB-backed, 30s TTL cache)
@@ -132,14 +122,17 @@ export function setOperatorOriginsSource(fn) {
 }
 
 export const corsOptions = {
-  origin: (origin, cb) => {
+  origin: async (origin, cb) => {
     if (!origin) return cb(null, false);
-    if (baseOrigins.includes('*') || baseOrigins.includes(origin)) return cb(null, true);
-    // Development only: ngrok tunnel desteği (Phase B10 — production'da kapalı)
-    if (!isProd && (origin.endsWith('.ngrok-free.dev') || origin === 'https://ngrok-free.dev')) {
-      return cb(null, true);
+    try {
+      const allowedOrigins = await getDomainOrigins();
+      if (allowedOrigins.has('*') || allowedOrigins.has(origin)) return cb(null, true);
+      // Development only: ngrok tunnel desteği (Phase B10 — production'da kapalı)
+      if (isDevTunnel(origin)) return cb(null, true);
+      cb(new Error('CORS: ' + origin));
+    } catch (err) {
+      cb(err);
     }
-    cb(new Error('CORS: ' + origin));
   },
   credentials: true,
 };
@@ -147,11 +140,10 @@ export const corsOptions = {
 export const providerCorsOptions = {
   origin: async (origin, cb) => {
     if (!origin) return cb(null, false);
-    if (baseOrigins.includes('*') || baseOrigins.includes(origin)) return cb(null, true);
-    if (!isProd && (origin.endsWith('.ngrok-free.dev') || origin === 'https://ngrok-free.dev')) {
-      return cb(null, true);
-    }
+    if (isDevTunnel(origin)) return cb(null, true);
     try {
+      const allowedOrigins = await getDomainOrigins();
+      if (allowedOrigins.has('*') || allowedOrigins.has(origin)) return cb(null, true);
       const operatorOrigins = await operatorOriginsSource();
       if (operatorOrigins.has(origin)) return cb(null, true);
     } catch { /* DB erişilemezse reddedilir */ }

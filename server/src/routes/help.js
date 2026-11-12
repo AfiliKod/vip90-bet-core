@@ -5,6 +5,7 @@ import { chatSchema } from '../validators/help.js';
 import { answerQuestion, ESCALATION_MESSAGE } from '../services/chatbot.js';
 import { getKnowledgeChunks, getCurrentVersion } from '../services/chatbotIndex.js';
 import { getSiteName } from '../branding/index.js';
+import { getTenantBaseUrl } from '../tenancy/tenantBaseUrl.js';
 
 const r = Router();
 
@@ -22,7 +23,7 @@ async function callLLM(systemPrompt, query) {
     headers: {
       'Content-Type': 'application/json',
       'Authorization': `Bearer ${API_KEY}`,
-      'HTTP-Referer': (process.env.CLIENT_URL || 'http://localhost').split(',')[0].trim(),
+      'HTTP-Referer': await getTenantBaseUrl(),
       'X-Title': `${await getSiteName()} Destek Asistanı`,
     },
     body: JSON.stringify({

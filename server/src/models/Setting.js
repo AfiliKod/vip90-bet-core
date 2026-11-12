@@ -1,14 +1,23 @@
 import mongoose from 'mongoose';
+import { getTenancyMode } from '../config/tenancy.js';
+import { registerTenantIndexes } from '../tenancy/indexRegistry.js';
 
 /**
- * Çalışma anında admin panelinden değiştirilebilen ayarlar. Şu an yalnızca alarm
- * kanalı anahtarlarını tutar; `.env` dosyasına SSH ile dokunmadan alarm hattının
- * konfigüre edilebilmesi için var.
+ * Runtime settings editable from the admin panel. Rows are scoped (spec §4.5):
+ * platform (tenantId null), tenant, or brand.
  */
 const settingSchema = new mongoose.Schema({
-  key:       { type: String, required: true, unique: true, index: true },
-  value:     { type: String, default: '' },
+  scope:    { type: String, enum: ['platform', 'tenant', 'brand'], default: 'tenant', index: true },
+  tenantId: { type: mongoose.Schema.Types.ObjectId, ref: 'Tenant', default: null, index: true },
+  brandId:  { type: mongoose.Schema.Types.ObjectId, ref: 'Brand', default: null },
+  // Mode is fixed at boot: single keeps the legacy global key_1 unique, multi never creates it.
+  key:      { type: String, required: true, unique: getTenancyMode() !== 'multi', index: true },
+  value:    { type: String, default: '' },
   updatedBy: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
 }, { timestamps: true });
+
+registerTenantIndexes('Setting', [
+  { keys: { tenantId: 1, scope: 1, brandId: 1, key: 1 }, options: { name: 'tenant_setting_scope_brand_key_uniq', unique: true } },
+]);
 
 export default mongoose.model('Setting', settingSchema);

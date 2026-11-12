@@ -8,6 +8,9 @@
  * istemci kimliği + sırrı tanımlıysa etkindir.
  */
 import { createSecretSettingsStore, mongoLoad, mongoSave } from './secretSettingsStore.js';
+import { decryptSecret, decryptSensitive, encryptSensitive, isEncryptedSecret } from '../utils/secretCrypto.js';
+
+const decryptCredential = value => (isEncryptedSecret(value) ? decryptSensitive(value) : decryptSecret(value));
 
 export const GOOGLE_AUTH_FIELDS = [
   { name: 'enabled', env: 'GOOGLE_LOGIN_ENABLED', default: 'true' },
@@ -22,6 +25,8 @@ export function createGoogleAuthConfigStore(deps = {}) {
     fields: GOOGLE_AUTH_FIELDS,
     load: mongoLoad,
     save: mongoSave,
+    encrypt: encryptSensitive,
+    decrypt: decryptCredential,
     ...deps,
   });
 }

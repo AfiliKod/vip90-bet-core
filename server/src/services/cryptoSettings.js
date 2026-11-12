@@ -1,17 +1,23 @@
-import Setting from '../models/Setting.js';
+import mongoose from 'mongoose';
 import { createError } from '../middleware/error.js';
 import User from '../models/User.js';
 import Counter from '../models/Counter.js';
-import { CRYPTO_SETTINGS, applyCryptoSettings, cryptoEnvDefaults } from '../config/crypto.js';
+import { CRYPTO_SETTINGS, applyCryptoSettings, cryptoEnvDefaults, currentCryptoBucketKey } from '../config/crypto.js';
 import { updateCryptoSettingsSchema } from '../validators/admin.js';
+import { mongoLoad } from '../config/secretSettingsStore.js';
+import { getTenancyMode } from '../config/tenancy.js';
+import { saveScopedSetting } from './settings.js';
 
 const KEY = 'crypto.settings';
 const TTL_MS = 30_000;
 const COUNTER_ID = 'cryptoDepositIndex';
-let hydratedAt = 0;
+const hydratedAt = new Map(); // crypto bucket key -> last hydrate timestamp
 let envDefaults = null;
 
-function defaultsFromEnv() {
+function currentDefaults() {
+  // Multi mode: tenant crypto settings never inherit the host environment
+  // (USDT_TRY_RATE, TRON_NETWORK) — standard defaults only.
+  if (getTenancyMode() === 'multi') return cryptoEnvDefaults({});
   if (!envDefaults) envDefaults = cryptoEnvDefaults();
   return envDefaults;
 }
@@ -19,10 +25,11 @@ function defaultsFromEnv() {
 // Stored admin overrides: only the keys an admin saved. Missing row → {}.
 // Corrupt JSON or invalid shape → null (logged). DB errors propagate.
 async function readStored(logger) {
-  const row = await Setting.findOne({ key: KEY }).lean();
-  if (!row?.value) return {};
+  if (mongoose.connection.readyState !== 1) throw new Error('DB bağlı değil');
+  const value = (await mongoLoad([KEY]))[KEY];
+  if (!value) return {};
   let parsed;
-  try { parsed = JSON.parse(row.value); } catch {
+  try { parsed = JSON.parse(value); } catch {
     logger.error?.('[crypto-settings] stored crypto.settings is not valid JSON; ignoring it');
     return null;
   }
@@ -47,14 +54,21 @@ function applyLayers(defaults, stored) {
  * DB unreachable: current values stay, retried on the next call. Never throws.
  */
 export async function hydrateCryptoSettings({ force = false, logger = console, defaults } = {}) {
-  if (!force && Date.now() - hydratedAt < TTL_MS) return;
+  const bucketKey = currentCryptoBucketKey();
+  if (!force && Date.now() - (hydratedAt.get(bucketKey) || 0) < TTL_MS) return;
   try {
     const stored = await readStored(logger);
-    applyLayers(defaults || defaultsFromEnv(), stored);
-    hydratedAt = Date.now();
+    applyLayers(defaults || currentDefaults(), stored);
+    hydratedAt.set(bucketKey, Date.now());
   } catch (e) {
     logger.error?.(`[crypto-settings] hydrate failed: ${e.message}`);
   }
+}
+
+/** Tenant-aware read: hydrates the ambient bucket (30 s TTL) and returns it. */
+export async function getCryptoSettings() {
+  await hydrateCryptoSettings();
+  return CRYPTO_SETTINGS;
 }
 
 /**
@@ -74,13 +88,9 @@ export async function updateCryptoSettings(patch, adminId, { logger = console, d
   if (!checked.success) {
     throw createError(400, 'VALIDATION_ERROR', 'Invalid crypto settings');
   }
-  await Setting.findOneAndUpdate(
-    { key: KEY },
-    { value: JSON.stringify(checked.data), updatedBy: adminId },
-    { upsert: true, new: true },
-  );
-  applyLayers(defaults || defaultsFromEnv(), checked.data);
-  hydratedAt = Date.now();
+  await saveScopedSetting(KEY, JSON.stringify(checked.data), adminId);
+  applyLayers(defaults || currentDefaults(), checked.data);
+  hydratedAt.set(currentCryptoBucketKey(), Date.now());
   return CRYPTO_SETTINGS;
 }
 

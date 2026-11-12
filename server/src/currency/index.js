@@ -4,19 +4,25 @@
  * DB anahtarı: `currency.code` — mevcut Setting koleksiyonunu kullanır
  * (theme/index.js, modules/index.js ile aynı yaklaşım).
  */
-import mongoose from 'mongoose';
-import Setting from '../models/Setting.js';
 import { createCurrencyStore, CURRENCY_DEFINITIONS, formatMoney as formatMoneyPure } from './registry.js';
+import { mongoLoad } from '../config/secretSettingsStore.js';
+import { saveScopedSetting, createTenantStoreFacade } from '../services/settings.js';
 
 const KEY = 'currency.code';
 
-export const currencyStore = createCurrencyStore({
+// Tenant-keyed instances (İP-4 Task 4): the registry cache is per instance.
+const stores = createTenantStoreFacade(({ tenantId, brandId }) => createCurrencyStore({
   load: async () => {
-    if (mongoose.connection.readyState !== 1) return {};
-    const row = await Setting.findOne({ key: KEY }).lean();
-    return row ? { code: row.value } : {};
+    const raw = await mongoLoad([KEY], { tenantId, brandId });
+    return raw[KEY] ? { code: raw[KEY] } : {};
   },
-});
+}));
+
+export const currencyStore = {
+  getActive: () => stores.current().getActive(),
+  list: () => stores.current().list(),
+  invalidate: () => stores.invalidateAll(),
+};
 
 export const getActiveCurrency = () => currencyStore.getActive();
 export const listCurrencies = () => currencyStore.list();
@@ -33,10 +39,6 @@ export async function setActiveCurrency(code, updatedBy) {
   if (!CURRENCY_DEFINITIONS.some(c => c.code === code)) {
     throw new Error(`Bilinmeyen para birimi: ${code}`);
   }
-  await Setting.updateOne(
-    { key: KEY },
-    { $set: { value: code, updatedBy } },
-    { upsert: true },
-  );
+  await saveScopedSetting(KEY, code, updatedBy);
   invalidateCurrency();
 }

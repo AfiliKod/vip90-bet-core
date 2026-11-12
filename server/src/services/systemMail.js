@@ -33,6 +33,9 @@ import {
   eventCategory,
   CATEGORY_ACTION,
 } from './mailTemplates.js';
+import { getTenantBaseUrl } from '../tenancy/tenantBaseUrl.js';
+import { getCurrentTenantId } from '../tenancy/context.js';
+import { getTenancyMode } from '../config/tenancy.js';
 
 export const AUDIENCE_TYPES = ['all', 'segments', 'users', 'inactive'];
 
@@ -69,7 +72,8 @@ function applyDomainSuppression(filter) {
   return { ...filter, email: { ...filter.email, $not: new RegExp(pattern, 'i') } };
 }
 
-async function commonVars(user) {
+async function commonVars(user, tenantId = null) {
+  const effectiveTenantId = tenantId || user?.tenantId || getCurrentTenantId();
   let siteName = 'VIP90.bet';
   let lang = 'tr';
   try {
@@ -83,6 +87,12 @@ async function commonVars(user) {
     const { getActiveCurrency } = await import('../currency/index.js');
     currency = (await getActiveCurrency())?.code || '';
   } catch { /* para birimi okunamadıysa boş kalır */ }
+  let siteUrl = '';
+  try {
+    siteUrl = await getTenantBaseUrl(effectiveTenantId);
+  } catch {
+    siteUrl = getTenancyMode() === 'multi' ? '' : (process.env.CLIENT_URL || '').split(',')[0].trim();
+  }
   return {
     siteName,
     lang,
@@ -90,7 +100,7 @@ async function commonVars(user) {
     username: user?.username || '',
     supportEmail: SUPPORT_EMAIL,
     currentYear: String(new Date().getFullYear()),
-    siteUrl: (process.env.CLIENT_URL || '').split(',')[0].trim(),
+    siteUrl,
   };
 }
 
@@ -126,7 +136,7 @@ async function resolveRecipient({ user = null, to = null, userId = null }) {
   if (to) return { user, email: to };
   if (user) return { user, email: user.email || null };
   if (userId) {
-    const row = await User.findById(userId).select('email username isBot').lean();
+    const row = await User.findById(userId).select('email username isBot tenantId').lean();
     if (!row) return { user: null, email: null };
     return { user: row, email: row.email || null };
   }
@@ -142,9 +152,10 @@ async function resolveRecipient({ user = null, to = null, userId = null }) {
  * @param {object} [opts.vars]     olaya özgü yer tutucular
  * @param {Function} [opts.fallback] şablon yok/pasifken çağrılır ve
  *        `{ subject, html }` döndürmelidir (eski davranışın korunması).
+ * @param {string|mongoose.Types.ObjectId} [opts.tenantId]
  * @returns {Promise<object>} asla throw atmaz
  */
-export async function sendActionMail(event, { user = null, userId = null, to = null, vars = {}, fallback = null } = {}) {
+export async function sendActionMail(event, { user = null, userId = null, to = null, vars = {}, fallback = null, tenantId = null } = {}) {
   try {
     if (isDisabled()) return { status: 'skipped', reason: 'system_disabled' };
     if (mongoose.connection?.readyState !== 1) return { status: 'skipped', reason: 'no_db' };
@@ -166,7 +177,8 @@ export async function sendActionMail(event, { user = null, userId = null, to = n
     // `bot_user`/`no_recipient` ile aynı aile).
     if (isSuppressedRecipient(recipient.email)) return { status: 'skipped', reason: 'suppressed_domain' };
 
-    const common = await commonVars(recipient.user);
+    const effectiveTenantId = tenantId || recipient.user?.tenantId || getCurrentTenantId();
+    const common = await commonVars(recipient.user, effectiveTenantId);
     const merged = { ...common, ...vars };
 
     let payload;
@@ -179,9 +191,15 @@ export async function sendActionMail(event, { user = null, userId = null, to = n
       if (!payload?.subject || !payload?.html) return { status: 'skipped', reason: 'no_fallback' };
     }
 
-    const res = await sendEmail({ to: recipient.email, subject: payload.subject, html: payload.html });
+    const res = await sendEmail({
+      to: recipient.email,
+      subject: payload.subject,
+      html: payload.html,
+      tenantId: effectiveTenantId,
+    });
     const status = res?.mock ? 'mock' : 'sent';
     await writeLog({
+      tenantId: effectiveTenantId,
       templateId,
       event,
       category: CATEGORY_ACTION,
@@ -233,7 +251,7 @@ export async function resolveAudience(audience = {}, { limit = getBatchLimit() }
 
   const [users, matched] = await Promise.all([
     User.find(filter)
-      .select('email username isBot')
+      .select('email username isBot tenantId')
       .sort({ lastLoginAt: 1, createdAt: 1 })
       .limit(limit)
       .lean(),
@@ -260,7 +278,7 @@ async function runPool(items, worker, concurrency = SEND_CONCURRENCY) {
  * Zamana duyarlı bir şablonu kitleye gönderir.
  * Aksiyon kategorisindeki şablonlar elle gönderilemez (400).
  */
-export async function sendBulk(templateOrId, { audience = null, triggeredBy = null, trigger = 'manual' } = {}) {
+export async function sendBulk(templateOrId, { audience = null, triggeredBy = null, trigger = 'manual', tenantId = null } = {}) {
   // ObjectId de `typeof === 'object'` — id ile doküman ayrımı `_id` ile değil
   // tipte yapılmalı, yoksa ObjectId "şablon" sanılır ve enabled/category undefined kalır.
   const isDoc = typeof templateOrId === 'object'
@@ -293,19 +311,22 @@ export async function sendBulk(templateOrId, { audience = null, triggeredBy = nu
     throw err;
   }
 
+  const effectiveTenantId = tenantId || tpl.tenantId || getCurrentTenantId();
   const effectiveAudience = audience || tpl.audience || { type: 'all' };
   const limit = getBatchLimit();
   const { users, matched } = await resolveAudience(effectiveAudience, { limit });
-  const common = await commonVars(null);
+  const common = await commonVars(null, effectiveTenantId);
   const batchId = randomUUID();
 
   const results = await runPool(users, async (u) => {
     try {
+      const uTenantId = u.tenantId || effectiveTenantId;
       const merged = { ...common, username: u.username || '' };
       const { subject, html } = renderTemplateDocument(tpl, merged, { siteName: common.siteName, lang: common.lang });
-      const res = await sendEmail({ to: u.email, subject, html });
+      const res = await sendEmail({ to: u.email, subject, html, tenantId: uTenantId });
       const status = res?.mock ? 'mock' : 'sent';
       await writeLog({
+        tenantId: uTenantId,
         templateId: tpl._id,
         event: tpl.event,
         category: tpl.category,
@@ -321,6 +342,7 @@ export async function sendBulk(templateOrId, { audience = null, triggeredBy = nu
       return status === 'failed' ? 'failed' : 'sent';
     } catch (e) {
       await writeLog({
+        tenantId: u.tenantId || effectiveTenantId,
         templateId: tpl._id,
         event: tpl.event,
         category: tpl.category,
