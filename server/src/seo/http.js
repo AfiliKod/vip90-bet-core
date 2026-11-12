@@ -87,8 +87,10 @@ export function createSeoPublicRouter({
 }
 
 /**
- * SPA fallback: index.html bellekte tutulur; ayar kaydı varsa etiketler enjekte
- * edilir. Ayar yoksa (ya da okuma hata verirse) sade index.html aynen servis edilir.
+ * SPA fallback: index.html bellekte tutulur; etiketler HER zaman enjekte edilir —
+ * marka kimliği DB SEO ayarına bağlı değildir, kayıt yoksa kiracı markası
+ * (`getSiteName`) kullanılır. Marka ayarı da boşsa tarafsız geri dönüş isteğin
+ * host'udur (çekirdek ürün adı taşımaz).
  *
  * `routesPath` verilirse rota tablosu (`client/dist/routes.json`, client build'i
  * sırasında `App.jsx`'ten türetilir) bir kez okunur ve `req.path` eşleştirilir:
@@ -131,13 +133,16 @@ export function createSpaFallback({
   };
 
   async function sendIndex(req, res) {
-    let seoConfigured = false;
-    let seo;
-    try { seoConfigured = await store.isConfigured(); if (seoConfigured) seo = await store.get(); } catch { /* sade index */ }
-    if (!seoConfigured) return res.sendFile(indexPath);
+    let seo = {};
+    try { if (await store.isConfigured()) seo = await store.get(); } catch { /* ayarsız: yalnız marka etiketleri */ }
+
     const html = await raw();
-    const siteName = await getSiteName().catch(() => '');
-    const tags = buildSeoTags(seo, { path: req.path, baseUrl: resolveBaseUrl(seo, req), siteName });
+    const baseUrl = resolveBaseUrl(seo, req);
+    // resolveBaseUrl host biçimini doğrular; biçimsiz/özel host'ta null döner.
+    const hostLabel = baseUrl ? baseUrl.replace(/^[a-z]+:\/\//i, '') : '';
+    const siteName = (await getSiteName().catch(() => '')) || hostLabel;
+
+    const tags = buildSeoTags(seo, { path: req.path, baseUrl, siteName });
     res.set('Cache-Control', 'no-cache');
     res.type('html').send(injectIntoHtml(html, tags));
   }
