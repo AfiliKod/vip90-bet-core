@@ -1,6 +1,9 @@
 import mongoose from 'mongoose';
+import { registerTenantIndexes } from '../tenancy/indexRegistry.js';
+import { defineTenantModel } from '../tenancy/models.js';
 
 const schema = new mongoose.Schema({
+  tenantId:  { type: mongoose.Schema.Types.ObjectId, ref: 'Tenant', required: false, index: true, immutable: true },
   userId:    { type: mongoose.Schema.Types.ObjectId, ref: 'User', default: null },
   username:  { type: String, required: true, index: true },
   ip:        { type: String, default: null },
@@ -14,4 +17,10 @@ schema.index({ ip: 1, createdAt: -1 });
 schema.index({ username: 1, createdAt: -1 });
 schema.index({ createdAt: -1 }, { expireAfterSeconds: 60 * 60 * 24 * 90 }); // 90 gün TTL
 
-export default mongoose.model('LoginAttempt', schema);
+registerTenantIndexes('LoginAttempt', [
+  { keys: { tenantId: 1, username: 1, ip: 1 }, options: { name: 'tenant_username_ip' } },
+  { keys: { tenantId: 1, createdAt: -1 }, options: { name: 'tenant_createdAt' } },
+  { keys: { tenantId: 1, userId: 1, createdAt: -1 }, options: { name: 'tenant_userId_createdAt' } },
+]);
+
+export default defineTenantModel('LoginAttempt', schema);
