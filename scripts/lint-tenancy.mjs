@@ -12,6 +12,7 @@ export const RUN_AS_PLATFORM_ALLOWLIST = new Set([
   'server/src/tenancy/settingsMigration.js',
   'server/src/tenancy/backfill.js',
   'server/src/tenancy/indexBuilder.js',
+  'server/src/tenancy/callbackAttribution.js',
   'server/src/tenancy/context.js',
   'server/src/tenancy/index.js',
 ]);
