@@ -9,6 +9,7 @@ import { runWithTenant, tenantContext } from '../tenancy/context.js';
 import { getStaffAuthState, verifyStaffAccess } from '../services/staffSession.js';
 import { staffHasPermission } from '../services/permissions.js';
 import PlatformWriteGrant from '../models/PlatformWriteGrant.js';
+import Partner from '../models/Partner.js';
 
 const SAFE_TENANT_ROUTE_METHODS = new Set(['GET', 'HEAD', 'OPTIONS']);
 
@@ -230,6 +231,19 @@ export function requireStaff(allowedScope = null) {
 
       if (allowedScope && payload.scp !== allowedScope && payload.scp !== 'platform') {
         return next(createError(403, 'FORBIDDEN', 'Bu işlem için yetki yok'));
+      }
+      if (payload.scp === 'partner') {
+        const partner = await Partner.findById(payload.sid).lean();
+        if (!partner) {
+          return next(createError(404, 'PARTNER_NOT_FOUND', 'Partner bulunamadı'));
+        }
+        if (partner.status === 'suspended') {
+          return next(createError(403, 'PARTNER_SUSPENDED', 'Partner hesabı askıya alınmış'));
+        }
+        if (partner.status === 'closed') {
+          return next(createError(403, 'PARTNER_CLOSED', 'Partner hesabı kapatılmış'));
+        }
+        req.partner = partner;
       }
       if (allowedScope === 'tenant' && payload.scp === 'platform') {
         const tenantId = req.headers['x-tenant-id'];
