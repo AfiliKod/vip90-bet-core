@@ -22,3 +22,17 @@ export function tenantFilter(req, base = {}) {
   if (!tenantId) throw new TenantScopeError('Request has no resolved tenant', { reason: 'unscoped' });
   return { ...base, tenantId };
 }
+
+/**
+ * The request tenant id to scope a lookup with: the tenant in multi mode, `null` in
+ * single mode (same reasoning as tenantFilter). Services treat `null` as "no tenant
+ * filter".
+ * @param {{ tenant?: { id?: unknown } }} req
+ * @returns {unknown|null}
+ */
+export function scopeTenantId(req) {
+  if (getTenancyMode() !== 'multi') return null;
+  const tenantId = req?.tenant?.id;
+  if (!tenantId) throw new TenantScopeError('Request has no resolved tenant', { reason: 'unscoped' });
+  return tenantId;
+}
