@@ -7,6 +7,8 @@ export const platformNav = [
   { name: 'Tenants & Operators', path: '/tenants' },
   { name: 'Partners', path: '/partners' },
   { name: 'Domains', path: '/domains' },
+  { name: 'Billing & Fee Plans', path: '/billing' },
+  { name: 'Platform Reports', path: '/reports' },
   { name: 'Scope Gates (N6)', path: '/scope-gates' },
 ];
 
