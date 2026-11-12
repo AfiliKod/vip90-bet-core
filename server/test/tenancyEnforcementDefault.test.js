@@ -35,7 +35,7 @@ import { BACKFILL_MIGRATION_NAME } from '../src/tenancy/backfill.js';
 // Own test database; MONGODB_URI is never read (it may point at a real database).
 const BASE = (process.env.TENANCY_TEST_MONGO || 'mongodb://127.0.0.1:27017').replace(/\/+$/, '');
 const HAS_DB_NAME = /^mongodb(?:\+srv)?:\/\/[^/]+\/[^/?]/.test(BASE);
-const DB_URI = HAS_DB_NAME ? BASE : `${BASE}/vip90_test_ip5_t1_enforcement`;
+const DB_URI = HAS_DB_NAME ? BASE : `${BASE}/vip90_test_ip8_t2_enforcement`;
 
 const T1 = new mongoose.Types.ObjectId();
 
@@ -122,6 +122,23 @@ test('multi mode always defaults to enforce, gated or not', async () => {
   for (const complete of [false, true]) {
     await withGate(complete, async () => {
       assert.equal(readTenancyConfig({ TENANCY_MODE: 'multi' }).enforcement, 'enforce');
+    });
+  }
+});
+
+test('multi mode reads enforce even where the single-mode gate would default to log (İP-8)', async () => {
+  await withGate(true, async () => {
+    assert.equal(readTenancyConfig({ TENANCY_MODE: 'multi' }).enforcement, 'enforce');
+    assert.equal(readTenancyConfig({ TENANCY_MODE: 'multi', TENANCY_ENFORCEMENT: '' }).enforcement, 'enforce');
+  });
+});
+
+test('multi mode ignores an explicit log value and records the error', async () => {
+  for (const complete of [false, true]) {
+    await withGate(complete, async () => {
+      const cfg = readTenancyConfig({ TENANCY_MODE: 'multi', TENANCY_ENFORCEMENT: 'log' });
+      assert.equal(cfg.enforcement, 'enforce');
+      assert.deepEqual(cfg.errors, ['TENANCY_MODE=multi requires TENANCY_ENFORCEMENT=enforce (got "log")']);
     });
   }
 });

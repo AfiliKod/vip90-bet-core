@@ -121,3 +121,41 @@ test('requireDemoFlag answers 404 when off and passes when on', () => {
 test('requireDemoFlag rejects unknown flag names', () => {
   assert.throws(() => requireDemoFlag('robots'), TypeError);
 });
+
+test('multi mode forces enforcement to enforce regardless of unset or empty env', () => {
+  for (const env of [
+    { TENANCY_MODE: 'multi' },
+    { TENANCY_MODE: 'multi', TENANCY_ENFORCEMENT: '' },
+    { TENANCY_MODE: 'multi', TENANCY_ENFORCEMENT: '  ' },
+  ]) {
+    const cfg = readTenancyConfig(env);
+    assert.equal(cfg.mode, 'multi');
+    assert.equal(cfg.enforcement, 'enforce');
+    assert.deepEqual(cfg.errors, []);
+    assert.equal(getTenancyEnforcement(env), 'enforce');
+  }
+});
+
+test('multi mode rejects explicit TENANCY_ENFORCEMENT=log or off in validateTenancyStartup', () => {
+  for (const value of ['log', 'off', ' LOG ']) {
+    const problems = validateTenancyStartup({ ...MULTI_OK, TENANCY_ENFORCEMENT: value });
+    assert.deepEqual(problems, [
+      `TENANCY_MODE=multi requires TENANCY_ENFORCEMENT=enforce (got "${value.trim()}")`,
+    ]);
+  }
+  assert.deepEqual(
+    validateTenancyStartup({ ...MULTI_OK, TENANCY_ENFORCEMENT: 'enforce' }),
+    [],
+  );
+});
+
+test('single mode supports explicit TENANCY_ENFORCEMENT=enforce opt-in (spec §9 G8)', () => {
+  const cfg = readTenancyConfig({ TENANCY_MODE: 'single', TENANCY_ENFORCEMENT: 'enforce' });
+  assert.equal(cfg.mode, 'single');
+  assert.equal(cfg.enforcement, 'enforce');
+  assert.deepEqual(cfg.errors, []);
+
+  const problems = validateTenancyStartup({ TENANCY_MODE: 'single', TENANCY_ENFORCEMENT: 'enforce' });
+  assert.deepEqual(problems, []);
+  assert.deepEqual(validateTenancyStartup({ TENANCY_ENFORCEMENT: 'enforce' }), []);
+});
