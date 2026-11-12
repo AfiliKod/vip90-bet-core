@@ -1,6 +1,7 @@
 import { resolveTxt } from 'node:dns/promises';
 import Domain from '../../models/Domain.js';
 import { CloudflareSaaSClient } from './cloudflareSaaS.js';
+import { clearDomainHostCache } from '../../middleware/tenantHost.js';
 
 /** Label prefixed to the operator host for the ownership TXT challenge. */
 export const TXT_CHALLENGE_PREFIX = '_domain-verify';
@@ -37,6 +38,8 @@ export async function verifyDomainDns(domainId, { resolver = resolveTxt } = {}) 
   if (matched) {
     domain.verifiedAt = new Date();
     await domain.save();
+    // A cached "unknown host" answer must not outlive the verification.
+    clearDomainHostCache(domain.host);
     return { verified: true, verifiedAt: domain.verifiedAt };
   }
 
