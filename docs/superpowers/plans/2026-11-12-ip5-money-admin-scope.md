@@ -28,6 +28,22 @@
 
 ---
 
+## Reviewer correction (2026-11-12): overrides every conflicting line below
+
+1. **Task 1 (`log` default in single mode) is gated on G3.** `log` mode adds the tenant filter to queries run inside a
+   tenant context, so documents without `tenantId` would disappear from single-mode reads. The effective single-mode
+   default is `log` only when `Migration{name:'tenancy-002-backfill-tenant-id'}` is recorded as complete (all collections
+   `completed`); otherwise it stays `off`. An explicit `TENANCY_ENFORCEMENT` env value still wins. The `log` warnings are
+   rate-limited (at most one line per model+op per minute) so existing installs are not flooded.
+2. **New Task 12 (wave B): platform staff are read-only on tenant routes (owner decision K23).** In
+   `server/src/middleware/auth.js` `requireStaff`, a platform-scoped token on a tenant route may only use safe methods
+   (GET, HEAD, OPTIONS); any other method answers 403 `PLATFORM_READ_ONLY` and writes an `AuditLog` row (actor, tenant,
+   route, method). The time-limited, audited exception grant that re-enables writes is İP-9a work; until then there is
+   no write path. Tests: platform GET on a tenant route 200; platform POST/PATCH/DELETE 403 + audit row; tenant staff
+   unaffected. Files: `server/src/middleware/auth.js`, `server/test/platformReadOnly.test.js`. No other task edits auth.js.
+3. Every task runs the full root `npm test` at the end (fail 0) and never weakens an existing check; legacy unique
+   indexes and İP-0 security tests stay untouched.
+
 ## Review Focus
 
 - **Cross-tenant financial isolation (§8.3):** Any financial action (deposit approval, crypto withdrawal approval, manual payout, balance adjustment) initiated by Tenant 1 staff on a Tenant 2 record must return 404 and leave Tenant 2 balances and ledgers completely untouched.
