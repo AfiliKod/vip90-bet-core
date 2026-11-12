@@ -106,4 +106,19 @@ describe('socket tenant middleware', () => {
       if (prev === undefined) delete process.env.TENANCY_MODE; else process.env.TENANCY_MODE = prev;
     }
   });
+
+  it('publishToAllTenants broadcasts globally in single mode when no tenant exists yet', async () => {
+    const { publishToAllTenants } = await import('../src/socket/publish.js');
+    const prev = process.env.TENANCY_MODE;
+    process.env.TENANCY_MODE = 'single';
+    const sent = [];
+    const fakeIo = { emit: (e) => sent.push(['global', e]), to: (r) => ({ emit: (e) => sent.push([r, e]) }) };
+    try {
+      const n = await publishToAllTenants('odds:update', {}, { tenants: [], io: fakeIo });
+      assert.equal(n, 1);
+      assert.deepEqual(sent, [['global', 'odds:update']]);
+    } finally {
+      if (prev === undefined) delete process.env.TENANCY_MODE; else process.env.TENANCY_MODE = prev;
+    }
+  });
 });

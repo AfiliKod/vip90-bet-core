@@ -15,7 +15,10 @@ export function initSocket(io, { resolveSocketTenant = createSocketTenantResolve
   io.on('connection', (socket) => {
     socket.use((_event, next) => socketPacketTenant(socket, next));
     const tenantId = socket.data.tenantId;
-    socket.join(clientsRoom(tenantId));
+    // null = single mode before the default tenant exists: no tenant room, clients
+    // receive today's global broadcasts.
+    const clients = clientsRoom(tenantId);
+    if (clients) socket.join(clients);
     // Çevrimiçi sayaç artık polling DEĞİL, push: yeni bağlanan socket'a anında
     // güncel sayı gönderilir, bağlantı/kopuş herkese yayınlanır (bkz.
     // services/onlineCount.js — WinnersPanel.jsx'in "Tümü" yerine gösterdiği
