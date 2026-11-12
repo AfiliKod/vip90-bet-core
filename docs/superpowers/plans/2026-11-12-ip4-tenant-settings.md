@@ -23,7 +23,7 @@
 
 **Tech Stack:** Node >= 22 (ESM), Express 4, Mongoose 8.24, Nodemailer 6, Mailtrap client, `node:test` + `node:assert/strict`, local MongoDB (replica set `rs0` on 127.0.0.1:27017).
 
-**Spec:** `/Users/workbook/Projects/core-ip2/docs/superpowers/specs/2026-11-09-multi-tenant-design.md` (upstream in `core-ipu`). Sections used: §0.2 K6; §1.3 (Ek C); §2.1 (Setting & settings stores rows); §3 (#8, #12, #16, #17, #19); §4.5 (Ayarlar ve kimlik bilgileri); §6.3 (G6 Ayarlar); §7.1 (İP-4 row); §8.1; §8.7; §9 (G-9).
+**Spec:** `docs/superpowers/specs/2026-11-09-multi-tenant-design.md` (upstream in `core-ipu`). Sections used: §0.2 K6; §1.3 (Ek C); §2.1 (Setting & settings stores rows); §3 (#8, #12, #16, #17, #19); §4.5 (Ayarlar ve kimlik bilgileri); §6.3 (G6 Ayarlar); §7.1 (İP-4 row); §8.1; §8.7; §9 (G-9).
 
 ---
 
