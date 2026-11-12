@@ -90,6 +90,10 @@ const LEGACY_PERMISSION_DEFS = [
   // Integrations (V5): provider connection settings, API keys, credentials
   { key: 'admin:integrations:read', name: 'Entegrasyonları Görüntüle', category: 'integrations', description: 'Sağlayıcı bağlantı ayarları ve kimlik bilgisi durumu' },
   { key: 'admin:integrations:write', name: 'Entegrasyonları Yönet', category: 'integrations', description: 'Sağlayıcı ayarları, API anahtarı ve kimlik bilgisi değiştirme' },
+
+  // Partner Grants (spec §4.3.5)
+  { key: 'admin:partner-grants:read', name: 'Partner İzinlerini Görüntüle', category: 'settings', description: 'Operatör için verilmiş partner izinlerini görüntüleme' },
+  { key: 'admin:partner-grants:write', name: 'Partner İzinlerini Yönet', category: 'settings', description: 'Partner izinleri verme ve geri alma' },
 ];
 
 export const PARTNER_PERMISSION_DEFS = [
