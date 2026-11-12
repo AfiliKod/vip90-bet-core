@@ -41,6 +41,14 @@
 8. **Single Mode Compatibility:** In single mode, `/api/platform/billing/*` and `/api/partner/statements/*` return 404 `NOT_FOUND`.
 9. **Test Isolation:** Tests run on dedicated test database names (`mongodb://127.0.0.1:27017/vip90_test_ip9c_t*`) and must not run the full root `npm test`. Always run with `--test-timeout=60000`.
 
+10. **Integer minor units (reviewer, 2026-11-13).** The calculator converts every input amount to integer minor units
+    (cents) once, sums and multiplies in integers/rationals, and rounds exactly once per statement line (half away from
+    zero; document it). `roundMoney` must not rely on `Math.round(x * 100) / 100` on raw floats. Existing assertions in
+    Task 2 stay; add cases for long sums of small amounts whose float total drifts.
+11. **Reuse what exists on main:** `writePlatformLevelAudit` (server/src/platform/services/platformAudit.js), the
+    `/api/platform` and `/api/partner` routers, the console (basename `/console`), `PartnerOperatorLink.commercialTerms`
+    and `Partner.defaultCommercialTerms`. Never change an existing test to make a new one pass.
+
 ---
 
 ## Global Constraints
