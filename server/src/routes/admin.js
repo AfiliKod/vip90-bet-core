@@ -20,6 +20,7 @@ import { createModuleGate } from '../middleware/moduleGate.js';
 import { isModuleUsable } from '../services/licensing/index.js';
 import { emailTestLimiter } from '../middleware/rateLimit.js';
 import seoAdminRouter from './seoAdmin.js';
+import { requireDemoFlag, getDemoFlags } from '../config/tenancy.js';
 
 // V1 — demo yönetici yıkıcı işlemleri yapamaz (bayrak DB'den taze okunur)
 const blockDemoAdmin = createDemoAdminBlock({
@@ -89,11 +90,11 @@ r.get('/activity',    requirePermission('admin:activity:read'), ctrl.listActivit
 // F2 — sidebar rozetleri + dashboard kuyruk kartları bu tek sayıyı okur.
 r.get('/queues/counts', requirePermission('admin:activity:read'), ctrl.getAdminQueueCounts);
 r.get('/queues/pending-finance', requirePermission('admin:transactions:read'), ctrl.getPendingFinance);
-r.get('/demo-data/status',           requirePermission('admin:demo-data:manage'), ctrl.getDemoDataStatus);
-r.post('/demo-data/:category/load',  requirePermission('admin:demo-data:manage'), ctrl.loadDemoDataCategory);
-r.post('/demo-data/:category/clear', requirePermission('admin:demo-data:manage'), ctrl.clearDemoDataCategory);
-r.post('/demo-data/live/start', requirePermission('admin:demo-data:manage'), ctrl.startDemoDataLive);
-r.post('/demo-data/live/stop',  requirePermission('admin:demo-data:manage'), ctrl.stopDemoDataLive);
+r.get('/demo-data/status',           requireDemoFlag('data'), requirePermission('admin:demo-data:manage'), ctrl.getDemoDataStatus);
+r.post('/demo-data/:category/load',  requireDemoFlag('data'), requirePermission('admin:demo-data:manage'), ctrl.loadDemoDataCategory);
+r.post('/demo-data/:category/clear', requireDemoFlag('data'), requirePermission('admin:demo-data:manage'), ctrl.clearDemoDataCategory);
+r.post('/demo-data/live/start', requireDemoFlag('data'), requirePermission('admin:demo-data:manage'), ctrl.startDemoDataLive);
+r.post('/demo-data/live/stop',  requireDemoFlag('data'), requirePermission('admin:demo-data:manage'), ctrl.stopDemoDataLive);
 r.get('/tasks',       requirePermission('admin:casino:read'), ctrl.getTasks);
 r.patch('/tasks/:id', requirePermission('admin:casino:write'), validate(updateTaskSchema), ctrl.updateTask);
 
@@ -195,6 +196,9 @@ r.get('/permissions',              requirePermission('admin:roles:read'), ctrl.l
 // requirePermission YOK: her admin kendi izinini sorabilmeli, yoksa panel
 // kilitli kalır ve hangi yetkiyi kaçırdığını anlayamayız.
 r.get('/me/permissions',           ctrl.getMyPermissions);
+// Etkin demo bayrakları — admin istemcisi gizli demo öğelerini bu ucudan okur.
+// İzin anahtarı YOK: her oturum açmış admin okuyabilmeli (Task 11).
+r.get('/demo-flags',               (req, res) => res.json(getDemoFlags()));
 r.post('/users/:id/roles',         requirePermission('admin:roles:write'), blockDemoAdmin, validate(assignRoleSchema), ctrl.assignUserRole);
 r.delete('/users/:id/roles/:roleId', requirePermission('admin:roles:write'), blockDemoAdmin, ctrl.removeUserRole);
 
@@ -209,17 +213,17 @@ r.post('/vip-levels',       requirePermission('admin:settings:write'), blockDemo
 r.delete('/vip-levels/:level', requirePermission('admin:settings:write'), blockDemoAdmin, ctrl.removeVipLevel);
 
 // P3 — bot oyuncular (User koleksiyonunda isBot:true, gerçek oyun route'larını kullanır)
-r.get('/bots',              requirePermission('admin:settings:read'), ctrl.listBots);
-r.post('/bots',              requirePermission('admin:settings:write'), blockDemoAdmin, validate(createBotSchema), ctrl.createBotHandler);
-r.get('/bots/:id',           requirePermission('admin:settings:read'), ctrl.getBotHandler);
-r.patch('/bots/:id',         requirePermission('admin:settings:write'), blockDemoAdmin, validate(updateBotSchema), ctrl.updateBotHandler);
-r.delete('/bots/:id',        requirePermission('admin:settings:write'), blockDemoAdmin, ctrl.deleteBotHandler);
-r.post('/bots/start-all',    requirePermission('admin:settings:write'), blockDemoAdmin, ctrl.startAllBotsHandler);
-r.post('/bots/stop-all',     requirePermission('admin:settings:write'), blockDemoAdmin, ctrl.stopAllBotsHandler);
+r.get('/bots',              requireDemoFlag('bots'), requirePermission('admin:settings:read'), ctrl.listBots);
+r.post('/bots',             requireDemoFlag('bots'), requirePermission('admin:settings:write'), blockDemoAdmin, validate(createBotSchema), ctrl.createBotHandler);
+r.get('/bots/:id',          requireDemoFlag('bots'), requirePermission('admin:settings:read'), ctrl.getBotHandler);
+r.patch('/bots/:id',        requireDemoFlag('bots'), requirePermission('admin:settings:write'), blockDemoAdmin, validate(updateBotSchema), ctrl.updateBotHandler);
+r.delete('/bots/:id',       requireDemoFlag('bots'), requirePermission('admin:settings:write'), blockDemoAdmin, ctrl.deleteBotHandler);
+r.post('/bots/start-all',   requireDemoFlag('bots'), requirePermission('admin:settings:write'), blockDemoAdmin, ctrl.startAllBotsHandler);
+r.post('/bots/stop-all',    requireDemoFlag('bots'), requirePermission('admin:settings:write'), blockDemoAdmin, ctrl.stopAllBotsHandler);
 
 // Son Kazananlar simülasyonu (kozmetik — gerçek User/bakiye kullanmaz, bkz. services/fakeWinners.js)
-r.get('/fake-winners',   requirePermission('admin:settings:read'), ctrl.getFakeWinnersSettings);
-r.put('/fake-winners',   requirePermission('admin:settings:write'), blockDemoAdmin, validate(updateFakeWinnersSchema), ctrl.updateFakeWinnersSettings);
+r.get('/fake-winners',   requireDemoFlag('fakeWinners'), requirePermission('admin:settings:read'), ctrl.getFakeWinnersSettings);
+r.put('/fake-winners',   requireDemoFlag('fakeWinners'), requirePermission('admin:settings:write'), blockDemoAdmin, validate(updateFakeWinnersSchema), ctrl.updateFakeWinnersSettings);
 
 // Footer/statik sayfa yönetimi (Hakkımızda/Kariyer/Basın/İletişim/Yasal/Sorumlu Oyun)
 r.get('/static-pages',              requirePermission('admin:settings:read'), ctrl.listStaticPages);

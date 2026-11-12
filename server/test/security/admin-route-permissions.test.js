@@ -51,8 +51,14 @@ export const ADMIN_MOUNTS = [
   { prefix: '/api/auth/2fa', file: 'routes/admin2fa.js', mode: 'per-line', lineFilter: /'\/(setup|verify|disable)'/, count: 3, needle: 'requireAdmin' },
 ];
 
-// Single justified exception: /me/permissions returns the caller's own permission list.
-const ALLOWLIST = new Set(["routes/admin.js: r.get('/me/permissions'"]);
+// Justified exceptions (both readable by any authenticated admin, no permission key):
+//  - /me/permissions returns the caller's own permission list;
+//  - /demo-flags returns the effective DEMO_* flags so the admin client can
+//    hide disabled demo entries (it reveals nothing a hidden nav item would not).
+const ALLOWLIST = new Set([
+  "routes/admin.js: r.get('/me/permissions'",
+  "routes/admin.js: r.get('/demo-flags'",
+]);
 
 const ADMIN_PREFIX = /^\/api\/(admin|tickets|chat|bank|crypto|auth\/2fa)(\/|$)/;
 
