@@ -26,12 +26,21 @@ describe('Scoped Role & RoleAssignment Models', () => {
     await mongoose.disconnect();
   });
 
-  it('allows same role name across different scopes', async () => {
+  it('single mode keeps role names globally unique (legacy name_1)', async () => {
     const r1 = await Role.create({ name: 'admin', displayName: 'Platform Admin', scopeType: 'platform', scopeId: null });
-    const tenantId = new mongoose.Types.ObjectId();
-    const r2 = await Role.create({ name: 'admin', displayName: 'Tenant Admin', scopeType: 'tenant', scopeId: tenantId });
     assert.ok(r1._id);
-    assert.ok(r2._id);
+    await assert.rejects(
+      () => Role.create({ name: 'admin', displayName: 'Tenant Admin', scopeType: 'tenant', scopeId: new mongoose.Types.ObjectId() }),
+      /E11000/,
+    );
+  });
+
+  it('multi mode drops the global name uniqueness (scoped compound index only)', async () => {
+    const { execFileSync } = await import('node:child_process');
+    const out = execFileSync(process.execPath, ['--input-type=module', '-e',
+      "const { default: Role } = await import('./server/src/models/Role.js'); console.log(JSON.stringify(Role.schema.path('name').options.unique ?? false));"],
+      { env: { ...process.env, TENANCY_MODE: 'multi' }, encoding: 'utf8' });
+    assert.equal(out.trim(), 'false');
   });
 
   it('rejects duplicate role name within same scope', async () => {

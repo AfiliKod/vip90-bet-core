@@ -1,4 +1,5 @@
 import mongoose from 'mongoose';
+import { getTenancyMode } from '../config/tenancy.js';
 
 const { ObjectId } = mongoose.Schema.Types;
 
@@ -11,7 +12,9 @@ const { ObjectId } = mongoose.Schema.Types;
  */
 const schema = new mongoose.Schema({
   // Role name (e.g., 'super_admin', 'support', 'finance', 'casino_manager')
-  name: { type: String, required: true },
+  // Globally unique in single mode exactly as before (spec §6.3: legacy unique
+  // indexes stay); multi mode relies on the scoped compound index below.
+  name: { type: String, required: true, unique: getTenancyMode() !== 'multi' },
   // Display name
   displayName: { type: String, required: true },
   // Description
