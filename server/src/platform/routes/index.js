@@ -19,10 +19,23 @@ import {
   getPartner,
   updatePartner,
 } from '../controllers/platformPartnersController.js';
+import {
+  listOperatorFeePlans,
+  createOrUpdateFeePlan,
+  listStatements,
+  getStatement,
+  generateStatementsHandler,
+  issueStatementHandler,
+  addAdjustmentHandler,
+  voidStatementHandler,
+  exportStatementCsvHandler,
+} from '../controllers/platformBillingController.js';
 
 const TENANTS_MANAGE = 'platform:tenants:manage';
 const ROLES_MANAGE = 'platform:roles:manage';
 const PARTNERS_MANAGE = 'platform:partners:manage';
+const BILLING_READ = 'platform:billing:read';
+const BILLING_MANAGE = 'platform:billing:manage';
 
 export function createPlatformRouter() {
   const router = Router();
@@ -46,6 +59,15 @@ export function createPlatformRouter() {
   router.post('/partners', requireStaffPermission(PARTNERS_MANAGE), createPartner);
   router.get('/partners/:id', requireStaffPermission(PARTNERS_MANAGE), getPartner);
   router.patch('/partners/:id', requireStaffPermission(PARTNERS_MANAGE), updatePartner);
+  router.get('/billing/plans', requireStaffPermission(BILLING_READ), listOperatorFeePlans);
+  router.post('/billing/plans', requireStaffPermission(BILLING_MANAGE), createOrUpdateFeePlan);
+  router.get('/billing/statements', requireStaffPermission(BILLING_READ), listStatements);
+  router.get('/billing/statements/:id', requireStaffPermission(BILLING_READ), getStatement);
+  router.post('/billing/statements/generate', requireStaffPermission(BILLING_MANAGE), generateStatementsHandler);
+  router.post('/billing/statements/:id/issue', requireStaffPermission(BILLING_MANAGE), issueStatementHandler);
+  router.post('/billing/statements/:id/adjustments', requireStaffPermission(BILLING_MANAGE), addAdjustmentHandler);
+  router.post('/billing/statements/:id/void', requireStaffPermission(BILLING_MANAGE), voidStatementHandler);
+  router.get('/billing/statements/:id/export', requireStaffPermission(BILLING_READ), exportStatementCsvHandler);
 
   return router;
 }
