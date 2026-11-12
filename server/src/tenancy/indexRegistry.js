@@ -3,7 +3,8 @@
  *
  * These indexes are deliberately NOT declared with `schema.index()`: autoIndex
  * stays on for the existing indexes, and the new ones are built online by the
- * G4 migration (server/migrations/0006_tenancy_compound_indexes.js) with
+ * G4 migration (server/migrations/0006_tenancy_compound_indexes.js) and the G6
+ * settings migration (server/migrations/0008_tenancy_settings.js) with
  * `collection.createIndex`. `syncIndexes` / `ensureIndexes` are never used,
  * because they drop indexes the schema does not list.
  *
