@@ -37,8 +37,9 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      # Services bloğu replica set'i init edemiyor; üye localhost:27017 olarak ilan edilir,
-      # yoksa sürücü konteyner adını çözemez ve her test 30 sn bekleyip düşer.
+      # A services block cannot initiate a replica set. The member is advertised as
+      # localhost:27017; otherwise the driver discovers the container hostname,
+      # cannot resolve it, and every Mongo test times out.
       - name: MongoDB (single-node replica set)
         run: |
           docker run -d --name mongo -p 27017:27017 mongo:7 --replSet rs0
@@ -59,7 +60,7 @@ jobs:
       - run: npm ci
       - run: npm ci --prefix server
       - run: npm ci --prefix client
+      # MONGODB_URI is deliberately not set: each test file falls back to its own
+      # database on localhost; a shared URI makes parallel files wipe each other.
       - name: Test
-        env:
-          MONGODB_URI: mongodb://localhost:27017/vip90_ci?replicaSet=rs0
         run: npm test
