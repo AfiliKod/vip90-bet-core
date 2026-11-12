@@ -188,3 +188,32 @@ The provider has not documented these points. Each one is kept in a single const
 2. The provider's `win` field has no documented meaning. Leave it at 0.
 3. `freeround/create` may not return an id. Without `frId` the grant **cannot be cancelled** from the panel (`PROMO_NOT_CANCELLABLE`).
 4. Freeround winnings arrive as ordinary Win callbacks, so a freeround's `winTotal` stays `null` ("—" in the table). Bonus-call wins are matched by `call_id`.
+
+---
+
+## Emergency staff recovery — `scripts/staff-recover.mjs`
+
+A command-line tool for the host terminal, for when no one can get into the staff panel: the owner's password is lost, an account is locked behind 2FA, or the first owner was never created. It talks **directly to the server database** and does not need the API to be running. Staff identities live in the `StaffAccount` collection since İP-3; the legacy `User.role: 'admin'` login in single mode keeps working and is not touched by this tool.
+
+**Connection.** The script needs the same `MONGODB_URI` the server uses. In CLI mode it loads the root `.env` and then `server/.env`, and it never guesses a database: without a URI it exits with an error. If the process is already connected (for example inside a test or another tool that imported the script), it reuses that connection and refuses to run when the URI names a different database. The owner grant needs the `platform_owner` and `tenant_owner` role templates and the default tenant; without them the action fails with a clear message.
+
+```bash
+node scripts/staff-recover.mjs --list
+node scripts/staff-recover.mjs --email owner@example.com --reset-password 'NewStrongPass1'
+node scripts/staff-recover.mjs --email owner@example.com --reset-2fa
+node scripts/staff-recover.mjs --email owner@example.com --promote-owner
+node scripts/staff-recover.mjs --create-owner --email owner@example.com --username owner --password 'NewStrongPass1'
+```
+
+| Option | What it does |
+|---|---|
+| `--list` | Prints every staff account: email, username, status, 2FA on/off and the roles with their scope |
+| `--email <email> --reset-password <password>` | Sets a new password and bumps `tokenVersion`, so every token already issued to the account is rejected at once |
+| `--email <email> --reset-2fa` | Disables 2FA, deletes the stored secret and the backup codes, and bumps `tokenVersion` (old sessions die) |
+| `--email <email> --promote-owner` | Grants `platform_owner` and `tenant_owner` on the default tenant; existing grants are reported as already held |
+| `--create-owner --email <email> --username <username> --password <password>` | Creates the staff account (or reuses an existing one with that email, leaving its password and 2FA untouched) and grants the owner roles |
+| `--help`, `-h` | Prints usage |
+
+**Idempotency.** Every action can be re-run safely: a role that is already held is reported, not duplicated; an account that already exists is reused by `--create-owner`. The exit code is `0` on success and `1` on any error; errors go to stderr. Options can be combined in one call (for example `--reset-password … --promote-owner`), and actions run in a fixed order: list, create-owner, reset-password, reset-2fa, promote-owner.
+
+**After a reset.** Password and 2FA resets invalidate existing sessions; in multi mode the staff member still has to set up 2FA again before their next staff login completes (2FA is mandatory there). Change the temporary password from the panel once access is restored.

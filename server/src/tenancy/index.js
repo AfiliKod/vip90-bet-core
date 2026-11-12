@@ -16,6 +16,11 @@ import {
   listTenantCredentialSchemas,
   _resetTenancyRegistriesForTests,
 } from './provisioning.js';
+import StaffAccount from '../models/StaffAccount.js';
+import RoleAssignment from '../models/RoleAssignment.js';
+import { resolveTenantHost } from '../middleware/tenantHost.js';
+import { requireStaff, requireStaffPermission } from '../middleware/auth.js';
+import { signStaffAccess } from '../services/staffSession.js';
 
 /**
  * Build a `$lookup` pipeline scoped to the current tenant's collection.
@@ -57,4 +62,10 @@ export {
   registerTenantCredentialSchema,
   getTenantCredentialSchema,
   listTenantCredentialSchemas,
+  StaffAccount,
+  RoleAssignment,
+  resolveTenantHost,
+  requireStaff,
+  requireStaffPermission,
+  signStaffAccess,
 };

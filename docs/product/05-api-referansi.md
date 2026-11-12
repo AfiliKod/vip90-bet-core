@@ -6,6 +6,7 @@ All endpoints are grouped under `/api` (except the setup wizard, which is under 
 |---|---|---|
 | Authentication | `/api/auth` | Registration, login, session refresh, email verification, password reset |
 | Web3 wallet login | `/api/auth/wallet` | Login via MetaMask/WalletConnect etc., linking wallet to account |
+| Staff authentication | `/api/staff/auth` | Staff login/refresh/me/logout and staff 2FA (`/2fa/*`); staff tokens only |
 | Social login | `/api/auth` (google/telegram) | Login/account linking via Google and Telegram OAuth |
 | 2FA | `/api/auth/2fa` | Two-factor authentication for admin accounts |
 | Events | `/api/events` | Sports betting event list, details — **betting module gate** (paid Sports Betting add-on) |
@@ -102,6 +103,30 @@ Additionally, `/auth/login` returns `429 TOO_MANY_ATTEMPTS` after 5 failed attem
 | `POST /reset-password` | Guest + `emailFlowLimiter` | `passwordResetConfirmSchema`: `token`, `newPassword` (8-128, uppercase+digit) | `400 INVALID_TOKEN` (the DB keeps only a SHA-256 hash of the e-mailed token) |
 | `POST /2fa/login` | `loginLimiter` (no `guestOnly`) | `twoFactorLoginSchema`: `challengeToken` (from a login response with `requires2fa`), `token` (TOTP or backup code, 6-20 chars) | Second step of login for 2FA accounts. Success: `{ accessToken, user, amr }` + refresh cookie. `401 INVALID_CHALLENGE`, `409`/`401 CHALLENGE_USED`, `401 INVALID_2FA`, `403 ACCOUNT_BANNED`, `429 TOO_MANY_ATTEMPTS` (challenge: 5 guesses, 5 min, single use; account: 10 wrong codes / 15 min) |
 | `POST /age-confirm` | User login | `ageConfirmSchema`: `confirmed: true` (required), `dateOfBirth?` (`YYYY-MM-DD`) | Writes `ageConfirmedAt`, and `ageVerifiedAt` as well when `dateOfBirth` proves 18+. `422 AGE_NOT_ELIGIBLE` when `dateOfBirth` is under 18 (nothing is written). Response: `{ message, ageConfirmedAt, ageVerifiedAt, verified, ageConsent }`. Until this succeeds, `POST /api/igames/game/launch` and `POST /api/inhouse-provider/launch` return `403 AGE_CONFIRMATION_REQUIRED` (see [09](09-bilinen-kisitlar.md)) |
+
+### Staff authentication — `/api/staff/auth` (`routes/staffAuth.js`, `routes/staff2fa.js`)
+
+Staff accounts (`StaffAccount`) are separate from player accounts. Login, refresh and `/me` live under `/api/staff/auth`, and 2FA under `/api/staff/auth/2fa`. In single mode the existing admin still logs in through `POST /api/auth/login`; these endpoints are the multi-operator staff path (and an alternative single-mode staff path).
+
+| Method + Path | Auth | Body schema | Notes / error codes |
+|---|---|---|---|
+| `POST /staff/auth/login` | Public | `{ username, password }` | 2FA enabled → `{ requires2fa: true, challengeToken }`; multi mode without 2FA → `{ requires2faSetup: true, setupToken }`; otherwise `{ accessToken, staff, amr }` + `staffRefreshToken` cookie (path `/api/staff/auth`). `401 INVALID_CREDENTIALS` |
+| `POST /staff/auth/refresh` | `staffRefreshToken` cookie | — | `{ accessToken, staff, amr }` + rotated cookie. `401 NO_REFRESH_TOKEN` / `INVALID_REFRESH_TOKEN` |
+| `GET /staff/auth/me` | `requireStaff()` | — | `{ staff, permissions }` — the staff account with a safe projection (never the password or 2FA secret) and the sorted effective permission keys for the current scope |
+| `POST /staff/auth/logout` | Public | — | Clears the `staffRefreshToken` cookie |
+| `POST /staff/auth/2fa/setup` | Staff session (`req.staff`) | — | `{ secret, otpauthUrl, qrDataUrl }`. `400 ALREADY_ENABLED` |
+| `POST /staff/auth/2fa/confirm` | Staff session | `{ secret, token }` | Enables 2FA, returns one-time `{ enabled: true, backupCodes }`. `401 INVALID_2FA` |
+| `POST /staff/auth/2fa/challenge-verify` | Public (challenge token) | `{ challengeToken, code }` | Second login step (TOTP or backup code) → `{ staff, amr: ['pwd','otp'] }`. Challenge is single-use, 5 min, 5 attempts (`429 TOO_MANY_ATTEMPTS`). `401 INVALID_CHALLENGE` / `INVALID_2FA` |
+
+**Token families.** Player tokens are signed with `JWT_SECRET` (`aud: 'player'`, `typ: 'player'`, `tid` = tenant), staff tokens with `JWT_STAFF_SECRET` (`aud: 'staff'`, `typ: 'staff'`, `scp` = scope type, `sid` = scope id, `amr`). Only the staff family is accepted by `/api/staff/*` and other staff routes; only the player family by `/api/users`, `/api/bets` and the other player routes. `JWT_STAFF_SECRET` is optional in single mode (the staff family then falls back to `JWT_SECRET`, still separated by `aud`) and required in multi mode. Multi mode rejects tokens without the new claims; single mode keeps accepting tokens issued before the upgrade until they expire.
+
+**Request headers.**
+
+- `Authorization: Bearer <token>` — the access token of either family, as above.
+- `X-Tenant-Id: <tenant ObjectId>` — required in multi mode when a **platform** staff token calls a tenant route; the tenant must exist and not be closed. Missing header → `400 TENANT_REQUIRED`; unknown or closed tenant → `404 TENANT_NOT_FOUND`.
+- `Host` — in multi mode the hostname resolves the tenant through verified `Domain` records (`resolveTenantHost`, 60 s cache); an unregistered host gets `404 TENANT_NOT_FOUND`. A player token whose `tid` is another tenant is rejected with `401 CROSS_TENANT_TOKEN`; a tenant staff token used against another tenant is rejected with `403 CROSS_TENANT_ACCESS`. Single mode always binds the default tenant and never answers 404 for the host. Tenant-owned collections carry `tenantId` and, once tenancy enforcement is on, are queried inside the request's tenant, so an object ID belonging to another operator is not found from the caller's side (`404`, not `403`) and resource existence is not disclosed across tenants.
+
+**Staff 2FA policy.** Mandatory in multi mode (`403 TWO_FACTOR_REQUIRED` without `amr: ['…','otp']`); optional in single mode — an account that enabled it is prompted for a code, one that did not logs in with the password alone.
 
 ### Web3 wallet login — `/api/auth/wallet` (`routes/web3Auth.js`)
 
