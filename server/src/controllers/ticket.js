@@ -1,3 +1,4 @@
+import { scopeTenantId } from '../tenancy/tenantFilter.js';
 import Ticket from '../models/Ticket.js';
 import { createError } from '../middleware/error.js';
 import {
@@ -55,7 +56,7 @@ export async function listAllTickets(req, res, next) {
 
 export async function getTicketById(req, res, next) {
   try {
-    await assertTicketInTenant(req.params.id, req.tenant?.id);
+    await assertTicketInTenant(req.params.id, scopeTenantId(req));
     res.json(await getTicketByIdService(req.params.id, req.user.id, true));
   } catch (e) { next(createError(404, 'NOT_FOUND', e.message)); }
 }
@@ -66,7 +67,7 @@ export async function getAnyTicket(req, res, next) {
 
 export async function replyAsAdmin(req, res, next) {
   try {
-    await assertTicketInTenant(req.params.id, req.tenant?.id);
+    await assertTicketInTenant(req.params.id, scopeTenantId(req));
     const { message } = req.validated;
     const ticket = await addMessage(req.params.id, req.user.id, 'admin', message);
     res.json(ticket);
@@ -75,7 +76,7 @@ export async function replyAsAdmin(req, res, next) {
 
 export async function setTicketStatus(req, res, next) {
   try {
-    await assertTicketInTenant(req.params.id, req.tenant?.id);
+    await assertTicketInTenant(req.params.id, scopeTenantId(req));
   } catch (e) { return next(e); }
   try {
     const { status } = req.validated;

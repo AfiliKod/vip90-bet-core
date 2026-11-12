@@ -4,7 +4,7 @@ import mongoose from 'mongoose';
 import User from '../src/models/User.js';
 import ChatRoom from '../src/models/ChatRoom.js';
 import Ticket from '../src/models/Ticket.js';
-import { runWithTenant } from '../src/tenancy/context.js';
+import { runAsPlatform, runWithTenant } from '../src/tenancy/context.js';
 import { sendTip } from '../src/services/chat.js';
 import { updateRoom, deleteMessage } from '../src/controllers/chat.js';
 import { getTicketById } from '../src/controllers/ticket.js';
@@ -15,12 +15,15 @@ const T2 = new mongoose.Types.ObjectId();
 
 let u1, u2, roomT1, ticketT1;
 
+const savedMode = process.env.TENANCY_MODE;
 before(async () => {
+  // Cross-tenant isolation is a multi-mode property (scopeTenantId is null in single mode).
+  process.env.TENANCY_MODE = 'multi';
   await mongoose.connect(TEST_DB);
   await mongoose.connection.dropDatabase();
 
-  u1 = await runWithTenant(T1, () => User.create({ username: 'tipper_t1', email: 't1@chat.com', password: 'x'.repeat(10), balance: 500 }));
-  u2 = await runWithTenant(T2, () => User.create({ username: 'receiver_t2', email: 't2@chat.com', password: 'x'.repeat(10), balance: 100 }));
+  u1 = await runWithTenant(T1, () => User.create({ username: 'tipper_t1', email: 't1@chat.example.com', password: 'x'.repeat(10), balance: 500 }));
+  u2 = await runWithTenant(T2, () => User.create({ username: 'receiver_t2', email: 't2@chat.example.com', password: 'x'.repeat(10), balance: 100 }));
 
   roomT1 = await runWithTenant(T1, () => ChatRoom.create({
     name: 'T1 Lounge',
@@ -36,6 +39,7 @@ before(async () => {
 });
 
 after(async () => {
+  if (savedMode === undefined) delete process.env.TENANCY_MODE; else process.env.TENANCY_MODE = savedMode;
   await mongoose.connection.dropDatabase();
   await mongoose.disconnect();
 });
@@ -49,8 +53,8 @@ test('sendTip rejects cross-tenant recipient with RECIPIENT_NOT_FOUND', async ()
   });
 
   // Verify balances untouched
-  const refU1 = await User.findById(u1._id);
-  const refU2 = await User.findById(u2._id);
+  const refU1 = await runAsPlatform('test: verify balance', () => User.findById(u1._id));
+  const refU2 = await runAsPlatform('test: verify balance', () => User.findById(u2._id));
   assert.equal(refU1.balance, 500);
   assert.equal(refU2.balance, 100);
 });
