@@ -357,6 +357,7 @@ export function requireStaffPermission(permissionKey) {
       const allowed = await staffHasPermission(req.staff.id, permissionKey, {
         scopeType: req.staff.scope,
         scopeId: req.staff.scopeId,
+        partnerCapabilities: req.staff.scope === 'partner' ? (req.partner?.capabilities ?? null) : null,
       });
       if (!allowed) return next(createError(403, 'FORBIDDEN', `Yetki yok: ${permissionKey}`));
       return next();
