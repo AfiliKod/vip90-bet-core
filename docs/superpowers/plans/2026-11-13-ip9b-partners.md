@@ -26,6 +26,20 @@
 
 ---
 
+## Reviewer correction (2026-11-13): overrides every conflicting line below
+
+1. **Reuse İP-9a as it is on main.** Partner provisioning calls `provisionTenant` (it returns `ownerInvite` once) and
+   `createStaffInvite`; status changes call `transitionTenantStatus` with `force` always false for partners (a partner
+   can never activate past the go-live checklist or close a tenant; closing stays platform-only, K26). The
+   owner-invitation rule from İP-9a applies to partners too: no re-invite once the owner has signed in.
+2. **Existing catalogue first.** The `partner:*` permission keys and the `partner` role/assignment scope already exist
+   in `server/src/services/permissions.js` and the Role/RoleAssignment models; extend them, do not duplicate.
+3. **Errors use the existing shape** `{ error: { code, message } }` via `createError`; cross-partner access is 404.
+4. **Console:** partner pages live in the same `console/` app under `/console/partner/*` (router basename `/console`,
+   raw links prefixed with `/console`), shown only to partner-scoped staff.
+5. Never change an existing test to make a new one pass. Do NOT run the full root `npm test`; run your task's files
+   only, with `--test-timeout=60000`; each test file uses its own database name.
+
 ## Invariants and Ground Rules
 
 1. **Partner defaults (K27):** Default capabilities for new partners are strictly `['metrics.read', 'staff.manage']`. All other capabilities (`tenants.create`, `tenants.config:write`, `tenants.domains:write`, `tenants.staff:write`, `tenants.status:write`, `tenants.integrations:write`, `partner:grants:use`) must be explicitly granted by the Platform Owner.
