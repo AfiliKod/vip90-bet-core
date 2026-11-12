@@ -1,6 +1,9 @@
 import mongoose from 'mongoose';
+import { registerTenantIndexes } from '../tenancy/indexRegistry.js';
+import { defineTenantModel } from '../tenancy/models.js';
 
 const schema = new mongoose.Schema({
+  tenantId: { type: mongoose.Schema.Types.ObjectId, ref: 'Tenant', required: false, index: true, immutable: true },
   roomId: { type: mongoose.Schema.Types.ObjectId, ref: 'ChatRoom', required: true },
   userId: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true },
   message: { type: String, required: true, maxlength: 2000 },
@@ -32,4 +35,9 @@ schema.index({ roomId: 1, createdAt: -1 });
 schema.index({ userId: 1, createdAt: -1 });
 schema.index({ isDeleted: 1 });
 
-export default mongoose.model('ChatMessage', schema);
+registerTenantIndexes('ChatMessage', [
+  { keys: { tenantId: 1, roomId: 1, createdAt: -1 }, options: { name: 'tenant_roomId_createdAt' } },
+  { keys: { tenantId: 1, userId: 1, createdAt: -1 }, options: { name: 'tenant_userId_createdAt' } },
+]);
+
+export default defineTenantModel('ChatMessage', schema);

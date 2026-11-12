@@ -1,6 +1,9 @@
 import mongoose from 'mongoose';
+import { registerTenantIndexes } from '../tenancy/indexRegistry.js';
+import { defineTenantModel } from '../tenancy/models.js';
 
 const schema = new mongoose.Schema({
+  tenantId: { type: mongoose.Schema.Types.ObjectId, ref: 'Tenant', required: false, index: true, immutable: true },
   roomId: { type: mongoose.Schema.Types.ObjectId, ref: 'ChatRoom', required: true },
   createdBy: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true }, // admin or system
   // V8: `<createdBy>:<client requestId>`; a retry with the same id returns this rain.
@@ -38,4 +41,9 @@ const schema = new mongoose.Schema({
 schema.index({ roomId: 1, status: 1 });
 schema.index({ createdBy: 1, createdAt: -1 });
 
-export default mongoose.model('ChatRain', schema);
+registerTenantIndexes('ChatRain', [
+  { keys: { tenantId: 1, roomId: 1, status: 1 }, options: { name: 'tenant_roomId_status' } },
+  { keys: { tenantId: 1, createdBy: 1, createdAt: -1 }, options: { name: 'tenant_createdBy_createdAt' } },
+]);
+
+export default defineTenantModel('ChatRain', schema);

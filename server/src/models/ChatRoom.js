@@ -1,6 +1,9 @@
 import mongoose from 'mongoose';
+import { registerTenantIndexes } from '../tenancy/indexRegistry.js';
+import { defineTenantModel } from '../tenancy/models.js';
 
 const schema = new mongoose.Schema({
+  tenantId: { type: mongoose.Schema.Types.ObjectId, ref: 'Tenant', required: false, index: true, immutable: true },
   // Room info
   name: { type: String, required: true, unique: true },
   slug: { type: String, required: true, unique: true, lowercase: true },
@@ -44,4 +47,10 @@ const schema = new mongoose.Schema({
 
 schema.index({ isActive: 1, isPublic: 1 });
 
-export default mongoose.model('ChatRoom', schema);
+registerTenantIndexes('ChatRoom', [
+  { keys: { tenantId: 1, name: 1 }, options: { name: 'tenant_name_uniq', unique: true } },
+  { keys: { tenantId: 1, slug: 1 }, options: { name: 'tenant_slug_uniq', unique: true } },
+  { keys: { tenantId: 1, isActive: 1, isPublic: 1 }, options: { name: 'tenant_isActive_isPublic' } },
+]);
+
+export default defineTenantModel('ChatRoom', schema);

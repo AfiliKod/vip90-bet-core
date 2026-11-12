@@ -1,6 +1,9 @@
 import mongoose from 'mongoose';
+import { registerTenantIndexes } from '../tenancy/indexRegistry.js';
+import { defineTenantModel } from '../tenancy/models.js';
 
 const schema = new mongoose.Schema({
+  tenantId: { type: mongoose.Schema.Types.ObjectId, ref: 'Tenant', required: false, index: true, immutable: true },
   roomId: { type: mongoose.Schema.Types.ObjectId, ref: 'ChatRoom', required: true },
   fromUserId: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true },
   toUserId: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true },
@@ -27,4 +30,10 @@ schema.index({ toUserId: 1, createdAt: -1 });
 schema.index({ roomId: 1, createdAt: -1 });
 schema.index({ status: 1 });
 
-export default mongoose.model('ChatTip', schema);
+registerTenantIndexes('ChatTip', [
+  { keys: { tenantId: 1, fromUserId: 1, createdAt: -1 }, options: { name: 'tenant_fromUserId_createdAt' } },
+  { keys: { tenantId: 1, toUserId: 1, createdAt: -1 }, options: { name: 'tenant_toUserId_createdAt' } },
+  { keys: { tenantId: 1, roomId: 1, createdAt: -1 }, options: { name: 'tenant_roomId_createdAt' } },
+]);
+
+export default defineTenantModel('ChatTip', schema);
