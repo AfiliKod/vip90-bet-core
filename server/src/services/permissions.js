@@ -1,10 +1,12 @@
+import { getTenancyMode } from '../config/tenancy.js';
 import Permission from '../models/Permission.js';
 import Role from '../models/Role.js';
 import User from '../models/User.js';
+import mongoose from 'mongoose';
 import { createError } from '../middleware/error.js';
 import { invalidateUserTokens } from '../middleware/auth.js';
 
-export const PERMISSION_DEFS = [
+const LEGACY_PERMISSION_DEFS = [
   // Users
   { key: 'admin:users:read', name: 'Kullanıcıları Görüntüle', category: 'users', description: 'Kullanıcı listesi ve detayları' },
   { key: 'admin:users:write', name: 'Kullanıcı Düzenle', category: 'users', description: 'Kullanıcı oluşturma, düzenleme, silme' },
@@ -90,6 +92,32 @@ export const PERMISSION_DEFS = [
   { key: 'admin:integrations:write', name: 'Entegrasyonları Yönet', category: 'integrations', description: 'Sağlayıcı ayarları, API anahtarı ve kimlik bilgisi değiştirme' },
 ];
 
+export const PARTNER_PERMISSION_DEFS = [
+  { key: 'partner:metrics:read', name: 'Partner Metriklerini Görüntüle', category: 'partner', description: 'GGR, turnover ve aktif oyuncu toplamlarını görüntüleme' },
+  { key: 'partner:staff:write', name: 'Partner Personelini Yönet', category: 'partner', description: 'Partner personeli ve rollerini yönetme' },
+  { key: 'partner:tenants:create', name: 'Operatör Oluştur', category: 'partner', description: 'Partner kotası altında operatör sağlama' },
+  { key: 'partner:tenants:config:write', name: 'Operatör Yapılandırmasını Yönet', category: 'partner', description: 'Tavanlar içinde marka, tema, VIP ve promosyon yapılandırması' },
+  { key: 'partner:tenants:domains:write', name: 'Operatör Alan Adlarını Yönet', category: 'partner', description: 'Doğrulamalı alan adı ekleme ve kaldırma' },
+  { key: 'partner:tenants:staff:write', name: 'Operatör Personelini Yönet', category: 'partner', description: 'Operatör yöneticilerini yönetme ve kendi kendine atama olmadan rol verme' },
+  { key: 'partner:tenants:status:write', name: 'Operatör Durumunu Yönet', category: 'partner', description: 'Operatörü askıya alma ve yeniden açma' },
+  { key: 'partner:tenants:integrations:write', name: 'Operatör Entegrasyonlarını Yönet', category: 'partner', description: 'Yalnız yazılabilir entegrasyon kimlik bilgilerini yönetme' },
+  { key: 'partner:grants:use', name: 'Partner İzinlerini Kullan', category: 'partner', description: 'Etkin PartnerGrant kapsamlarını kullanma' },
+];
+
+export const PLATFORM_PERMISSION_DEFS = [
+  { key: 'platform:events:settle', name: 'Platform Etkinliklerini Sonuçlandır', category: 'platform', description: 'Manuel etkinlik sonuçlandırma' },
+  { key: 'platform:partners:manage', name: 'Partnerleri Yönet', category: 'platform', description: 'Partner CRUD ve yetenek kümelerini yönetme' },
+  { key: 'platform:tenants:manage', name: 'Operatörleri Yönet', category: 'platform', description: 'Platform düzeyinde operatör kontrolü ve kapatma' },
+  { key: 'platform:billing:read', name: 'Faturalamayı Görüntüle', category: 'platform', description: 'Komisyon ve faturaları görüntüleme' },
+  { key: 'platform:roles:manage', name: 'Platform Rollerini Yönet', category: 'platform', description: 'Platform rol atamalarını yönetme' },
+];
+
+export const PERMISSION_DEFS = [
+  ...LEGACY_PERMISSION_DEFS,
+  ...PARTNER_PERMISSION_DEFS,
+  ...PLATFORM_PERMISSION_DEFS,
+];
+
 /**
  * Initialize default permissions
  */
@@ -111,14 +139,17 @@ export async function initDefaultRoles() {
   if (count > 0) return;
 
   const permissions = await Permission.find({}).lean();
-  const permMap = Object.fromEntries(permissions.map(p => [p.key, p._id]));
+  const tenantPermissions = permissions.filter((permission) =>
+    !permission.key.startsWith('platform:') && !permission.key.startsWith('partner:')
+  );
+  const permMap = Object.fromEntries(tenantPermissions.map(p => [p.key, p._id]));
 
   const roles = [
     {
       name: 'super_admin',
       displayName: 'Süper Admin',
       description: 'Tüm sistem yetkileri',
-      permissions: permissions.map(p => p._id),
+      permissions: tenantPermissions.map(p => p._id),
       isSystem: true,
       priority: 100,
     },
@@ -126,7 +157,7 @@ export async function initDefaultRoles() {
       name: 'admin',
       displayName: 'Admin',
       description: 'Genel admin yetkileri (roller hariç)',
-      permissions: permissions
+      permissions: tenantPermissions
         .filter(p => !p.key.startsWith('admin:roles:'))
         .map(p => p._id),
       isSystem: true,
@@ -219,20 +250,110 @@ export async function syncMissingPermissions() {
   if (missing.length === 0) return { added: 0 };
 
   const inserted = await Permission.insertMany(missing);
+  const tenantInserted = inserted.filter((permission) =>
+    !permission.key.startsWith('platform:') && !permission.key.startsWith('partner:')
+  );
 
   const superAdmin = await Role.findOne({ name: 'super_admin' });
   if (superAdmin) {
-    superAdmin.permissions.push(...inserted.map(p => p._id));
+    superAdmin.permissions.push(...tenantInserted.map(p => p._id));
     await superAdmin.save();
   }
   const admin = await Role.findOne({ name: 'admin' });
   if (admin) {
-    const nonRolesPerms = inserted.filter(p => !p.key.startsWith('admin:roles:'));
+    const nonRolesPerms = tenantInserted.filter(p => !p.key.startsWith('admin:roles:'));
     admin.permissions.push(...nonRolesPerms.map(p => p._id));
     await admin.save();
   }
 
   return { added: inserted.length };
+}
+
+function permissionIds(permissionMap, keys) {
+  return keys.map((key) => permissionMap[key]).filter(Boolean);
+}
+
+export async function initDefaultScopedRoles() {
+  await syncMissingPermissions();
+  const permissions = await Permission.find({}).lean();
+  const permissionMap = Object.fromEntries(permissions.map((permission) => [permission.key, permission._id]));
+  const tenantPermissionKeys = permissions
+    .map((permission) => permission.key)
+    .filter((key) => !key.startsWith('platform:') && !key.startsWith('partner:'));
+  const partnerPermissionKeys = PARTNER_PERMISSION_DEFS.map((permission) => permission.key);
+  const platformPermissionKeys = PLATFORM_PERMISSION_DEFS.map((permission) => permission.key);
+
+  const roles = [
+    { name: 'platform_owner', displayName: 'Platform Sahibi', description: 'Tüm platform yetkileri', permissions: permissionIds(permissionMap, permissions.map((permission) => permission.key)), isSystem: true, priority: 100, scopeType: 'platform', scopeId: null },
+    { name: 'platform_ops', displayName: 'Platform Operasyonları', description: 'Platform operasyon yetkileri', permissions: permissionIds(permissionMap, ['platform:events:settle', 'platform:tenants:manage']), isSystem: true, priority: 80, scopeType: 'platform', scopeId: null },
+    { name: 'platform_finance', displayName: 'Platform Finans', description: 'Platform finans yetkileri', permissions: permissionIds(permissionMap, ['platform:billing:read']), isSystem: true, priority: 70, scopeType: 'platform', scopeId: null },
+    { name: 'platform_support', displayName: 'Platform Destek', description: 'Platform destek yetkileri', permissions: [], isSystem: true, priority: 60, scopeType: 'platform', scopeId: null },
+    { name: 'partner_admin', displayName: 'Partner Yöneticisi', description: 'Partner yetenek kümesi sınırlarında tüm partner yetkileri', permissions: permissionIds(permissionMap, partnerPermissionKeys), isSystem: true, priority: 80, scopeType: 'partner', scopeId: null },
+    { name: 'partner_ops', displayName: 'Partner Operasyonları', description: 'Partner operasyon yetkileri', permissions: permissionIds(permissionMap, partnerPermissionKeys.filter((key) => key !== 'partner:staff:write')), isSystem: true, priority: 60, scopeType: 'partner', scopeId: null },
+    { name: 'partner_analyst', displayName: 'Partner Analisti', description: 'Partner metriklerini görüntüleme', permissions: permissionIds(permissionMap, ['partner:metrics:read']), isSystem: true, priority: 40, scopeType: 'partner', scopeId: null },
+    { name: 'tenant_owner', displayName: 'Kiracı Sahibi', description: 'Tüm kiracı yetkileri', permissions: permissionIds(permissionMap, tenantPermissionKeys), isSystem: true, priority: 100, scopeType: 'tenant', scopeId: null },
+    { name: 'admin', displayName: 'Admin', description: 'Rol yönetimi hariç genel kiracı yetkileri', permissions: permissionIds(permissionMap, tenantPermissionKeys.filter((key) => !key.startsWith('admin:roles:'))), isSystem: true, priority: 90, scopeType: 'tenant', scopeId: null },
+    { name: 'finance', displayName: 'Finans', description: 'Kiracı finans yetkileri', permissions: permissionIds(permissionMap, ['admin:users:read', 'admin:users:balance', 'admin:transactions:read', 'admin:transactions:write', 'admin:referral:read', 'admin:referral:approve', 'admin:referral:rates', 'admin:agent:read', 'admin:reports:read', 'admin:reports:export']), isSystem: true, priority: 60, scopeType: 'tenant', scopeId: null },
+    { name: 'risk_analyst', displayName: 'Risk Analisti', description: 'Kiracı risk yetkileri', permissions: permissionIds(permissionMap, ['admin:risk:read', 'admin:risk:review', 'admin:users:read', 'admin:transactions:read', 'admin:audit:read']), isSystem: true, priority: 55, scopeType: 'tenant', scopeId: null },
+    { name: 'casino_manager', displayName: 'Casino Yöneticisi', description: 'Kiracı casino yetkileri', permissions: permissionIds(permissionMap, ['admin:casino:read', 'admin:casino:write', 'admin:casino:rtp', 'admin:casino:bonus', 'admin:reports:read']), isSystem: true, priority: 55, scopeType: 'tenant', scopeId: null },
+    { name: 'support', displayName: 'Destek', description: 'Kiracı destek yetkileri', permissions: permissionIds(permissionMap, ['admin:users:read', 'admin:users:kyc', 'admin:transactions:read', 'admin:support:read', 'admin:support:write', 'admin:kyc:read', 'admin:kyc:approve']), isSystem: true, priority: 50, scopeType: 'tenant', scopeId: null },
+    { name: 'content_manager', displayName: 'İçerik Yöneticisi', description: 'Kiracı içerik yetkileri', permissions: permissionIds(permissionMap, ['admin:theme:read', 'admin:theme:write', 'admin:settings:read']), isSystem: true, priority: 40, scopeType: 'tenant', scopeId: null },
+  ];
+
+  return Promise.all(roles.map((role) => Role.findOneAndUpdate(
+    { name: role.name, scopeType: role.scopeType, scopeId: role.scopeId },
+    { $setOnInsert: role },
+    { new: true, upsert: true, setDefaultsOnInsert: true }
+  )));
+}
+
+async function getRoleAssignmentModel() {
+  if (mongoose.models.RoleAssignment) return mongoose.models.RoleAssignment;
+  return (await import('../models/RoleAssignment.js')).default;
+}
+
+function capabilityPermissionKeys(capabilities) {
+  return new Set(capabilities.map((capability) =>
+    capability.startsWith('partner:') ? capability : `partner:${capability.replaceAll('.', ':')}`
+  ));
+}
+
+function capPartnerPermissions(permissionKeys, capabilities) {
+  if (capabilities === null || capabilities === undefined) return permissionKeys;
+  const allowedKeys = capabilityPermissionKeys(capabilities);
+  return new Set([...permissionKeys].filter((key) => allowedKeys.has(key)));
+}
+
+export async function getStaffEffectivePermissions(staffId, {
+  scopeType,
+  scopeId,
+  partnerCapabilities = null,
+  linkCapabilities = null,
+}) {
+  const RoleAssignment = await getRoleAssignmentModel();
+  const assignments = await RoleAssignment.find({ staffId, scopeType, scopeId })
+    .populate({ path: 'roleId', populate: { path: 'permissions', select: 'key' } })
+    .lean();
+  const permissionKeys = new Set();
+
+  for (const assignment of assignments) {
+    for (const permission of assignment.roleId?.permissions || []) {
+      permissionKeys.add(permission.key);
+    }
+  }
+
+  if (scopeType !== 'partner') return permissionKeys;
+  return capPartnerPermissions(capPartnerPermissions(permissionKeys, partnerCapabilities), linkCapabilities);
+}
+
+export async function staffHasPermission(staffId, permissionKey, context) {
+  return (await getStaffEffectivePermissions(staffId, context)).has(permissionKey);
+}
+
+export function validateRolePermissions(scopeType, permissionKeys) {
+  if (scopeType === 'tenant' && (permissionKeys || []).some((key) => key.startsWith('platform:'))) {
+    throw createError(400, 'PLATFORM_PERMISSION_FORBIDDEN', 'PLATFORM_PERMISSION_FORBIDDEN: Tenant roles cannot include platform permissions');
+  }
 }
 
 /**
@@ -510,16 +631,26 @@ export async function removeRoleFromUser(userId, roleId, { afterWrite } = {}) {
   return user;
 }
 
+async function permissionKeysForIds(permissionIds) {
+  if (!permissionIds?.length) return [];
+  const permissions = await Permission.find({ _id: { $in: permissionIds } }).select('key').lean();
+  return permissions.map((permission) => permission.key);
+}
+
 /**
  * Create custom role (admin)
  */
 export async function createRole(data, actorId = null) {
-  const { name, displayName, description, permissions = [], priority = 0 } = data;
+  const { name, displayName, description, permissions = [], priority = 0, scopeType = 'tenant', scopeId = null } = data;
 
-  if (await Role.findOne({ name })) {
+  // Single mode keeps role names globally unique (legacy name_1); multi mode scopes them.
+  const roleIdentity = getTenancyMode() === 'multi' ? { name, scopeType, scopeId } : { name };
+  if (await Role.findOne(roleIdentity)) {
     throw new Error('Role name already exists');
   }
+  // V21 grant check first (403), then the scope rule (400): the İP-0 contract stays.
   if (actorId) await assertCanGrantPermissions(actorId, permissions);
+  validateRolePermissions(scopeType, await permissionKeysForIds(permissions));
 
   const role = await Role.create({
     name,
@@ -528,6 +659,8 @@ export async function createRole(data, actorId = null) {
     permissions,
     isSystem: false,
     priority,
+    scopeType,
+    scopeId,
   });
 
   return role;
@@ -551,6 +684,10 @@ export async function updateRole(roleId, updates, actorId = null) {
     // holds now — otherwise an actor could strip holders of what they lack.
     await assertCanGrantRole(actorId, roleId, 'update');
     await assertCanGrantPermissions(actorId, updateData.permissions);
+  }
+  // Scope rule after the V21 grant check (403 before 400).
+  if (updateData.permissions) {
+    validateRolePermissions(existing.scopeType || 'tenant', await permissionKeysForIds(updateData.permissions));
   }
 
   const role = await Role.findOneAndUpdate(
