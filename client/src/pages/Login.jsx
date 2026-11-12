@@ -16,7 +16,7 @@ import { useTurnstile } from '../components/TurnstileWidget';
 
 export default function Login() {
   const { t } = useTranslation();
-  const siteName = useBrandingStore(s => s.siteName) || 'VIP90.bet';
+  const siteName = useBrandingStore(s => s.siteName) || '';
   const [searchParams] = useSearchParams();
   const refUsername = searchParams.get('ref');
   const [tab, setTab] = useState(searchParams.get('tab') === 'register' ? 'register' : 'login');

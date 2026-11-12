@@ -42,7 +42,7 @@ const LEGAL_PAGE_TITLE_KEYS = {
 function Footer({ onOpenHelp }) {
   const { t } = useTranslation();
   const year = new Date().getFullYear();
-  const siteName = useBrandingStore(s => s.siteName) || 'VIP90.bet';
+  const siteName = useBrandingStore(s => s.siteName) || '';
 
   const [staticPages, setStaticPages] = useState(null); // null = henüz yüklenmedi
   const [loadFailed, setLoadFailed] = useState(false);

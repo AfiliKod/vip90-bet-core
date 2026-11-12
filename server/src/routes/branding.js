@@ -1,5 +1,5 @@
 import { Router } from 'express';
-import { getBrandingValues } from '../branding/index.js';
+import { getBrandingValues, getSiteName } from '../branding/index.js';
 import Tenant from '../models/Tenant.js';
 import { getCurrentTenantId } from '../tenancy/context.js';
 
@@ -25,6 +25,8 @@ r.get('/', async (req, res, next) => {
     }
 
     res.set('Cache-Control', 'public, max-age=30');
+    // Ayarlanmamış site adı: sunucuyla aynı nötr yedek (kiracı adı, sonra boş).
+    if (!values.siteName) values.siteName = (await getSiteName()) || null;
     res.json({ values, legalEntity, tenantName });
   } catch (e) { next(e); }
 });

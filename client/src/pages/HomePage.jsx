@@ -92,7 +92,7 @@ function GameRowSection({ id, icon, title, subtitle, viewAllTo, viewAllLabel, ch
 
 export default function HomePage() {
   const { t } = useTranslation();
-  const siteName = useBrandingStore(s => s.siteName) || 'VIP90.bet';
+  const siteName = useBrandingStore(s => s.siteName) || '';
   const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
   const betSlipSelections = useBetSlipStore(s => s.selections);

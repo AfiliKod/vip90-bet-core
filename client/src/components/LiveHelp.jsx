@@ -26,7 +26,7 @@ function TypingDots() {
 
 export default function LiveHelp({ open, onClose }) {
   const { t } = useTranslation();
-  const siteName = useBrandingStore(s => s.siteName) || 'VIP90.bet';
+  const siteName = useBrandingStore(s => s.siteName) || '';
   const [messages, setMessages] = useState([
     {
       role: 'assistant',

@@ -22,7 +22,7 @@ const conditionalAuthLimiter = testMode ? (req, res, next) => next() : authLimit
 // bu yüzden auth gerektirmez.
 r.post('/nonce', conditionalAuthLimiter, validate(walletNonceSchema), async (req, res) => {
   const nonce = setAuthNonce(req.validated.address);
-  res.json({ message: generateAuthMessage(nonce, await getSiteName()) });
+  res.json({ message: generateAuthMessage(nonce, (await getSiteName()) || req.hostname) });
 });
 
 // POST /api/auth/wallet/login — cüzdanla giriş (yeni kullanıcı ise otomatik oluşturur)
