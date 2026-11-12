@@ -12,6 +12,10 @@
  *    names, so parallel runs overwrite each other's data and fail at random. Unless
  *    CI is set, every database name gets a short suffix derived from the checkout
  *    path (override with TEST_DB_SUFFIX; set it to an empty string to disable).
+ *
+ * 3. Suffixed databases are dropped when the test process is about to exit, so many
+ *    checkouts do not pile up databases (MongoDB keeps one file per collection and
+ *    index; a local mongod crashed at its open-file limit on 2026-11-12).
  */
 import { createHash } from 'node:crypto';
 import mongoose from 'mongoose';
@@ -33,9 +37,29 @@ export function isolateUri(uri, suffix = dbSuffix()) {
 }
 
 const originalConnect = mongoose.connect.bind(mongoose);
+const isolatedDatabases = new Set();
+let cleaned = false;
+
+process.once('beforeExit', async () => {
+  if (cleaned || isolatedDatabases.size === 0) return;
+  cleaned = true;
+  try {
+    const conn = mongoose.connection.readyState === 1
+      ? mongoose.connection
+      : await mongoose.createConnection('mongodb://127.0.0.1:27017/admin', { serverSelectionTimeoutMS: 2000 }).asPromise();
+    for (const name of isolatedDatabases) await conn.useDb(name, { useCache: false }).dropDatabase().catch(() => {});
+    if (conn !== mongoose.connection) await conn.close().catch(() => {});
+    else await mongoose.disconnect().catch(() => {});
+  } catch { /* best effort: never fail a test run on cleanup */ }
+});
 
 mongoose.connect = async function connectAndAwaitIndexes(uri, ...rest) {
-  const result = await originalConnect(isolateUri(uri), ...rest);
+  const isolated = isolateUri(uri);
+  if (isolated !== uri) {
+    const name = isolated.match(/^mongodb(?:\+srv)?:\/\/[^/]+\/([^?]*)/)?.[1];
+    if (name) isolatedDatabases.add(name);
+  }
+  const result = await originalConnect(isolated, ...rest);
   await Promise.all(Object.values(mongoose.models).map((model) => model.init().catch(() => {})));
   return result;
 };
