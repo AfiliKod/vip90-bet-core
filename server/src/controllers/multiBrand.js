@@ -1,3 +1,4 @@
+import { scopeTenantId } from '../tenancy/tenantFilter.js';
 import {
   getAllBrands,
   getBrandById as getBrandByIdService,
@@ -30,7 +31,7 @@ export async function getAllBrandsHandler(req, res, next) {
       limit,
       search,
       isActive: isActive !== undefined ? isActive === 'true' : null,
-      tenantId: req.tenant?.id ?? null,
+      tenantId: scopeTenantId(req),
     });
     res.json(result);
   } catch (error) {
@@ -41,7 +42,7 @@ export async function getAllBrandsHandler(req, res, next) {
 /** GET /api/admin/brands/default */
 export async function getDefaultBrandHandler(req, res, next) {
   try {
-    const brand = await getDefaultBrand({ tenantId: req.tenant?.id ?? null });
+    const brand = await getDefaultBrand({ tenantId: scopeTenantId(req) });
     res.json({ brand });
   } catch (error) {
     next(error);
@@ -51,7 +52,7 @@ export async function getDefaultBrandHandler(req, res, next) {
 /** GET /api/admin/brands/stats */
 export async function getBrandStatsHandler(req, res, next) {
   try {
-    const stats = await getBrandStats({ tenantId: req.tenant?.id ?? null });
+    const stats = await getBrandStats({ tenantId: scopeTenantId(req) });
     res.json({ stats });
   } catch (error) {
     next(error);
@@ -61,7 +62,7 @@ export async function getBrandStatsHandler(req, res, next) {
 /** GET /api/admin/brands/slug/:slug */
 export async function getBrandBySlugHandler(req, res, next) {
   try {
-    const brand = await getBrandBySlug(req.params.slug, { tenantId: req.tenant?.id ?? null });
+    const brand = await getBrandBySlug(req.params.slug, { tenantId: scopeTenantId(req) });
     if (!brand) {
       return res.status(404).json({ error: { code: 'NOT_FOUND', message: 'Brand not found' } });
     }
@@ -74,7 +75,7 @@ export async function getBrandBySlugHandler(req, res, next) {
 /** GET /api/admin/brands/domain/:domain */
 export async function getBrandByDomainHandler(req, res, next) {
   try {
-    const brand = await getBrandByDomain(req.params.domain, { tenantId: req.tenant?.id ?? null });
+    const brand = await getBrandByDomain(req.params.domain, { tenantId: scopeTenantId(req) });
     if (!brand) {
       return res.status(404).json({ error: { code: 'NOT_FOUND', message: 'Brand not found' } });
     }
@@ -87,7 +88,7 @@ export async function getBrandByDomainHandler(req, res, next) {
 /** GET /api/admin/brands/:id */
 export async function getBrandById(req, res, next) {
   try {
-    const brand = await getBrandByIdService(req.params.id, { tenantId: req.tenant?.id ?? null });
+    const brand = await getBrandByIdService(req.params.id, { tenantId: scopeTenantId(req) });
     if (!brand) throw createError(404, 'NOT_FOUND', 'Brand not found');
     res.json({ brand });
   } catch (error) {
@@ -120,7 +121,7 @@ export async function updateBrand(req, res, next) {
     const brand = await updateBrandService(
       req.params.id,
       { ...body, updatedBy: req.user?.id },
-      { tenantId: req.tenant?.id ?? null },
+      { tenantId: scopeTenantId(req) },
     );
     if (!brand) throw createError(404, 'NOT_FOUND', 'Brand not found');
     res.json({ brand });
@@ -134,7 +135,7 @@ export const updateBrandHandler = updateBrand;
 /** DELETE /api/admin/brands/:id */
 export async function deleteBrandHandler(req, res, next) {
   try {
-    await deleteBrand(req.params.id, { tenantId: req.tenant?.id ?? null });
+    await deleteBrand(req.params.id, { tenantId: scopeTenantId(req) });
     res.json({ ok: true });
   } catch (error) {
     next(error);
@@ -145,7 +146,7 @@ export async function deleteBrandHandler(req, res, next) {
 export async function addDomainHandler(req, res, next) {
   try {
     const { domain } = req.body;
-    const brand = await addDomain(req.params.id, domain, { tenantId: req.tenant?.id ?? null });
+    const brand = await addDomain(req.params.id, domain, { tenantId: scopeTenantId(req) });
     res.json({ brand });
   } catch (error) {
     next(error);
@@ -155,7 +156,7 @@ export async function addDomainHandler(req, res, next) {
 /** DELETE /api/admin/brands/:id/domains/:domain */
 export async function removeDomainHandler(req, res, next) {
   try {
-    const brand = await removeDomain(req.params.id, req.params.domain, { tenantId: req.tenant?.id ?? null });
+    const brand = await removeDomain(req.params.id, req.params.domain, { tenantId: scopeTenantId(req) });
     res.json({ brand });
   } catch (error) {
     next(error);
@@ -165,7 +166,7 @@ export async function removeDomainHandler(req, res, next) {
 /** PATCH /api/admin/brands/:id/domains/:domain/primary */
 export async function setPrimaryDomainHandler(req, res, next) {
   try {
-    const brand = await setPrimaryDomain(req.params.id, req.params.domain, { tenantId: req.tenant?.id ?? null });
+    const brand = await setPrimaryDomain(req.params.id, req.params.domain, { tenantId: scopeTenantId(req) });
     res.json({ brand });
   } catch (error) {
     next(error);

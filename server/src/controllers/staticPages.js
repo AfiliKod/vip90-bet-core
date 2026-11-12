@@ -1,3 +1,4 @@
+import { scopeTenantId } from '../tenancy/tenantFilter.js';
 import StaticPage from '../models/StaticPage.js';
 import { createError } from '../middleware/error.js';
 
@@ -18,7 +19,7 @@ function scopedIdFilter(id, tenantId) {
 /** GET static page by id (tenant-scoped) */
 export async function getStaticPageById(req, res, next) {
   try {
-    const page = await StaticPage.findOne(scopedIdFilter(req.params.id, req.tenant?.id));
+    const page = await StaticPage.findOne(scopedIdFilter(req.params.id, scopeTenantId(req)));
     if (!page) throw createError(404, 'NOT_FOUND', 'Sayfa bulunamadı');
     res.json({ page });
   } catch (error) {
@@ -33,7 +34,7 @@ export async function updateStaticPage(req, res, next) {
     // the route and the ambient tenant binding.
     const { _id, tenantId: _skip, ...body } = req.body ?? {};
     const page = await StaticPage.findOneAndUpdate(
-      scopedIdFilter(req.params.id, req.tenant?.id),
+      scopedIdFilter(req.params.id, scopeTenantId(req)),
       { $set: { ...body, updatedBy: req.user?.id ?? null } },
       { new: true, runValidators: true },
     );

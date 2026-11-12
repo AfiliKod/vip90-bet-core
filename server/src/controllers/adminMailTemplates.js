@@ -1,3 +1,4 @@
+import { scopeTenantId } from '../tenancy/tenantFilter.js';
 import {
   listTemplates,
   getTemplateById as getTemplateByIdService,
@@ -89,7 +90,7 @@ export async function previewMailHandler(req, res, next) {
 /** GET /api/admin/mail-templates/:id — tenant-scoped (İP-5, §9 G-3) */
 export async function getTemplateById(req, res, next) {
   try {
-    const doc = await getTemplateByIdService(req.params.id, { tenantId: req.tenant?.id ?? null });
+    const doc = await getTemplateByIdService(req.params.id, { tenantId: scopeTenantId(req) });
     if (!doc) throw createError(404, 'NOT_FOUND', 'Şablon bulunamadı');
     res.json({ template: doc, sampleVars: buildSampleVars(doc.event) });
   } catch (e) {
@@ -112,7 +113,7 @@ export async function createMailTemplateHandler(req, res, next) {
 /** PATCH /api/admin/mail-templates/:id — tenant-scoped (İP-5, §9 G-3) */
 export async function updateTemplate(req, res, next) {
   try {
-    const doc = await updateTemplateService(req.params.id, req.validated, req.user?.id || null, { tenantId: req.tenant?.id ?? null });
+    const doc = await updateTemplateService(req.params.id, req.validated, req.user?.id || null, { tenantId: scopeTenantId(req) });
     if (!doc) throw createError(404, 'NOT_FOUND', 'Şablon bulunamadı');
     res.json({ template: doc });
   } catch (e) {
@@ -125,7 +126,7 @@ export const updateMailTemplateHandler = updateTemplate;
 /** DELETE /api/admin/mail-templates/:id — tenant-scoped (İP-5, §9 G-3) */
 export async function deleteTemplate(req, res, next) {
   try {
-    const result = await deleteTemplateService(req.params.id, { tenantId: req.tenant?.id ?? null });
+    const result = await deleteTemplateService(req.params.id, { tenantId: scopeTenantId(req) });
     if (!result) throw createError(404, 'NOT_FOUND', 'Şablon bulunamadı');
     res.json({ deleted: true, ...result });
   } catch (e) {
@@ -146,7 +147,7 @@ export async function sendMailTemplateHandler(req, res, next) {
       audience: req.validated.audience || null,
       triggeredBy: req.user?.id || null,
       trigger: 'manual',
-      tenantId: req.tenant?.id ?? null,
+      tenantId: scopeTenantId(req),
     });
     invalidateMailTemplateCache();
     res.json(result);

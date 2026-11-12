@@ -17,7 +17,10 @@ const T2 = new mongoose.Types.ObjectId();
 
 let brandT1, pageT1, smsT1, mailT1;
 
+const savedMode = process.env.TENANCY_MODE;
 before(async () => {
+  // Cross-tenant isolation is a multi-mode property (scopeTenantId is null in single mode).
+  process.env.TENANCY_MODE = 'multi';
   await mongoose.connect(TEST_DB);
   await mongoose.connection.dropDatabase();
 
@@ -32,6 +35,7 @@ before(async () => {
 });
 
 after(async () => {
+  if (savedMode === undefined) delete process.env.TENANCY_MODE; else process.env.TENANCY_MODE = savedMode;
   await mongoose.connection.dropDatabase();
   await mongoose.disconnect();
 });
