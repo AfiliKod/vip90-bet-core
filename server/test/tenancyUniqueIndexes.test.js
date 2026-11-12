@@ -54,6 +54,8 @@ const LEGACY_UNIQUE_INDEXES = {
   StaffAccount: [{ keys: { email: 1 }, options: { unique: true, background: true } }],
   // İP-9b platform model (no legacy data). Reviewed 2026-11-13.
   Partner: [{ keys: { key: 1 }, options: { unique: true, background: true } }],
+  // One active partner link per tenant (partial on validTo: null). Reviewed 2026-11-13.
+  PartnerOperatorLink: [{ keys: { tenantId: 1, validTo: 1 }, options: { unique: true, partialFilterExpression: { validTo: null }, background: true } }],
   RoleAssignment: [{ keys: { staffId: 1, roleId: 1, scopeType: 1, scopeId: 1 }, options: { unique: true, background: true } }],
   Role: [
     { keys: { name: 1 }, options: { unique: true, background: true } },
