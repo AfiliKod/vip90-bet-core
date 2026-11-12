@@ -1,5 +1,6 @@
 import Tenant from '../models/Tenant.js';
 import { runWithTenant } from './context.js';
+import { getTenancyMode } from '../config/tenancy.js';
 
 /**
  * Run a tenant-wide job for every tenant of `status`, each in its own tenant
@@ -12,6 +13,18 @@ import { runWithTenant } from './context.js';
 export async function forEachTenant(fn, { status = 'active' } = {}) {
   const tenants = await Tenant.find({ status: { $in: [].concat(status) } }).sort({ _id: 1 }).lean();
   const results = [];
+  // Single mode before the default tenant exists (G1 not run): run the job once
+  // without a tenant context, exactly as before the upgrade, instead of silently
+  // skipping it.
+  if (tenants.length === 0 && getTenancyMode() === 'single') {
+    try {
+      results.push({ tenantId: null, result: await fn(null) });
+    } catch (error) {
+      console.error(`[tenancy] forEachTenant (single, no tenant): ${error.message}`);
+      results.push({ tenantId: null, error });
+    }
+    return results;
+  }
   for (const tenant of tenants) {
     try {
       const result = await runWithTenant(tenant._id, () => fn(tenant));
