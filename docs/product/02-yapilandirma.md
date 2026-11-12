@@ -4,6 +4,8 @@ There are two layers: **`.env` file** (requires restart, server setup) and **pan
 
 Some integration credentials exist in both layers: the value saved from the admin panel (encrypted in the database) wins, an empty panel value falls back to the environment variable. **Saving a secret field from the panel requires `OPERATOR_SECRET_ENCRYPTION_KEY`** (64 hex characters) in `.env`; without it the save fails.
 
+**The `.env` fallback is single-mode only.** Under `TENANCY_MODE=multi` a tenant that has not saved a credential in the panel gets the field's own default (empty for credentials), **never** the server's `SMTP_PASS`, `SLIKAIR_SECRET_KEY`, `TWILIO_AUTH_TOKEN`, `SUMSUB_SECRET_KEY` and so on — otherwise every tenant would silently share the first operator's accounts. Only platform-wide settings (Sentry, Turnstile, alert channels) keep reading their `.env` default. Existing single installs see no change; see [Multi-tenant settings resolution](#multi-tenant-settings-resolution).
+
 ## `.env` variables
 
 Description of the keys in `server/.env.example`, checked against the code that reads them. Example files contain a few variables the code does **not** read; those are marked below (and the root `.env.example` is an older file that additionally lists variables that no longer exist, such as the rate-limit tunables). In the Docker path the file is the root `.env` (see `.env.docker.example`), not `server/.env`.
@@ -21,11 +23,11 @@ Description of the keys in `server/.env.example`, checked against the code that 
 |---|---|---|
 | `PORT` | No (default 3001) | Port the API server listens on |
 | `NODE_ENV` | Yes (`production`) | Development/production behavior difference (rate limit, cookie security, etc.) |
-| `CLIENT_URL` | Yes | Your own domain — used in CORS and in links/webhook targets. A comma-separated list is accepted for CORS; the **first** entry is the canonical origin used for email links, the Slikair webhook/redirect URLs and the support-assistant `HTTP-Referer`, so put the address players use first |
+| `CLIENT_URL` | Yes in `TENANCY_MODE=single` (`multi`: no) | Your own domain. In **single** mode it is the canonical origin for email links, OAuth returns, the Slikair webhook/redirect URLs and the support-assistant `HTTP-Referer` (the **first** entry of a comma-separated list), and the whole list is added to CORS — put the address players use first. In **multi** mode the site URL and CORS list come from the `Domain` collection instead (see [Multi-tenant settings resolution](#multi-tenant-settings-resolution)); the variable is not required and not used there. `server/scripts/healthcheck.js` only requires it in single mode |
 | `JWT_SECRET` / `JWT_REFRESH_SECRET` | Yes | Session token signing keys — must be changed before going to production (`openssl rand -base64 64`; `healthcheck.js` requires at least 32 characters) |
 | `E2E_TEST` | No | `true` relaxes rate limits and login throttling the same way `NODE_ENV=test` does; only for end-to-end test runs, never in production |
 | `ROUTE_404_REPORT_ONLY` | No (default: unset = enforcement on) | Set to `1` to make the SPA route 404 a **report-only** mode: unknown URLs are logged instead of answered with `404`, and everything keeps returning `200` (previous behavior). Used for the first deployment phase; see [SEO settings — Gerçek 404](../seo-settings.md). Unknown routes are only logged when the client build wrote `client/dist/routes.json` |
-| `RAILWAY_PUBLIC_DOMAIN` | No | Set automatically by Railway; when present, `https://<value>` is added to the allowed origins |
+| `RAILWAY_PUBLIC_DOMAIN` | No | Set automatically by Railway; when present, `https://<value>` is added to the allowed origins in both modes |
 | `EMAIL_VERIFICATION_CUTOFF` | No (not in `server/.env.example`, only in the root `.env.example`) | ISO 8601 date — users who registered before this date are exempt from email verification (grandfathering). If empty, the code default `2026-07-14T00:00:00Z` applies. Demo-data (`isSeed`) accounts can never log in regardless of this date |
 
 ### Rate limiting
@@ -74,7 +76,7 @@ Auto-credit/auto-withdraw thresholds (defaults: 100 USDT / 15 USDT), the rate an
 | Variable | Required | What it does |
 |---|---|---|
 | `SLIKAIR_MERCHANT_ID` / `SLIKAIR_MERCHANT_TOKEN` / `SLIKAIR_SITE_ID` / `SLIKAIR_BASE_URL` / `SLIKAIR_WEBHOOK_SECRET` | If Slikair will be used | Merchant credentials (sandbox base URL by default). Can be entered from **Settings → Modules → Slikair Payment Gateway** (stored encrypted, panel wins). The webhook secret is not used for signature verification, see [09](09-bilinen-kisitlar.md) |
-| `API_BASE_URL` | No | Public URL that is sent to Slikair as the webhook target; empty means `CLIENT_URL` |
+| `API_BASE_URL` | No | Public URL that is sent to Slikair as the webhook target; when empty the resolved site base URL is used — the tenant's primary `Domain` in multi mode, the first `CLIENT_URL` origin in single mode |
 
 ### AI support assistant
 
@@ -102,6 +104,8 @@ This trio powers a real document-based chatbot that reads and parses `docs/produ
 | `MAIL_SYSTEM_DISABLED` | No | `true` stops every system email (event-triggered and bulk); for tests or maintenance |
 
 Email templates, sender identities, the delivery log and test sends are on the **Communication** page (`/admin/communications?channel=email`); see [`docs/mail-templates.md`](../mail-templates.md).
+
+**Per-tenant transport.** Under `TENANCY_MODE=multi` every `SMTP_*` / `MAILTRAP_*` variable above is ignored for sending: each tenant's transporter and Mailtrap client are built from its own **Settings → Modules → Email Gateway** values and kept in a separate pool, so one tenant's credentials (or a change to them) never touch another tenant's connection. A tenant with neither SMTP nor Mailtrap configured has no sender (`mode: 'none'`): `sendEmail` logs a mock line and returns `{ mock: true }` **in every environment** (the panel's test-email button answers `400 MAIL_PROVIDER_NOT_CONFIGURED`), so a half-provisioned tenant's mail is never sent through the server's own mailbox. The pooled transporter is rebuilt only when that tenant's connection fields change; another tenant's live connection is left alone. `MAIL_SUPPRESS_EMAIL_DOMAINS`, `MAIL_SYSTEM_DISABLED` and `MAIL_SEND_BATCH_LIMIT` stay server-wide.
 
 ### SMS (SMS Gateway module)
 
@@ -152,7 +156,7 @@ Demo installs must set the flags they use to `true` in `server/.env` before upda
 
 | Variable | Required | What it does |
 |---|---|---|
-| `GOOGLE_CLIENT_ID` / `GOOGLE_CLIENT_SECRET` / `GOOGLE_REDIRECT_URI` / `GOOGLE_LOGIN_ENABLED` | Optional | Fallback for Google login. Normally set in **Settings → Modules → Google Login** (panel values win; the secret is stored encrypted, needs `OPERATOR_SECRET_ENCRYPTION_KEY`). The "Continue with Google" button appears only when the card's switch is on (`GOOGLE_LOGIN_ENABLED`, default on) and the client ID and secret are set. The redirect URI defaults to the first `CLIENT_URL` origin + `/api/auth/google/callback`; register it in Google Cloud Console as an authorized redirect URI |
+| `GOOGLE_CLIENT_ID` / `GOOGLE_CLIENT_SECRET` / `GOOGLE_REDIRECT_URI` / `GOOGLE_LOGIN_ENABLED` | Optional | Fallback for Google login. Normally set in **Settings → Modules → Google Login** (panel values win; the secret is stored encrypted, needs `OPERATOR_SECRET_ENCRYPTION_KEY`). The "Continue with Google" button appears only when the card's switch is on (`GOOGLE_LOGIN_ENABLED`, default on) and the client ID and secret are set. The redirect URI defaults to the first `CLIENT_URL` origin + `/api/auth/google/callback` (`CLIENT_URL` is only used in single mode; multi installs must register the tenant's own domain's callback); register it in Google Cloud Console as an authorized redirect URI. The return address after login follows the tenant's site URL (`Domain`), not `CLIENT_URL` |
 | `TELEGRAM_LOGIN_BOT_TOKEN` / `TELEGRAM_BOT_USERNAME` | If Telegram login will be used | Bot for the Login Widget — must be **different** from the admin notification bot (configured in the panel), must be registered with the production domain via `/setdomain` in BotFather |
 
 There is no separate env variable for Web3 wallet login (MetaMask, etc.) — signature verification is done server-side (`ethers`), no external identity information is required.
@@ -191,6 +195,7 @@ Every operator-owned (TEN) collection now carries `tenantId`, and the money reco
 |---|---|---|
 | `server/migrations/0005_tenancy_backfill_tenant_id.js` | `tenancy-002-backfill-tenant-id` (version `1.2.0`) | G3 — fills `tenantId` on documents that have none, in 10,000-document batches |
 | `server/migrations/0006_tenancy_compound_indexes.js` | `tenancy-003-compound-indexes` (version `1.2.0`) | G4 — builds the `{tenantId, …}` compound indexes online, dropping nothing |
+| `server/migrations/0008_tenancy_settings.js` | `tenancy-005-settings` (version `1.4.0`) | G6 — gives legacy setting rows their `scope`/`tenantId` and builds the compound unique index `{tenantId, scope, brandId, key}`, dropping nothing (see [Multi-tenant settings resolution](#multi-tenant-settings-resolution)) |
 
 **G3 — backfill (`server/src/tenancy/backfill.js`).** For each registered tenant model (plus the model-less `transactions_dedupe_archive` collection, when it exists) the runner walks the unassigned documents (`tenantId` missing or `null`) with an `_id`-ordered cursor, 10,000 at a time, and sets them to the default tenant created by G1 (`Tenant{key: 'default'}`; the run refuses to start if that document is missing). After every batch it writes a checkpoint to `Migration{name:'tenancy-002-backfill-tenant-id'}.progress[<collection>]` = `{ lastId, processed, status, updatedAt }`, so `SIGTERM`/`kill -9`/a crashed host costs at most the batch in flight: the next run resumes from `lastId` and never re-does finished collections (`status: 'completed'`). Each batch is an `updateMany` filtered on documents that are *still* unassigned, so a row written with a real tenant in the meantime is never overwritten. A collection is marked complete only after `countDocuments` of the unassigned filter returns 0, and a mismatch fails the migration instead of marking it applied. In `TENANCY_MODE=multi` the step is a no-op (writes are already scoped), and if no tenant model is registered the migration throws rather than being recorded as done.
 
@@ -213,9 +218,30 @@ Two rules are deliberate and are not negotiable in a pull request:
 
 **Currency (K14).** Money-bearing records that had no currency field gained `currency: { type: String, default: 'TRY', uppercase: true, trim: true }`: `Bet`, `CasinoRound`, `CasinoSession`, `InhousePlaySession`, `BankDepositRequest`, `CryptoDeposit`, `ReferralCommission`. `Transaction` (`'TRY'`), `SlikairPayment` (`'EUR'`), `SlikairPayout` and `ActivityEvent` already stored one and were left alone. The default is applied when a document is written; existing rows are **not** rewritten, so a legacy row keeps no `currency` field — a hydrated Mongoose document reports `'TRY'`, but `lean()` reads and aggregation pipelines over old data see the field as missing. Anything that groups ledger amounts by currency must treat missing as `TRY` until the rows are re-saved.
 
+## Multi-tenant settings resolution
+
+Every setting and credential store (email, Slikair, Google, KYC/Sumsub, SMS, crypto, referral, betting display, branding, theme, modules, SEO, pages, games, currency, support, locale, timezone, ops alerts) reads the `Setting` collection through one shared resolver (`server/src/config/secretSettingsStore.js`). İP-4 scoped the collection so that each operator's rows are their own; this section is the operator-facing summary, [01](01-kurulum.md) and [05](05-api-referansi.md) cover installation and the API.
+
+**Where a value comes from.** For every field the resolver checks, in order: the **brand** row (`scope: 'brand'`, the tenant plus that brand) → the **tenant** row (`scope: 'tenant'`, that tenant) → the **platform** row (`scope: 'platform'`, `tenantId: null`) → the legacy row without a scope → the field's `.env` value (single mode and platform fields only) → the field's default. Platform-wide keys — Telegram alert bot/chat, `alert.*`, `platform.*`, `ALERT_WEBHOOK_URL`, `ALERT_EMAIL_TO`, odds-feed key, licence key, AI key, Sentry DSN, Turnstile keys, `demoData.live.config` — are meant to live on platform rows and are the only ones allowed to fall back to `.env` in multi mode. Saved secrets are always encrypted (`enc:v1:`, AES-256-GCM); the admin view shows them masked and reports each field's `source` (`db` / `env` / `default` / `unset`).
+
+**Cache isolation.** Values are cached in the process for 30 seconds **per tenant and brand** (`tenantId:brandId`). Saving a store's settings clears only that tenant/brand's entry, so Tenant A's change never reaches Tenant B, even under concurrent requests.
+
+**What single mode does.** `TENANCY_MODE=single` resolves every store to exactly the value it resolved before İP-4: the default tenant's rows are read (legacy unscoped rows stay visible), a missing value still falls back to `.env`, and saving from the panel still updates the same row. No action is needed for existing installs.
+
+**What multi mode does.** `TENANCY_MODE=multi` never falls back to `.env` for a tenant's credentials or settings: an unset field resolves to its default (empty for credentials) and is reported as `source: 'unset'`. A tenant therefore has to enter its own SMTP, Slikair, Twilio, Google, Sumsub and crypto credentials in the panel; the server's `.env` values are not shared.
+
+**Site base URL and CORS (İP-4).** In multi mode links, redirects and callback targets (`getTenantBaseUrl`) and the platform CORS allowlist (`server/src/tenancy/corsDomains.js`) both come from the `Domain` collection:
+
+- The base URL is the tenant's **primary, verified** `Domain` (`isPrimary: true`, a brand primary first, then the tenant's); `localhost`/`127.0.0.1` hosts get `http://`, every other host `https://`. **Without such a record the call throws `TenantScopeError`** instead of producing a `localhost` link — verify a domain before a tenant goes live, or its verification, password-reset, OAuth, Slikair and help links fail.
+- The CORS list is every **verified** domain host, each expanded with its `www` ↔ apex twin, plus `http://` for local hosts; `GAME_HOST_URL` and `RAILWAY_PUBLIC_DOMAIN` are added in both modes, and a new domain is visible after at most 30 seconds of in-process cache.
+- Operator origins (`Operator.allowedOrigins`) still grant access only to `/api/provider/v1/*` and Socket.IO.
+- Single mode keeps the historical behaviour: base URL from the first `CLIENT_URL` entry (the `Domain` collection is not consulted) and the `CLIENT_URL` / `GAME_HOST_URL` / Railway CORS list.
+
+**The `Setting` collection (G6).** `key` stays **globally unique in single mode** — a fresh single install still gets the historical `key_1` unique index, exactly as before. A multi-mode install never creates that index (the same key exists once per tenant) and relies on the compound unique index `{tenantId, scope, brandId, key}` (`tenant_setting_scope_brand_key_uniq`), which is registered in `server/src/tenancy/indexRegistry.js` and built by the `tenancy-005-settings` migration. Migration `0008` gives every legacy row a scope (platform keys as above, everything else as the default tenant's) and builds the compound index without dropping anything; it is idempotent and runs through `node server/scripts/migrate.js` after a backup, like G3/G4. `syncIndexes()` / `ensureIndexes()` are still never called.
+
 ## Panel-managed settings
 
-These settings are **not** in `.env` but stored in the database (`Setting` collection, `key`/`value` pairs) and can be changed instantly from the admin panel — no server restart needed (most values propagate with a 30-second cache delay, instantly when `invalidate*()` functions are called). Where each lives in the menu (as of 2026-10-08):
+These settings are **not** in `.env` but stored in the database (`Setting` collection — `key`/`value` pairs plus the `scope`, `tenantId` and `brandId` that say who they belong to, see [Multi-tenant settings resolution](#multi-tenant-settings-resolution)) and can be changed instantly from the admin panel — no server restart needed (most values propagate with a 30-second cache delay, instantly when `invalidate*()` functions are called). Where each lives in the menu (as of 2026-10-08):
 
 - **Settings** (`/admin/platform`, tabs **General · Modules · Currencies · Jurisdictions · Brands · SEO**)
   - *General*: **Region & Currency** (display currency, operator timezone, default visitor language), **Panel Language**, **Alert Channels** (Telegram bot token/chat id, webhook URL, alert email — `GET/PUT /admin/settings/alerts`).
