@@ -35,6 +35,15 @@ describe('Socket oda yetkilendirmesi', () => {
     io.to(room).emit(event, { probe: true });
     return got;
   };
+  /** Predicate true olana kadar yokla; tam yükte katılım 200 ms'den uzun sürebilir. */
+  const waitFor = async (predicate, { timeoutMs = 3000, intervalMs = 25 } = {}) => {
+    const deadline = Date.now() + timeoutMs;
+    for (;;) {
+      if (await predicate()) return true;
+      if (Date.now() >= deadline) return false;
+      await new Promise((r) => setTimeout(r, intervalMs));
+    }
+  };
 
   before(async () => {
     await mongoose.connect(process.env.MONGODB_URI || 'mongodb://localhost:27017/betzone_test_socket_room_auth');
@@ -76,15 +85,15 @@ describe('Socket oda yetkilendirmesi', () => {
   it('geçerli admin token\'ı ile role:admin odasına katılır', async () => {
     const c = await connect();
     c.emit('subscribe:admin', { userId: String(admin._id), token: sign(admin) });
-    await new Promise(r => setTimeout(r, 200));
-    assert.equal(await receives(c, 'role:admin', 'activity:new'), true);
+    assert.equal(await waitFor(() => receives(c, 'role:admin', 'activity:new')), true);
   });
 
   it('başka oyuncunun id\'siyle onun kişisel odasına katılamaz, kendi token\'ıyla kendi odasına katılır', async () => {
     const c = await connect();
     c.emit('subscribe:user', { userId: String(other._id), token: sign(player) });
+    assert.equal(await waitFor(() => receives(c, `user:${player._id}`, 'balance:update')), true);
+    // Yoklama yokluğu kanıtlayamaz: odaya katılmama için sabit bekleme korunuyor.
     await new Promise(r => setTimeout(r, 200));
     assert.equal(await receives(c, `user:${other._id}`, 'balance:update'), false);
-    assert.equal(await receives(c, `user:${player._id}`, 'balance:update'), true);
   });
 });
