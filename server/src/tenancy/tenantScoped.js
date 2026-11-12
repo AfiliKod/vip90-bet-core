@@ -78,6 +78,9 @@ function crossTenant(model, op) {
 /** Context captured when a query object is built (see `captureQueryContext`). */
 const QUERY_CTX = Symbol('tenancy.queryCtx');
 const WRAPPED = Symbol('tenancy.wrappedQuery');
+/** Context captured when an Aggregate is built (see `captureAggregateContext`). */
+const AGG_CTX = Symbol('tenancy.aggregateCtx');
+const WRAPPED_AGG = Symbol('tenancy.wrappedAggregate');
 
 /**
  * Mongoose queries are lazy: `runWithTenant(t, () => Model.find())` returns a
@@ -123,6 +126,114 @@ function scopeQuery() {
   if (!hasValue(filter.tenantId)) reportViolation({ model, op, reason: 'unscoped' });
 }
 
+/**
+ * Same laziness problem as queries: the Aggregate that `Model.aggregate()`
+ * returns executes on await, usually after the tenant run has exited. Wrap the
+ * model's `aggregate` so the instance remembers the context it was built in.
+ */
+function captureAggregateContext(model) {
+  const Base = model.aggregate;
+  if (typeof Base !== 'function' || Base[WRAPPED_AGG]) return;
+  function TenantAggregate(pipeline, options) {
+    const aggregate = Base.call(this, pipeline, options);
+    if (aggregate && typeof aggregate === 'object') aggregate[AGG_CTX] = tenantContext.get();
+    return aggregate;
+  }
+  TenantAggregate[WRAPPED_AGG] = true;
+  model.aggregate = TenantAggregate;
+}
+
+function aggregateContext(aggregate) {
+  return aggregate[AGG_CTX] ?? tenantContext.get();
+}
+
+/** Stages MongoDB requires at the head of a pipeline, so the tenant $match follows them. */
+const LEAD_STAGES = ['$geoNear', '$search', '$searchMeta', '$vectorSearch'];
+
+function isLeadStage(stage) {
+  return !!stage && LEAD_STAGES.some((op) => Object.prototype.hasOwnProperty.call(stage, op));
+}
+
+/**
+ * A `$lookup` into a tenant collection must carry the tenant guard from
+ * `tenantLookup`, and a `$unionWith` into one cannot carry it at all.
+ */
+function guardTenantJoins(pipeline, model) {
+  for (const stage of pipeline) {
+    if (!stage || typeof stage !== 'object') continue;
+    if (Object.prototype.hasOwnProperty.call(stage, '$lookup')) {
+      const lookup = stage.$lookup;
+      if (!lookup || !isTenantCollection(lookup.from)) continue;
+      if (lookup.let?.tenantTid !== '$tenantId') {
+        reportViolation({ model, op: 'aggregate', reason: 'cross_tenant' });
+      }
+    }
+    if (Object.prototype.hasOwnProperty.call(stage, '$unionWith')) {
+      const target = stage.$unionWith?.coll;
+      if (isTenantCollection(target)) {
+        reportViolation({ model, op: 'aggregate', reason: 'cross_tenant' });
+      }
+    }
+  }
+}
+
+/** Aggregate pre-hook: scope the pipeline and reject tenant-leaking joins. */
+function scopeAggregate(next) {
+  if (getTenancyEnforcement() === 'off') return next();
+  const ctx = aggregateContext(this);
+  if (ctx && ctx.mode === 'platform') return next();
+  const model = this._model?.modelName ?? null;
+  const pipeline = this.pipeline();
+
+  try {
+    if (ctx && ctx.mode === 'tenant') {
+      // aggregate does not cast, so the ObjectId must be injected as-is
+      const at = isLeadStage(pipeline[0]) ? 1 : 0;
+      pipeline.splice(at, 0, { $match: { tenantId: ctx.tenantId } });
+    } else {
+      const first = pipeline[0];
+      const scoped = !!first && Object.prototype.hasOwnProperty.call(first, '$match') &&
+        !!first.$match && Object.prototype.hasOwnProperty.call(first.$match, 'tenantId');
+      if (!scoped) reportViolation({ model, op: 'aggregate' });
+    }
+    guardTenantJoins(pipeline, model);
+    next();
+  } catch (err) {
+    next(err);
+  }
+}
+
+/**
+ * Builds a `$lookup` that only joins rows of the same tenant as the outer
+ * document, so it passes the aggregate guard. Use it instead of a raw `$lookup`
+ * against a tenant collection. The `let` names must start with a lowercase
+ * letter: MongoDB rejects user variables beginning with an underscore.
+ * @param {{ from: string, localField: string, foreignField: string, as: string, pipeline?: object[] }} options
+ * @returns {{$lookup: object}}
+ */
+export function tenantLookup({ from, localField, foreignField, as, pipeline = [] }) {
+  return {
+    $lookup: {
+      from,
+      as,
+      let: { tenantLk: `$${localField}`, tenantTid: '$tenantId' },
+      pipeline: [
+        {
+          $match: {
+            $expr: {
+              $and: [
+                { $eq: [`$${foreignField}`, '$$tenantLk'] },
+                { $eq: ['$tenantId', '$$tenantTid'] },
+              ],
+            },
+          },
+        },
+        ...pipeline,
+      ],
+    },
+  };
+}
+
 /** Stamp/check `tenantId` on a document or plain object about to be inserted. */
 function stampDoc(doc, ctx, model, op) {
   if (ctx && ctx.mode === 'tenant') {
@@ -151,8 +262,10 @@ export function tenantScoped(schema) {
   // Model.init() emits 'init' synchronously at compile time (and on every
   // later init() call); captureQueryContext is idempotent.
   schema.on('init', captureQueryContext);
+  schema.on('init', captureAggregateContext);
 
   schema.pre(SCOPED_QUERY_OPS, { document: false, query: true }, scopeQuery);
+  schema.pre('aggregate', scopeAggregate);
 
   // estimatedDocumentCount cannot take a filter, so it is platform-only.
   schema.pre('estimatedDocumentCount', { document: false, query: true }, function () {
