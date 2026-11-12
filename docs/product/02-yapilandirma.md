@@ -128,8 +128,25 @@ All of them can be entered from **Settings → Modules → SMS Gateway** (Auth T
 |---|---|---|
 | `TURNSTILE_SECRET_KEY` (old name `TURNSTILE_SECRET` still accepted) / `TURNSTILE_SITE_KEY` / `DISABLE_TURNSTILE` | — | Cloudflare Turnstile bot protection, **off by default**. It turns on when **both** the secret and the site key are set (`DISABLE_TURNSTILE=true` forces it off). Then `POST /api/auth/register`, `/login` and `/forgot-password` require a valid `turnstileToken` (`400 TURNSTILE_REQUIRED` / `TURNSTILE_FAILED`), and the login/register and forgot-password pages render the widget (`GET /api/auth/turnstile-config` hands the site key to the client). If Cloudflare is unreachable, verification fails open (rate limits still apply). Source: `server/src/middleware/turnstile.js` |
 | `ADMIN_ALLOWED_IPS` | — | Comma-separated IPs/CIDRs (IPv4 and IPv6). **Off by default**; when set, `/api/admin/*` answers `403 ADMIN_IP_NOT_ALLOWED` to any other address (a list with no valid entry fails closed). The client IP is `req.ip` (`trust proxy` 1); `CF-Connecting-IP` is only honoured with `ADMIN_IP_TRUST_CF_HEADER=true`. Behind Cloudflare plus another proxy (e.g. nginx) `req.ip` may be the edge address: configure real-IP handling at the proxy, or enable the header flag only if the origin accepts traffic from Cloudflare alone — **verify on your own deployment**. Scope: every staff endpoint (everything behind `requireAdmin`: `/api/admin/*`, ticket and chat admin, `/api/bank/admin/*`, crypto settings and hot-wallet balance, `POST /api/auth/2fa/{setup,verify,disable}`, the Casino Content add-on's staff routes), the admin path of KYC document download and the live admin socket room. Login (`/api/auth/login`, `/api/auth/2fa/login`) is outside it, so staff can log in from anywhere but get `403` on every staff screen. The variable is read at start-up: fixing a lock-out means editing `server/.env` and restarting. Source: `server/src/middleware/adminIpAllowlist.js` |
-| `DEMO_INSTANT_DEPOSIT` | — | **Demo only, default `false`.** `true` enables `POST /api/transactions/deposit`, which credits a balance **without any payment** (no client calls it; only for a deliberate single-operator test install with an external caller). Off, it answers `404 DEMO_FEATURE_DISABLED`. Ignored when `TENANCY_MODE=multi`. Never enable it on an installation that takes real money. Source: `server/src/config/demoFlags.js` |
 | `LEGAL_VERSION` | — | Not an environment variable: the terms version label is the constant `LEGAL_VERSION = '1.0.0'` in `client/src/data/legalContent.js` |
+
+### Tenancy and demo flags
+
+The tenancy switch and the demo feature switches are parsed and validated at start-up by `server/src/config/tenancy.js`. The effective demo flags (never `true` in `multi`) are what `GET /api/admin/demo-flags` reports to the admin client, which hides the matching menu entries.
+
+| Variable | Required | What it does |
+|---|---|---|
+| `TENANCY_MODE` | No (default `single`) | `single` (one operator, behaviour unchanged) or `multi` (one database per tenant). Any other value — including a typo such as `mulit` — refuses to start instead of silently falling back to `single` |
+| `TENANCY_ENFORCEMENT` | No | What `tenantScoped` does with an unscoped query on a tenant-owned model: `off` (nothing is injected or checked), `log` (warn + counter) or `enforce` (`500 TENANT_SCOPE`). Unset/empty means `off` in `single` and `enforce` in `multi`; an explicit `off`/`log` in `multi` refuses to start |
+| `JWT_STAFF_SECRET` | Only with `TENANCY_MODE=multi` (used from İP-3) | Signs the encrypted staff/2FA material. Unset or empty while `TENANCY_MODE=multi` refuses to start |
+| `DEMO_BOTS` | No (default `false`) | `true` starts the bot-player scheduler and unlocks the UI-less `/api/admin/bots*` API. Off, those endpoints answer `404 DEMO_FEATURE_DISABLED`. Never effective in `multi` |
+| `DEMO_FAKE_WINNERS` | No (default `false`) | `true` starts the "Last Winners" simulation and unlocks `/api/admin/fake-winners`; the admin **Bots** entry (that page only manages fake winners) is hidden while it is off. Off, those endpoints answer `404 DEMO_FEATURE_DISABLED`. Never effective in `multi` |
+| `DEMO_INSTANT_DEPOSIT` | — | **Demo only, default `false`.** `true` enables `POST /api/transactions/deposit`, which credits a balance **without any payment** (no client calls it; only for a deliberate single-operator test install with an external caller). Off, it answers `404 DEMO_FEATURE_DISABLED`. Ignored when `TENANCY_MODE=multi`. Never enable it on an installation that takes real money. Source: `server/src/config/demoFlags.js` |
+| `DEMO_DATA` | No (default `false`) | `true` unlocks `/api/admin/demo-data/*` and restores the live demo simulation at start-up; the **Demo data** admin entry is hidden while it is off. Off, those endpoints answer `404 DEMO_FEATURE_DISABLED`. Never effective in `multi` |
+
+Demo installs must set the flags they use to `true` in `server/.env` before updating; real operator installs need to change nothing.
+
+**Start-up refusal.** The server exits with code 1 — each problem logged as `[tenancy] <problem>` — when `TENANCY_MODE=multi` and `TENANCY_ENFORCEMENT` is anything but `enforce`, when `TENANCY_MODE=multi` and any `DEMO_*` flag is `true`, or when `TENANCY_MODE=multi` and `JWT_STAFF_SECRET` or `OPERATOR_SECRET_ENCRYPTION_KEY` is unset or empty. Installations that define none of these variables behave exactly as before. Source: `server/src/config/tenancy.js`.
 
 ### Social login
 
@@ -163,6 +180,38 @@ The odds data comes from the hosted VIP90 odds feed (`https://feed.vip90.bet`); 
 Which sports you receive and the request limit come from your plan; the key's IP allowlist, extra keys and team members are managed in the developer portal. See [01 — Installation § Sports Betting](01-kurulum.md#sports-betting).
 
 > **Odds come only from the hosted odds feed.** The live and upcoming sync jobs started in `server.js` talk to the feed through `oddsProviderClient`; there is no third-party odds API integration in the core. The legacy The Odds API client (`server/src/services/oddsApi.js`) and `server/src/jobs/dataSync.js` were deleted on 2026-10-03, so `ODDS_API_KEY` and `ODDS_API_SPORT` are not read anywhere. `ODDS_PROVIDER` only names an adapter in the add-on's provider registry (`oddsProviders/`, default `internalProvider`), and nothing calls that registry — treat it as having no effect (add-on code, not re-verified locally: the add-on submodules are not checked out here).
+
+### Tenancy Migrations and Indexes (İP-2)
+
+Every operator-owned (TEN) collection now carries `tenantId`, and the money records carry `currency`. The field is added **without** `required: true` during the transition (G2), so an existing single-operator database keeps validating while documents are still unassigned; strict `required: true` arrives with the enforcement package (İP-8). Two migrations close the gap. Neither runs at server start — like every data migration here, apply them yourself with `node server/scripts/migrate.js` after updating (idempotent: applied migrations are skipped, `server/scripts/healthcheck.js` reports the pending ones).
+
+**Take a backup first** (`scripts/backup-db.sh`, or your own `mongodump`): G3 rewrites every legacy document, and the rollback of a half-finished backfill is a restore, not a script.
+
+| Migration | `Migration` record | What it does |
+|---|---|---|
+| `server/migrations/0005_tenancy_backfill_tenant_id.js` | `tenancy-002-backfill-tenant-id` (version `1.2.0`) | G3 — fills `tenantId` on documents that have none, in 10,000-document batches |
+| `server/migrations/0006_tenancy_compound_indexes.js` | `tenancy-003-compound-indexes` (version `1.2.0`) | G4 — builds the `{tenantId, …}` compound indexes online, dropping nothing |
+
+**G3 — backfill (`server/src/tenancy/backfill.js`).** For each registered tenant model (plus the model-less `transactions_dedupe_archive` collection, when it exists) the runner walks the unassigned documents (`tenantId` missing or `null`) with an `_id`-ordered cursor, 10,000 at a time, and sets them to the default tenant created by G1 (`Tenant{key: 'default'}`; the run refuses to start if that document is missing). After every batch it writes a checkpoint to `Migration{name:'tenancy-002-backfill-tenant-id'}.progress[<collection>]` = `{ lastId, processed, status, updatedAt }`, so `SIGTERM`/`kill -9`/a crashed host costs at most the batch in flight: the next run resumes from `lastId` and never re-does finished collections (`status: 'completed'`). Each batch is an `updateMany` filtered on documents that are *still* unassigned, so a row written with a real tenant in the meantime is never overwritten. A collection is marked complete only after `countDocuments` of the unassigned filter returns 0, and a mismatch fails the migration instead of marking it applied. In `TENANCY_MODE=multi` the step is a no-op (writes are already scoped), and if no tenant model is registered the migration throws rather than being recorded as done.
+
+**G4 — compound indexes (`server/src/tenancy/indexBuilder.js`).** The new indexes are **not** declared with `schema.index()`. Each model file registers them in `server/src/tenancy/indexRegistry.js`:
+
+```js
+registerTenantIndexes('User', [
+  { keys: { tenantId: 1, username: 1 }, options: { unique: true, name: 'tenant_username_uniq' } },
+]);
+```
+
+Names are explicit — `tenant_<field>[_<field>]_uniq` for unique indexes, `tenant_<field>[_<field>]` otherwise — and the keys must start with `tenantId`. A unique index must use `partialFilterExpression`, never `sparse`: a compound `sparse` index still indexes documents whose optional field is missing, which would reject the second such document. The migration then builds each entry with `collection.createIndex(keys, { background })` and skips one that already exists (same keys or same name), which makes it safe to re-run.
+
+Two rules are deliberate and are not negotiable in a pull request:
+
+- **`syncIndexes()` / `ensureIndexes()` are never called.** They drop every index the Mongoose schema does not list, which would remove unmanaged and partial indexes on production collections. Index removal is always an explicit migration step.
+- **`autoIndex` is left untouched and the compound indexes stay out of the schema.** That is how a fresh install keeps creating the existing unique indexes (`username`, `email`, `Transaction.idempotencyKey`, …) on its own, while the tenant compound indexes are created only by G4. The plain single-field `tenantId` index does come from the field definition (`index: true`).
+
+**Dual index coexistence.** In single mode the legacy global unique indexes stay in place: after G4, `db.users.getIndexes()` shows both `username_1` (global, legacy) and `tenant_username_uniq` (compound). Nothing is dropped, so behaviour does not change for an existing install — a second account with the same username is still rejected by the global index, which is a superset of the compound one. The two only diverge once the legacy index is dropped in an explicit later step, which is what allows the same username in two tenants. The §8.2 unique index suite in the test package covers the cross-tenant/same-tenant matrix.
+
+**Currency (K14).** Money-bearing records that had no currency field gained `currency: { type: String, default: 'TRY', uppercase: true, trim: true }`: `Bet`, `CasinoRound`, `CasinoSession`, `InhousePlaySession`, `BankDepositRequest`, `CryptoDeposit`, `ReferralCommission`. `Transaction` (`'TRY'`), `SlikairPayment` (`'EUR'`), `SlikairPayout` and `ActivityEvent` already stored one and were left alone. The default is applied when a document is written; existing rows are **not** rewritten, so a legacy row keeps no `currency` field — a hydrated Mongoose document reports `'TRY'`, but `lean()` reads and aggregation pipelines over old data see the field as missing. Anything that groups ledger amounts by currency must treat missing as `TRY` until the rows are re-saved.
 
 ## Panel-managed settings
 

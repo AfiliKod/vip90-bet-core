@@ -416,6 +416,8 @@ therefore enough — no manifest edit, no server restart for the list.
 
 Destructive/financial endpoints additionally apply `blockDemoAdmin` (marked below as **[demo blocked]**) — `isDemoAdmin: true` accounts get `403 DEMO_ADMIN_READONLY` on these endpoints. Permission keys are in parentheses where one key covers an area.
 
+**Demo feature flags.** `GET /api/admin/demo-flags` returns the effective `{ bots, fakeWinners, instantDeposit, data }` switches the admin client reads to show or hide its demo entries (any authenticated admin, no permission key). The `/demo-data/*`, `/bots*` and `/fake-winners` routes are gated by their own `DEMO_*` flag **before** `requirePermission`: with the flag off — the default, and always while `TENANCY_MODE=multi` — they answer `404 DEMO_FEATURE_DISABLED` to everyone. Source: `server/src/config/tenancy.js`.
+
 **Users** (`admin:users:read` / `write` / `balance`)
 - `GET /users`, `GET /users/facets`, `GET /users/kpis` (filter options and KPI figures of the Users page), `POST /users` (`createUserSchema`; usernames starting with `tg_` / `google_` / `web3_` are refused like in registration; an `admin` created without `roles` gets the built-in `admin` role — all permissions except role management; creating an `admin` needs `admin:roles:write` and the caller must hold every permission of the role being granted, else `403 ROLE_GRANT_FORBIDDEN`; `500 DEFAULT_ADMIN_ROLE_MISSING` when the built-in role is missing; `GET /users` never returns tokens, 2FA secrets or backup codes)
 - `PATCH /users/:id` (`updateUserAdminSchema`: `isActive`, `kycVerified`, ...)
@@ -431,8 +433,9 @@ Destructive/financial endpoints additionally apply `blockDemoAdmin` (marked belo
 
 **Statistics / activity / demo data**
 - `GET /stats`, `GET /activity`, `GET /queues/counts`
+- `GET /demo-flags` — effective `{ bots, fakeWinners, instantDeposit, data }` switches; any authenticated admin, no permission key, the admin client hides its demo entries from it
 - `GET /queues/pending-finance` (`admin:transactions:read`, `limit` default 5, max 50) → `{ items: [{ ref, kind: crypto_deposit|crypto_withdraw|bank_deposit|bank_withdraw, userId, username, amount, usdtAmount, risk: high|vip|medium|low, status, createdAt }] }`, longest waiting first — feeds the Dashboard "Pending finance" card
-- `GET /demo-data/status`, `POST /demo-data/:category/load`, `POST /demo-data/:category/clear`, `POST /demo-data/live/start`, `POST /demo-data/live/stop` (`admin:demo-data:manage`)
+- `GET /demo-data/status`, `POST /demo-data/:category/load`, `POST /demo-data/:category/clear`, `POST /demo-data/live/start`, `POST /demo-data/live/stop` (`admin:demo-data:manage`; first gated by **`DEMO_DATA=true`**, else `404 DEMO_FEATURE_DISABLED`)
 - `GET /tasks`, `PATCH /tasks/:id` (Game Tasks; the page is no longer in the menu)
 
 **Casino** (`admin:casino:*`)
@@ -484,7 +487,7 @@ Destructive/financial endpoints additionally apply `blockDemoAdmin` (marked belo
 - `POST /vip-levels` **[demo blocked]** (`upsertVipLevelSchema`: `level` 1-20, `name`, `xpRequired`, `cashbackPercent?`, `rewardAmount?`, `rewardType?`, `benefits[]?`, `color?`, `icon?`, `isActive?`)
 - `DELETE /vip-levels/:level` **[demo blocked]**
 
-**Bot players**
+**Bot players** — all seven routes are gated by **`DEMO_BOTS=true`** first, else `404 DEMO_FEATURE_DISABLED` (the permission check is never reached)
 - `GET /bots`
 - `POST /bots` **[demo blocked]** (`createBotSchema`: `username`,`email`,`password?`,`botType?`,`behavior?`,`limits?`,`notes?`)
 - `GET /bots/:id`
@@ -492,7 +495,7 @@ Destructive/financial endpoints additionally apply `blockDemoAdmin` (marked belo
 - `DELETE /bots/:id` **[demo blocked]**
 - `POST /bots/start-all` **[demo blocked]**, `POST /bots/stop-all` **[demo blocked]**
 
-**Fake winners (cosmetic, uses no real balance)**
+**Fake winners (cosmetic, uses no real balance)** — both routes are gated by **`DEMO_FAKE_WINNERS=true`** first, else `404 DEMO_FEATURE_DISABLED`
 - `GET /fake-winners`
 - `PUT /fake-winners` **[demo blocked]** (`updateFakeWinnersSchema`: `enabled?`,`poolMin?`,`poolMax?`,`intervalMinMs?`,`intervalMaxMs?`,`amountMin?`,`amountMax?`,`includeCasinoWins?`,`includeBettingWins?` — min/max pairs are cross-validated)
 
