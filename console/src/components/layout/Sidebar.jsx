@@ -14,6 +14,7 @@ export const partnerNav = [
   { name: 'Genel Bakış', path: '/partner' },
   { name: 'Operatörlerim', path: '/partner/operators' },
   { name: 'Yeni Operatör Başlat', path: '/partner/operators/new' },
+  { name: 'Komisyon & Faturalar', path: '/partner/statements' },
   { name: 'Personel', path: '/partner/staff' },
 ];
 
