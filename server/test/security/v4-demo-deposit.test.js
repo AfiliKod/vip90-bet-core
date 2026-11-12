@@ -62,7 +62,12 @@ describe('V4 POST /api/transactions/deposit (HTTP)', () => {
   const post = async () => {
     const r = await fetch(`${base}/api/transactions/deposit`, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${jwt.sign({ id: String(user._id), role: 'user', tokenVersion: user.tokenVersion ?? 0 }, process.env.JWT_SECRET)}` },
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${jwt.sign({
+        id: String(user._id), role: 'user', tokenVersion: user.tokenVersion ?? 0,
+        // İP-3 player claims: multi mode rejects legacy tokens before the demo gate.
+        sub: String(user._id), typ: 'player', aud: 'player', tv: user.tokenVersion ?? 0,
+        tid: String(user.tenantId ?? new mongoose.Types.ObjectId()),
+      }, process.env.JWT_SECRET)}` },
       body: JSON.stringify({ amount: 100 }),
     });
     return { status: r.status, body: await r.json().catch(() => ({})) };

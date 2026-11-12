@@ -1,6 +1,13 @@
 import jwt from 'jsonwebtoken';
+import mongoose from 'mongoose';
 import { createError } from './error.js';
 import { enforceAdminIp } from './adminIpAllowlist.js';
+import StaffAccount from '../models/StaffAccount.js';
+import Tenant from '../models/Tenant.js';
+import { getTenancyMode } from '../config/tenancy.js';
+import { runWithTenant, tenantContext } from '../tenancy/context.js';
+import { getStaffAuthState, verifyStaffAccess } from '../services/staffSession.js';
+import { staffHasPermission } from '../services/permissions.js';
 
 // ── Token version cache (30s TTL) ────────────────────────────────────────────
 // Avoids DB hit on every authenticated request while ensuring revoked tokens
@@ -72,9 +79,29 @@ export async function requireAuth(req, res, next) {
 
     // purpose taşıyan token (örn. 2FA challenge) bir oturum değildir.
     if (payload.purpose) return next(createError(401, 'INVALID_TOKEN', 'Token geçersiz'));
+    // JWT_STAFF_SECRET is optional in single mode, so audience is the hard
+    // boundary when staff and player tokens share JWT_SECRET.
+    if (payload.aud === 'staff' || payload.aud === 'staff-refresh') {
+      return next(createError(401, 'INVALID_TOKEN', 'Token geçersiz'));
+    }
+    if (getTenancyMode() === 'multi' && (
+      payload.aud !== 'player'
+      || payload.typ !== 'player'
+      || !payload.sub
+      || !payload.tid
+    )) {
+      return next(createError(401, 'INVALID_TOKEN', 'Token geçersiz'));
+    }
+
+    const userId = payload.id ?? payload.sub;
+    if (!userId) return next(createError(401, 'INVALID_TOKEN', 'Token geçersiz'));
+
+    if (payload.tid && req.tenant?.id && String(payload.tid) !== String(req.tenant.id)) {
+      return next(createError(401, 'CROSS_TENANT_TOKEN', 'Farklı kiracı için düzenlenmiş token'));
+    }
 
     // Token version check — rejects JWTs issued before last password/email/role change
-    const { version: dbVersion, isSeed, revoked } = await getAuthState(payload.id);
+    const { version: dbVersion, isSeed, revoked } = await getAuthState(userId);
     if (isSeed || revoked) {
       console.warn(`[requireAuth] demo/seed/askıdaki/silinmiş hesap reddedildi — ${req.method} ${req.originalUrl}, userId=${payload.id}`);
       return next(createError(401, 'INVALID_TOKEN', 'Token geçersiz'));
@@ -92,8 +119,117 @@ export async function requireAuth(req, res, next) {
   }
 }
 
-export function requireAdmin(req, res, next) {
-  if (req.user?.role !== 'admin') return next(createError(403, 'FORBIDDEN', 'Admin yetkisi gerekli'));
+function setStaffActor(next, req, res, staff) {
+  const context = tenantContext.get();
+  const continueRequest = () => enforceAdminIp(req, res, next);
+  if (req.tenant?.id) {
+    return runWithTenant(req.tenant.id, continueRequest, {
+      brandId: req.tenant.brandId ?? null,
+      actor: { kind: 'staff', id: staff.id, scope: staff.scope },
+    });
+  }
+  if (!context) return continueRequest();
+  return tenantContext.run(Object.freeze({
+    ...context,
+    actor: { kind: 'staff', id: staff.id, scope: staff.scope },
+  }), continueRequest);
+}
+
+export function requireStaff(allowedScope = null) {
+  return async (req, res, next) => {
+    const token = req.headers.authorization?.split(' ')[1];
+    if (!token) return next(createError(401, 'UNAUTHORIZED', 'Token gerekli'));
+
+    let payload;
+    try {
+      payload = verifyStaffAccess(token);
+    } catch {
+      return next(createError(401, 'INVALID_TOKEN', 'Geçersiz token'));
+    }
+
+    if (payload.aud !== 'staff' || payload.typ !== 'staff' || !payload.sub) {
+      return next(createError(401, 'INVALID_TOKEN', 'Geçersiz token'));
+    }
+
+    try {
+      const { version, revoked } = await getStaffAuthState(payload.sub);
+      if (revoked || (payload.tv ?? 0) !== version) {
+        return next(createError(401, 'INVALID_TOKEN', 'Geçersiz token'));
+      }
+
+      const hasOtp = Array.isArray(payload.amr) && payload.amr.includes('otp');
+      if (getTenancyMode() === 'multi') {
+        if (!hasOtp) return next(createError(403, 'TWO_FACTOR_REQUIRED', 'İki faktörlü doğrulama gerekli'));
+      } else {
+        const staff = await StaffAccount.findById(payload.sub).select('twoFactor.enabled').lean();
+        if (staff?.twoFactor?.enabled && !hasOtp) {
+          return next(createError(403, 'TWO_FACTOR_REQUIRED', 'İki faktörlü doğrulama gerekli'));
+        }
+      }
+
+      if (allowedScope && payload.scp !== allowedScope && payload.scp !== 'platform') {
+        return next(createError(403, 'FORBIDDEN', 'Bu işlem için yetki yok'));
+      }
+      if (allowedScope === 'tenant' && payload.scp === 'platform') {
+        const tenantId = req.headers['x-tenant-id'];
+        if (!tenantId) {
+          return next(createError(400, 'TENANT_REQUIRED', 'Kiracı kimliği gerekli'));
+        }
+        if (!mongoose.isObjectIdOrHexString(tenantId)) {
+          return next(createError(404, 'TENANT_NOT_FOUND', 'Kiracı bulunamadı'));
+        }
+        const tenant = await Tenant.findOne({ _id: tenantId, status: { $ne: 'closed' } }).lean();
+        if (!tenant) {
+          return next(createError(404, 'TENANT_NOT_FOUND', 'Kiracı bulunamadı'));
+        }
+        req.tenant = {
+          id: tenant._id,
+          brandId: null,
+        };
+      }
+      if (payload.scp === 'tenant' && String(payload.sid) !== String(req.tenant?.id)) {
+        return next(createError(403, 'CROSS_TENANT_ACCESS', 'Farklı kiracıya erişim reddedildi'));
+      }
+
+      req.staff = {
+        id: payload.sub,
+        scope: payload.scp,
+        scopeId: payload.sid,
+        amr: payload.amr,
+      };
+      return setStaffActor(next, req, res, req.staff);
+    } catch (error) {
+      return next(error);
+    }
+  };
+}
+
+export async function requireAdmin(req, res, next) {
+  if (req.staff) {
+    // Same meaning as today's role === 'admin': any tenant or platform staff
+    // member. Fine-grained access stays with requirePermission on each route.
+    if (!['tenant', 'platform'].includes(req.staff.scope)) {
+      return next(createError(403, 'FORBIDDEN', 'Admin yetkisi gerekli'));
+    }
+  } else if (req.user?.role !== 'admin') {
+    return next(createError(403, 'FORBIDDEN', 'Admin yetkisi gerekli'));
+  }
   // V6: ADMIN_ALLOWED_IPS her personel ucunda geçerli (yalnız /api/admin mount'unda değil).
   return enforceAdminIp(req, res, next);
+}
+
+export function requireStaffPermission(permissionKey) {
+  return async (req, res, next) => {
+    if (!req.staff) return next(createError(401, 'UNAUTHORIZED', 'Token gerekli'));
+    try {
+      const allowed = await staffHasPermission(req.staff.id, permissionKey, {
+        scopeType: req.staff.scope,
+        scopeId: req.staff.scopeId,
+      });
+      if (!allowed) return next(createError(403, 'FORBIDDEN', `Yetki yok: ${permissionKey}`));
+      return next();
+    } catch (error) {
+      return next(error);
+    }
+  };
 }

@@ -23,6 +23,12 @@ const EXPECTED = [
   'registerTenantCredentialSchema',
   'getTenantCredentialSchema',
   'listTenantCredentialSchemas',
+  'StaffAccount',
+  'RoleAssignment',
+  'resolveTenantHost',
+  'requireStaff',
+  'requireStaffPermission',
+  'signStaffAccess',
 ];
 
 const tenancyIndexPath = path.join(TENNANCY_DIR, 'index.js');
