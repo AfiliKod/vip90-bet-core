@@ -37,8 +37,8 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      # Services bloğu replica set'i init edemiyor (tek başına --replSet rs0 ile
-      # başlatılan mongosh rs.initiate() bekler), bu yüzden manuel container.
+      # Services bloğu replica set'i init edemiyor; üye localhost:27017 olarak ilan edilir,
+      # yoksa sürücü konteyner adını çözemez ve her test 30 sn bekleyip düşer.
       - name: MongoDB (single-node replica set)
         run: |
           docker run -d --name mongo -p 27017:27017 mongo:7 --replSet rs0
@@ -46,7 +46,7 @@ jobs:
             docker exec mongo mongosh --quiet --eval 'db.adminCommand("ping")' >/dev/null 2>&1 && break
             sleep 1
           done
-          docker exec mongo mongosh --quiet --eval 'rs.initiate()'
+          docker exec mongo mongosh --quiet --eval 'rs.initiate({ _id: "rs0", members: [{ _id: 0, host: "localhost:27017" }] })'
           for i in $(seq 1 60); do
             docker exec mongo mongosh --quiet --eval 'quit(rs.status().ok === 1 ? 0 : 1)' >/dev/null 2>&1 && exit 0
             sleep 1
