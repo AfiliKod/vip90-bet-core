@@ -253,8 +253,8 @@ before(async () => {
   await mongoose.connect(TEST_DB);
   await mongoose.connection.dropDatabase();
 
-  u1 = await runWithTenant(T1, () => User.create({ username: 'player1_t1', email: 'p1@t1.com', balance: 500 }));
-  u2 = await runWithTenant(T2, () => User.create({ username: 'player2_t2', email: 'p2@t2.com', balance: 500 }));
+  u1 = await runWithTenant(T1, () => User.create({ username: 'player1_t1', email: 'p1@t1.example.com', balance: 500 }));
+  u2 = await runWithTenant(T2, () => User.create({ username: 'player2_t2', email: 'p2@t2.example.com', balance: 500 }));
 
   bankReqT1 = await runWithTenant(T1, () => BankDepositRequest.create({
     userId: u1._id,
@@ -430,7 +430,7 @@ before(async () => {
   await mongoose.connect(TEST_DB);
   await mongoose.connection.dropDatabase();
 
-  u2 = await runWithTenant(T2, () => User.create({ username: 'player2_t2', email: 'p2@t2.com', balance: 0 }));
+  u2 = await runWithTenant(T2, () => User.create({ username: 'player2_t2', email: 'p2@t2.example.com', balance: 0 }));
 
   promoT1 = await runWithTenant(T1, () => Promotion.create({
     title: 'T1 Welcome Bonus',
@@ -560,8 +560,8 @@ before(async () => {
   await mongoose.connect(TEST_DB);
   await mongoose.connection.dropDatabase();
 
-  u1 = await runWithTenant(T1, () => User.create({ username: 'tipper_t1', email: 't1@chat.com', balance: 500 }));
-  u2 = await runWithTenant(T2, () => User.create({ username: 'receiver_t2', email: 't2@chat.com', balance: 100 }));
+  u1 = await runWithTenant(T1, () => User.create({ username: 'tipper_t1', email: 't1@chat.example.com', balance: 500 }));
+  u2 = await runWithTenant(T2, () => User.create({ username: 'receiver_t2', email: 't2@chat.example.com', balance: 100 }));
 
   roomT1 = await runWithTenant(T1, () => ChatRoom.create({
     name: 'T1 Lounge',
@@ -894,7 +894,7 @@ before(async () => {
   await mongoose.connect(TEST_DB);
   await mongoose.connection.dropDatabase();
 
-  u1 = await runWithTenant(T1, () => User.create({ username: 'player_t1', email: 'p1@t1.com', balance: 200 }));
+  u1 = await runWithTenant(T1, () => User.create({ username: 'player_t1', email: 'p1@t1.example.com', balance: 200 }));
 
   txDepT1 = await runWithTenant(T1, () => Transaction.create({
     userId: u1._id,
@@ -1025,8 +1025,8 @@ before(async () => {
   await mongoose.connection.dropDatabase();
 
   // Create real players
-  const p1 = await runWithTenant(T1, () => User.create({ username: 'real_p1', email: 'p1@stat.com', createdAt: new Date('2026-11-12T01:00:00Z') }));
-  const p2 = await runWithTenant(T1, () => User.create({ username: 'real_p2', email: 'p2@stat.com', createdAt: new Date('2026-11-12T02:00:00Z') }));
+  const p1 = await runWithTenant(T1, () => User.create({ username: 'real_p1', email: 'p1@stat.example.com', createdAt: new Date('2026-11-12T01:00:00Z') }));
+  const p2 = await runWithTenant(T1, () => User.create({ username: 'real_p2', email: 'p2@stat.example.com', createdAt: new Date('2026-11-12T02:00:00Z') }));
   // Create bot and seed players (must be excluded)
   const bot = await runWithTenant(T1, () => User.create({ username: 'bot_1', isBot: true, createdAt: new Date('2026-11-12T03:00:00Z') }));
   const seed = await runWithTenant(T1, () => User.create({ username: 'seed_1', isSeed: true, createdAt: new Date('2026-11-12T04:00:00Z') }));
