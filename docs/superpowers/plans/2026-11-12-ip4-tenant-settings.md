@@ -13,7 +13,7 @@
 6. **Dynamic CORS:** Platform CORS allowlist dynamically reflects registered hosts in `Domain`.
 
 **Architecture:**
-- `server/src/models/Setting.js`: Schema adds `scope` (`'platform'|'tenant'|'brand'`), `tenantId` (ObjectId, ref `'Tenant'`), and `brandId` (ObjectId, ref `'Brand'`). Legacy `key` uniqueness in Mongoose schema is dropped so multi-mode tenants can store identical setting keys; single-mode legacy `key_1` unique index is preserved in existing single databases (§6.3 G6). The compound unique index `{ tenantId: 1, scope: 1, brandId: 1, key: 1 }` is registered in `indexRegistry.js` and built by the G6 boot migration (`0007_tenancy_settings.js` / `settingsMigration.js`).
+- `server/src/models/Setting.js`: Schema adds `scope` (`'platform'|'tenant'|'brand'`), `tenantId` (ObjectId, ref `'Tenant'`), and `brandId` (ObjectId, ref `'Brand'`). Legacy `key` uniqueness in Mongoose schema is dropped so multi-mode tenants can store identical setting keys; single-mode legacy `key_1` unique index is preserved in existing single databases (§6.3 G6). The compound unique index `{ tenantId: 1, scope: 1, brandId: 1, key: 1 }` is registered in `indexRegistry.js` and built by the G6 boot migration (`0008_tenancy_settings.js` / `settingsMigration.js`).
 - `server/src/config/secretSettingsStore.js`: The central factory `createSecretSettingsStore` is upgraded with per-tenant/brand cache mapping (`Map<tenantKey, { data, loadedAt }>`), hierarchical resolution (`brand -> tenant -> platform -> env`), and strict isolation: in `multi` mode, tenant credentials NEVER fall back to `process.env`.
 - Migrated Credential Stores (K6): Slikair (`slikairConfig.js`), Google OAuth (`googleAuthConfig.js`), Twilio SMS (`smsSettings.js`), Sumsub KYC (`config/kyc.js`), and Crypto settings (`cryptoSettings.js`) adopt the unified tenant-scoped store. KYC and SMS plain-text legacy paths are encrypted.
 - Migrated Content/Module/Platform Stores: Platform alerts (`settings.js`) use `scope: 'platform'`. Branding (`branding/index.js`), Theme (`theme/index.js`), Modules (`modules/index.js`), SEO (`seo/store.js`), Pages (`pages/index.js`), Featured Games (`games/index.js`), Currency (`currency/index.js`), Support toggle (`services/support/index.js`), Locale (`localeLive.js`), Timezone (`timezoneLive.js`), Referral (`referralSettings.js`), and Betting Display (`bettingDisplaySettings.js`) adopt per-tenant cache partitioning.
@@ -40,6 +40,18 @@
 
 ---
 
+## Reviewer correction (2026-11-12): overrides every conflicting line below
+
+1. Migration file `server/migrations/0008_tenancy_settings.js`, record name `tenancy-005-settings`, version `1.4.0`
+   (İP-3 owns `0007` / `tenancy-004-staff-accounts` / `1.3.0`).
+2. **Setting.key stays globally unique in single mode.** Declare it as
+   `key: { type: String, required: true, unique: getTenancyMode() !== 'multi' }` (mode is fixed at boot), so a fresh
+   single install still gets `key_1` from autoIndex exactly as today, and a multi install never creates it. The
+   compound unique index goes through `registerTenantIndexes` and is built by the migration. Test both modes by
+   importing the model in a child process with `TENANCY_MODE` set.
+3. `controllers/auth.js` is also changed by İP-3 Task 10: keep the İP-4 edits there minimal (URL building only).
+4. Never change an existing test to make yours pass; never weaken an existing check.
+
 ## Review Focus
 
 - **Cache Bleed Between Tenants:** In-process caching must key on `tenantId[:brandId]`. Tenant 1 must never receive Tenant 2's cached settings, even under concurrent async requests.
@@ -57,7 +69,7 @@
 | `server/src/models/Setting.js` (modify) | Add `scope`, `tenantId`, `brandId`; remove schema `unique: true` from `key` | 1 |
 | `server/src/tenancy/indexRegistry.js` (modify) | Register compound index for `Setting` | 1 |
 | `server/src/tenancy/settingsMigration.js` (create) | G6 migration logic: categorize legacy rows, build compound index | 1 |
-| `server/migrations/0007_tenancy_settings.js` (create) | G6 boot migration runner (`tenancy-004-settings`) | 1 |
+| `server/migrations/0008_tenancy_settings.js` (create) | G6 boot migration runner (`tenancy-005-settings`) | 1 |
 | `server/src/config/secretSettingsStore.js` (modify) | Tenant-keyed cache, multi-mode env restriction, scope resolution hierarchy | 2 |
 | `server/src/config/slikairConfig.js` (modify) | Tenant-scoped Slikair configuration | 3 |
 | `server/src/config/googleAuthConfig.js` (modify) | Tenant-scoped Google OAuth configuration | 3 |
@@ -108,7 +120,7 @@ Wave E: [Task 9: Documentation & Turkish CHANGELOG]
 
 | Wave | Tasks (run in parallel, separate worktrees) | Depends on | Disjoint Files |
 |---|---|---|---|
-| A | **Task 1** (Setting model, compound index, G6 migration) | none | `models/Setting.js`, `indexRegistry.js`, `settingsMigration.js`, `0007_tenancy_settings.js` |
+| A | **Task 1** (Setting model, compound index, G6 migration) | none | `models/Setting.js`, `indexRegistry.js`, `settingsMigration.js`, `0008_tenancy_settings.js` |
 | A | **Task 5** (`getTenantBaseUrl`, `CLIENT_URL` removal) | none | `tenancy/tenantBaseUrl.js`, `controllers/auth.js`, `routes/socialAuth.js`, `services/socialAuth.js`, `config/slikair.js`, `routes/help.js`, `health/checks.js`, `services/mailTemplates.js` |
 | B | **Task 2** (`secretSettingsStore.js` factory upgrade) | Task 1 | `config/secretSettingsStore.js` |
 | B | **Task 6** (Dynamic CORS allowlist from `Domain`) | Task 5 | `tenancy/corsDomains.js`, `server/src/app.js` |
@@ -126,7 +138,7 @@ Wave E: [Task 9: Documentation & Turkish CHANGELOG]
 - Modify: `server/src/models/Setting.js`
 - Modify: `server/src/tenancy/indexRegistry.js`
 - Create: `server/src/tenancy/settingsMigration.js`
-- Create: `server/migrations/0007_tenancy_settings.js`
+- Create: `server/migrations/0008_tenancy_settings.js`
 - Test: `server/test/tenancySettingsMigration.test.js`
 
 **Interfaces:**
@@ -135,7 +147,7 @@ Wave E: [Task 9: Documentation & Turkish CHANGELOG]
   - `Setting` schema with `{ scope, tenantId, brandId, key, value, updatedBy }`.
   - Registered compound index: `registerTenantIndexes('Setting', [{ keys: { tenantId: 1, scope: 1, brandId: 1, key: 1 }, options: { name: 'tenant_setting_scope_brand_key_uniq', unique: true } }])`.
   - `runSettingsMigration({ connection, logger }) -> Promise<{ processed: number, compoundIndexBuilt: boolean }>`.
-  - Migration record `Migration{name: 'tenancy-004-settings'}`.
+  - Migration record `Migration{name: 'tenancy-005-settings'}`.
 
 **Rules & Logic:**
 - `scope`: enum `['platform', 'tenant', 'brand']`, default `'tenant'`, index: true.
@@ -203,7 +215,7 @@ describe('Task 1: Setting model evolution & G6 migration', () => {
     assert.equal(botRow.tenantId, null);
     assert.equal(botRow.brandId, null);
 
-    const mig = await Migration.findOne({ name: 'tenancy-004-settings' });
+    const mig = await Migration.findOne({ name: 'tenancy-005-settings' });
     assert.ok(mig);
   });
 
@@ -221,7 +233,7 @@ node --test server/test/tenancySettingsMigration.test.js
 ```
 - [ ] **Step 4: Commit**
 ```bash
-git add server/src/models/Setting.js server/src/tenancy/indexRegistry.js server/src/tenancy/settingsMigration.js server/migrations/0007_tenancy_settings.js server/test/tenancySettingsMigration.test.js
+git add server/src/models/Setting.js server/src/tenancy/indexRegistry.js server/src/tenancy/settingsMigration.js server/migrations/0008_tenancy_settings.js server/test/tenancySettingsMigration.test.js
 git commit -m "feat(tenancy): İP-4 Task 1 Setting schema evolution, compound index and G6 migration"
 ```
 
