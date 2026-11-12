@@ -15,6 +15,7 @@ import { getTenantBaseUrl } from '../tenancy/tenantBaseUrl.js';
 import { signAccess, signRefresh, setRefreshCookie, issueSession, reserveTwoFactorAttempt, assertAccountCanSession } from '../services/session.js';
 import { claimChallenge, markChallengeUsed, recordChallengeFailure, acquireChallenge, releaseChallenge } from '../services/twoFactorChallenge.js';
 import { verifySecondFactor, writeBackupCodes } from '../services/twoFactorAuth.js';
+import { getTenancyMode } from '../config/tenancy.js';
 
 async function enrichWithIgamesBalance(user, obj) {
   try {
@@ -198,6 +199,10 @@ export async function login(req, res, next) {
     if (!user.isActive) {
       await LoginAttempt.create({ userId: user._id, username, ip, userAgent, success: false, failReason: 'banned' });
       return next(createError(403, 'ACCOUNT_BANNED', 'Hesabınız askıya alınmıştır'));
+    }
+    if (getTenancyMode() === 'multi' && user.role === 'admin') {
+      await LoginAttempt.create({ userId: user._id, username, ip, userAgent, success: false, failReason: 'staff_login_required' });
+      return next(createError(401, 'INVALID_CREDENTIALS', 'Kullanıcı adı veya şifre hatalı'));
     }
     if (!(await user.comparePassword(password))) {
       await LoginAttempt.create({ userId: user._id, username, ip, userAgent, success: false, failReason: 'wrong_password' });

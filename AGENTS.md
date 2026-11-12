@@ -56,6 +56,40 @@ Versions follow SemVer; core tags are primary, downstream installs record which 
   an index is always its own explicit migration step.
 - Agent (reseller) and Partner are different concepts; do not merge them.
 
+## Identity, staff authentication and 2FA
+
+- **Identity separation (`2026-11-12`, İP-3).** Players stay in the tenant-owned `User` collection. Staff live in the
+  platform model `StaffAccount` (`server/src/models/StaffAccount.js`): staff emails are globally unique, while the same
+  email may belong to two player accounts on two operators. `StaffAccount`, `Role`, `RoleAssignment`, `Permission`,
+  `Tenant` and `Domain` are platform models — never give them the `tenantScoped` plugin or compile them with
+  `defineTenantModel`.
+- **Scoped roles.** `Role` carries `scopeType` (`platform` | `partner` | `tenant`) and `scopeId`; grants are
+  `RoleAssignment` rows (`server/src/models/RoleAssignment.js`). Tenant roles never accept `platform:*` permission keys
+  (`validateRolePermissions` rejects them), and a partner-staff member cannot be assigned a tenant role on an operator
+  linked to their partner (`assertNoPartnerSelfAssignment`).
+- **Two token families.** Player tokens are signed with `JWT_SECRET` (`aud: 'player'`, `typ: 'player'`, `tid`) and
+  verified by `requireAuth`; staff tokens are signed with `JWT_STAFF_SECRET` (`aud: 'staff'`, `typ: 'staff'`, `scp`,
+  `sid`, `amr`) and verified by `requireStaff`. The families never cross: `requireAuth` rejects `aud: 'staff'` and
+  `requireStaff` only verifies `JWT_STAFF_SECRET`. `JWT_STAFF_SECRET` is optional in single mode (tokens then fall
+  back to `JWT_SECRET`, still separated by audience) and required in multi mode. Multi mode rejects tokens issued
+  without the new claims; single mode accepts pre-upgrade tokens until they expire.
+- **Never weaken an existing check.** `requireAuth`, `requireAdmin`, `requirePermission` and `enforceAdminIp` keep their
+  behaviour in single mode; `requireAdmin`/`requirePermission` may read the `StaffAccount` behind the same `_id`, never
+  stricter. `requireStaff` guards the new `/api/staff/*` routes and every staff route in multi mode. New checks add
+  defence in depth (host cross-checks, `X-Tenant-Id`), they do not replace or loosen the old ones.
+- **Staff 2FA.** Mandatory only in multi mode: no staff access token is issued without `amr` containing `'otp'`, and a
+  first login without 2FA returns `{ requires2faSetup }`. In single mode 2FA is optional — accounts that enabled it are
+  prompted for a code, accounts that did not log in with the password alone.
+- **Host resolution.** `resolveTenantHost` (`server/src/middleware/tenantHost.js`) maps the Host header to a tenant only
+  through `Domain` records with `verifiedAt` set, cached in memory for 60 seconds. Single mode always binds the default
+  tenant and never answers 404; multi mode answers `404 TENANT_NOT_FOUND` for an unknown host. Platform staff must send
+  `X-Tenant-Id` on tenant routes in multi mode.
+- **G5 migration.** `tenancy-004-staff-accounts` (`server/migrations/0007_tenancy_staff_accounts.js`) copies admin
+  `User`s to `StaffAccount` with the same `_id`, keeps the legacy `/api/auth/login` path, and promotes role-less admins
+  only in the bootstrap case (no owner yet). It is idempotent. Emergency recovery is `scripts/staff-recover.mjs`.
+- Add-ons reach all of this through `server/src/tenancy/index.js` (`StaffAccount`, `RoleAssignment`, `resolveTenantHost`,
+  `requireStaff`, `requireStaffPermission`, `signStaffAccess`), never by importing core internals.
+
 ## Workflow
 
 - Branch from `origin/main`, open PRs against `main`, run `npm test` and the leak scan before pushing.

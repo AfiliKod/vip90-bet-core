@@ -107,9 +107,18 @@ function queryContext(query) {
   return query[QUERY_CTX] ?? tenantContext.get();
 }
 
+/** Single mode: the tenant of the ambient context, else the default tenant. */
+function singleModeTenantId(ctx) {
+  if (getTenancyMode() !== 'single') return null;
+  if (ctx?.mode === 'tenant' && ctx.tenantId) return ctx.tenantId;
+  return getDefaultTenantId();
+}
+
 function stampDefaultTenant(doc, ctx) {
-  const tenantId = getDefaultTenantId();
-  if (getTenancyMode() !== 'single' || !tenantId || ctx?.mode === 'tenant' || hasValue(doc.tenantId)) return;
+  // Single mode stamps even with enforcement 'off' and inside a request bound by
+  // resolveTenantHost (which runs every request in the default tenant's context).
+  const tenantId = singleModeTenantId(ctx);
+  if (!tenantId || hasValue(doc.tenantId)) return;
   doc.tenantId = tenantId;
 }
 
@@ -121,9 +130,9 @@ function updateSetsTenantId(update) {
 
 /** Stamp the default tenant on an unscoped single-mode upsert before scoping it. */
 function stampDefaultTenantOnUpsert() {
-  const tenantId = getDefaultTenantId();
   const ctx = queryContext(this);
-  if (getTenancyMode() !== 'single' || !tenantId || ctx?.mode === 'tenant' || !this.getOptions().upsert) return;
+  const tenantId = singleModeTenantId(ctx);
+  if (!tenantId || !this.getOptions().upsert) return;
 
   const update = this.getUpdate();
   if (!update || Array.isArray(update) || updateSetsTenantId(update)) return;

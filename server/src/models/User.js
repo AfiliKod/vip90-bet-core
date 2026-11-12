@@ -22,6 +22,8 @@ const schema = new mongoose.Schema({
   // İn-memory Set process yeniden başlatıldığında sıfırlandığı için,
   // çift-kredi'ye karşı asıl (kalıcı) koruma budur (bkz. #17 final review Finding 2).
   bonusModelBMigratedAt: { type: Date, default: null },
+  // G5 (İP-3): stamped when this admin account is copied to StaffAccount.
+  staffMigratedAt: { type: Date, default: null },
   preferences: {
     avatarColor:      { type: String,   default: '#7c3aed' },
     favoriteSports:   { type: [String], default: [] },

@@ -47,7 +47,15 @@ const LEGACY_UNIQUE_INDEXES = {
   ReferralTree: [{ keys: { userId: 1 }, options: { unique: true, background: true } }],
   RiskProfile: [{ keys: { playerId: 1 }, options: { unique: true, background: true } }],
   RiskRule: [{ keys: { name: 1 }, options: { unique: true, background: true } }],
-  Role: [{ keys: { name: 1 }, options: { unique: true, background: true } }],
+  // İP-3 adds the scoped compound unique (spec §5.2). It is a superset of the legacy
+  // name_1 key, so it can never fail on existing single-mode data. Reviewed 2026-11-12.
+  // New platform models in İP-3 (no legacy data). Reviewed 2026-11-12.
+  StaffAccount: [{ keys: { email: 1 }, options: { unique: true, background: true } }],
+  RoleAssignment: [{ keys: { staffId: 1, roleId: 1, scopeType: 1, scopeId: 1 }, options: { unique: true, background: true } }],
+  Role: [
+    { keys: { name: 1 }, options: { unique: true, background: true } },
+    { keys: { scopeType: 1, scopeId: 1, name: 1 }, options: { unique: true, background: true } },
+  ],
   Setting: [{ keys: { key: 1 }, options: { unique: true, background: true } }],
   SlikairPayment: [{ keys: { requestId: 1 }, options: { unique: true, background: true } }],
   SmsTemplate: [{ keys: { key: 1 }, options: { unique: true, background: true } }],
