@@ -28,7 +28,7 @@ export const ADMIN_MOUNTS = [
   { prefix: '/api/admin/analytics', file: 'routes/analytics.js', mode: 'router' },
   { prefix: '/api/admin/audit', file: 'routes/audit.js', mode: 'router' },
   // İP-9b: staff-token route (requireStaff('tenant')); each verb needs a staff permission. Reviewed 2026-11-13.
-  { prefix: '/api/admin/partner-grants', file: 'routes/partnerGrants.js', mode: 'per-line', count: 3, needle: 'requireStaffPermission(' },
+  { prefix: '/api/admin/partner-grants', file: 'routes/partnerGrants.js', mode: 'per-line', routerVar: 'router', count: 3, needle: 'requireStaffPermission(' },
   { prefix: '/api/admin/modules', file: 'controllers/modules.js', mode: 'per-line', count: 3 },
   { prefix: '/api/admin/reconciliation', file: 'routes/reconciliation.js', mode: 'router' },
   { prefix: '/api/admin/agents', file: 'routes/agent.js', mode: 'router' },
