@@ -18,6 +18,18 @@ Madde formatı ve kategoriler için `docs/CHANGELOG_GUIDE.md`'ye bakın —
 
 ## [Yayınlanmadı]
 
+### İP-9b: partner yönetimi, partner portalı ve denetimli operatör erişimi
+**Kırılan Değişiklikler**
+- **`TENANCY_MODE=single` kurulumlar için kırılan değişiklik yoktur.** Partner API'si (`/api/partner/*`) tek modda `404` döner; mevcut tek operatörlü akışlar değişmez.
+
+**Eklendi**
+- Partner modelleri (`Partner`, `PartnerOperatorLink`, `PartnerGrant`), ticari modeller ve etkin operatör bağlantısı için kısmi bileşik indeks.
+- Partnerlerin kendi operatörlerini kota, modül ve yetki tavanları içinde sağlaması; sağlayan partner atfı ve yaşam döngüsü sınırları.
+- Yeni `partner:*` ve `admin:partner-grants:*` izin anahtarları; partner personeli çok kiracılı modda 2FA ile erişir.
+- `TenantDailyStat` toplamlarıyla partner metrikleri ve `activePlayers < 5` için küçük hücre gizleme.
+- Süresi en fazla 90 gün olan `PartnerGrant`, denetim kaydı ve partnerlerin finansal işlemlerden/sahip olunan operatörlerdeki kendine rol atamasından korunması.
+- Konsolda partner kapsamlı portal ekranları ve satış-partneri akışını gerçek HTTP API üzerinde doğrulayan kabul paketi.
+
 ### İP-9a: Platform Sahibi konsolu — kurulum, operatör sağlama, alan adı doğrulama, canlıya geçiş ve denetim
 **Kırılan Değişiklikler**
 - **`TENANCY_MODE=single` kurulumlar için işlem gerekmez.** Platform API'si (`/api/platform/*`) ve Platform Sahibi konsolu (`/console`) yalnız `TENANCY_MODE=multi` altında sunulur; tek modda her ikisi de `404` döner. Mevcut tek operatörlü akışlar, uçlar ve yanıt gövdeleri değişmez, yeni bir ortam değişkeni tanımlamak gerekmez.
