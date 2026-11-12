@@ -62,7 +62,8 @@ export function resolveTenantHost(options = {}) {
 
   return async function tenantHostResolution(req, res, next) {
     try {
-      if (req.tenant?.id) {
+      // Only the trusted internal binding (internalTenant.js) may pre-set the tenant.
+      if (req.tenant?.id && req.tenant.source === 'internal') {
         return runWithTenant(req.tenant.id, next, { brandId: req.tenant.brandId ?? null });
       }
 

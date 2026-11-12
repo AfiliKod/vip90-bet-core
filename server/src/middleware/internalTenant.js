@@ -3,6 +3,9 @@ import Tenant from '../models/Tenant.js';
 import { runWithTenant } from '../tenancy/context.js';
 import { TenantScopeError } from '../tenancy/errors.js';
 
+// Behind a reverse proxy on the same host every request arrives from loopback, so the
+// loopback check alone proves nothing: INTERNAL_API_TOKEN (compared in constant time)
+// is the real guard, and without a configured token this middleware does nothing.
 const LOOPBACK = new Set(['127.0.0.1', '::1', '::ffff:127.0.0.1']);
 
 function defaultIsLoopback(req) {

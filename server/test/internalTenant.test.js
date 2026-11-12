@@ -98,13 +98,23 @@ describe('host resolver extraction', () => {
     assert.equal(tenant.host, 't1.test');
   });
 
-  it('does not resolve a pre-bound tenant through the Host header again', async () => {
+  it('does not resolve an internally bound tenant through the Host header again', async () => {
     const middleware = resolveTenantHost({ getTenancyMode: () => 'multi' });
     const request = req({ hostname: 'unknown.test' });
-    request.tenant = { id: t2._id, brandId: null, host: 'unknown.test' };
+    request.tenant = { id: t2._id, brandId: null, host: 'unknown.test', source: 'internal' };
     let nextCalls = 0;
     await middleware(request, res(), () => { nextCalls += 1; });
     assert.equal(nextCalls, 1);
     assert.equal(String(request.tenant.id), String(t2._id));
+  });
+
+  it('a pre-set tenant without the internal source is ignored and the Host decides (404 here)', async () => {
+    const middleware = resolveTenantHost({ getTenancyMode: () => 'multi' });
+    const request = req({ hostname: 'unknown.test' });
+    request.tenant = { id: t2._id, brandId: null, host: 'unknown.test' };
+    let status = null;
+    const response = { status(code) { status = code; return this; }, json() { return this; } };
+    await middleware(request, response, () => {});
+    assert.equal(status, 404);
   });
 });
