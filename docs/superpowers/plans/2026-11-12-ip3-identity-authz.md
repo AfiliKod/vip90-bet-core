@@ -42,6 +42,23 @@
 
 ---
 
+## Reviewer correction (2026-11-12): overrides every conflicting line below
+
+1. **Token compatibility in single mode.** About 35 places in core read today's token claims (`id`, `role`,
+   `tokenVersion`), and İP-3 has no client task. So in single mode `/api/auth/login`, `/api/auth/refresh` and the
+   2FA login step keep returning exactly today's response body and cookie, and the issued token keeps today's claims
+   (`id`, `role`, `tokenVersion`) **plus** the new ones (`sub`, `typ`, `tid`, `tv`, `aud`). Verification in single mode
+   accepts a token without `aud`/`tid` (issued before the upgrade) as a player or legacy-admin token until it expires.
+   Multi mode requires the new claims and rejects legacy tokens.
+2. **Admin panel unchanged in single mode.** The existing admin client keeps using `/api/auth/login` and its current
+   token. `requireAdmin` / `requirePermission` keep their current behaviour in single mode (they may read the
+   StaffAccount behind the same `_id`, never stricter). `requireStaff` guards only the new `/api/staff/*` routes and
+   every staff route in multi mode.
+3. **Host resolution never changes single mode.** `resolveTenantHost` in single mode always binds the default tenant
+   and never answers 404, whatever the Host header is (localhost, IPs, unknown names, missing header).
+4. Every existing test must still pass on each task's branch; a task that needs an existing test changed must say why
+   in its commit message, and the reviewer decides.
+
 ## Review Focus
 
 - **Zero regression on legacy admin login (G5):** An existing administrator in single mode must be able to log in through `/api/auth/login` with unchanged username and password, receive a valid session, access `/admin`, and have all administrative permissions preserved.
