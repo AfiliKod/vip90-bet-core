@@ -20,7 +20,8 @@
     "test:security": "node --test --experimental-test-module-mocks test/security/*.test.js",
     "test:bonus": "node scripts/test-bonus-wagering.cjs",
     "test:promo": "node scripts/test-promotion-claim.cjs",
-    "test:callbacks": "node scripts/test-casino-callbacks.mjs"
+    "test:callbacks": "node scripts/test-casino-callbacks.mjs",
+    "lint:tenancy": "node ../scripts/lint-tenancy.mjs"
   },
   "dependencies": {
     "@sentry/node": "^10.62.0",

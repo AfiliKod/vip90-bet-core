@@ -41,6 +41,7 @@
     "test:e2e:ui": "playwright test --config=tests/e2e/playwright.config.js --ui",
     "test:e2e:report": "playwright show-report tests/playwright-report",
     "test:e2e:install": "playwright install chromium",
+    "lint:tenancy": "node scripts/lint-tenancy.mjs",
     "docker:test": "docker compose -f docker-compose.yml -f docker-compose.test.yml build test && docker compose -f docker-compose.yml -f docker-compose.test.yml run --rm test",
     "docker:up": "docker compose up -d --build",
     "docker:down": "docker compose down"
