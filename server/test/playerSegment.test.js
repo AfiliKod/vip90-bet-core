@@ -15,6 +15,8 @@ import {
 describe('Player Segment Service', () => {
   before(async () => {
     await mongoose.connect(process.env.MONGODB_URI || 'mongodb://localhost:27017/betzone_test_segment');
+    // The duplicate-slug test needs the unique index to exist on a fresh database.
+    await PlayerSegment.init();
   });
 
   after(async () => {

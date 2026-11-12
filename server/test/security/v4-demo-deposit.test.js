@@ -8,6 +8,7 @@ import Transaction from '../../src/models/Transaction.js';
 import transactionsRoutes from '../../src/routes/transactions.js';
 import { errorHandler } from '../../src/middleware/error.js';
 import { isDemoInstantDepositEnabled, isMultiTenancyMode } from '../../src/config/demoFlags.js';
+import { runAsPlatform } from '../../src/tenancy/context.js';
 
 const URI = process.env.MONGODB_URI || 'mongodb://127.0.0.1:27017/betzone_test_v4_demo?replicaSet=rs0';
 process.env.JWT_SECRET ||= 'v4-demo-deposit-test-secret';
@@ -74,7 +75,9 @@ describe('V4 POST /api/transactions/deposit (HTTP)', () => {
     const r = await post();
     assert.equal(r.status, 404);
     assert.equal(r.body.error.code, 'DEMO_FEATURE_DISABLED');
-    assert.equal((await User.findById(user._id).lean()).balance, 0);
+    // Multi mode enforces tenant scope on User (İP-2): the test's own check reads as platform.
+    const after = await runAsPlatform('test: verify balance', () => User.findById(user._id).lean());
+    assert.equal(after.balance, 0);
     assert.equal(await Transaction.countDocuments({ userId: user._id }), before);
   });
 
@@ -84,7 +87,9 @@ describe('V4 POST /api/transactions/deposit (HTTP)', () => {
     const r = await post();
     assert.equal(r.status, 404);
     assert.equal(r.body.error.code, 'DEMO_FEATURE_DISABLED');
-    assert.equal((await User.findById(user._id).lean()).balance, 0);
+    // Multi mode enforces tenant scope on User (İP-2): the test's own check reads as platform.
+    const after = await runAsPlatform('test: verify balance', () => User.findById(user._id).lean());
+    assert.equal(after.balance, 0);
   });
 
   it('DEMO_INSTANT_DEPOSIT=true (single) -> 200 and balance grows', async (t) => {

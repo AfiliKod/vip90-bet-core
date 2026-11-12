@@ -6,7 +6,17 @@ import { createChallengeToken } from './twoFactorChallenge.js';
 
 export function signAccess(user, amr = ['pwd']) {
   return jwt.sign(
-    { id: user._id, role: user.role, tokenVersion: user.tokenVersion || 0, amr },
+    {
+      id: user._id,
+      role: user.role,
+      tokenVersion: user.tokenVersion || 0,
+      sub: user._id,
+      typ: 'player',
+      tid: user.tenantId || null,
+      tv: user.tokenVersion || 0,
+      aud: 'player',
+      amr,
+    },
     process.env.JWT_SECRET,
     { expiresIn: '15m' }
   );
