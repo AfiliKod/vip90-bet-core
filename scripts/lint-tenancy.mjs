@@ -7,11 +7,13 @@ export const RUN_AS_PLATFORM_ALLOWLIST = new Set([
   'server/src/services/tenantDailyStat.js',
   'server/src/services/ledgerDedupe.js',
   'server/src/tenancy/provisioning.js',
+  'server/src/tenancy/callbackAttribution.js',
   'server/src/tenancy/defaultTenant.js',
   'server/src/tenancy/staffMigration.js',
   'server/src/tenancy/settingsMigration.js',
   'server/src/tenancy/backfill.js',
   'server/src/tenancy/indexBuilder.js',
+  'server/src/tenancy/callbackAttribution.js',
   'server/src/tenancy/context.js',
   'server/src/tenancy/index.js',
 ]);

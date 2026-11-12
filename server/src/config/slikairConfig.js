@@ -34,10 +34,14 @@ export function createSlikairConfigStore(deps = {}) {
 
 export const slikairConfig = createSlikairConfigStore();
 
-/** { merchantId, merchantToken, siteId, baseUrl, webhookSecret } */
-export const getSlikairCredentials = () => slikairConfig.getAll();
+/**
+ * { merchantId, merchantToken, siteId, baseUrl, webhookSecret }
+ * options: { tenantId, brandId } — verilmezse ortam kiracı bağlamı (runWithTenant)
+ * kullanılır; çok kiracılı modda env'e asla düşülmez (İP-6, spec §9 G-9).
+ */
+export const getSlikairCredentials = (options = {}) => slikairConfig.getAll(options);
 
-export async function isSlikairConfigured() {
-  const c = await slikairConfig.getAll();
+export async function isSlikairConfigured(options = {}) {
+  const c = await slikairConfig.getAll(options);
   return !!(c.merchantId && c.merchantToken && c.siteId);
 }

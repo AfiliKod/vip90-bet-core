@@ -5,6 +5,7 @@ import { issueSession } from './session.js';
 import { getGoogleAuthSettings } from '../config/googleAuthConfig.js';
 import { createProviderUser, providerUsernameCandidates } from './providerUsername.js';
 import { clientUrlFallback } from '../tenancy/tenantBaseUrl.js';
+import { getCurrentTenantId } from '../tenancy/context.js';
 
 /**
  * Telegram OAuth configuration — DÜZELTME: önceden aynı TELEGRAM_BOT_TOKEN
@@ -35,13 +36,21 @@ function generateState() {
 /**
  * Store OAuth state with TTL
  */
-const oauthStateStore = new Map(); // state -> { provider, userId, expiresAt }
+const oauthStateStore = new Map(); // state -> { provider, userId, tenantId, expiresAt }
+
+// İP-6 (spec §8.4): state, üretildiği isteğin kiracısını taşır; callback başka
+// bir kiracının alan adına gelirse state geçersiz sayılır. Tek kiracılı kurulumda
+// iki taraf da aynı (varsayılan ya da boş) kiracıdır, davranış değişmez.
+function tenantKeyOf(tenantId) {
+  return tenantId == null ? '' : String(tenantId);
+}
 
 export function setOAuthState(provider, userId = null) {
   const state = generateState();
   oauthStateStore.set(state, {
     provider,
     userId,
+    tenantId: tenantKeyOf(getCurrentTenantId()),
     expiresAt: Date.now() + 10 * 60 * 1000, // 10 minutes
   });
   return state;
@@ -60,6 +69,7 @@ export function getOAuthState(state) {
 export function consumeOAuthState(state) {
   const entry = oauthStateStore.get(state);
   if (entry) oauthStateStore.delete(state);
+  if (entry && entry.tenantId !== tenantKeyOf(getCurrentTenantId())) return null;
   return entry;
 }
 

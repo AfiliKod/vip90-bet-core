@@ -14,8 +14,11 @@ import {
   registerTenantCredentialSchema,
   getTenantCredentialSchema,
   listTenantCredentialSchemas,
+  validateCredentialSchema,
   _resetTenancyRegistriesForTests,
 } from './provisioning.js';
+import { tenantFilter } from './tenantFilter.js';
+import { findPaymentForCallback, findPayoutForCallback } from './callbackAttribution.js';
 import StaffAccount from '../models/StaffAccount.js';
 import RoleAssignment from '../models/RoleAssignment.js';
 import { resolveTenantHost } from '../middleware/tenantHost.js';
@@ -62,6 +65,10 @@ export {
   registerTenantCredentialSchema,
   getTenantCredentialSchema,
   listTenantCredentialSchemas,
+  validateCredentialSchema,
+  tenantFilter,
+  findPaymentForCallback,
+  findPayoutForCallback,
   StaffAccount,
   RoleAssignment,
   resolveTenantHost,
