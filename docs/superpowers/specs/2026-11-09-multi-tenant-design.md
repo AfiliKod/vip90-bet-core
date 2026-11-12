@@ -1164,6 +1164,22 @@ kapandı (K18) ve listeden çıkarıldı.
 | Y3 | Diğer kendi kurduğu kurulumlar (premium alıcıları, public core kullanıcıları) kendi başına güncelleyecek mi? | Evet. Tek mod geçişleri gözetimsiz güvenli, idempotent, yarıda kalırsa devam eden ve yöneticiyi asla dışarıda bırakmayan şekilde yazılır; tek modda `enforce` zorlanmaz | Yanlışsa (yalnız VIP90 güncelliyorsa) geçişler elle, bakım penceresiyle yapılabilir; tasarım yine aynı kalır, yalnız güvenlik payı fazladır | 6.1, 6.3, 8.6 |
 | Y4 | In-house sağlayıcının VIP90 dışında müşterisi var mı? | Var sayılır; in-house callback ve tema değişiklikleri geriye uyumlu tutulur (eski callback biçimi ve sabit tema, yeni alanlar yokken aynen çalışır) | Yoksa uyumluluk katmanı İP-6'dan sonra kaldırılabilir | İP-6 |
 
+Sahibin 2026-11-12 kararları (11.2'deki açık sorulara yanıt, bağlayıcı):
+
+| # | Karar (sahip, 2026-11-12) | Yanıtladığı soru |
+|---|---|---|
+| K19 | Kripto saklama operatör başınadır: her operatörün bağımsız cüzdanı, tohumu ve anahtar yönetimi vardır; VIP90 operatör fonlarını emanet tutmaz | S1 |
+| K20 | Spor bahsi (oran beslemesi) maliyeti operatör bazında sabit ücret ve hacim bazlı ücret seçenekleriyle yansıtılır; model operatör başına seçilir | S2 |
+| K21 | Partner ticari modeli partner bazında seçilebilir (toptan, gelir paylaşımı ya da ikisi). Komisyon tabanı ilk sürümde GGR'dir; NGR hesaplaması eklendiğinde partner başına seçilebilir olur (varsayım, sahip teyit edecek) | S3 |
+| K22 | Casino içerik sağlayıcılarında operatör başına ayrı agent hesabı kullanılır ve sağlayıcının yazılı onayı olmadan o sağlayıcıyla operatör canlıya çıkmaz | S4 |
+| K23 | VIP90 (platform) personelinin operatör verisine erişimi varsayılan olarak salt okunurdur; yazma ancak süreli, gerekçeli ve denetim kaydına yazılan istisnai erişimle yapılır | S5 |
+| K24 | Finansal ve uyum denetim kayıtları için en az 5 yıllık saklama hedeflenir; süre mevzuata göre yapılandırılabilir (bugünkü 365 gün TTL bu kayıtlar için yetersizdir) | S6 |
+| K25 | Operatör alan adlarının HTTPS sertifikası Cloudflare for SaaS (özel host adları) ile verilir | S8 |
+| K26 | Operatör kapanışı: veri dışa aktarımı, hukuki saklama süresi boyunca saklama ve süre sonunda kontrollü silme | S9 |
+| K27 | Partnerin varsayılan yetkileri yalnız kendi portföyünün toplulaştırılmış metrikleri ve kendi personelinin yönetimidir; diğer yetenekler partner başına açıkça verilir | S10 |
+
+S7 K14 ile kapanmıştı. 11.2'deki S1-S10'un tamamı yanıtlanmıştır.
+
 ### 11.2 Açık sorular
 
 | # | Soru | Etkilediği |
@@ -1183,6 +1199,7 @@ kapandı (K18) ve listeden çıkarıldı.
 
 ## 12. Değişiklik kaydı
 
+- **2026-11-12 kararlar:** sahip S1-S10'u yanıtladı (K19-K27, 11.1'in sonunda).
 - **2026-11-12 onay:** sahip raporu v2 metniyle onayladı. İP-0 tamamlandı (bet PR #221-#224, core senkronu `bet@5a379f3`,
   core PR #19). Y1-Y4 varsayımları geçerlidir; S1-S10 etkiledikleri iş paketinden önce sahibe sorulur. Geliştirme
   7.1'deki sırayla İP-U'dan devam eder.
