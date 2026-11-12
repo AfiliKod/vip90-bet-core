@@ -1,4 +1,5 @@
 import { getTenancyMode } from './tenancy.js';
+import { requireDemoFlag } from './tenancy.js';
 import { createError } from '../middleware/error.js';
 
 /**
@@ -20,9 +21,4 @@ export function isDemoInstantDepositEnabled(env = process.env) {
     && !isMultiTenancyMode(env);
 }
 
-export function requireDemoInstantDeposit(req, res, next) {
-  if (!isDemoInstantDepositEnabled()) {
-    return next(createError(404, 'DEMO_FEATURE_DISABLED', 'This feature is disabled on this installation'));
-  }
-  next();
-}
+export const requireDemoInstantDeposit = requireDemoFlag('instantDeposit');

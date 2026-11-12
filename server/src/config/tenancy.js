@@ -288,8 +288,13 @@ function requireDemoFlag(flag) {
     throw new TypeError(`Unknown demo flag: "${flag}"`);
   }
 
+  const flagEnv = DEMO_FLAG_ENV[flag];
+  if (!flagEnv) {
+    throw new TypeError(`Unknown demo flag: "${flag}"`);
+  }
+
   const middleware = (req, res, next) => {
-    const env = req.app ? req.app.locals.env : process.env;
+    const env = req.app?.locals?.env ?? process.env;
     const mode = String(env.TENANCY_MODE || 'single').toLowerCase();
 
     // In multi mode, always disable demo features
@@ -300,8 +305,8 @@ function requireDemoFlag(flag) {
       return next(err);
     }
 
-    // In single mode, check the flag
-    const flagValue = String(env[`DEMO_${flag.toUpperCase()}` || '']).trim().toLowerCase();
+    // In single mode, check the flag using the correct env var name
+    const flagValue = String(env[flagEnv] || '').trim().toLowerCase();
     if (flagValue !== 'true') {
       const err = new Error('DEMO_FEATURE_DISABLED');
       err.code = 'DEMO_FEATURE_DISABLED';
