@@ -1,4 +1,6 @@
 import mongoose from 'mongoose';
+import { defineTenantModel } from '../tenancy/models.js';
+import { registerTenantIndexes } from '../tenancy/indexRegistry.js';
 
 // Bonus Call + Freeround admin ödülleri — kayıtlı yaşam döngüsü.
 // bonusCall: pending → running → completed | cancelled | failed
@@ -8,6 +10,8 @@ const KINDS = ['bonusCall', 'freeRound'];
 const STATUSES = ['pending', 'running', 'completed', 'active', 'cancelled', 'failed'];
 
 const schema = new mongoose.Schema({
+  tenantId: { type: mongoose.Schema.Types.ObjectId, ref: 'Tenant', required: false, index: true, immutable: true },
+
   kind: { type: String, enum: KINDS, required: true, index: true },
 
   user: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true, index: true },
@@ -63,6 +67,13 @@ schema.index({ callId: 1 }, { unique: true, sparse: true });
 // 'running' aşaması servis katmanındaki findOne kontrolüyle korunur.
 schema.index({ gplayId: 1 }, { unique: true, partialFilterExpression: { kind: 'bonusCall', status: 'pending' } });
 
+registerTenantIndexes('CasinoPromoGrant', [
+  { keys: { tenantId: 1, callId: 1 }, options: { unique: true, partialFilterExpression: { callId: { $type: 'number' } }, name: 'tenant_callId_uniq' } },
+  { keys: { tenantId: 1, gplayId: 1 }, options: { unique: true, partialFilterExpression: { kind: 'bonusCall', status: 'pending' }, name: 'tenant_gplayId_uniq' } },
+  { keys: { tenantId: 1, kind: 1, createdAt: -1 }, options: { name: 'tenant_kind_createdAt' } },
+  { keys: { tenantId: 1, user: 1, createdAt: -1 }, options: { name: 'tenant_user_createdAt' } },
+]);
+
 // Saf fonksiyon — modelin dışında da (statics olarak da) kullanılabilir.
 export function effectiveStatus(grant, now = new Date()) {
   if (!grant) return grant;
@@ -76,5 +87,4 @@ schema.statics.effectiveStatus = function (grant, now = new Date()) {
   return effectiveStatus(grant, now);
 };
 
-const CasinoPromoGrant = mongoose.models.CasinoPromoGrant || mongoose.model('CasinoPromoGrant', schema);
-export default CasinoPromoGrant;
+export default defineTenantModel('CasinoPromoGrant', schema);
