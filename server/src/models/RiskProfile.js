@@ -1,4 +1,6 @@
 import mongoose from 'mongoose';
+import { defineTenantModel } from '../tenancy/models.js';
+import { registerTenantIndexes } from '../tenancy/indexRegistry.js';
 
 export const RISK_LEVEL = {
   LOW: 'LOW',
@@ -15,6 +17,7 @@ export const RISK_STATUS = {
 };
 
 const schema = new mongoose.Schema({
+  tenantId: { type: mongoose.Schema.Types.ObjectId, ref: 'Tenant', required: false, index: true, immutable: true },
   playerId: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true, unique: true },
   brandId: { type: mongoose.Schema.Types.ObjectId, ref: 'Brand', default: null },
   jurisdictionId: { type: mongoose.Schema.Types.ObjectId, ref: 'Jurisdiction', default: null },
@@ -41,4 +44,9 @@ schema.index({ riskScore: -1 });
 schema.index({ reviewRequired: 1 });
 schema.index({ brandId: 1, jurisdictionId: 1 });
 
-export default mongoose.model('RiskProfile', schema);
+registerTenantIndexes('RiskProfile', [
+  { keys: { tenantId: 1, playerId: 1 }, options: { name: 'tenant_playerId_uniq', unique: true } },
+  { keys: { tenantId: 1, brandId: 1 }, options: { name: 'tenant_brandId' } },
+]);
+
+export default defineTenantModel('RiskProfile', schema);
