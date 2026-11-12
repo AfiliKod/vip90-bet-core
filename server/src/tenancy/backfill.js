@@ -16,6 +16,7 @@ import mongoose from 'mongoose';
 import Migration from '../models/Migration.js';
 import Tenant from '../models/Tenant.js';
 import { runAsPlatform } from './context.js';
+import { loadAllModels } from './indexBuilder.js';
 import { getTenantModel, listTenantModelNames } from './models.js';
 
 export const BACKFILL_MIGRATION_NAME = 'tenancy-002-backfill-tenant-id';
@@ -55,6 +56,12 @@ export async function backfillTenantId({
   targetTenantId = null,
   onProgress = null,
 } = {}) {
+  // The migration CLI does not load the app: import every model so the tenant
+  // model registry is complete, and refuse to run (and be marked done) if it is empty.
+  await loadAllModels();
+  if (listTenantModelNames().length === 0) {
+    throw new Error('[tenancy] G3: no tenant models registered after loading models; refusing to run');
+  }
   return runAsPlatform('backfill-tenant-id', async () => {
     const startMs = Date.now();
 
@@ -106,7 +113,7 @@ export async function backfillTenantId({
         if (batch.length === 0) break;
 
         const ids = batch.map(doc => doc._id);
-        const updateRes = await coll.updateMany({ _id: { $in: ids } }, { $set: { tenantId } });
+        const updateRes = await coll.updateMany({ _id: { $in: ids }, ...unassignedFilter() }, { $set: { tenantId } });
 
         totalUpdated += updateRes.modifiedCount;
         lastId = ids[ids.length - 1];
