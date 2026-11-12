@@ -316,7 +316,14 @@ async function getRoleAssignmentModel() {
   return (await import('../models/RoleAssignment.js')).default;
 }
 
+// Capability names whose permission key is not the mechanical
+// `partner:<a>:<b>` form (K27 default `staff.manage`).
+const CAPABILITY_PERMISSION_ALIASES = Object.freeze({
+  'staff.manage': 'partner:staff:write',
+});
+
 function capabilityPermissionKey(capability) {
+  if (CAPABILITY_PERMISSION_ALIASES[capability]) return CAPABILITY_PERMISSION_ALIASES[capability];
   if (capability.startsWith('partner:')) return capability;
   const namespaced = `partner:${capability.replaceAll('.', ':')}`;
   // Capabilities already carrying the partner namespace (e.g. 'partner:grants:use').

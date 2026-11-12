@@ -66,6 +66,7 @@ import { resolveTenantHost } from './middleware/tenantHost.js';
 import { resolveInternalTenant } from './middleware/internalTenant.js';
 import manifestRoutes from './routes/manifest.js';
 import { createPlatformRouter } from './platform/routes/index.js';
+import { createPartnerRouter } from './platform/routes/partner.js';
 import { getTenancyMode } from './config/tenancy.js';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
@@ -291,8 +292,10 @@ export function createApp() {
   app.use('/api/staff/auth/2fa', staff2faRoutes);
   if (getTenancyMode() === 'multi') {
     app.use('/api/platform', createPlatformRouter());
+    app.use('/api/partner', createPartnerRouter());
   } else {
     app.use('/api/platform', (req, res) => res.status(404).json({ error: 'NOT_FOUND', message: 'Platform API is only available in multi-tenant mode' }));
+    app.use('/api/partner', (req, res) => res.status(404).json({ error: 'NOT_FOUND', message: 'Partner API is only available in multi-tenant mode' }));
   }
   app.use('/api/auth/wallet', web3AuthRoutes);
   app.use('/api/auth', socialAuthRoutes);
