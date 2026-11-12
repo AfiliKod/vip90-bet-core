@@ -28,7 +28,9 @@ function originsForHost(host) {
 }
 
 async function loadDomainOrigins() {
-  const domains = await Domain.find({}).select('host').lean();
+  // Verified domains only (spec §9 G-11): CORS is credentialed, so a pending
+  // or failed domain must never get browser access to the API.
+  const domains = await Domain.find({ verifiedAt: { $ne: null } }).select('host').lean();
   const origins = [];
   for (const domain of domains) {
     if (domain?.host) origins.push(...originsForHost(domain.host));

@@ -13,8 +13,9 @@ describe('Task 6: Dynamic CORS allowlist from Domain', () => {
     await Domain.deleteMany({});
     await Tenant.deleteMany({});
     const tenant = await Tenant.create({ name: 'T1', key: 't1' });
-    await Domain.create({ host: 'operator-a.com', tenantId: tenant._id, isPrimary: true });
-    await Domain.create({ host: 'localhost:5173', tenantId: tenant._id });
+    await Domain.create({ host: 'operator-a.com', tenantId: tenant._id, isPrimary: true, verifiedAt: new Date() });
+    await Domain.create({ host: 'localhost:5173', tenantId: tenant._id, verifiedAt: new Date() });
+    await Domain.create({ host: 'pending-b.com', tenantId: tenant._id });
   });
 
   after(async () => {
@@ -30,6 +31,13 @@ describe('Task 6: Dynamic CORS allowlist from Domain', () => {
     assert.ok(origins.has('https://www.operator-a.com'));
     assert.ok(origins.has('http://localhost:5173'));
     assert.equal(origins.has('https://malicious-site.com'), false);
+  });
+
+  it('multi mode: an unverified domain never enters the credentialed CORS allowlist (G-11)', async () => {
+    invalidateDomainOrigins();
+    const origins = await getDomainOrigins({ env: { TENANCY_MODE: 'multi' } });
+    assert.equal(origins.has('https://pending-b.com'), false);
+    assert.equal(origins.has('https://www.pending-b.com'), false);
   });
 
   it('single mode keeps the historical CLIENT_URL allowlist and ignores Domain rows', async () => {
