@@ -64,6 +64,7 @@ import { createSeoPublicRouter, createSpaFallback, createSecurityHeaders } from 
 import { getSiteName } from './branding/index.js';
 import { resolveTenantHost } from './middleware/tenantHost.js';
 import { resolveInternalTenant } from './middleware/internalTenant.js';
+import manifestRoutes from './routes/manifest.js';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const isProd = process.env.NODE_ENV === 'production';
@@ -214,6 +215,10 @@ export function createApp() {
   app.use(cookieParser());
   app.use(resolveInternalTenant());
   app.use(resolveTenantHost());
+
+  // İP-8 — tenant-aware PWA manifest. Must stay above express.static so the
+  // build-time manifest from client/dist never shadows the per-tenant one.
+  app.use(manifestRoutes);
 
   // Global rate limit (Phase B1)
   app.use('/api', globalLimiter);
