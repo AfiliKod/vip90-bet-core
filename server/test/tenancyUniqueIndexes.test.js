@@ -52,6 +52,8 @@ const LEGACY_UNIQUE_INDEXES = {
   // New platform models in İP-3/İP-5 (no legacy data). Reviewed 2026-11-12.
   TenantDailyStat: [{ keys: { tenantId: 1, brandId: 1, date: 1, currency: 1 }, options: { unique: true, background: true } }],
   StaffAccount: [{ keys: { email: 1 }, options: { unique: true, background: true } }],
+  // İP-9b platform model (no legacy data). Reviewed 2026-11-13.
+  Partner: [{ keys: { key: 1 }, options: { unique: true, background: true } }],
   RoleAssignment: [{ keys: { staffId: 1, roleId: 1, scopeType: 1, scopeId: 1 }, options: { unique: true, background: true } }],
   Role: [
     { keys: { name: 1 }, options: { unique: true, background: true } },

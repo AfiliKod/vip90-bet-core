@@ -16,6 +16,9 @@ test.before(async () => {
   if (mongoose.connection.readyState !== 0) await mongoose.disconnect();
   await mongoose.connect(TEST_MONGO_URI);
   await mongoose.connection.dropDatabase();
+  // dropDatabase removes the indexes built at import; the unique rules under
+  // test need them back before the first insert.
+  await Promise.all([Partner.createIndexes(), PartnerOperatorLink.createIndexes()]);
 });
 
 test.after(async () => {
