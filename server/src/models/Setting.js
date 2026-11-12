@@ -12,9 +12,7 @@ const settingSchema = new mongoose.Schema({
   brandId:  { type: mongoose.Schema.Types.ObjectId, ref: 'Brand', default: null },
   // Mode is fixed at boot: single keeps the legacy global key_1 unique, multi never creates it.
   key:      { type: String, required: true, unique: getTenancyMode() !== 'multi', index: true },
-  // Mixed so platform defaults (e.g. N1 bootstrap flags) can hold native booleans/numbers;
-  // every existing store still writes strings explicitly.
-  value:    { type: mongoose.Schema.Types.Mixed, default: '' },
+  value:    { type: String, default: '' },
   updatedBy: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
 }, { timestamps: true });
 

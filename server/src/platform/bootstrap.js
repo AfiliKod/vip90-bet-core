@@ -40,7 +40,7 @@ export async function runPlatformBootstrap({ env = process.env } = {}) {
       $setOnInsert: {
         scope: 'platform',
         key: 'platform_initialized',
-        value: true,
+        value: 'true',
         category: 'system',
         description: 'Flag indicating N1 platform bootstrap completion',
       },
@@ -54,7 +54,7 @@ export async function runPlatformBootstrap({ env = process.env } = {}) {
       $setOnInsert: {
         scope: 'platform',
         key: 'audit_retention_days',
-        value: parseInt(env.AUDIT_RETENTION_DAYS, 10) || 1825,
+        value: String(Math.max(parseInt(env.AUDIT_RETENTION_DAYS, 10) || 1825, 1825)),
         category: 'compliance',
         description: 'Audit log retention duration in days (minimum 1825 for 5 years)',
       },

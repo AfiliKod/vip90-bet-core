@@ -51,7 +51,7 @@ test('N1 bootstrap executes on clean DB: seeds permissions, role templates, plat
   // 4. Verify platform setting defaults
   const platformSetting = await Setting.findOne({ scope: 'platform', key: 'platform_initialized' });
   assert.ok(platformSetting, 'Platform initialized setting must exist');
-  assert.equal(platformSetting.value, true);
+  assert.equal(platformSetting.value, 'true');
 
   // 5. Verify migration record
   const migration = await Migration.findOne({ name: PLATFORM_BOOTSTRAP_MIGRATION.name });
