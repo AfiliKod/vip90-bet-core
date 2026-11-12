@@ -1,5 +1,8 @@
 // Crypto ödeme ayarları — admin panelinden değiştirilebilir
-export const CRYPTO_SETTINGS = {
+import { getCurrentTenantId } from '../tenancy/context.js';
+import { getTenancyMode } from './tenancy.js';
+
+const BASE_SETTINGS = {
   // Otomatik yatırma (deposit) limitleri
   deposit: {
     autoCreditLimit: 100,       // $100 Altı otomatik hesaba eklenir
@@ -28,6 +31,43 @@ export const CRYPTO_SETTINGS = {
   network: 'mainnet',
 };
 
+// Per-tenant buckets (İP-4 Task 4). Single mode always uses the one 'global'
+// bucket so existing installs keep exactly today's values; multi mode
+// partitions by the ambient tenant. Boot hydrate runs before any tenant
+// context (and before the default tenant id is resolved), so the no-context
+// bucket is 'global' in both modes.
+const buckets = new Map();
+
+export function currentCryptoBucketKey() {
+  if (getTenancyMode() === 'single') return 'global';
+  const tid = getCurrentTenantId();
+  return tid ? String(tid) : 'global';
+}
+
+function ambientBucket() {
+  const key = currentCryptoBucketKey();
+  let bucket = buckets.get(key);
+  if (!bucket) {
+    bucket = structuredClone(BASE_SETTINGS);
+    buckets.set(key, bucket);
+  }
+  return bucket;
+}
+
+// Backward-compatible view: every existing CRYPTO_SETTINGS consumer reads and
+// writes the ambient tenant's bucket through these accessors (in-place semantics
+// preserved — applyCryptoSettings mutates whatever bucket is active). A plain
+// object with accessors, not a Proxy: structuredClone rejects proxies outright.
+export const CRYPTO_SETTINGS = {};
+for (const key of Object.keys(BASE_SETTINGS)) {
+  Object.defineProperty(CRYPTO_SETTINGS, key, {
+    enumerable: true,
+    configurable: true,
+    get() { return ambientBucket()[key]; },
+    set(value) { ambientBucket()[key] = value; },
+  });
+}
+
 // Env-derived defaults for the adjustable fields. A stored admin value (Setting
 // `crypto.settings`) overrides only the keys the admin actually saved; the rest keep
 // following the environment. An invalid USDT_TRY_RATE falls back to 1 (logged).
@@ -45,7 +85,8 @@ export function cryptoEnvDefaults(env = process.env, logger = console) {
     network: env.TRON_NETWORK || 'mainnet',
   };
 }
-Object.assign(CRYPTO_SETTINGS, cryptoEnvDefaults());
+// Multi mode never seeds tenant settings from the host environment.
+if (getTenancyMode() === 'single') Object.assign(CRYPTO_SETTINGS, cryptoEnvDefaults());
 
 // Admin-adjustable fields (deposit, withdraw, usdtTryRate, network) are persisted in
 // Setting `crypto.settings` (services/cryptoSettings.js) and survive a restart.

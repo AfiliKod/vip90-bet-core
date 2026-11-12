@@ -1,17 +1,20 @@
 /**
  * U5 — Saat dilimi deposunun üretim bağlantısı (Setting koleksiyonu).
  */
-import mongoose from 'mongoose';
-import Setting from '../models/Setting.js';
 import { createTimezoneStore } from './timezone.js';
+import { mongoLoad } from '../config/secretSettingsStore.js';
+import { saveScopedSetting, createTenantStoreFacade } from './settings.js';
 
-export const timezoneStore = createTimezoneStore({
+// Tenant-keyed instances (İP-4 Task 4): the factory cache is per instance.
+const stores = createTenantStoreFacade(({ tenantId, brandId }) => createTimezoneStore({
   loadSetting: async (key) => {
-    if (mongoose.connection.readyState !== 1) return null;
-    const row = await Setting.findOne({ key }).lean();
-    return row?.value ?? null;
+    const raw = await mongoLoad([key], { tenantId, brandId });
+    return raw[key] ?? null;
   },
-  saveSetting: async (key, value, updatedBy) => {
-    await Setting.updateOne({ key }, { $set: { value, updatedBy } }, { upsert: true });
-  },
-});
+  saveSetting: async (key, value, updatedBy) => saveScopedSetting(key, value, updatedBy),
+}));
+
+export const timezoneStore = {
+  get: () => stores.current().get(),
+  set: (value, updatedBy) => stores.current().set(value, updatedBy),
+};
