@@ -1,4 +1,6 @@
 import Event from '../models/Event.js';
+import Bet from '../models/Bet.js';
+import { createError } from '../middleware/error.js';
 import { buildSummaryTree } from '../utils/summaryTree.js';
 import { getBettingDisplaySettings } from '../services/bettingDisplaySettings.js';
 import escapeStringRegexp from 'escape-string-regexp';
@@ -194,3 +196,4 @@ export async function summary(req, res, next) {
     res.json(tree);
   } catch (e) { next(e); }
 }
+
