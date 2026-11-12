@@ -164,6 +164,38 @@ Which sports you receive and the request limit come from your plan; the key's IP
 
 > **Odds come only from the hosted odds feed.** The live and upcoming sync jobs started in `server.js` talk to the feed through `oddsProviderClient`; there is no third-party odds API integration in the core. The legacy The Odds API client (`server/src/services/oddsApi.js`) and `server/src/jobs/dataSync.js` were deleted on 2026-10-03, so `ODDS_API_KEY` and `ODDS_API_SPORT` are not read anywhere. `ODDS_PROVIDER` only names an adapter in the add-on's provider registry (`oddsProviders/`, default `internalProvider`), and nothing calls that registry — treat it as having no effect (add-on code, not re-verified locally: the add-on submodules are not checked out here).
 
+### Tenancy Migrations and Indexes (İP-2)
+
+Every operator-owned (TEN) collection now carries `tenantId`, and the money records carry `currency`. The field is added **without** `required: true` during the transition (G2), so an existing single-operator database keeps validating while documents are still unassigned; strict `required: true` arrives with the enforcement package (İP-8). Two migrations close the gap. Neither runs at server start — like every data migration here, apply them yourself with `node server/scripts/migrate.js` after updating (idempotent: applied migrations are skipped, `server/scripts/healthcheck.js` reports the pending ones).
+
+**Take a backup first** (`scripts/backup-db.sh`, or your own `mongodump`): G3 rewrites every legacy document, and the rollback of a half-finished backfill is a restore, not a script.
+
+| Migration | `Migration` record | What it does |
+|---|---|---|
+| `server/migrations/0005_tenancy_backfill_tenant_id.js` | `tenancy-002-backfill-tenant-id` (version `1.2.0`) | G3 — fills `tenantId` on documents that have none, in 10,000-document batches |
+| `server/migrations/0006_tenancy_compound_indexes.js` | `tenancy-003-compound-indexes` (version `1.2.0`) | G4 — builds the `{tenantId, …}` compound indexes online, dropping nothing |
+
+**G3 — backfill (`server/src/tenancy/backfill.js`).** For each registered tenant model (plus the model-less `transactions_dedupe_archive` collection, when it exists) the runner walks the unassigned documents (`tenantId` missing or `null`) with an `_id`-ordered cursor, 10,000 at a time, and sets them to the default tenant created by G1 (`Tenant{key: 'default'}`; the run refuses to start if that document is missing). After every batch it writes a checkpoint to `Migration{name:'tenancy-002-backfill-tenant-id'}.progress[<collection>]` = `{ lastId, processed, status, updatedAt }`, so `SIGTERM`/`kill -9`/a crashed host costs at most the batch in flight: the next run resumes from `lastId` and never re-does finished collections (`status: 'completed'`). Each batch is an `updateMany` filtered on documents that are *still* unassigned, so a row written with a real tenant in the meantime is never overwritten. A collection is marked complete only after `countDocuments` of the unassigned filter returns 0, and a mismatch fails the migration instead of marking it applied. In `TENANCY_MODE=multi` the step is a no-op (writes are already scoped), and if no tenant model is registered the migration throws rather than being recorded as done.
+
+**G4 — compound indexes (`server/src/tenancy/indexBuilder.js`).** The new indexes are **not** declared with `schema.index()`. Each model file registers them in `server/src/tenancy/indexRegistry.js`:
+
+```js
+registerTenantIndexes('User', [
+  { keys: { tenantId: 1, username: 1 }, options: { unique: true, name: 'tenant_username_uniq' } },
+]);
+```
+
+Names are explicit — `tenant_<field>[_<field>]_uniq` for unique indexes, `tenant_<field>[_<field>]` otherwise — and the keys must start with `tenantId`. A unique index must use `partialFilterExpression`, never `sparse`: a compound `sparse` index still indexes documents whose optional field is missing, which would reject the second such document. The migration then builds each entry with `collection.createIndex(keys, { background })` and skips one that already exists (same keys or same name), which makes it safe to re-run.
+
+Two rules are deliberate and are not negotiable in a pull request:
+
+- **`syncIndexes()` / `ensureIndexes()` are never called.** They drop every index the Mongoose schema does not list, which would remove unmanaged and partial indexes on production collections. Index removal is always an explicit migration step.
+- **`autoIndex` is left untouched and the compound indexes stay out of the schema.** That is how a fresh install keeps creating the existing unique indexes (`username`, `email`, `Transaction.idempotencyKey`, …) on its own, while the tenant compound indexes are created only by G4. The plain single-field `tenantId` index does come from the field definition (`index: true`).
+
+**Dual index coexistence.** In single mode the legacy global unique indexes stay in place: after G4, `db.users.getIndexes()` shows both `username_1` (global, legacy) and `tenant_username_uniq` (compound). Nothing is dropped, so behaviour does not change for an existing install — a second account with the same username is still rejected by the global index, which is a superset of the compound one. The two only diverge once the legacy index is dropped in an explicit later step, which is what allows the same username in two tenants. The §8.2 unique index suite in the test package covers the cross-tenant/same-tenant matrix.
+
+**Currency (K14).** Money-bearing records that had no currency field gained `currency: { type: String, default: 'TRY', uppercase: true, trim: true }`: `Bet`, `CasinoRound`, `CasinoSession`, `InhousePlaySession`, `BankDepositRequest`, `CryptoDeposit`, `ReferralCommission`. `Transaction` (`'TRY'`), `SlikairPayment` (`'EUR'`), `SlikairPayout` and `ActivityEvent` already stored one and were left alone. The default is applied when a document is written; existing rows are **not** rewritten, so a legacy row keeps no `currency` field — a hydrated Mongoose document reports `'TRY'`, but `lean()` reads and aggregation pipelines over old data see the field as missing. Anything that groups ledger amounts by currency must treat missing as `TRY` until the rows are re-saved.
+
 ## Panel-managed settings
 
 These settings are **not** in `.env` but stored in the database (`Setting` collection, `key`/`value` pairs) and can be changed instantly from the admin panel — no server restart needed (most values propagate with a 30-second cache delay, instantly when `invalidate*()` functions are called). Where each lives in the menu (as of 2026-10-08):
