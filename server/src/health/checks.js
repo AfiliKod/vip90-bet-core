@@ -9,12 +9,14 @@
  * Durum seviyeleri: ok < warn < fail. `ok` alanı yalnızca fail varsa false —
  * warn'lar kurulumu bloke etmez, operatörü bilgilendirir.
  */
+import { getTenancyMode } from '../config/tenancy.js';
 
 const REQUIRED_ENV = [
   { key: 'MONGODB_URI', minLen: 1 },
   { key: 'JWT_SECRET', minLen: 32 },
   { key: 'JWT_REFRESH_SECRET', minLen: 32 },
-  { key: 'CLIENT_URL', minLen: 1 },
+  // Site links come from each tenant's primary Domain in multi mode.
+  { key: 'CLIENT_URL', minLen: 1, singleModeOnly: true },
 ];
 
 const OPTIONAL_SERVICES = [
@@ -57,8 +59,10 @@ export async function runHealthChecks({ dbState, env = {}, pendingMigrations, se
     detail: connected ? 'MongoDB bağlantısı kuruldu' : 'MongoDB bağlantısı YOK',
   });
 
-  // 2. Zorunlu env değişkenleri
-  for (const { key, minLen } of REQUIRED_ENV) {
+  // 2. Zorunlu env değişkenleri (CLIENT_URL yalnız single modda zorunlu)
+  const mode = getTenancyMode(env);
+  for (const { key, minLen, singleModeOnly } of REQUIRED_ENV) {
+    if (singleModeOnly && mode !== 'single') continue;
     const v = String(env[key] ?? '');
     const bad = v.length < minLen;
     checks.push({
