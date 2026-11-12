@@ -1,3 +1,4 @@
+import { getTenancyMode } from './tenancy.js';
 import { createError } from '../middleware/error.js';
 
 /**
@@ -6,7 +7,7 @@ import { createError } from '../middleware/error.js';
  * features. Anything other than "multi" is single-tenant mode.
  */
 export function isMultiTenancyMode(env = process.env) {
-  return String(env.TENANCY_MODE || 'single').toLowerCase() === 'multi';
+  return getTenancyMode(env) === 'multi';
 }
 
 /**
