@@ -25,7 +25,7 @@ const EXPECTED_INDEXES = {
     { keys: { tenantId: 1, status: 1, deadline: 1 }, options: { name: 'tenant_status_deadline' } },
   ],
   CasinoPromoGrant: [
-    { keys: { tenantId: 1, callId: 1 }, options: { unique: true, sparse: true, name: 'tenant_callId_uniq' } },
+    { keys: { tenantId: 1, callId: 1 }, options: { unique: true, partialFilterExpression: { callId: { $type: 'number' } }, name: 'tenant_callId_uniq' } },
     { keys: { tenantId: 1, gplayId: 1 }, options: { unique: true, partialFilterExpression: { kind: 'bonusCall', status: 'pending' }, name: 'tenant_gplayId_uniq' } },
     { keys: { tenantId: 1, kind: 1, createdAt: -1 }, options: { name: 'tenant_kind_createdAt' } },
     { keys: { tenantId: 1, user: 1, createdAt: -1 }, options: { name: 'tenant_user_createdAt' } },
