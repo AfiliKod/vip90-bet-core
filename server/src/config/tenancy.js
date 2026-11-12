@@ -247,6 +247,14 @@ function validateTenancyStartup(env = process.env) {
     }
   }
 
+  // K24: multi-tenant audit records must remain available for at least five years.
+  if (rawMode.toLowerCase() === 'multi') {
+    const retention = Number.parseInt(env.AUDIT_RETENTION_DAYS || '1825', 10);
+    if (Number.isNaN(retention) || retention < 1825) {
+      problems.push('AUDIT_RETENTION_DAYS must be at least 1825 (5 years) in TENANCY_MODE=multi');
+    }
+  }
+
   return problems;
 }
 

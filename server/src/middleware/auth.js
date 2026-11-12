@@ -8,6 +8,7 @@ import { getTenancyMode } from '../config/tenancy.js';
 import { runWithTenant, tenantContext } from '../tenancy/context.js';
 import { getStaffAuthState, verifyStaffAccess } from '../services/staffSession.js';
 import { staffHasPermission } from '../services/permissions.js';
+import PlatformWriteGrant from '../models/PlatformWriteGrant.js';
 
 const SAFE_TENANT_ROUTE_METHODS = new Set(['GET', 'HEAD', 'OPTIONS']);
 
@@ -167,6 +168,34 @@ async function auditPlatformReadOnlyViolation(req, payload) {
   }
 }
 
+async function auditPlatformWriteException(req, payload, grant) {
+  const [{ default: AuditLog }, staff] = await Promise.all([
+    import('../models/AuditLog.js'),
+    StaffAccount.findById(payload.sub).select('username').lean(),
+  ]);
+  const method = String(req.method || '').toUpperCase();
+  const route = req.originalUrl || req.baseUrl || req.path || '';
+
+  await runWithTenant(req.tenant.id, () => AuditLog.create({
+    actorType: 'admin',
+    actorUsername: staff?.username || String(payload.sub),
+    actorScope: 'platform',
+    actorStaffId: payload.sub,
+    onBehalfOfTenantId: req.tenant.id,
+    action: 'PLATFORM_WRITE_EXCEPTION',
+    category: 'system',
+    targetType: 'system',
+    ipAddress: req.ip || req.headers['x-forwarded-for']?.split(',')[0]?.trim() || null,
+    userAgent: req.headers['user-agent'] || null,
+    reason: grant.reason,
+    metadata: {
+      grantId: grant._id,
+      route,
+      method,
+    },
+  }));
+}
+
 export function requireStaff(allowedScope = null) {
   return async (req, res, next) => {
     const token = req.headers.authorization?.split(' ')[1];
@@ -225,8 +254,21 @@ export function requireStaff(allowedScope = null) {
 
       if (allowedScope === 'tenant' && payload.scp === 'platform' && req.method &&
           !SAFE_TENANT_ROUTE_METHODS.has(String(req.method || '').toUpperCase())) {
-        await auditPlatformReadOnlyViolation(req, payload);
-        return next(createError(403, 'PLATFORM_READ_ONLY', 'Platform personeli kiracı rotalarında yalnızca okuma yapabilir'));
+        const activeGrant = await PlatformWriteGrant.findOne({
+          staffId: payload.sub,
+          tenantId: req.tenant.id,
+          expiresAt: { $gt: new Date() },
+          revokedAt: null,
+          status: 'active',
+        });
+
+        if (!activeGrant) {
+          await auditPlatformReadOnlyViolation(req, payload);
+          return next(createError(403, 'PLATFORM_READ_ONLY', 'Platform personeli kiracı rotalarında yalnızca okuma yapabilir'));
+        }
+
+        req.platformWriteGrant = activeGrant;
+        await auditPlatformWriteException(req, payload, activeGrant);
       }
 
       req.staff = {

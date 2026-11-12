@@ -2,6 +2,11 @@ import mongoose from 'mongoose';
 import { defineTenantModel } from '../tenancy/models.js';
 import { registerTenantIndexes } from '../tenancy/indexRegistry.js';
 
+const configuredRetentionDays = Number.parseInt(process.env.AUDIT_RETENTION_DAYS || '', 10);
+const retentionDays = String(process.env.TENANCY_MODE || '').trim().toLowerCase() === 'multi'
+  ? Math.max(Number.isNaN(configuredRetentionDays) ? 1825 : configuredRetentionDays, 1825)
+  : (Number.isNaN(configuredRetentionDays) ? 365 : configuredRetentionDays);
+
 const schema = new mongoose.Schema({
   tenantId: { type: mongoose.Schema.Types.ObjectId, ref: 'Tenant', required: false, default: null, index: true, immutable: true },
   actorScope: { type: String, enum: ['platform', 'partner', 'tenant'], default: 'tenant' },
@@ -33,7 +38,7 @@ schema.index({ actorId: 1, createdAt: -1 });
 schema.index({ category: 1, createdAt: -1 });
 schema.index({ action: 1, createdAt: -1 });
 schema.index({ targetType: 1, targetId: 1 });
-schema.index({ createdAt: -1 }, { expireAfterSeconds: 60 * 60 * 24 * 365 }); // 1 year TTL
+schema.index({ createdAt: -1 }, { expireAfterSeconds: 60 * 60 * 24 * retentionDays });
 
 registerTenantIndexes('AuditLog', [
   { keys: { tenantId: 1, createdAt: -1 }, options: { name: 'tenant_createdAt' } },
