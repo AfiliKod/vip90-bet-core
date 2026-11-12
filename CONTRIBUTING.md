@@ -4,25 +4,23 @@ Thanks for your interest in VIP90.bet.
 
 ## How this repository is maintained
 
-This public repository is the AGPL-3.0 core of the platform. Development
-happens in a private repository together with the paid add-ons, and the core
-is synchronised here from there. Because of that:
+This public repository is the AGPL-3.0 core of the platform and, since
+2026-11-12, the place where the core is developed: changes are made here in
+pull requests to `main` and merged here. The paid add-ons live in private
+repositories and attach to the core through hooks; they are not needed to run
+or test the core.
 
 - **Issues are welcome** for bugs, documentation problems and feature
   requests. Please search existing issues first and include your version
   (`GET /api/health` returns it), steps to reproduce and logs where relevant.
-- **Pull requests are welcome** too. We do not merge them here directly;
-  an accepted change is applied in the main repository, credited to you
-  (`Co-authored-by`), and arrives here with the next synchronisation. We will
-  close your PR with a link to the release that contains it.
+- **Pull requests are welcome** and are reviewed and merged here.
 - **Security issues** go through private reporting, not issues or PRs; see
   [`SECURITY.md`](SECURITY.md).
-- **Numbering note.** When `CHANGELOG.md` or a document under `docs/` mentions
-  a pull request (for example "internal PR #132") or a path under
-  `docs/superpowers/`, it refers to the private development repository. Those
-  numbers and files do not exist in this repository, and the history here is
-  deliberately short: it is written by `scripts/sync-core.mjs` in the
-  development repository, one commit per release line.
+- **Numbering note.** Entries in `CHANGELOG.md` and documents written before
+  2026-11-12 may mention a pull request (for example "internal PR #132") or a
+  path from the former private development repository. Those numbers do not
+  exist here; history before that date is short because the core was then
+  synchronised from that repository, one commit per release line.
 
 ## Making a change
 
@@ -53,11 +51,7 @@ If this is your first contribution to this repository:
    changes user-visible behaviour, a `CHANGELOG.md`-style note.
 4. What happens next: we read every PR and reply — the working target is
    about three working days, but it is a target, not a guaranteed SLA.
-   Because development happens in the private repository described above, an
-   accepted PR is usually not merged with the GitHub merge button — we apply
-   the change there, credit you with `Co-authored-by`, and close your PR with
-   a link to the release that ships it. Your authorship is preserved; the
-   merge commit just is not yours.
+   An accepted PR is merged here and ships with the next release.
 5. If a PR is closed for another reason (out of scope, superseded, no
    response), the reason is stated in the closing comment. Ask before
    re-opening; a quick issue thread usually settles it.
