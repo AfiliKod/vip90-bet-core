@@ -1,5 +1,7 @@
 import { Router } from 'express';
 import { getBrandingValues } from '../branding/index.js';
+import Tenant from '../models/Tenant.js';
+import { getCurrentTenantId } from '../tenancy/context.js';
 
 const r = Router();
 
@@ -10,8 +12,20 @@ const r = Router();
 r.get('/', async (req, res, next) => {
   try {
     const values = await getBrandingValues();
+    let legalEntity = null;
+    let tenantName = null;
+
+    const tenantId = getCurrentTenantId();
+    if (tenantId) {
+      const tenant = await Tenant.findById(tenantId).select('name legalEntity').lean();
+      if (tenant) {
+        tenantName = tenant.name;
+        legalEntity = tenant.legalEntity || null;
+      }
+    }
+
     res.set('Cache-Control', 'public, max-age=30');
-    res.json({ values });
+    res.json({ values, legalEntity, tenantName });
   } catch (e) { next(e); }
 });
 
