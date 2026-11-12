@@ -18,6 +18,17 @@ Madde formatı ve kategoriler için `docs/CHANGELOG_GUIDE.md`'ye bakın —
 
 ## [Yayınlanmadı]
 
+### İP-6: callback atfı — Slikair kayıttan, Sumsub URL'den, eklenti callback'leri kiracıya göre
+**Kırılan Değişiklikler**
+- **`TENANCY_MODE=single` kurulumlar için işlem gerekmez.** Eski callback adresleri (`/api/webhook/sumsub`, in-house `/callback`, igames `/callback`, Slikair webhook'u) kiracı parametresi olmadan da varsayılan kiracıda bugünkü gibi çalışır; mevcut imza, HMAC ve IP kontrolleri gevşetilmez ve mevcut entegrasyonların yapılandırması değişmez.
+- **Çok kiracılı operatörler Sumsub webhook adresini kiracı kapsamlı biçime taşımalı.** `TENANCY_MODE=multi` altında webhook adresi `/api/webhook/sumsub/:tenantId` (`tenantId` kiracının kimliği ya da anahtarı) olmalıdır; kiracı parametresiz eski adres `400` ile reddedilir. Her kiracının Sumsub panelinde kendi webhook adresini ve o kiracının webhook sırrını tanımlaması gerekir.
+
+**Eklendi**
+- **Slikair bildirimleri kayıtlı kayıttan kiracıya atfediliyor:** `payin`/`payout` webhook'u kiracı bilgisi taşımadığından `SlikairPayment`/`SlikairPayout` kaydı üzerinden çözülür ve durum doğrulaması ile bakiye hareketleri o kiracının Slikair kimlik bilgileriyle, kiracı bağlamında (`runWithTenant`) koşar; işlem anahtarı kiracıyı içerir (`slikair_payin_<tenantId>_<payinId>`). Çok kiracılı modda kiracısı belirlenemeyen kayıt hiçbir bakiyeye dokunmaz ve işlem yazmaz (spec §9 G-4).
+- **Sumsub webhook kiracı URL'si ve gövde ayrıştırmasından önce sır seçimi:** `kycConfig` kiracı kapsamlı sırrı (`SUMSUB_WEBHOOK_SECRET`) döner, imza ham gövde üzerinde ilgili kiracının sırrıyla doğrulanır; webhook gövdesindeki `externalUserId` o kiracıya ait değilse `404` döner ve KYC durumu değişmez.
+- **Çekirdek eklentilere callback atıf yardımcılarını açıyor:** `findPaymentForCallback`, `findPayoutForCallback` ve `tenantFilter`, `runWithTenant`, `runAsPlatform`, `defineTenantModel` ile birlikte `server/src/tenancy/index.js` üzerinden ihraç edilir.
+- **Igames ve in-house eklentileri (ayrı özel depolar) callback'lerini kiracıya göre işliyor:** igames kiracı başına agent hesabı ve kimlik bilgileriyle (K13, K22) `/callback/:tenantId` uçunda kiracının callback token'ını doğrular, oyuncuyu `{tenantId, palaceUserCode}` ile arar ve tur ile ledger satırını kiracı damgasıyla yazar; in-house sağlayıcı `/callback/:operatorKey` uçundaki operatör anahtarını `Tenant.providerOperatorId` ile kiracıya eşler, imzayı operatörün `walletCallbackSecret` değeriyle doğrular ve oyuncunun o kiracıya ait olduğunu kontrol eder. In-house game-host temasını başlatma (launch) token'ından alabilir; token'da tema yoksa mevcut tema kaynağı ve varsayılan görünüm aynen korunur (Y4).
+
 ### İP-5: para ve yönetim uç noktaları kiracı kapsamı, `TenantDailyStat` ve tenancy lint
 **Kırılan Değişiklikler**
 - **`TENANCY_MODE=single` kurulumlar için işlem gerekmez.** Tek modda kiracı filtresi uygulanmaz: `:id` aramaları bugünkü sorguyu korur, başka kiracıya ait bir kayıt kavramı yoktur ve mevcut akışlar, yanıt kodları ve hata kodları değişmez. Tek bir ortam değişkeni tanımlamak ya da geçiş koşmak gerekmez.

@@ -224,7 +224,13 @@ Initialize Sumsub KYC session. Creates applicant and returns SDK token.
 
 ### Webhook Route
 
-#### POST /api/webhook/sumsub
+#### POST /api/webhook/sumsub/[tenantId]
+
+Sumsub webhook endpoint. In multi-tenant mode (`TENANCY_MODE=multi`) the URL carries the tenant id or key
+(`/api/webhook/sumsub/<tenantId>`) and the webhook secret is taken from that tenant's `SUMSUB_WEBHOOK_SECRET`
+before the body is parsed; each tenant registers the same URL in its own Sumsub dashboard. The URL without the
+tenant segment is rejected with `400` in multi mode and keeps working against the default tenant in single mode.
+A payload whose `externalUserId` does not belong to the tenant in the URL answers `404` and changes no KYC status.
 
 Sumsub webhook endpoint. No auth header — verified via HMAC signature over the exact raw body bytes. The raw body is captured by a path-scoped JSON parser (100 kb, `Content-Type: application/json`) mounted before the global parser; until this was fixed the request hung and no Sumsub result was processed. Not module-gated (Sumsub server calls this directly). Missing or wrong-length signature, empty body, signature mismatch, missing or stale (> 5 min) `x-app-timestamp` → `401`; unreadable webhook secret → `503` (Sumsub retries).
 
