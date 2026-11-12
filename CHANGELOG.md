@@ -20,7 +20,7 @@ Madde formatı ve kategoriler için `docs/CHANGELOG_GUIDE.md`'ye bakın —
 
 ### İP-8: çok kiracılı modda zorunlu `enforce`, kiracı bazlı manifest ve başlık, yasal tüzel kişi
 **Kırılan Değişiklikler**
-- **Site adı ayarlanmamış tek modlu kurulumlar artık yerleşik ürün adını değil kiracı adını gösterir.** Çekirdek marka nötrdür: `branding.siteName` boşsa sunucu ve istemci kiracının `name` değerine düşer, o da yoksa istek host'una. Eski görünümü korumak için admin panelinde **Marka → Site adı** alanını doldurun (tek modda varsayılan kiracının adı `Default`'tur). Veri geçişi gerekmez, yalnız ayar gerekir.
+- **Site adı ayarlanmamış tek modlu kurulumlar artık yerleşik ürün adını değil kiracı adını gösterir.** Çekirdek marka nötrdür: `branding.siteName` boşsa sunucu ve istemci kiracının `name` değerine düşer, o da yoksa kurulum adresinin (`CLIENT_URL`) host'una. Eski görünümü korumak için admin panelinde **Marka → Site adı** alanını doldurun (tek modda varsayılan kiracının adı `Default`'tur). Veri geçişi gerekmez, yalnız ayar gerekir.
 - **`TENANCY_MODE=multi` kurulumlar `TENANCY_ENFORCEMENT=log` veya `off` ile çalışamaz.** Çok kiracılı modda zorlama her zaman `enforce`'dur; açıkça `log`/`off` verilirse açılış doğrulaması bunu hata olarak raporlar ve süreç durur. `.env`'inizde `log` ya da `off` yazıyorsa satırı silin veya `enforce` yapın. Tek modlu kurulumların varsayılanı değişmez: G3 geri doldurması tamamlandıysa `log`, değilse `off`.
 
 **Eklendi**

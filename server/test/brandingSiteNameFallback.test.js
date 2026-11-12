@@ -50,9 +50,11 @@ test('unset siteName falls back to the current tenant name', async () => {
   });
 });
 
-test('multi mode without tenant context returns an empty string, never a product name', async () => {
+const INSTALL_HOST = new URL((process.env.CLIENT_URL || 'http://localhost:5173').split(',')[0].trim()).hostname;
+
+test('multi mode without tenant context falls back to the install host, never a product name', async () => {
   invalidateBranding();
-  assert.equal(await getSiteName(), '');
+  assert.equal(await getSiteName(), INSTALL_HOST);
 });
 
 test('single mode without ambient context falls back to the default tenant name', async () => {
@@ -63,13 +65,13 @@ test('single mode without ambient context falls back to the default tenant name'
     assert.equal(await getSiteName(), 'Default Tenant');
     setDefaultTenantId(null);
     invalidateBranding();
-    assert.equal(await getSiteName(), '');
+    assert.equal(await getSiteName(), INSTALL_HOST);
   } finally {
     process.env.TENANCY_MODE = 'multi';
   }
 });
 
-test('wallet nonce message uses the request host when no brand name is available', async () => {
+test('wallet nonce message uses the install host when no brand name is available', async () => {
   invalidateBranding();
   const app = express();
   app.use(express.json());
@@ -84,7 +86,7 @@ test('wallet nonce message uses the request host when no brand name is available
     });
     assert.equal(res.status, 200);
     const body = await res.json();
-    assert.ok(body.message.startsWith('127.0.0.1 Girişi'), `message: ${body.message}`);
+    assert.ok(body.message.startsWith(`${INSTALL_HOST} Girişi`), `message: ${body.message}`);
   } finally {
     server.close();
   }

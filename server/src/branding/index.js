@@ -9,6 +9,7 @@ import { mongoLoad } from '../config/secretSettingsStore.js';
 import { saveScopedSetting, createTenantStoreFacade } from '../services/settings.js';
 import mongoose from 'mongoose';
 import Tenant from '../models/Tenant.js';
+import { clientUrlFallback } from '../tenancy/tenantBaseUrl.js';
 import { getCurrentTenantId } from '../tenancy/context.js';
 import { getDefaultTenantId } from '../tenancy/defaultTenantId.js';
 import { getTenancyMode } from '../config/tenancy.js';
@@ -55,7 +56,13 @@ export async function getSiteName() {
     const tenant = await Tenant.findById(tenantId).select('name').lean();
     if (tenant?.name) return tenant.name;
   }
-  return '';
+  // Son çare: kurulumun kendi adresinin host'u (CLIENT_URL). Çekirdek ürün adı
+  // taşımaz; e-posta, KYC bildirimi ve statik sayfalar boş ad almaz.
+  try {
+    return new URL(clientUrlFallback()).hostname;
+  } catch {
+    return '';
+  }
 }
 
 /** Admin panelinden bir marka alanını değiştirir. */
