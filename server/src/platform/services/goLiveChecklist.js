@@ -1,6 +1,9 @@
 import Tenant from '../../models/Tenant.js';
 import Domain from '../../models/Domain.js';
 
+// Modules whose content provider must approve each operator in writing (K22).
+export const PROVIDER_APPROVAL_MODULES = ['casino-content', 'igames'];
+
 export async function evaluateGoLiveChecklist(tenantId) {
   const tenant = await Tenant.findById(tenantId);
   if (!tenant) throw new Error('Tenant not found');
@@ -12,11 +15,18 @@ export async function evaluateGoLiveChecklist(tenantId) {
       passed: Boolean(tenant.legalEntity?.name && tenant.legalEntity?.registrationNo && tenant.legalEntity?.address),
       detail: tenant.legalEntity?.name ? 'Configured' : 'Missing legal entity details',
     },
-    providerApproval: {
-      // K22: casino content / igames requires written approval before live
-      passed: Boolean(tenant.providerApproval?.approved),
-      detail: tenant.providerApproval?.approved ? `Approved (${tenant.providerApproval.documentRef})` : 'Awaiting written provider approval',
-    },
+    providerApproval: (() => {
+      // K22: only tenants entitled to a provider-approved module need it.
+      const modules = tenant.entitlements?.modules || [];
+      const required = modules.some((m) => PROVIDER_APPROVAL_MODULES.includes(m));
+      if (!required) return { passed: true, required: false, detail: 'Not required (no casino content module)' };
+      const approved = Boolean(tenant.providerApproval?.approved && tenant.providerApproval?.documentRef);
+      return {
+        passed: approved,
+        required: true,
+        detail: approved ? `Approved (${tenant.providerApproval.documentRef})` : 'Awaiting written provider approval',
+      };
+    })(),
     pspSandbox: {
       passed: Boolean(tenant.checklist?.pspVerified),
       detail: tenant.checklist?.pspVerified ? 'Verified' : 'PSP sandbox deposit/withdrawal test pending',

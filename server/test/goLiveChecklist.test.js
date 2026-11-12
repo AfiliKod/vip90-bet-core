@@ -52,3 +52,10 @@ test('evaluateGoLiveChecklist passes when all 6 gates are satisfied including K2
   const checklist = await evaluateGoLiveChecklist(tenant._id);
   assert.equal(checklist.allPassed, true);
 });
+test('provider approval is required only for tenants with a casino content module', async () => {
+  const { evaluateGoLiveChecklist } = await import('../src/platform/services/goLiveChecklist.js');
+  const plain = await Tenant.create({ key: 'kappa', name: 'Kappa', status: 'provisioning' });
+  assert.equal((await evaluateGoLiveChecklist(plain._id)).gates.providerApproval.passed, true);
+  const casino = await Tenant.create({ key: 'lambda', name: 'Lambda', status: 'provisioning', entitlements: { modules: ['casino-content'] } });
+  assert.equal((await evaluateGoLiveChecklist(casino._id)).gates.providerApproval.passed, false);
+});
