@@ -1,4 +1,5 @@
 import Tenant from '../../models/Tenant.js';
+import PartnerOperatorLink from '../../models/PartnerOperatorLink.js';
 import AuditLog from '../../models/AuditLog.js';
 import { runWithTenant } from '../../tenancy/context.js';
 import { evaluateGoLiveChecklist } from './goLiveChecklist.js';
@@ -35,6 +36,8 @@ export async function transitionTenantStatus(tenantId, newStatus, {
     if (force) {
       throw createError(403, 'PLATFORM_ONLY', 'PLATFORM_ONLY: Partners cannot force-activate an operator');
     }
+    const linked = partnerId && await PartnerOperatorLink.exists({ partnerId, tenantId, validTo: null });
+    if (!linked) throw createError(404, 'TENANT_NOT_FOUND', 'Tenant not found');
   }
 
   const tenant = await Tenant.findById(tenantId);

@@ -86,8 +86,18 @@ export async function provisionTenant({
       throw createError(400, 'MAX_TENANTS_EXCEEDED', `MAX_TENANTS_EXCEEDED: Tenant limit reached (${partner.provisioningLimits.maxTenants})`);
     }
 
+    // An existing key belongs to whoever created it: a partner can only
+    // re-run provisioning for its own operator, never adopt another tenant.
+    if (tenant) {
+      const ownLink = await PartnerOperatorLink.exists({ partnerId: partner._id, tenantId: tenant._id, validTo: null });
+      if (!ownLink) throw createError(409, 'TENANT_KEY_TAKEN', 'TENANT_KEY_TAKEN: Tenant key is already in use');
+    }
+
     effectiveOwnership = 'partner';
     effectiveCreatedVia = 'partner';
+  } else if (tenant && tenant.ownership === 'partner') {
+    // The platform path must not silently rewrite a partner-owned operator.
+    throw createError(409, 'TENANT_KEY_TAKEN', 'TENANT_KEY_TAKEN: Tenant key is already in use');
   }
 
   if (!tenant) {

@@ -162,3 +162,23 @@ test('partner lifecycle transitions: can suspend and resume, cannot close or for
     /PLATFORM_ONLY/
   );
 });
+test('a partner cannot adopt an existing tenant key or change an unlinked tenant', async () => {
+  const { provisionTenant } = await import('../src/platform/services/provisioningService.js');
+  const { transitionTenantStatus } = await import('../src/platform/services/tenantLifecycle.js');
+  const { default: Partner } = await import('../src/models/Partner.js');
+  const { default: Tenant } = await import('../src/models/Tenant.js');
+  const staffId = new mongoose.Types.ObjectId();
+  const intruder = await Partner.create({ key: 'p-intruder', name: 'Intruder', createdBy: staffId, provisioningLimits: { maxTenants: 5 } });
+  await provisionTenant({ key: 'platform-own', name: 'Own', domain: 'own.example.com' }, { createdByStaffId: staffId });
+
+  await assert.rejects(
+    provisionTenant({ key: 'platform-own', name: 'Hijack', domain: 'own.example.com' }, { createdByStaffId: staffId, partnerId: intruder._id }),
+    { code: 'TENANT_KEY_TAKEN' },
+  );
+  const own = await Tenant.findOne({ key: 'platform-own' }).lean();
+  assert.equal(own.ownership, 'direct');
+  await assert.rejects(
+    transitionTenantStatus(own._id, 'suspended', { actorStaffId: staffId, actorScope: 'partner', partnerId: intruder._id }),
+    { code: 'TENANT_NOT_FOUND' },
+  );
+});
