@@ -18,11 +18,14 @@ import RoleAssignment from '../server/src/models/RoleAssignment.js';
 import { runPlatformBootstrap } from '../server/src/platform/bootstrap.js';
 
 export function parseBootstrapArgs(argv = []) {
-  const opts = { ownerEmail: null, username: null, password: null };
+  // Parola komut satırından alınmaz (kabuk geçmişi, `ps`); --password-stdin ile
+  // stdin'den okunur, verilmezse rastgele geçici parola üretilir.
+  const opts = { ownerEmail: null, username: null, passwordStdin: false };
   for (let i = 0; i < argv.length; i++) {
     if (argv[i] === '--owner-email') opts.ownerEmail = argv[++i];
     else if (argv[i] === '--username') opts.username = argv[++i];
-    else if (argv[i] === '--password') opts.password = argv[++i];
+    else if (argv[i] === '--password-stdin') opts.passwordStdin = true;
+    else if (argv[i] === '--password') throw new Error('--password is not accepted on the command line; use --password-stdin');
   }
   return opts;
 }
@@ -83,7 +86,7 @@ export async function bootstrapFirstPlatformOwner({ ownerEmail, username, passwo
 async function main() {
   const opts = parseBootstrapArgs(process.argv.slice(2));
   if (!opts.ownerEmail) {
-    console.error('Usage: node scripts/platform-bootstrap.mjs --owner-email <email> [--username <name>] [--password <pass>]');
+    console.error('Usage: node scripts/platform-bootstrap.mjs --owner-email <email> [--username <name>] [--password-stdin]');
     process.exit(1);
   }
 
@@ -93,9 +96,20 @@ async function main() {
     process.exit(1);
   }
 
+  let password = null;
+  if (opts.passwordStdin) {
+    const chunks = [];
+    for await (const chunk of process.stdin) chunks.push(chunk);
+    password = Buffer.concat(chunks).toString('utf8').replace(/\r?\n$/, '');
+    if (!password) {
+      console.error('Error: --password-stdin given but stdin was empty.');
+      process.exit(1);
+    }
+  }
+
   await mongoose.connect(mongoUri);
   try {
-    const result = await bootstrapFirstPlatformOwner(opts);
+    const result = await bootstrapFirstPlatformOwner({ ownerEmail: opts.ownerEmail, username: opts.username, password });
     if (result.alreadyInstalled) {
       console.log(`[platform-bootstrap] Platform is already installed. Platform Owner exists: ${result.email}`);
     } else {

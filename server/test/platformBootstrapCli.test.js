@@ -22,11 +22,12 @@ test.after(async () => {
 });
 
 test('parseBootstrapArgs correctly extracts CLI flags', () => {
-  const args = ['--owner-email', 'owner@example.com', '--username', 'rootowner', '--password', 'SecretPass123!'];
+  const args = ['--owner-email', 'owner@example.com', '--username', 'rootowner', '--password-stdin'];
   const opts = parseBootstrapArgs(args);
   assert.equal(opts.ownerEmail, 'owner@example.com');
   assert.equal(opts.username, 'rootowner');
-  assert.equal(opts.password, 'SecretPass123!');
+  assert.equal(opts.passwordStdin, true);
+  assert.throws(() => parseBootstrapArgs(['--password', 'x']), /password-stdin/);
 });
 
 test('N2 provisions first platform owner with platform_owner role and inactive 2FA (forces 2FA setup on login)', async () => {
