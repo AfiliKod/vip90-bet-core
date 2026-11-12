@@ -7,7 +7,7 @@ import Tenant from '../models/Tenant.js';
 import { getTenancyMode } from '../config/tenancy.js';
 import { runWithTenant, tenantContext } from '../tenancy/context.js';
 import { getStaffAuthState, verifyStaffAccess } from '../services/staffSession.js';
-import { staffHasPermission, partnerCapabilityAllows } from '../services/permissions.js';
+import { staffHasPermission } from '../services/permissions.js';
 import PlatformWriteGrant from '../models/PlatformWriteGrant.js';
 import Partner from '../models/Partner.js';
 
@@ -320,7 +320,7 @@ export function requireStaffPermission(permissionKey) {
         scopeType: req.staff.scope,
         scopeId: req.staff.scopeId,
         partnerCapabilities: req.staff.scope === 'partner' ? (req.partner?.capabilities ?? null) : null,
-      }) || (req.staff.scope === 'partner' && partnerCapabilityAllows(req.partner, permissionKey));
+      });
       if (!allowed) return next(createError(403, 'FORBIDDEN', `Yetki yok: ${permissionKey}`));
       return next();
     } catch (error) {

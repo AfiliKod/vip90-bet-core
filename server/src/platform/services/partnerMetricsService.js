@@ -55,10 +55,13 @@ function sumStats(stats) {
 export async function getPortfolioMetrics(partnerId, { from, to } = {}) {
   const tenantIds = await getPartnerLinkedTenantIds(partnerId);
   const stats = await TenantDailyStat.find(statsFilter(tenantIds, { from, to })).lean();
-  return { totals: sumStats(stats), periodStats: stats };
+  // Totals only: raw per-day rows would expose unsuppressed small cells (K27).
+  return { tenantCount: tenantIds.length, totals: sumStats(stats) };
 }
 
 export async function getTenantMetrics(partnerId, tenantId, { from, to } = {}) {
+  const linked = await PartnerOperatorLink.exists({ partnerId, tenantId, validTo: null });
+  if (!linked) return { metrics: null };
   const stats = await TenantDailyStat.find(statsFilter([tenantId], { from, to })).lean();
   return { metrics: sumStats(stats) };
 }

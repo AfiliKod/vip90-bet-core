@@ -12,6 +12,7 @@ import TenantDailyStat from '../src/models/TenantDailyStat.js';
 import Role from '../src/models/Role.js';
 import RoleAssignment from '../src/models/RoleAssignment.js';
 import { signStaffAccess } from '../src/services/staffSession.js';
+import Permission from '../src/models/Permission.js';
 
 process.env.JWT_SECRET ||= 'test-jwt-secret';
 process.env.JWT_STAFF_SECRET ||= 'test-jwt-staff-secret';
@@ -47,7 +48,12 @@ async function withPartnerApp(fn) {
 test('GET /api/partner/metrics aggregates stats and enforces small-cell suppression (<5)', async () => {
   const staff = await StaffAccount.create({ email: 'analyst@part.example.com', username: 'analyst', password: 'pwd', status: 'active' });
   const partner = await Partner.create({ key: 'p-metrics', name: 'PM', capabilities: ['metrics.read'], createdBy: staff._id });
-  const role = await Role.create({ name: 'partner_analyst_test', displayName: 'PA', scopeType: 'partner', scopeId: partner._id });
+  const metricsRead = await Permission.findOneAndUpdate(
+    { key: 'partner:metrics:read' },
+    { $setOnInsert: { key: 'partner:metrics:read', name: 'Partner metrics', category: 'partner' } },
+    { upsert: true, new: true },
+  );
+  const role = await Role.create({ name: 'partner_analyst_test', displayName: 'PA', scopeType: 'partner', scopeId: partner._id, permissions: [metricsRead._id] });
   await RoleAssignment.create({ staffId: staff._id, roleId: role._id, scopeType: 'partner', scopeId: partner._id });
   const token = signStaffAccess(staff, { scopeType: 'partner', scopeId: partner._id, amr: ['pwd', 'otp'] });
 
@@ -88,4 +94,31 @@ test('GET /api/partner/metrics aggregates stats and enforces small-cell suppress
     assert.equal(bodyAll.totals.casinoGgr, 10000);
     assert.equal(bodyAll.totals.activePlayers, 18);
   });
+});
+
+test('partner permission is role ∩ capability: neither side alone is enough', async () => {
+  const metricsRead = await Permission.findOne({ key: 'partner:metrics:read' });
+  const withCapNoPerm = await StaffAccount.create({ email: 'noperm@part.example.com', username: 'noperm', password: 'pwd', status: 'active' });
+  const capPartner = await Partner.create({ key: 'p-cap-only', name: 'Cap', capabilities: ['metrics.read'], createdBy: withCapNoPerm._id });
+  const emptyRole = await Role.create({ name: 'partner_empty_test', displayName: 'E', scopeType: 'partner', scopeId: capPartner._id, permissions: [] });
+  await RoleAssignment.create({ staffId: withCapNoPerm._id, roleId: emptyRole._id, scopeType: 'partner', scopeId: capPartner._id });
+
+  const withPermNoCap = await StaffAccount.create({ email: 'nocap@part.example.com', username: 'nocap', password: 'pwd', status: 'active' });
+  const noCapPartner = await Partner.create({ key: 'p-no-cap', name: 'NoCap', capabilities: ['staff.manage'], createdBy: withPermNoCap._id });
+  const fullRole = await Role.create({ name: 'partner_full_test', displayName: 'F', scopeType: 'partner', scopeId: noCapPartner._id, permissions: [metricsRead._id] });
+  await RoleAssignment.create({ staffId: withPermNoCap._id, roleId: fullRole._id, scopeType: 'partner', scopeId: noCapPartner._id });
+
+  const app = express();
+  app.use('/api/partner', createPartnerRouter());
+  app.use(errorHandler);
+  const server = app.listen(0);
+  const base = `http://127.0.0.1:${server.address().port}/api/partner/metrics`;
+  try {
+    const t1 = signStaffAccess(withCapNoPerm, { scopeType: 'partner', scopeId: capPartner._id, amr: ['pwd', 'otp'] });
+    assert.equal((await fetch(base, { headers: { Authorization: `Bearer ${t1}` } })).status, 403);
+    const t2 = signStaffAccess(withPermNoCap, { scopeType: 'partner', scopeId: noCapPartner._id, amr: ['pwd', 'otp'] });
+    assert.equal((await fetch(base, { headers: { Authorization: `Bearer ${t2}` } })).status, 403);
+  } finally {
+    await new Promise((resolve) => server.close(resolve));
+  }
 });
