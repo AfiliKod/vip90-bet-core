@@ -1,5 +1,7 @@
 import mongoose from 'mongoose';
 import { SMS_AUDIENCE_TYPES } from './SmsLog.js';
+import { defineTenantModel } from '../tenancy/models.js';
+import { registerTenantIndexes } from '../tenancy/indexRegistry.js';
 
 /**
  * SMS mesaj şablonu — iki farklı tetiklenme tipi bir arada:
@@ -49,6 +51,7 @@ const scheduleSchema = new mongoose.Schema({
 }, { _id: false });
 
 const schema = new mongoose.Schema({
+  tenantId: { type: mongoose.Schema.Types.ObjectId, ref: 'Tenant', required: false, index: true, immutable: true },
   // `lowercase` YOK: anahtar sözleşmesi camelCase (aynı i18n anahtar kuralı ve
   // kodun referans verdiği sabit ad). Küçültme `betWinNotice`'i `betwinnotice`
   // yapıp log/rapor eşleşmelerini bozuyordu.
@@ -89,4 +92,9 @@ schema.index({ type: 1, isActive: 1 });
 schema.index({ createdAt: -1 });
 schema.index({ 'schedule.enabled': 1, 'schedule.nextSentAt': 1 });
 
-export default mongoose.model('SmsTemplate', schema);
+registerTenantIndexes('SmsTemplate', [
+  { keys: { tenantId: 1, key: 1 }, options: { unique: true, name: 'tenant_key_uniq' } },
+  { keys: { tenantId: 1, type: 1, isActive: 1 }, options: { name: 'tenant_type_isActive' } },
+]);
+
+export default defineTenantModel('SmsTemplate', schema);
