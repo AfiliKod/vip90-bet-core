@@ -31,3 +31,36 @@ jobs:
           node-version: '24'
       - name: CHANGELOG girdisi
         run: node scripts/check-changelog.mjs --base origin/${{ github.base_ref }} --head HEAD
+
+  test:
+    name: test
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      # A services block cannot initiate a replica set. The member is advertised as
+      # localhost:27017; otherwise the driver discovers the container hostname,
+      # cannot resolve it, and every Mongo test times out.
+      - name: MongoDB (single-node replica set)
+        run: |
+          docker run -d --name mongo -p 27017:27017 mongo:7 --replSet rs0
+          for i in $(seq 1 30); do
+            docker exec mongo mongosh --quiet --eval 'db.adminCommand("ping")' >/dev/null 2>&1 && break
+            sleep 1
+          done
+          docker exec mongo mongosh --quiet --eval 'rs.initiate({ _id: "rs0", members: [{ _id: 0, host: "localhost:27017" }] })'
+          for i in $(seq 1 60); do
+            docker exec mongo mongosh --quiet --eval 'quit(rs.status().ok === 1 ? 0 : 1)' >/dev/null 2>&1 && exit 0
+            sleep 1
+          done
+          echo 'MongoDB replica set did not become ready' >&2
+          exit 1
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+      - run: npm ci
+      - run: npm ci --prefix server
+      - run: npm ci --prefix client
+      # MONGODB_URI is deliberately not set: each test file falls back to its own
+      # database on localhost; a shared URI makes parallel files wipe each other.
+      - name: Test
+        run: npm test
