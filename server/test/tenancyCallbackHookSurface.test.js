@@ -1,6 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import * as tenancy from '../src/tenancy/index.js';
+import { _resetTenancyRegistriesForTests } from '../src/tenancy/provisioning.js';
 
 test('tenancy index re-exports required credential and callback attribution primitives', () => {
   assert.equal(typeof tenancy.registerTenantCredentialSchema, 'function');
@@ -15,7 +16,7 @@ test('tenancy index re-exports required credential and callback attribution prim
 });
 
 test('registerTenantCredentialSchema accepts valid module schema and validates duplicate rejection', () => {
-  tenancy._resetTenancyRegistriesForTests();
+  _resetTenancyRegistriesForTests();
   tenancy.registerTenantCredentialSchema('test_module', {
     fields: [
       { key: 'apiKey', label: 'API Key', secret: true, required: true },

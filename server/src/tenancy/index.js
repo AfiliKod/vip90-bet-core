@@ -66,7 +66,6 @@ export {
   getTenantCredentialSchema,
   listTenantCredentialSchemas,
   validateCredentialSchema,
-  _resetTenancyRegistriesForTests,
   tenantFilter,
   findPaymentForCallback,
   findPayoutForCallback,
