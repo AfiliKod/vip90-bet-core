@@ -65,6 +65,8 @@ import { getSiteName } from './branding/index.js';
 import { resolveTenantHost } from './middleware/tenantHost.js';
 import { resolveInternalTenant } from './middleware/internalTenant.js';
 import manifestRoutes from './routes/manifest.js';
+import { createPlatformRouter } from './platform/routes/index.js';
+import { getTenancyMode } from './config/tenancy.js';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const isProd = process.env.NODE_ENV === 'production';
@@ -256,6 +258,29 @@ export function createApp() {
     }
   }
 
+  // The Platform Owner console is a separate SPA. It is never served by a
+  // single-tenant install and, when configured, is available only on the
+  // platform host (tenantHost applies the same host rule before this point).
+  if (getTenancyMode() === 'multi') {
+    const consoleDist = join(__dirname, '../../console/dist');
+    const platformHost = String(process.env.PLATFORM_HOST || '').trim().toLowerCase().replace(/:(?:80|443)$/, '');
+    const isPlatformHost = (req) => !platformHost || String(req.hostname || '').toLowerCase().replace(/:(?:80|443)$/, '') === platformHost;
+    if (isProd && existsSync(consoleDist)) {
+      app.use('/console', (req, res, next) => {
+        if (!isPlatformHost(req)) return res.status(404).json({ error: 'NOT_FOUND', message: 'Not found' });
+        return next();
+      }, express.static(consoleDist, { index: false }));
+      app.get('/console/*', (req, res) => {
+        if (!isPlatformHost(req)) return res.status(404).json({ error: 'NOT_FOUND', message: 'Not found' });
+        return res.sendFile(join(consoleDist, 'index.html'));
+      });
+    } else {
+      app.use('/console', (req, res) => res.status(404).json({ error: 'NOT_FOUND', message: 'Console is not available' }));
+    }
+  } else {
+    app.use('/console', (req, res) => res.status(404).json({ error: 'NOT_FOUND', message: 'Console is only available in multi-tenant mode' }));
+  }
+
   // Kurulum sihirbazı (K2) — ilk açılışta terminal gerektirmeden kurulabilsin
   app.use('/install', installRoutes);
 
@@ -264,6 +289,11 @@ export function createApp() {
   app.use('/api/auth', authRoutes);
   app.use('/api/staff/auth', staffAuthRoutes);
   app.use('/api/staff/auth/2fa', staff2faRoutes);
+  if (getTenancyMode() === 'multi') {
+    app.use('/api/platform', createPlatformRouter());
+  } else {
+    app.use('/api/platform', (req, res) => res.status(404).json({ error: 'NOT_FOUND', message: 'Platform API is only available in multi-tenant mode' }));
+  }
   app.use('/api/auth/wallet', web3AuthRoutes);
   app.use('/api/auth', socialAuthRoutes);
   app.use('/api/users', usersRoutes);
