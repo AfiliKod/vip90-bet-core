@@ -31,3 +31,35 @@ jobs:
           node-version: '24'
       - name: CHANGELOG girdisi
         run: node scripts/check-changelog.mjs --base origin/${{ github.base_ref }} --head HEAD
+
+  test:
+    name: test
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      # Services bloğu replica set'i init edemiyor (tek başına --replSet rs0 ile
+      # başlatılan mongosh rs.initiate() bekler), bu yüzden manuel container.
+      - name: MongoDB (single-node replica set)
+        run: |
+          docker run -d --name mongo -p 27017:27017 mongo:7 --replSet rs0
+          for i in $(seq 1 30); do
+            docker exec mongo mongosh --quiet --eval 'db.adminCommand("ping")' >/dev/null 2>&1 && break
+            sleep 1
+          done
+          docker exec mongo mongosh --quiet --eval 'rs.initiate()'
+          for i in $(seq 1 60); do
+            docker exec mongo mongosh --quiet --eval 'quit(rs.status().ok === 1 ? 0 : 1)' >/dev/null 2>&1 && exit 0
+            sleep 1
+          done
+          echo 'MongoDB replica set did not become ready' >&2
+          exit 1
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+      - run: npm ci
+      - run: npm ci --prefix server
+      - run: npm ci --prefix client
+      - name: Test
+        env:
+          MONGODB_URI: mongodb://localhost:27017/vip90_ci?replicaSet=rs0
+        run: npm test
