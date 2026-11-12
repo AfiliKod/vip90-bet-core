@@ -17,6 +17,8 @@ import SystemMailTemplate from '../models/SystemMailTemplate.js';
 import SystemMailLog from '../models/SystemMailLog.js';
 import { layout, button, fallbackLink, SUPPORT_EMAIL } from './email.js';
 import { clientUrlFallback } from '../tenancy/tenantBaseUrl.js';
+import { cacheKey, cachePrefix } from '../tenancy/tenantKeys.js';
+import { getCurrentTenantId } from '../tenancy/context.js';
 
 export const CATEGORY_ACTION = 'action';
 export const CATEGORY_SCHEDULED = 'scheduled';
@@ -364,26 +366,40 @@ export const DEFAULT_TEMPLATES = [
 // ─── Cache ─────────────────────────────────────────────────────────────────
 
 const CACHE_TTL_MS = 30 * 1000;
-const cache = new Map(); // event -> { doc, at }
+const cache = new Map(); // tenant-scoped key -> { doc, at }
 
-export function invalidateMailTemplateCache(event = null) {
-  if (event) cache.delete(event);
-  else cache.clear();
+/** Empties the whole map (tests and ops). */
+export function _clearMailTemplateCache() {
+  cache.clear();
 }
 
-/** `event` için şablonu çözer (30sn cache). Yoksa `null`. */
-export async function getTemplateByEvent(event) {
+export function invalidateMailTemplateCache(event = null, { tenantId = null } = {}) {
+  const prefix = cachePrefix(tenantId);
+  if (event) {
+    cache.delete(`${prefix}${event}`);
+    return;
+  }
+  for (const key of cache.keys()) {
+    if (key.startsWith(prefix)) cache.delete(key);
+  }
+}
+
+/** `event` için şablonu çözer (kiracı başına 30sn cache). Yoksa `null`. */
+export async function getTemplateByEvent(event, { tenantId = getCurrentTenantId() } = {}) {
   if (!event) return null;
+  const key = cacheKey(event, tenantId);
   const now = Date.now();
-  const hit = cache.get(event);
+  const hit = cache.get(key);
   if (hit && now - hit.at < CACHE_TTL_MS) return hit.doc;
   let doc = null;
   try {
-    doc = await SystemMailTemplate.findOne({ event }).lean();
+    const query = { event };
+    if (tenantId) query.tenantId = tenantId;
+    doc = await SystemMailTemplate.findOne(query).lean();
   } catch {
     return null;
   }
-  cache.set(event, { doc, at: now });
+  cache.set(key, { doc, at: now });
   return doc;
 }
 
