@@ -26,6 +26,21 @@
 
 ---
 
+## Reviewer correction (2026-11-12): overrides every conflicting line below
+
+1. **Branch from main after İP-7 is merged.** İP-8 is cut from `origin/main` once İP-7 (jobs and sockets) has landed;
+   do not read İP-7 from its feature branch.
+2. **Task 1 decides Wave B.** The file lists in Tasks 3 and 4 are a forecast. The reviewer runs Task 1's inventory once,
+   alone, and re-splits the fixes by the files it reports; a task only touches files the inventory lists (or tests).
+3. **No brand values in core.** Core is a public, brand-neutral product. The default tenant takes today's values from the
+   install's own settings (site name, logo, colours and legal details already stored in the database or `.env`), not
+   from constants written into core. Where a fallback is unavoidable (no settings yet), use a neutral one such as the
+   tenant `name`, never a product name.
+4. **Single mode looks and behaves exactly as today** unless the operator opts in to `TENANCY_ENFORCEMENT=enforce`.
+   `client/index.html` keeps a valid `<title>` so the Vite dev server and a static build without the server still work.
+5. Never change an existing test to make a new one pass. Do NOT run the full root `npm test`; run your task's test files
+   only, always with `--test-timeout=60000`. Fixture e-mails use `*.example.com`.
+
 ## Review Focus
 
 - **Mandatory `enforce` in multi mode (§6.1, §7.1):** Multi mode cannot be started with `TENANCY_ENFORCEMENT=log` or `off`. In multi mode, any unscoped read or write on a tenant model immediately throws `TenantScopeError`.
