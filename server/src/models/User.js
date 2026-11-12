@@ -1,7 +1,10 @@
 import mongoose from 'mongoose';
 import bcrypt from 'bcryptjs';
+import { registerTenantIndexes } from '../tenancy/indexRegistry.js';
+import { defineTenantModel } from '../tenancy/models.js';
 
 const schema = new mongoose.Schema({
+  tenantId: { type: mongoose.Schema.Types.ObjectId, ref: 'Tenant', required: false, index: true, immutable: true },
   username: { type: String, required: true, unique: true, minlength: 3 },
   email:    { type: String, required: true, unique: true, lowercase: true },
   password: { type: String, required: true, select: false },
@@ -215,6 +218,20 @@ schema.index({ deletedAt: 1 }, { sparse: true });
 schema.index({ cryptoDepositIndex: 1 }, { sparse: true });
 schema.index({ lastLoginAt: -1 });
 
+registerTenantIndexes('User', [
+  { keys: { tenantId: 1, username: 1 }, options: { unique: true, name: 'tenant_username_uniq' } },
+  { keys: { tenantId: 1, email: 1 }, options: { unique: true, name: 'tenant_email_uniq' } },
+  { keys: { tenantId: 1, walletAddress: 1 }, options: { unique: true, partialFilterExpression: { walletAddress: { $type: 'string' } }, name: 'tenant_walletAddress_uniq' } },
+  { keys: { tenantId: 1, phone: 1 }, options: { unique: true, partialFilterExpression: { phone: { $type: 'string' } }, name: 'tenant_phone_uniq' } },
+  { keys: { tenantId: 1, googleId: 1 }, options: { unique: true, partialFilterExpression: { googleId: { $type: 'string' } }, name: 'tenant_googleId_uniq' } },
+  { keys: { tenantId: 1, telegramId: 1 }, options: { unique: true, partialFilterExpression: { telegramId: { $type: 'string' } }, name: 'tenant_telegramId_uniq' } },
+  { keys: { tenantId: 1, palaceUserCode: 1 }, options: { unique: true, partialFilterExpression: { palaceUserCode: { $type: 'string' } }, name: 'tenant_palaceUserCode_uniq' } },
+  { keys: { tenantId: 1, createdAt: -1 }, options: { name: 'tenant_createdAt' } },
+  { keys: { tenantId: 1, lastLoginAt: -1 }, options: { name: 'tenant_lastLoginAt' } },
+  { keys: { tenantId: 1, isBot: 1, 'botProfile.currentState': 1 }, options: { name: 'tenant_isBot_botProfile_currentState' } },
+  { keys: { tenantId: 1, cryptoDepositIndex: 1 }, options: { name: 'tenant_cryptoDepositIndex' } },
+]);
+
 schema.pre('save', async function() {
   if (this.isModified('password')) this.password = await bcrypt.hash(this.password, 12);
 });
@@ -232,4 +249,4 @@ schema.methods.toSafeObject = function() {
   return o;
 };
 
-export default mongoose.model('User', schema);
+export default defineTenantModel('User', schema);

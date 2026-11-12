@@ -1,4 +1,6 @@
 import mongoose from 'mongoose';
+import { defineTenantModel } from '../tenancy/models.js';
+import { registerTenantIndexes } from '../tenancy/indexRegistry.js';
 
 /**
  * Sistem e-postası gönderim kaydı — hem aksiyon tetikli hem panelden
@@ -8,6 +10,7 @@ import mongoose from 'mongoose';
  * panelden tetiklenen gönderimi gruplar.
  */
 const schema = new mongoose.Schema({
+  tenantId: { type: mongoose.Schema.Types.ObjectId, ref: 'Tenant', required: false, index: true, immutable: true },
   templateId: { type: mongoose.Schema.Types.ObjectId, ref: 'SystemMailTemplate', default: null, index: true },
   event: { type: String, default: '', index: true },
   category: { type: String, enum: ['action', 'scheduled'], default: 'action', index: true },
@@ -29,4 +32,9 @@ const schema = new mongoose.Schema({
 schema.index({ sentAt: -1 });
 schema.index({ category: 1, sentAt: -1 });
 
-export default mongoose.model('SystemMailLog', schema);
+registerTenantIndexes('SystemMailLog', [
+  { keys: { tenantId: 1, sentAt: -1 }, options: { name: 'tenant_sentAt' } },
+  { keys: { tenantId: 1, trigger: 1, sentAt: -1 }, options: { name: 'tenant_trigger_sentAt' } },
+]);
+
+export default defineTenantModel('SystemMailLog', schema);

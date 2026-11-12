@@ -1,6 +1,9 @@
 import mongoose from 'mongoose';
+import { registerTenantIndexes } from '../tenancy/indexRegistry.js';
+import { defineTenantModel } from '../tenancy/models.js';
 
 const schema = new mongoose.Schema({
+  tenantId: { type: mongoose.Schema.Types.ObjectId, ref: 'Tenant', required: false, index: true, immutable: true },
   userId: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true },
   // Document types
   documentType: { 
@@ -31,4 +34,10 @@ schema.index({ userId: 1, documentType: 1 });
 schema.index({ userId: 1, status: 1 });
 schema.index({ status: 1, createdAt: -1 });
 
-export default mongoose.model('KycDocument', schema);
+registerTenantIndexes('KycDocument', [
+  { keys: { tenantId: 1, userId: 1, documentType: 1 }, options: { name: 'tenant_userId_documentType' } },
+  { keys: { tenantId: 1, userId: 1, status: 1 }, options: { name: 'tenant_userId_status' } },
+  { keys: { tenantId: 1, status: 1, createdAt: -1 }, options: { name: 'tenant_status_createdAt' } },
+]);
+
+export default defineTenantModel('KycDocument', schema);

@@ -1,4 +1,6 @@
 import mongoose from 'mongoose';
+import { defineTenantModel } from '../tenancy/models.js';
+import { registerTenantIndexes } from '../tenancy/indexRegistry.js';
 
 export const SMS_LOG_STATUSES = ['sent', 'failed', 'skipped'];
 export const SMS_AUDIENCE_TYPES = ['all', 'segment', 'users'];
@@ -13,6 +15,7 @@ export const SMS_AUDIENCE_TYPES = ['all', 'segment', 'users'];
  * özetten değil.
  */
 const schema = new mongoose.Schema({
+  tenantId: { type: mongoose.Schema.Types.ObjectId, ref: 'Tenant', required: false, index: true, immutable: true },
   templateId: { type: mongoose.Schema.Types.ObjectId, ref: 'SmsTemplate', default: null },
   templateKey: { type: String, default: null },
 
@@ -50,4 +53,9 @@ schema.index({ status: 1, createdAt: -1 });
 schema.index({ templateKey: 1, createdAt: -1 });
 schema.index({ skipReason: 1, createdAt: -1 });
 
-export default mongoose.model('SmsLog', schema);
+registerTenantIndexes('SmsLog', [
+  { keys: { tenantId: 1, createdAt: -1 }, options: { name: 'tenant_createdAt' } },
+  { keys: { tenantId: 1, status: 1, createdAt: -1 }, options: { name: 'tenant_status_createdAt' } },
+]);
+
+export default defineTenantModel('SmsLog', schema);

@@ -42,6 +42,18 @@ Versions follow SemVer; core tags are primary, downstream installs record which 
   demo installs stay single-mode and are not migrated. In multi mode bots, fake winners and the demo deposit never
   run; staff 2FA is mandatory only in multi mode.
 - Single-operator installs keep working unchanged on the default tenant (`TENANCY_MODE=single`).
+- Operator-owned (TEN) models are compiled with `defineTenantModel(name, schema)` (`server/src/tenancy/models.js`),
+  never `mongoose.model(name, schema)`: it attaches the `tenantScoped` plugin and registers the collection, which is
+  what the G3 backfill and the compound index migration walk.
+- Those schemas carry `tenantId: { type: Schema.Types.ObjectId, ref: 'Tenant', required: false, index: true, immutable: true }`.
+  `required: true` is İP-8 work, not İP-2. `RiskRule` platform templates and platform-wide `AuditLog`/`AdminAction` rows
+  are the documented exceptions and keep `tenantId: null`.
+- Compound `{ tenantId, … }` indexes are registered with `registerTenantIndexes(modelName, [{ keys, options }])`
+  (`server/src/tenancy/indexRegistry.js`) and built online by the G4 migration — they do **not** go into `schema.index()`.
+  Unique ones use `partialFilterExpression`, never `sparse`. Names: `tenant_<field>[_<field>]_uniq`, else `tenant_<field>[_<field>]`.
+- Leave `autoIndex` untouched and never call `syncIndexes()` or `ensureIndexes()`: they drop every index the schema does
+  not list, including unmanaged and partial ones. In single mode the legacy global unique indexes stay in place; dropping
+  an index is always its own explicit migration step.
 - Agent (reseller) and Partner are different concepts; do not merge them.
 
 ## Workflow

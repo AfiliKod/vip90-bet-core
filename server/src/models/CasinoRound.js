@@ -1,6 +1,9 @@
 import mongoose from 'mongoose';
+import { defineTenantModel } from '../tenancy/models.js';
+import { registerTenantIndexes } from '../tenancy/indexRegistry.js';
 
 const CasinoRoundSchema = new mongoose.Schema({
+  tenantId:      { type: mongoose.Schema.Types.ObjectId, ref: 'Tenant', required: false, index: true, immutable: true },
   userId:        { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true, index: true },
   gameId:        { type: String, required: true, index: true },
   gameTitle:     { type: String, default: '' },
@@ -10,6 +13,7 @@ const CasinoRoundSchema = new mongoose.Schema({
   net:           { type: Number, required: true },
   balanceBefore: { type: Number, required: true },
   balanceAfter:  { type: Number, required: true },
+  currency:      { type: String, default: 'TRY', uppercase: true, trim: true },
   palaceUserCode: { type: String, default: null, index: true },
   note:          { type: String, default: '' },  // 'bet_cancel' | 'bonus_call:<id>'
   isSeed:        { type: Boolean, default: false, index: true },
@@ -18,6 +22,13 @@ const CasinoRoundSchema = new mongoose.Schema({
 CasinoRoundSchema.index({ userId: 1, createdAt: -1 });
 CasinoRoundSchema.index({ gameId: 1, createdAt: -1 });
 CasinoRoundSchema.index({ createdAt: -1 });
+
+registerTenantIndexes('CasinoRound', [
+  { keys: { tenantId: 1, userId: 1, createdAt: -1 }, options: { name: 'tenant_userId_createdAt' } },
+  { keys: { tenantId: 1, gameId: 1, createdAt: -1 }, options: { name: 'tenant_gameId_createdAt' } },
+  { keys: { tenantId: 1, createdAt: -1 }, options: { name: 'tenant_createdAt' } },
+  { keys: { tenantId: 1, palaceUserCode: 1 }, options: { name: 'tenant_palaceUserCode', sparse: true } },
+]);
 
 /**
  * Side effects of a saved casino round: bonus wagering credit, VIP XP, and for
@@ -100,4 +111,4 @@ CasinoRoundSchema.post('save', async function() {
   return applyCasinoRoundSideEffects(this);
 });
 
-export default mongoose.model('CasinoRound', CasinoRoundSchema);
+export default defineTenantModel('CasinoRound', CasinoRoundSchema);

@@ -1,6 +1,9 @@
 import mongoose from 'mongoose';
+import { defineTenantModel } from '../tenancy/models.js';
+import { registerTenantIndexes } from '../tenancy/indexRegistry.js';
 
 const schema = new mongoose.Schema({
+  tenantId:      { type: mongoose.Schema.Types.ObjectId, ref: 'Tenant', required: false, index: true, immutable: true },
   userId:        { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true },
   type:          { type: String, enum: ['deposit','withdraw','bet','win','bonus','refund','admin_adjustment','crypto_deposit','crypto_withdraw','casino_return','bonus_conversion','referral_commission','bonus_forfeit','agent_transfer_in','agent_transfer_out','agent_commission','tip_sent','tip_received','rain','cashback','reversal','casino_bet','casino_win','casino_cancel','casino_transfer'], required: true },
   amount:        { type: Number, required: true },
@@ -30,4 +33,12 @@ schema.index({ createdAt: -1 });
 schema.index({ relatedTransactionId: 1 });
 schema.index({ currency: 1, createdAt: -1 });
 
-export default mongoose.model('Transaction', schema);
+registerTenantIndexes('Transaction', [
+  { keys: { tenantId: 1, userId: 1, createdAt: -1 }, options: { name: 'tenant_userId_createdAt' } },
+  { keys: { tenantId: 1, userId: 1, type: 1, createdAt: -1 }, options: { name: 'tenant_userId_type_createdAt' } },
+  { keys: { tenantId: 1, type: 1, status: 1, createdAt: -1 }, options: { name: 'tenant_type_status_createdAt' } },
+  { keys: { tenantId: 1, createdAt: -1 }, options: { name: 'tenant_createdAt' } },
+  { keys: { tenantId: 1, currency: 1, createdAt: -1 }, options: { name: 'tenant_currency_createdAt' } },
+]);
+
+export default defineTenantModel('Transaction', schema);

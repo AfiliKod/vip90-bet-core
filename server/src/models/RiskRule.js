@@ -1,4 +1,6 @@
 import mongoose from 'mongoose';
+import { defineTenantModel } from '../tenancy/models.js';
+import { registerTenantIndexes } from '../tenancy/indexRegistry.js';
 
 export const RULE_ACTION = {
   ALLOW: 'ALLOW',
@@ -26,12 +28,15 @@ const conditionSchema = new mongoose.Schema({
 }, { _id: false });
 
 const schema = new mongoose.Schema({
+  tenantId: { type: mongoose.Schema.Types.ObjectId, ref: 'Tenant', required: false, default: null, index: true, immutable: true },
   // unique: initDefaultRules()'un findOneAndUpdate+upsert ile eşzamanlı
   // çift-seed'i engellemesi bu index OLMADAN garanti değil — unique index
   // olmadan upsert, gerçek eşzamanlı çağrılarda "bul→yoksa ekle" kontrolünü
   // ikisi de aynı anda geçip iki ayrı doküman ekleyebilir (MongoDB'nin
   // bilinen upsert-without-unique-index race'i). Ayrıca iki kuralın aynı
   // isimde olması admin UI'da da kafa karıştırıcı olurdu.
+  // Tek modda global unique yerinde kalır (spec §6.3 G4); kiracı içi bileşik
+  // unique indeks registerTenantIndexes ile G4 geçişinde kurulur.
   name: { type: String, required: true, unique: true },
   description: { type: String, default: '' },
   enabled: { type: Boolean, default: true },
@@ -52,4 +57,15 @@ schema.index({ category: 1 });
 schema.index({ brandScope: 1 });
 schema.index({ jurisdictionScope: 1 });
 
-export default mongoose.model('RiskRule', schema);
+registerTenantIndexes('RiskRule', [
+  {
+    keys: { tenantId: 1, name: 1 },
+    options: {
+      name: 'tenant_name_uniq',
+      unique: true,
+      partialFilterExpression: { tenantId: { $type: 'objectId' } },
+    },
+  },
+]);
+
+export default defineTenantModel('RiskRule', schema);
