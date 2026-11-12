@@ -27,6 +27,18 @@ const tenantSchema = new mongoose.Schema({
     enum: ['provisioning', 'active', 'suspended', 'closed'],
     default: 'provisioning',
   },
+  // K22: written provider approval required before go-live.
+  providerApproval: {
+    approved:    { type: Boolean, default: false },
+    approvedAt:  { type: Date, default: null },
+    documentRef: { type: String, default: null },
+  },
+  // N5 go-live gates verified outside the legal entity / domain checks.
+  checklist: {
+    pspVerified:   { type: Boolean, default: false },
+    kycVerified:   { type: Boolean, default: false },
+    emailVerified: { type: Boolean, default: false },
+  },
   isDefault: { type: Boolean, default: false },
   ownership: { type: String, enum: ['direct', 'partner'], default: 'direct' },
   // No default on purpose: the unique index is sparse, so absent values must stay absent.
@@ -43,6 +55,8 @@ const tenantSchema = new mongoose.Schema({
   createdBy: { type: ObjectId, default: null },
   createdVia: { type: String, enum: ['platform', 'partner'], default: 'platform' },
   closedAt: { type: Date, default: null },
+  // K26: deletion is locked until this date (≥ 5 years after closure).
+  legalRetentionUntil: { type: Date, default: null },
 }, { timestamps: true });
 
 // At most one default tenant.
