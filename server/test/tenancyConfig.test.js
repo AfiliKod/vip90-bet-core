@@ -76,6 +76,47 @@ test('effective demo flags: on in single only when requested, never in multi', (
 test('requireDemoFlag answers 404 when off and passes when on', () => {
   const mw = requireDemoFlag('data');
   assert.equal(mw.demoFlag, 'data');
+
+  const originalDemoData = process.env.DEMO_DATA;
+  const originalTenancyMode = process.env.TENANCY_MODE;
+
+  try {
+    // (a) delete DEMO_DATA → 404 DEMO_FEATURE_DISABLED
+    delete process.env.DEMO_DATA;
+    const req = {};
+    const res = {};
+    const next = (err) => {
+      assert.equal(err.status, 404);
+      assert.equal(err.code, 'DEMO_FEATURE_DISABLED');
+    };
+    mw(req, res, next);
+
+    // (b) DEMO_DATA='true' → next called with no argument (undefined)
+    process.env.DEMO_DATA = 'true';
+    const next2 = (err) => {
+      assert.equal(err, undefined);
+    };
+    mw({}, {}, next2);
+
+    // (c) DEMO_DATA='true' and TENANCY_MODE='multi' → 404
+    process.env.TENANCY_MODE = 'multi';
+    const next3 = (err) => {
+      assert.equal(err.status, 404);
+      assert.equal(err.code, 'DEMO_FEATURE_DISABLED');
+    };
+    mw({}, {}, next3);
+  } finally {
+    if (originalDemoData === undefined) {
+      delete process.env.DEMO_DATA;
+    } else {
+      process.env.DEMO_DATA = originalDemoData;
+    }
+    if (originalTenancyMode === undefined) {
+      delete process.env.TENANCY_MODE;
+    } else {
+      process.env.TENANCY_MODE = originalTenancyMode;
+    }
+  }
 });
 test('requireDemoFlag rejects unknown flag names', () => {
   assert.throws(() => requireDemoFlag('robots'), TypeError);
