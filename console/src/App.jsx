@@ -18,6 +18,11 @@ import PartnerTenantsList from './pages/partner/PartnerTenantsList.jsx';
 import PartnerTenantProvision from './pages/partner/PartnerTenantProvision.jsx';
 import PartnerTenantDetail from './pages/partner/PartnerTenantDetail.jsx';
 import PartnerStaff from './pages/partner/PartnerStaff.jsx';
+import BillingDashboard from './pages/billing/BillingDashboard.jsx';
+import StatementsList from './pages/billing/StatementsList.jsx';
+import StatementDetail from './pages/billing/StatementDetail.jsx';
+import OperatorFeePlans from './pages/billing/OperatorFeePlans.jsx';
+import PlatformReports from './pages/reports/PlatformReports.jsx';
 
 function ProtectedRoute({ children }) {
   const { isAuthenticated, requires2faSetup } = usePlatformAuthStore();
@@ -46,6 +51,11 @@ function PartnerDetailRoute() {
 function PartnerTenantDetailRoute() {
   const { id } = useParams();
   return <PartnerTenantDetail key={id} tenantId={id} />;
+}
+
+function StatementDetailRoute() {
+  const { id } = useParams();
+  return <StatementDetail key={id} statementId={id} />;
 }
 
 function PlatformRoute({ children }) {
@@ -109,6 +119,11 @@ export default function App() {
           <Route path="partners/:id" element={<PlatformRoute><PartnerDetailRoute /></PlatformRoute>} />
           <Route path="domains" element={<PlatformRoute><DomainsList /></PlatformRoute>} />
           <Route path="scope-gates" element={<PlatformRoute><Dashboard /></PlatformRoute>} />
+          <Route path="billing" element={<PlatformRoute><BillingDashboard /></PlatformRoute>} />
+          <Route path="billing/plans" element={<PlatformRoute><OperatorFeePlans /></PlatformRoute>} />
+          <Route path="billing/statements" element={<PlatformRoute><StatementsList /></PlatformRoute>} />
+          <Route path="billing/statements/:id" element={<PlatformRoute><StatementDetailRoute /></PlatformRoute>} />
+          <Route path="reports" element={<PlatformRoute><PlatformReports /></PlatformRoute>} />
 
           {/* Partner views under /console/partner/* */}
           <Route path="partner" element={<PartnerRoute><PartnerDashboard /></PartnerRoute>} />

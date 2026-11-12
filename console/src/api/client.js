@@ -205,4 +205,21 @@ export const partnersApi = {
   },
 };
 
+export const billingApi = {
+  listPlans: async () => (await apiClient.get('/billing/plans')).data,
+  savePlan: async (data) => (await apiClient.post('/billing/plans', data)).data,
+  listStatements: async (params) => (await apiClient.get('/billing/statements', { params })).data,
+  getStatement: async (id) => (await apiClient.get(`/billing/statements/${id}`)).data,
+  generateStatements: async (data) => (await apiClient.post('/billing/statements/generate', data)).data,
+  issueStatement: async (id) => (await apiClient.post(`/billing/statements/${id}/issue`)).data,
+  addAdjustment: async (id, data) => (await apiClient.post(`/billing/statements/${id}/adjustments`, data)).data,
+  voidStatement: async (id, data) => (await apiClient.post(`/billing/statements/${id}/void`, data)).data,
+};
+
+export const reportsApi = {
+  getCrossTenant: async (params) => (await apiClient.get('/reports/cross-tenant', { params })).data,
+  getSportsbook: async (params) => (await apiClient.get('/reports/sportsbook-odds', { params })).data,
+  getPartnerBalances: async (params) => (await apiClient.get('/reports/partner-balances', { params })).data,
+};
+
 export default apiClient;
