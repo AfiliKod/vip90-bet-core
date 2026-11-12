@@ -26,6 +26,21 @@
 
 ---
 
+## Reviewer correction (2026-11-12): overrides every conflicting line below
+
+1. **K23 builds on what exists.** `server/src/middleware/auth.js` already rejects platform-staff writes on tenant routes
+   with 403 `PLATFORM_READ_ONLY` and audits the attempt. Task 3 adds the `PlatformWriteGrant` exception to that check;
+   it does not rewrite or loosen it, and the existing tests for it stay unchanged.
+2. **Audit retention (K24) never deletes early.** A TTL change goes through the index registry like every other index
+   (no silent drop/recreate in code paths that run on every boot); in multi mode the effective retention is
+   max(configured, 1825 days). Single mode keeps today's retention unless configured.
+3. **Task 9 (console shell) starts in Wave A.** It codes against the API contract written in Task 8's Interfaces block
+   and fakes responses in its tests; Task 10 waits for Task 8.
+4. The console is served only in multi mode and only on the platform host; single-mode installs never serve it and
+   `/api/platform/*` returns 404 there.
+5. Never change an existing test to make a new one pass. Do NOT run the full root `npm test`; run your task's files only,
+   with `--test-timeout=60000`. Console tests run with the console's own test command on the files you touch.
+
 ## Global Constraints
 
 - **Never weaken an existing check:** Existing authentication (`requireAuth`, `requireStaff`), permissions, IP checks, and rate limiters remain active. Platform routes require `requireStaff('platform')` and appropriate permissions. Platform staff accessing tenant routes remain strictly read-only unless an audited `PlatformWriteGrant` is active.
