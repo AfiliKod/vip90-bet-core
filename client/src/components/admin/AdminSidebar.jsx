@@ -3,9 +3,14 @@ import { NavLink } from 'react-router-dom';
 import { useTranslation } from '../../i18n';
 import { ADMIN_NAV_GROUPS } from './adminNav.config.js';
 import { useAdminCounts } from '../../hooks/useAdminCounts.js';
+import { useDemoFlags } from '../../hooks/useDemoFlags.js';
+import { filterNavByDemoFlags } from '../../utils/demoFlags.js';
 
 export default function AdminSidebar({ onClose }) {
   const { t } = useTranslation();
+  // Demo entries are hidden unless their DEMO_* flag is on (fails closed).
+  const demoFlags = useDemoFlags();
+  const navGroups = filterNavByDemoFlags(ADMIN_NAV_GROUPS, demoFlags);
   // Rozetler canlı sayılardan gelir (sidebar rozeti + dashboard kuyruk kartı
   // aynı store'u okur). Sunucu bir kayıt işlediğinde `admin:counts` yayınlar.
   const counts = useAdminCounts();
@@ -34,7 +39,7 @@ export default function AdminSidebar({ onClose }) {
       </div>
 
       <div className="min-h-0 flex-1 overflow-y-auto px-2.5 py-3">
-        {ADMIN_NAV_GROUPS.map(group => (
+        {navGroups.map(group => (
           <div key={group.id} className="mb-3.5">
             {!group.topLevel && (
               <div className="px-2.5 pt-1.5 pb-1.5 text-[10px] font-extrabold uppercase tracking-[0.1em] text-text-3/70">

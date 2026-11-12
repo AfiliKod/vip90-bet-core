@@ -11,6 +11,8 @@ import { formatMoney } from '../../utils/money.js';
 import LanguageSwitcher from '../../i18n/LanguageSwitcher.jsx';
 import { ADMIN_NAV_GROUPS } from './adminNav.config.js';
 import { useAdminCount } from '../../hooks/useAdminCounts.js';
+import { useDemoFlags } from '../../hooks/useDemoFlags.js';
+import { filterNavByDemoFlags } from '../../utils/demoFlags.js';
 
 export default function AdminTopbar({ onMenuOpen }) {
   const { t } = useTranslation();
@@ -26,12 +28,15 @@ export default function AdminTopbar({ onMenuOpen }) {
   const username = user?.username || '—';
   const initial = username.charAt(0).toUpperCase();
 
+  // Demo entries are hidden unless their DEMO_* flag is on (fails closed).
+  const demoFlags = useDemoFlags();
+
   // Global sayfa araması: admin nav linkleri üzerinde filtre.
   const matches = useMemo(() => {
     const needle = q.trim().toLocaleLowerCase('tr');
     if (!needle) return [];
     const rows = [];
-    ADMIN_NAV_GROUPS.forEach(g => {
+    filterNavByDemoFlags(ADMIN_NAV_GROUPS, demoFlags).forEach(g => {
       g.items.forEach(item => {
         const label = t(item.labelKey);
         if (
@@ -43,7 +48,7 @@ export default function AdminTopbar({ onMenuOpen }) {
       });
     });
     return rows.slice(0, 8);
-  }, [q, t]);
+  }, [q, t, demoFlags]);
 
   useEffect(() => {
     function onKey(e) {

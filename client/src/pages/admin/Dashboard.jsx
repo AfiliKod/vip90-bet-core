@@ -9,6 +9,7 @@ import { useTranslation } from '../../i18n';
 import { getActiveCurrency } from '../../utils/money.js';
 import { useOnlineCount } from '../../hooks/useOnlineCount';
 import { useAdminCounts } from '../../hooks/useAdminCounts';
+import { useDemoFlags } from '../../hooks/useDemoFlags.js';
 import ActivityFeed from './components/ActivityFeed.jsx';
 import AdminPageHeader, { ADMIN_BTN_GHOST, ADMIN_BTN_PRIMARY } from '../../components/admin/AdminPageHeader.jsx';
 import { KPI_TONE_COLORS, hexToRgb, kpiTone, deltaTone } from './dashboard/kpiTone.js';
@@ -235,6 +236,8 @@ export default function AdminDashboard() {
   const [betVolume, setBetVolume] = useState(null);
   // Canlı kuyruk sayıları (sidebar rozetleriyle AYNI store).
   const counts = useAdminCounts();
+  // Demo quick link is shown only when DEMO_DATA is on (fails closed).
+  const demoFlags = useDemoFlags();
   const [findings, setFindings] = useState([]);
   const [health, setHealth] = useState(null);
   const [healthAt, setHealthAt] = useState(null); // health yanitinin alindigi an
@@ -817,10 +820,12 @@ export default function AdminDashboard() {
             <span className="material-symbols-outlined !text-[16px] text-primary" aria-hidden="true">campaign</span>
             {t('admin.dashboard.quick.sendAnnouncement')}
           </Link>
-          <Link to="/admin/demo-data" className="inline-flex h-[34px] items-center gap-1.5 rounded-lg border border-white/10 bg-bg-hover px-3 text-xs font-bold text-text-1 transition hover:border-primary/45 hover:text-primary">
-            <span className="material-symbols-outlined !text-[16px] text-primary" aria-hidden="true">science</span>
-            {t('admin.dashboard.quick.loadDemoData')}
-          </Link>
+          {demoFlags.data && (
+            <Link to="/admin/demo-data" className="inline-flex h-[34px] items-center gap-1.5 rounded-lg border border-white/10 bg-bg-hover px-3 text-xs font-bold text-text-1 transition hover:border-primary/45 hover:text-primary">
+              <span className="material-symbols-outlined !text-[16px] text-primary" aria-hidden="true">science</span>
+              {t('admin.dashboard.quick.loadDemoData')}
+            </Link>
+          )}
           <Link to="/admin/health" className="inline-flex h-[34px] items-center gap-1.5 rounded-lg border border-white/10 bg-bg-hover px-3 text-xs font-bold text-text-1 transition hover:border-primary/45 hover:text-primary">
             <span className="material-symbols-outlined !text-[16px] text-primary" aria-hidden="true">monitor_heart</span>
             {t('admin.nav.health')}

@@ -124,8 +124,11 @@ export const ADMIN_NAV_GROUPS = [
     id: 'demo-simulation',
     labelKey: 'admin.nav.groupDemoSimulation',
     items: [
-      { id: 'demo-data', labelKey: 'admin.nav.demoData', to: '/admin/demo-data', icon: 'science' },
-      { id: 'bots', labelKey: 'admin.nav.bots', to: '/admin/bots', icon: 'smart_toy' },
+      // `demoFlags`: visible only when one of these DEMO_* flags is on
+      // (utils/demoFlags.js). The Bots page only manages the fake-winners
+      // simulation, so it is gated by `fakeWinners`.
+      { id: 'demo-data', labelKey: 'admin.nav.demoData', to: '/admin/demo-data', icon: 'science', demoFlags: ['data'] },
+      { id: 'bots', labelKey: 'admin.nav.bots', to: '/admin/bots', icon: 'smart_toy', demoFlags: ['fakeWinners'] },
     ],
   },
 ];
