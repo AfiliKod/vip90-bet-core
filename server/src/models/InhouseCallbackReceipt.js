@@ -1,4 +1,6 @@
 import mongoose from 'mongoose';
+import { defineTenantModel } from '../tenancy/models.js';
+import { registerTenantIndexes } from '../tenancy/indexRegistry.js';
 
 /**
  * Operatör tarafında (bu site) merkezi provider'dan gelen wallet-callback'lerin
@@ -9,6 +11,7 @@ import mongoose from 'mongoose';
  * reddeder, önceki yanıt tekrar döndürülür.
  */
 const schema = new mongoose.Schema({
+  tenantId: { type: mongoose.Schema.Types.ObjectId, ref: 'Tenant', required: false, index: true, immutable: true },
   txnId: { type: String, required: true, unique: true },
   direction: { type: String, enum: ['debit', 'settle'], required: true },
   operatorGameId: { type: String, required: true }, // provider'daki gameId ('crash')
@@ -17,4 +20,8 @@ const schema = new mongoose.Schema({
   responsePayload: { type: mongoose.Schema.Types.Mixed, required: true },
 }, { timestamps: true });
 
-export default mongoose.model('InhouseCallbackReceipt', schema);
+registerTenantIndexes('InhouseCallbackReceipt', [
+  { keys: { tenantId: 1, operatorGameId: 1, createdAt: -1 }, options: { name: 'tenant_operatorGameId_createdAt' } },
+]);
+
+export default defineTenantModel('InhouseCallbackReceipt', schema);

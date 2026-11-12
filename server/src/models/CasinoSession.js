@@ -1,11 +1,15 @@
 import mongoose from 'mongoose';
+import { defineTenantModel } from '../tenancy/models.js';
+import { registerTenantIndexes } from '../tenancy/indexRegistry.js';
 
 const CasinoSessionSchema = new mongoose.Schema({
+  tenantId:      { type: mongoose.Schema.Types.ObjectId, ref: 'Tenant', required: false, index: true, immutable: true },
   userId:        { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true, index: true },
   palaceUserCode: { type: String, required: true, index: true },
   gameId:        { type: String, required: true },
   gameTitle:     { type: String, default: '' },
   initialBalance: { type: Number, required: true },
+  currency:      { type: String, default: 'TRY', uppercase: true, trim: true },
   transferredAt: { type: Date, required: true },
   // F3: 'provider' = the session's money sits at the provider until the close;
   // callbacks only record rounds (walletId 'igames' ledger rows) and the close
@@ -68,6 +72,12 @@ const CasinoSessionSchema = new mongoose.Schema({
 CasinoSessionSchema.index({ userId: 1, status: 1 });
 CasinoSessionSchema.index({ status: 1, transferredAt: 1 });
 
+registerTenantIndexes('CasinoSession', [
+  { keys: { tenantId: 1, userId: 1, status: 1 }, options: { name: 'tenant_userId_status' } },
+  { keys: { tenantId: 1, palaceUserCode: 1 }, options: { name: 'tenant_palaceUserCode' } },
+  { keys: { tenantId: 1, status: 1, transferredAt: 1 }, options: { name: 'tenant_status_transferredAt' } },
+]);
+
 // ─── Oturum kapanışında kar/zarar bildirimi ────────────────────────────────
 // Kapanış farklı alt paketlerden (igames, inhouse) tetiklendiği için kancayı
 // MODELDE tutuyoruz — hangi paket kapattığı fark etmez, tek yerden yakalanır.
@@ -119,4 +129,4 @@ CasinoSessionSchema.post('save', async function() {
   }
 });
 
-export default mongoose.model('CasinoSession', CasinoSessionSchema);
+export default defineTenantModel('CasinoSession', CasinoSessionSchema);
