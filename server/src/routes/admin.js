@@ -22,6 +22,7 @@ import { emailTestLimiter } from '../middleware/rateLimit.js';
 import seoAdminRouter from './seoAdmin.js';
 import { requirePlatformInMultiMode } from '../middleware/platformOnly.js';
 import { requireDemoFlag, getDemoFlags } from '../config/tenancy.js';
+import partnerGrantsRouter from './partnerGrants.js';
 
 // V1 — demo yönetici yıkıcı işlemleri yapamaz (bayrak DB'den taze okunur)
 const blockDemoAdmin = createDemoAdminBlock({
@@ -29,6 +30,7 @@ const blockDemoAdmin = createDemoAdminBlock({
 });
 
 const r = Router();
+r.use('/partner-grants', partnerGrantsRouter);
 r.use(requireAuth, requireAdmin, auditLog('ADMIN_ACTION'));
 
 // Modül yönetimi (M3) — kendi router'ı, controllers/modules.js'te
