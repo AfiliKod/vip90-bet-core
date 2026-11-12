@@ -64,7 +64,7 @@ Source: `GET /api/admin/queues/pending-finance?limit=` (`admin:transactions:read
 
 ## Demo data
 
-Fills an empty installation with realistic, removable data so the Dashboard, Analytics and list pages can be demonstrated or tested. It is unrelated to the older demo seeder library `server/src/demo/seedCore.js` (`demo_admin` / `demo_*` accounts), which has no runner since 2026-10-08: the development script that called it also deleted every user and created accounts with published passwords, so it was removed.
+Fills an empty installation with realistic, removable data so the Dashboard, Analytics and list pages can be demonstrated or tested. The whole feature is off by default: it needs `DEMO_DATA=true` in `server/.env` (never available while `TENANCY_MODE=multi`), otherwise every `/api/admin/demo-data/*` endpoint answers `404 DEMO_FEATURE_DISABLED` and the panel entry is hidden — see [02 — Configuration § Tenancy and demo flags](02-yapilandirma.md#tenancy-and-demo-flags). It is unrelated to the older demo seeder library `server/src/demo/seedCore.js` (`demo_admin` / `demo_*` accounts), which has no runner since 2026-10-08: the development script that called it also deleted every user and created accounts with published passwords, so it was removed.
 
 ### How it is isolated
 
@@ -88,7 +88,7 @@ When enabled, a background job (`server/src/jobs/demoDataLiveSimulation.js`) run
 
 ### Endpoints
 
-All require `admin:demo-data:manage`.
+All require `admin:demo-data:manage` **and `DEMO_DATA=true`**. The flag is checked first: with it off — the default, and always in a `TENANCY_MODE=multi` installation — every `/demo-data/*` endpoint answers `404 DEMO_FEATURE_DISABLED` to everyone, before any permission check, and the Demo data entry is hidden from the admin menu. `GET /api/admin/demo-flags` reports the effective `data` flag. Source: `server/src/config/tenancy.js`.
 
 | Method + Path | Body | Returns |
 |---|---|---|
