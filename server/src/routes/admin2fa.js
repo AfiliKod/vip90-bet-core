@@ -23,7 +23,7 @@ r.post('/setup', requireAuth, requireAdmin, adminLimiter, validate(setup2faSchem
     if (user.twoFactorEnabled) return next(createError(400, 'ALREADY_ENABLED', '2FA zaten aktif'));
 
     const secret = speakeasy.generateSecret({
-      name: `${await getSiteName()} (${user.username})`,
+      name: `${(await getSiteName()) || req.hostname} (${user.username})`,
       length: 32,
     });
 

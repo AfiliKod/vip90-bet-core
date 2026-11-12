@@ -19,5 +19,6 @@ describe('formatTitle', () => {
   test('özel şablon, ters sıra', () => assert.strictEqual(formatTitle('{site} - {page}', 'Casino', 'VIP90'), 'VIP90 - Casino'));
   test('sayfa yoksa yalnız site', () => assert.strictEqual(formatTitle('{page} | {site}', null, 'VIP90'), 'VIP90'));
   test('boş şablon varsayılana düşer', () => assert.strictEqual(formatTitle('', 'A', 'B'), 'A | B'));
-  test('site boşsa varsayılan marka', () => assert.strictEqual(formatTitle('{page} | {site}', 'A', ''), 'A | VIP90.bet'));
+  test('site boşsa yalnız sayfa adı', () => assert.strictEqual(formatTitle('{page} | {site}', 'A', ''), 'A'));
+  test('site ve sayfa yoksa başlık boştur', () => assert.strictEqual(formatTitle('{page} | {site}', null, ''), ''));
 });

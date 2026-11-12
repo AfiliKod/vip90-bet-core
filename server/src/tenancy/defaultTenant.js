@@ -87,7 +87,21 @@ async function defaultFindProviderOperatorId() {
   return (await Operator.findOne({ operatorKey: 'vip90' }).select('_id').lean())?._id ?? null;
 }
 
-async function findOrCreateDefaultTenant() {
+// Legal details belong to the install, not to core: they come from the
+// operator's .env and stay null until provided (brand-neutral core).
+function legalEntityFromEnv(env) {
+  const read = (key) => {
+    const value = typeof env[key] === 'string' ? env[key].trim() : '';
+    return value || null;
+  };
+  return {
+    name: read('LEGAL_ENTITY_NAME'),
+    registrationNo: read('LEGAL_ENTITY_REGISTRATION_NO'),
+    address: read('LEGAL_ENTITY_ADDRESS'),
+  };
+}
+
+async function findOrCreateDefaultTenant(env) {
   let tenant = await Tenant.findOne({ isDefault: true });
   if (tenant) return { tenant, created: false };
   try {
@@ -101,6 +115,7 @@ async function findOrCreateDefaultTenant() {
           status: 'active',
           ownership: 'direct',
           createdVia: 'platform',
+          legalEntity: legalEntityFromEnv(env),
         },
       },
       { upsert: true, new: true, includeResultMetadata: true },
@@ -123,7 +138,7 @@ export async function ensureDefaultTenant({
   env = process.env,
   findProviderOperatorId = defaultFindProviderOperatorId,
 } = {}) {
-  const { tenant: found, created } = await findOrCreateDefaultTenant();
+  const { tenant: found, created } = await findOrCreateDefaultTenant(env);
   if (!found) throw new Error('Default tenant could not be created');
   const tenantId = found._id;
 

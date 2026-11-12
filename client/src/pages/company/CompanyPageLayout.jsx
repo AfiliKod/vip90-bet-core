@@ -1,11 +1,12 @@
 import { Link } from 'react-router-dom';
 import { useTranslation } from '../../i18n';
-import { COMPANY } from '../../data/legalContent';
+import { getCompanyInfo } from '../../data/legalContent';
 import { SURFACE_CARD_BG, SURFACE_BORDER } from '../../styles/surface';
 
 /** LegalLayout'un sadeleştirilmiş hali — kurumsal sayfalar (Hakkımızda/Kariyer/Basın/İletişim) için, yasal sidebar/18+ rozeti yok. */
 export default function CompanyPageLayout({ title, intro, sections }) {
   const { t } = useTranslation();
+  const company = getCompanyInfo();
 
   return (
     <div className="px-4 py-8 max-w-4xl mx-auto">
@@ -31,7 +32,7 @@ export default function CompanyPageLayout({ title, intro, sections }) {
 
         <div className="mt-8 pt-6 border-t border-white/[0.06] text-[11px] text-text-3">
           <p>
-            📧 <a href={`mailto:${COMPANY.email}`} className="underline text-primary">{COMPANY.email}</a>
+            📧 <a href={`mailto:${company.email}`} className="underline text-primary">{company.email}</a>
           </p>
         </div>
       </div>

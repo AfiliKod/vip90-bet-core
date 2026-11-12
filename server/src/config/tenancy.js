@@ -107,7 +107,19 @@ function readTenancyConfig(env = process.env) {
   let enforcement;
   let enforcementErrors = [];
 
-  if (!rawEnforcement) {
+  if (mode === 'multi') {
+    // Multi mode is strictly 'enforce' (spec §7.1 row İP-8); single mode keeps the gated default.
+    enforcement = 'enforce';
+    if (
+      rawEnforcement
+      && ENFORCEMENT_MODES_SET.has(rawEnforcement.toLowerCase())
+      && rawEnforcement.toLowerCase() !== 'enforce'
+    ) {
+      enforcementErrors.push(
+        `TENANCY_MODE=multi requires TENANCY_ENFORCEMENT=enforce (got "${rawEnforcement}")`
+      );
+    }
+  } else if (!rawEnforcement) {
     enforcement = defaultEnforcement(mode);
   } else if (ENFORCEMENT_MODES_SET.has(rawEnforcement.toLowerCase())) {
     enforcement = rawEnforcement.toLowerCase();
@@ -199,14 +211,13 @@ function validateTenancyStartup(env = process.env) {
     );
   }
 
-  // Multi mode: enforcement must be 'enforce'
-  if (rawMode.toLowerCase() === 'multi' && rawEnforcement.toLowerCase() !== 'enforce') {
-    // Only add this error if enforcement was explicitly set but not enforce
-    // If enforcement was not set at all, the multi-default will be checked
-    const explicitEnforcement = rawEnforcement ? rawEnforcement.trim() : null;
-    if (explicitEnforcement && explicitEnforcement.toLowerCase() !== 'enforce') {
+  // Multi mode: enforcement must be 'enforce'; empty defaults to it. An unusable
+  // value already reports the "must be off, log or enforce" problem above.
+  if (rawMode.toLowerCase() === 'multi' && rawEnforcement) {
+    const explicitEnforcement = rawEnforcement.toLowerCase();
+    if (ENFORCEMENT_MODES_SET.has(explicitEnforcement) && explicitEnforcement !== 'enforce') {
       problems.push(
-        `TENANCY_MODE=multi requires TENANCY_ENFORCEMENT=enforce (got "${explicitEnforcement}")`
+        `TENANCY_MODE=multi requires TENANCY_ENFORCEMENT=enforce (got "${rawEnforcement}")`
       );
     }
   }

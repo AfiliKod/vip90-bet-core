@@ -4,7 +4,8 @@
 // zaten 8 dilde var. Ana sayfa sayfa adı taşımaz → başlık yalnız site adıdır.
 
 export const DEFAULT_TITLE_TEMPLATE = '{page} | {site}';
-export const DEFAULT_SITE_TITLE = 'VIP90.bet';
+// Çekirdek marka adı taşımaz: site adı branding store'dan gelir, yoksa boş kalır.
+export const DEFAULT_SITE_TITLE = '';
 
 const EXACT = {
   '/': null,
@@ -55,8 +56,11 @@ export function pageTitleKey(pathname) {
  * da çalışır (yer tutucular düz metin değiştirilir).
  */
 export function formatTitle(template, page, site) {
-  const s = site || DEFAULT_SITE_TITLE;
+  const s = site || '';
   if (!page) return s;
+  // Marka adı yoksa (ayar ve kiracı adı boş) yalnız sayfa adı: "A | " gibi
+  // sarkan ayırıcı bırakma.
+  if (!s) return page;
   const tpl = template && template.trim() ? template : DEFAULT_TITLE_TEMPLATE;
   return tpl.split('{page}').join(page).split('{site}').join(s);
 }

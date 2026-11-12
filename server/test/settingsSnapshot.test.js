@@ -126,7 +126,7 @@ describe('Task 8: Settings single-mode snapshot parity', () => {
       fontFamily: null,
       fontFile: null,
     });
-    assert.equal(await getSiteName(), 'VIP90.bet');
+    assert.equal(await getSiteName(), 'Default Tenant');
 
     // 8. themeStore baseline
     const themeVars = await themeStore.getCssVars();

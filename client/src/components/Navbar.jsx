@@ -48,7 +48,7 @@ export default function Navbar() {
     <nav className="sticky top-0 z-40 bg-bg-base/80 backdrop-blur">
       <div className="max-w-7xl mx-auto px-4 h-14 flex items-center justify-between gap-4">
         <Link to="/" className="flex items-center gap-2 font-bold text-lg text-text-1 shrink-0">
-          {logo ? <img src={logo} alt={siteName || 'Logo'} className="h-8 w-auto object-contain" /> : <><span className="text-2xl">💎</span> {siteName || 'VIP90.bet'}</>}
+          {logo ? <img src={logo} alt={siteName || 'Logo'} className="h-8 w-auto object-contain" /> : <><span className="text-2xl">💎</span> {siteName}</>}
         </Link>
         <div className="hidden lg:flex items-center gap-1 flex-1 overflow-x-auto">
           <Link to="/" className={`relative px-3 py-1.5 text-sm hover:text-text-1 hover:bg-bg-hover transition whitespace-nowrap ${NAV_ITEM_ACTIVE_CLASS(casinoActive)}`}>{t('nav.casino')}</Link>

@@ -30,7 +30,7 @@ const SLIDE_ICONS = {
  */
 export default function PromoHeroSlider() {
   const { t } = useTranslation();
-  const siteName = useBrandingStore(s => s.siteName) || 'VIP90.bet';
+  const siteName = useBrandingStore(s => s.siteName) || '';
   const navigate = useNavigate();
   const [current, setCurrent] = useState(0);
   const timerRef = useRef(null);

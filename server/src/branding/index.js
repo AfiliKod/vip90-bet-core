@@ -7,6 +7,12 @@
 import { createBrandingStore, BRANDING_FIELD_DEFINITIONS } from './registry.js';
 import { mongoLoad } from '../config/secretSettingsStore.js';
 import { saveScopedSetting, createTenantStoreFacade } from '../services/settings.js';
+import mongoose from 'mongoose';
+import Tenant from '../models/Tenant.js';
+import { clientUrlFallback } from '../tenancy/tenantBaseUrl.js';
+import { getCurrentTenantId } from '../tenancy/context.js';
+import { getDefaultTenantId } from '../tenancy/defaultTenantId.js';
+import { getTenancyMode } from '../config/tenancy.js';
 
 const KEY_PREFIX = 'branding.';
 const dbKey = id => `${KEY_PREFIX}${id}`;
@@ -37,14 +43,26 @@ export const invalidateBranding = () => brandingStore.invalidate();
 /**
  * Sunucu tarafında (e-posta şablonları, 2FA etiketi, web3 imza mesajı,
  * chatbot sistem prompt'u gibi React dışı bağlamlar) kullanılan tek bakiye
- * noktası — admin panelinden ayarlanan siteName'i döner, hiç ayarlanmamışsa
- * client/src/store/brandingStore.js'teki AYNI varsayılana düşer (tutarlı tek
- * fallback — daha önce dosyalar arasında 'VIP90.bet'/'Bet Platform'/'VIP90.bet'
- * gibi farklı varsayılanlar dağınık haldeydi).
+ * noktası — admin panelinden ayarlanan siteName'i döner. Ayar yoksa çekirdek
+ * marka adı taşımaz: önce geçerli kiracının adı (tek modda varsayılan kiracı,
+ * store facade ile aynı çözümleme), o da yoksa boş dize. Boş değerde etiket
+ * üretmesi gereken çağırıcılar istek host'una düşer.
  */
 export async function getSiteName() {
   const values = await getBrandingValues();
-  return values.siteName || 'VIP90.bet';
+  if (values.siteName) return values.siteName;
+  const tenantId = getCurrentTenantId() ?? (getTenancyMode() === 'single' ? getDefaultTenantId() : null);
+  if (tenantId && mongoose.connection.readyState === 1) {
+    const tenant = await Tenant.findById(tenantId).select('name').lean();
+    if (tenant?.name) return tenant.name;
+  }
+  // Son çare: kurulumun kendi adresinin host'u (CLIENT_URL). Çekirdek ürün adı
+  // taşımaz; e-posta, KYC bildirimi ve statik sayfalar boş ad almaz.
+  try {
+    return new URL(clientUrlFallback()).hostname;
+  } catch {
+    return '';
+  }
 }
 
 /** Admin panelinden bir marka alanını değiştirir. */
