@@ -316,15 +316,16 @@ async function getRoleAssignmentModel() {
   return (await import('../models/RoleAssignment.js')).default;
 }
 
-function capabilityPermissionKeys(capabilities) {
-  return new Set(capabilities.map((capability) =>
-    capability.startsWith('partner:') ? capability : `partner:${capability.replaceAll('.', ':')}`
-  ));
+function capabilityPermissionKey(capability) {
+  if (capability.startsWith('partner:')) return capability;
+  const namespaced = `partner:${capability.replaceAll('.', ':')}`;
+  // Capabilities already carrying the partner namespace (e.g. 'partner:grants:use').
+  return PARTNER_PERMISSION_DEFS.some((definition) => definition.key === namespaced) ? namespaced : capability;
 }
 
 function capPartnerPermissions(permissionKeys, capabilities) {
   if (capabilities === null || capabilities === undefined) return permissionKeys;
-  const allowedKeys = capabilityPermissionKeys(capabilities);
+  const allowedKeys = new Set(capabilities.map(capabilityPermissionKey));
   return new Set([...permissionKeys].filter((key) => allowedKeys.has(key)));
 }
 
@@ -335,19 +336,26 @@ export async function getStaffEffectivePermissions(staffId, {
   linkCapabilities = null,
 }) {
   const RoleAssignment = await getRoleAssignmentModel();
-  const assignments = await RoleAssignment.find({ staffId, scopeType, scopeId })
-    .populate({ path: 'roleId', populate: { path: 'permissions', select: 'key' } })
-    .lean();
-  const permissionKeys = new Set();
-
-  for (const assignment of assignments) {
-    for (const permission of assignment.roleId?.permissions || []) {
-      permissionKeys.add(permission.key);
-    }
-  }
+  // Permission must be registered before populate resolves the inner path.
+  if (!mongoose.models.Permission) await import('../models/Permission.js');
+  const assignments = await RoleAssignment.find({ staffId, scopeType, scopeId }).select('roleId').lean();
+  const roleIds = assignments.map((assignment) => assignment.roleId).filter(Boolean);
+  const roles = roleIds.length ? await Role.find({ _id: { $in: roleIds } }).lean() : [];
+  const permissionIds = roles.flatMap((role) => role.permissions || []);
+  const permissions = permissionIds.length
+    ? await Permission.find({ _id: { $in: permissionIds } }).select('key').lean()
+    : [];
+  const permissionKeys = new Set(permissions.map((permission) => permission.key));
 
   if (scopeType !== 'partner') return permissionKeys;
   return capPartnerPermissions(capPartnerPermissions(permissionKeys, partnerCapabilities), linkCapabilities);
+}
+
+/** True when a partner capability on its own covers `permissionKey` (additive, partner scope only). */
+export function partnerCapabilityAllows(partner, permissionKey) {
+  const capabilities = partner?.capabilities;
+  if (!Array.isArray(capabilities)) return false;
+  return capabilities.some((capability) => capabilityPermissionKey(capability) === permissionKey);
 }
 
 export async function staffHasPermission(staffId, permissionKey, context) {
