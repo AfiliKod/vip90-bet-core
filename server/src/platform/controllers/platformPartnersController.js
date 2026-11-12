@@ -2,6 +2,7 @@ import mongoose from 'mongoose';
 import Partner from '../../models/Partner.js';
 import PartnerOperatorLink from '../../models/PartnerOperatorLink.js';
 import { createError } from '../../middleware/error.js';
+import { writePlatformLevelAudit } from '../services/platformAudit.js';
 
 function validId(id) {
   return mongoose.isObjectIdOrHexString(id);
@@ -46,6 +47,10 @@ export async function createPartner(req, res, next) {
       defaultCommercialTerms,
       createdBy: req.staff.id,
     });
+    await writePlatformLevelAudit(req, 'PARTNER_CREATED', {
+      targetId: partner._id,
+      metadata: { key: partner.key, capabilities: partner.capabilities },
+    });
     res.status(201).json({ partner });
   } catch (err) {
     next(err);
@@ -77,6 +82,7 @@ export async function updatePartner(req, res, next) {
     const partner = await Partner.findById(id);
     if (!partner) throw createError(404, 'PARTNER_NOT_FOUND', 'Partner not found');
 
+    const previous = { status: partner.status, capabilities: [...(partner.capabilities || [])] };
     if (status) partner.status = status;
     if (capabilities) partner.capabilities = capabilities;
     if (provisioningLimits) partner.provisioningLimits = mergedSubdoc(partner.provisioningLimits, provisioningLimits);
@@ -85,6 +91,10 @@ export async function updatePartner(req, res, next) {
     if (legalEntity) partner.legalEntity = mergedSubdoc(partner.legalEntity, legalEntity);
 
     await partner.save();
+    await writePlatformLevelAudit(req, 'PARTNER_UPDATED', {
+      targetId: partner._id,
+      metadata: { before: previous, after: { status: partner.status, capabilities: partner.capabilities }, fields: Object.keys(req.body || {}) },
+    });
     res.json({ partner });
   } catch (err) {
     next(err);

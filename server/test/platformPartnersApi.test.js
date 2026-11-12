@@ -94,3 +94,11 @@ test('PATCH /api/platform/partners/:id updates status, capabilities and limits',
     assert.ok(body.partner.capabilities.includes('tenants.config:write'));
   });
 });
+
+test('partner create and update leave platform-level audit rows', async () => {
+  const { default: AuditLog } = await import('../src/models/AuditLog.js');
+  const { runAsPlatform } = await import('../src/tenancy/context.js');
+  const rows = await runAsPlatform('test', () => AuditLog.find({ action: { $in: ['PARTNER_CREATED', 'PARTNER_UPDATED'] } }).lean());
+  assert.ok(rows.some((r) => r.action === 'PARTNER_CREATED'), 'create is audited');
+  assert.ok(rows.every((r) => r.tenantId === null && r.actorScope === 'platform'));
+});
