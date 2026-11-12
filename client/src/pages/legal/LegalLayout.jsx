@@ -1,6 +1,6 @@
 import { Link, useLocation } from 'react-router-dom';
 import { useTranslation } from '../../i18n';
-import { COMPANY, LEGAL_VERSION, getLegalName } from '../../data/legalContent';
+import { LEGAL_VERSION, getLegalName, getCompanyInfo } from '../../data/legalContent';
 import { SURFACE_CARD_BG, SURFACE_BORDER } from '../../styles/surface';
 import { useBrandingStore } from '../../store/brandingStore';
 
@@ -19,6 +19,9 @@ export default function LegalLayout({ title, intro, sections, children }) {
   const { t, locale } = useTranslation();
   const updatedAt = new Date().toLocaleDateString(locale);
   const siteName = useBrandingStore(s => s.siteName);
+  // legalEntity /api/branding ile sonradan gelir; değişince yeniden render et.
+  useBrandingStore(s => s.legalEntity);
+  const company = getCompanyInfo();
   const legalName = getLegalName(siteName);
 
   // Sayfa BAŞLIĞI (h1) dile göre değişsin — DB'deki `title` (StaticPage.title,
@@ -111,15 +114,15 @@ export default function LegalLayout({ title, intro, sections, children }) {
             {/* Footer info */}
             <div className="mt-8 pt-6 border-t border-white/[0.06] text-[11px] text-text-3">
               <p className="mb-1">
-                <strong className="text-text-1">{legalName}</strong> · {COMPANY.address}
+                <strong className="text-text-1">{legalName}</strong>{company.address ? ` · ${company.address}` : ''}
               </p>
-              <p className="mb-1">📜 {COMPANY.license}</p>
+              {company.license && <p className="mb-1">📜 {company.license}</p>}
               <p>
-                📧 <a href={`mailto:${COMPANY.email}`} className="underline text-primary">{COMPANY.email}</a>
-                {COMPANY.responsibleEmail && (
+                📧 <a href={`mailto:${company.email}`} className="underline text-primary">{company.email}</a>
+                {company.responsibleEmail && (
                   <>
                     {' · '}
-                    <a href={`mailto:${COMPANY.responsibleEmail}`} className="underline text-primary">{COMPANY.responsibleEmail}</a>
+                    <a href={`mailto:${company.responsibleEmail}`} className="underline text-primary">{company.responsibleEmail}</a>
                   </>
                 )}
               </p>

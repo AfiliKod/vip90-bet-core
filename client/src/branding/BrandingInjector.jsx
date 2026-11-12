@@ -50,7 +50,7 @@ export default function BrandingInjector() {
         style.textContent = `@font-face { font-family: ${JSON.stringify(family)}; src: url(${JSON.stringify(v.fontFile)}); font-display: swap; }`;
       }
 
-      useBrandingStore.getState().setBranding(v);
+      useBrandingStore.getState().setBranding(v, { legalEntity: data.legalEntity ?? null });
     }).catch(() => { /* varsayılan markalama ile devam */ });
     return () => { cancelled = true; };
   }, []);

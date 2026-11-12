@@ -5,23 +5,53 @@
 // yasalarına uymakla sorumludur.
 
 import { formatMoney } from '../utils/money.js';
-import { useBrandingStore } from '../store/brandingStore';
+import { useBrandingStore } from '../store/brandingStore.js';
 
 export const LEGAL_VERSION = '1.0.0';
 
-export const COMPANY = {
+// Nötr çekirdek varsayılanları: gerçek tüzel kişi bilgileri kurulumun
+// kendi ayarlarından (Tenant.legalEntity → /api/branding → store) gelir.
+export const DEFAULT_LEGAL_ENTITY = {
   name: 'Bet Platform',
-  address: 'Heelsumstraat 51, E-Commerce Park, Curaçao',
-  license: 'Curacao Gaming Control Board — Lisans #8048/JAZ2024-001',
-  email: 'support@vip90.bet',
-  responsibleEmail: 'responsible@vip90.bet',
+  address: '',
+  license: '',
+  email: 'support@example.com',
+  responsibleEmail: 'responsible@example.com',
 };
 
-// Yasal unvan placeholder'dır ("... International N.V.") — marka adı kısmı
-// admin panelinin Marka Kimliği sekmesindeki siteName alanından gelir, statik
-// değildir. Render zamanında çağrılmalı (modül yüklenirken değil).
-export const getLegalName = (siteName = useBrandingStore.getState().siteName) =>
-  `${siteName || 'VIP90.bet'} International N.V.`;
+export function getCompanyInfo() {
+  const store = useBrandingStore.getState();
+  const entity = store.legalEntity;
+  const siteName = store.siteName;
+  if (!entity && !siteName) return DEFAULT_LEGAL_ENTITY;
+  return {
+    name: entity?.name || (siteName ? `${siteName} International N.V.` : DEFAULT_LEGAL_ENTITY.name),
+    address: entity?.address || DEFAULT_LEGAL_ENTITY.address,
+    license: entity?.registrationNo ? `Lisans #${entity.registrationNo}` : DEFAULT_LEGAL_ENTITY.license,
+    email: DEFAULT_LEGAL_ENTITY.email,
+    responsibleEmail: DEFAULT_LEGAL_ENTITY.responsibleEmail,
+  };
+}
+
+// Şirket bilgileri render/zamanında okunur (modül yüklenirken değil) —
+// BrandingInjector /api/branding'i sonradan doldurur.
+export const COMPANY = {
+  get name() { return getCompanyInfo().name; },
+  get address() { return getCompanyInfo().address; },
+  get license() { return getCompanyInfo().license; },
+  get email() { return getCompanyInfo().email; },
+  get responsibleEmail() { return getCompanyInfo().responsibleEmail; },
+};
+
+// Yasal unvan önce Tenant.legalEntity.name'den, yoksa siteName'den türetilir
+// ("... International N.V."); marka adı kısmı admin panelinin Marka Kimliği
+// sekmesindeki siteName alanından gelir, statik değildir. Render zamanında
+// çağrılmalı (modül yüklenirken değil).
+export const getLegalName = (siteName = useBrandingStore.getState().siteName) => {
+  const entity = useBrandingStore.getState().legalEntity;
+  if (entity?.name) return entity.name;
+  return siteName ? `${siteName} International N.V.` : DEFAULT_LEGAL_ENTITY.name;
+};
 
 // ─── Terms of Service ─────────────────────────────────────────────
 export const TERMS = {
