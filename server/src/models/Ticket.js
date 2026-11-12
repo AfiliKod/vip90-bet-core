@@ -1,4 +1,6 @@
 import mongoose from 'mongoose';
+import { registerTenantIndexes } from '../tenancy/indexRegistry.js';
+import { defineTenantModel } from '../tenancy/models.js';
 
 const messageSchema = new mongoose.Schema({
   senderId:   { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true },
@@ -7,6 +9,7 @@ const messageSchema = new mongoose.Schema({
 }, { timestamps: true });
 
 const schema = new mongoose.Schema({
+  tenantId:   { type: mongoose.Schema.Types.ObjectId, ref: 'Tenant', required: false, index: true, immutable: true },
   userId:     { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true },
   subject:    { type: String, required: true },
   status:     { type: String, enum: ['open', 'in_progress', 'resolved', 'closed'], default: 'open' },
@@ -18,4 +21,9 @@ const schema = new mongoose.Schema({
 schema.index({ userId: 1, createdAt: -1 });
 schema.index({ status: 1, createdAt: -1 });
 
-export default mongoose.model('Ticket', schema);
+registerTenantIndexes('Ticket', [
+  { keys: { tenantId: 1, userId: 1, createdAt: -1 }, options: { name: 'tenant_userId_createdAt' } },
+  { keys: { tenantId: 1, status: 1, createdAt: -1 }, options: { name: 'tenant_status_createdAt' } },
+]);
+
+export default defineTenantModel('Ticket', schema);
