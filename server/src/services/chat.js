@@ -17,6 +17,9 @@ import { assertRiskAllowed } from '../middleware/risk.js';
 import { assertNoOpenIgamesSession } from './igamesSessionGuard.js';
 import { adminIpAllowedForSocket } from '../middleware/adminIpAllowlist.js';
 import { logAuditEvent } from './audit.js';
+import { createSocketTenantResolver, socketPacketTenant, socketTenantMiddleware } from '../socket/tenant.js';
+import { chatRoom } from '../tenancy/tenantKeys.js';
+import { getTenancyMode } from '../config/tenancy.js';
 
 /**
  * Chat Room Management
@@ -831,18 +834,31 @@ export async function getModerationHistory(roomId, options = {}) {
  * Socket Events
  */
 
-export function initChatSocket(io) {
+export function initChatSocket(io, { resolveSocketTenant = createSocketTenantResolver() } = {}) {
   const chatNS = io.of('/chat');
-  
+
+  chatNS.use(socketTenantMiddleware(resolveSocketTenant));
   chatNS.use(socketAuthMiddleware);
 
   chatNS.on('connection', (socket) => {
-    socket.on('chat:join', ({ roomId }) => {
-      socket.join(`room:${roomId}`);
+    socket.use((_event, next) => socketPacketTenant(socket, next));
+    socket.on('chat:join', async ({ roomId } = {}) => {
+      const tenantId = socket.data?.tenantId ?? null;
+      if (!roomId) return;
+      // Multi mode needs a bound tenant; single mode without one uses today's room name.
+      if (!tenantId && getTenancyMode() !== 'single') return;
+      try {
+        const room = await ChatRoom.findById(roomId).select('_id').lean();
+        if (!room) return socket.emit('chat:error', { code: 'ROOM_NOT_FOUND', message: 'Oda bulunamadı' });
+        socket.join(chatRoom(tenantId, roomId));
+      } catch {
+        socket.emit('chat:error', { code: 'ROOM_NOT_FOUND', message: 'Oda bulunamadı' });
+      }
     });
     
-    socket.on('chat:leave', ({ roomId }) => {
-      socket.leave(`room:${roomId}`);
+    socket.on('chat:leave', ({ roomId } = {}) => {
+      if (!roomId) return;
+      socket.leave(chatRoom(socket.data?.tenantId ?? null, roomId));
     });
     
     socket.on('chat:send', async ({ roomId, message, type = 'text' }) => {
