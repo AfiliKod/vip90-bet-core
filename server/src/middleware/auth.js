@@ -1,9 +1,11 @@
 import jwt from 'jsonwebtoken';
+import mongoose from 'mongoose';
 import { createError } from './error.js';
 import { enforceAdminIp } from './adminIpAllowlist.js';
 import StaffAccount from '../models/StaffAccount.js';
+import Tenant from '../models/Tenant.js';
 import { getTenancyMode } from '../config/tenancy.js';
-import { tenantContext } from '../tenancy/context.js';
+import { runWithTenant, tenantContext } from '../tenancy/context.js';
 import { getStaffAuthState, verifyStaffAccess } from '../services/staffSession.js';
 import { staffHasPermission } from '../services/permissions.js';
 
@@ -120,6 +122,12 @@ export async function requireAuth(req, res, next) {
 function setStaffActor(next, req, res, staff) {
   const context = tenantContext.get();
   const continueRequest = () => enforceAdminIp(req, res, next);
+  if (req.tenant?.id) {
+    return runWithTenant(req.tenant.id, continueRequest, {
+      brandId: req.tenant.brandId ?? null,
+      actor: { kind: 'staff', id: staff.id, scope: staff.scope },
+    });
+  }
   if (!context) return continueRequest();
   return tenantContext.run(Object.freeze({
     ...context,
@@ -161,6 +169,23 @@ export function requireStaff(allowedScope = null) {
 
       if (allowedScope && payload.scp !== allowedScope && payload.scp !== 'platform') {
         return next(createError(403, 'FORBIDDEN', 'Bu işlem için yetki yok'));
+      }
+      if (allowedScope === 'tenant' && payload.scp === 'platform') {
+        const tenantId = req.headers['x-tenant-id'];
+        if (!tenantId) {
+          return next(createError(400, 'TENANT_REQUIRED', 'Kiracı kimliği gerekli'));
+        }
+        if (!mongoose.isObjectIdOrHexString(tenantId)) {
+          return next(createError(404, 'TENANT_NOT_FOUND', 'Kiracı bulunamadı'));
+        }
+        const tenant = await Tenant.findOne({ _id: tenantId, status: { $ne: 'closed' } }).lean();
+        if (!tenant) {
+          return next(createError(404, 'TENANT_NOT_FOUND', 'Kiracı bulunamadı'));
+        }
+        req.tenant = {
+          id: tenant._id,
+          brandId: null,
+        };
       }
       if (payload.scp === 'tenant' && String(payload.sid) !== String(req.tenant?.id)) {
         return next(createError(403, 'CROSS_TENANT_ACCESS', 'Farklı kiracıya erişim reddedildi'));
