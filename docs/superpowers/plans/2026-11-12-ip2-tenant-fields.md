@@ -38,7 +38,7 @@
    would stop a fresh install from creating the existing unique indexes (`username`, `email`, `Transaction.idempotencyKey`
    …) and would allow duplicate users and double credits.
 2. **New compound indexes do not go into the schema.** Each task registers them in
-   `server/src/tenancy/indexRegistry.js` (created by Task 1; Tasks 2-6 only append their own `registerTenantIndexes`
+   `server/src/tenancy/indexRegistry.js` (already on the base branch, with tests; every task only adds its own `registerTenantIndexes`
    call in their model files):
    `export function registerTenantIndexes(modelName, specs)` where `specs` is `[{ keys: {tenantId: 1, username: 1}, options: { unique: true, partialFilterExpression?, name } }]`,
    `export function listTenantIndexes() -> [{ modelName, keys, options }]`, `export function _resetTenantIndexes()` (tests only).
