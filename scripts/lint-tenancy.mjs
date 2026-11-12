@@ -4,6 +4,7 @@ import { relative, join } from 'node:path';
 
 export const RUN_AS_PLATFORM_ALLOWLIST = new Set([
   'server/src/platform/services/platformAudit.js',
+  'server/src/platform/services/billingService.js',
   'server/src/services/settlement.js',
   'server/src/services/tenantDailyStat.js',
   'server/src/services/ledgerDedupe.js',

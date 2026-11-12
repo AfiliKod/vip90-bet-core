@@ -13,6 +13,11 @@ import {
   invitePartnerStaff,
   suspendPartnerStaff,
 } from '../controllers/partnerPortalController.js';
+import {
+  listPartnerStatements,
+  getPartnerStatement,
+  exportPartnerStatementCsv,
+} from '../controllers/partnerBillingController.js';
 
 export function createPartnerRouter() {
   const router = Router();
@@ -31,6 +36,10 @@ export function createPartnerRouter() {
   router.get('/staff', requireStaffPermission('partner:staff:write'), listPartnerStaff);
   router.post('/staff', requireStaffPermission('partner:staff:write'), invitePartnerStaff);
   router.patch('/staff/:id/suspend', requireStaffPermission('partner:staff:write'), suspendPartnerStaff);
+
+  router.get('/statements', requireStaffPermission('partner:metrics:read'), listPartnerStatements);
+  router.get('/statements/:id/export', requireStaffPermission('partner:metrics:read'), exportPartnerStatementCsv);
+  router.get('/statements/:id', requireStaffPermission('partner:metrics:read'), getPartnerStatement);
 
   return router;
 }

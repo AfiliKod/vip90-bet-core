@@ -18,6 +18,11 @@ Madde formatı ve kategoriler için `docs/CHANGELOG_GUIDE.md`'ye bakın —
 
 ## [Yayınlanmadı]
 
+### İP-9c: komisyon, faturalama ve platform çapraz raporları
+**Eklendi**
+- Operatör oran beslemesi maliyet planları, partner ekstreleri, gün bazında geçerli ticari koşullarla GGR komisyon hesaplama, ekstre yaşam döngüsü, denetimli düzeltmeler ve platform/partner raporları eklendi. İlk sürümün komisyon tabanı yalnız GGR'dir (`casinoGgr + sportsGgrRealized`); NGR istekleri uygulanana kadar `ERR_NGR_NOT_IMPLEMENTED` ile reddedilir.
+- Ticari model, oranlar, sabit ücretler ve negatif GGR davranışı yapılandırmadandır; kurulum sahibi S3 kapsamındaki ticari koşulları doğrulamalıdır.
+
 ### İP-9b: partner yönetimi, partner portalı ve denetimli operatör erişimi
 **Kırılan Değişiklikler**
 - **`TENANCY_MODE=single` kurulumlar için kırılan değişiklik yoktur.** Partner API'si (`/api/partner/*`) tek modda `404` döner; mevcut tek operatörlü akışlar değişmez.

@@ -7,6 +7,8 @@ export const platformNav = [
   { name: 'Tenants & Operators', path: '/tenants' },
   { name: 'Partners', path: '/partners' },
   { name: 'Domains', path: '/domains' },
+  { name: 'Billing & Fee Plans', path: '/billing' },
+  { name: 'Platform Reports', path: '/reports' },
   { name: 'Scope Gates (N6)', path: '/scope-gates' },
 ];
 
@@ -14,6 +16,7 @@ export const partnerNav = [
   { name: 'Genel Bakış', path: '/partner' },
   { name: 'Operatörlerim', path: '/partner/operators' },
   { name: 'Yeni Operatör Başlat', path: '/partner/operators/new' },
+  { name: 'Komisyon & Faturalar', path: '/partner/statements' },
   { name: 'Personel', path: '/partner/staff' },
 ];
 

@@ -98,6 +98,7 @@ const LEGACY_PERMISSION_DEFS = [
 
 export const PARTNER_PERMISSION_DEFS = [
   { key: 'partner:metrics:read', name: 'Partner Metriklerini Görüntüle', category: 'partner', description: 'GGR, turnover ve aktif oyuncu toplamlarını görüntüleme' },
+  { key: 'partner:billing:read', name: 'Partner Faturalarını Görüntüle', category: 'partner', description: 'Kendi partner fatura ve komisyon ekstrelerini görüntüleme' },
   { key: 'partner:staff:write', name: 'Partner Personelini Yönet', category: 'partner', description: 'Partner personeli ve rollerini yönetme' },
   { key: 'partner:tenants:create', name: 'Operatör Oluştur', category: 'partner', description: 'Partner kotası altında operatör sağlama' },
   { key: 'partner:tenants:config:write', name: 'Operatör Yapılandırmasını Yönet', category: 'partner', description: 'Tavanlar içinde marka, tema, VIP ve promosyon yapılandırması' },
@@ -113,6 +114,8 @@ export const PLATFORM_PERMISSION_DEFS = [
   { key: 'platform:partners:manage', name: 'Partnerleri Yönet', category: 'platform', description: 'Partner CRUD ve yetenek kümelerini yönetme' },
   { key: 'platform:tenants:manage', name: 'Operatörleri Yönet', category: 'platform', description: 'Platform düzeyinde operatör kontrolü ve kapatma' },
   { key: 'platform:billing:read', name: 'Faturalamayı Görüntüle', category: 'platform', description: 'Komisyon ve faturaları görüntüleme' },
+  { key: 'platform:billing:manage', name: 'Faturalamayı Yönet', category: 'platform', description: 'Operatör ücret planları ve partner faturalarını oluşturma/yönetme' },
+  { key: 'platform:reports:read', name: 'Platform Raporlarını Görüntüle', category: 'platform', description: 'Platform çapraz kiracı metrik ve finans raporlarını görüntüleme' },
   { key: 'platform:roles:manage', name: 'Platform Rollerini Yönet', category: 'platform', description: 'Platform rol atamalarını yönetme' },
 ];
 
@@ -290,11 +293,11 @@ export async function initDefaultScopedRoles() {
   const roles = [
     { name: 'platform_owner', displayName: 'Platform Sahibi', description: 'Tüm platform yetkileri', permissions: permissionIds(permissionMap, permissions.map((permission) => permission.key)), isSystem: true, priority: 100, scopeType: 'platform', scopeId: null },
     { name: 'platform_ops', displayName: 'Platform Operasyonları', description: 'Platform operasyon yetkileri', permissions: permissionIds(permissionMap, ['platform:events:settle', 'platform:tenants:manage']), isSystem: true, priority: 80, scopeType: 'platform', scopeId: null },
-    { name: 'platform_finance', displayName: 'Platform Finans', description: 'Platform finans yetkileri', permissions: permissionIds(permissionMap, ['platform:billing:read']), isSystem: true, priority: 70, scopeType: 'platform', scopeId: null },
+    { name: 'platform_finance', displayName: 'Platform Finans', description: 'Platform finans yetkileri', permissions: permissionIds(permissionMap, ['platform:billing:read', 'platform:billing:manage', 'platform:reports:read']), isSystem: true, priority: 70, scopeType: 'platform', scopeId: null },
     { name: 'platform_support', displayName: 'Platform Destek', description: 'Platform destek yetkileri', permissions: [], isSystem: true, priority: 60, scopeType: 'platform', scopeId: null },
     { name: 'partner_admin', displayName: 'Partner Yöneticisi', description: 'Partner yetenek kümesi sınırlarında tüm partner yetkileri', permissions: permissionIds(permissionMap, partnerPermissionKeys), isSystem: true, priority: 80, scopeType: 'partner', scopeId: null },
     { name: 'partner_ops', displayName: 'Partner Operasyonları', description: 'Partner operasyon yetkileri', permissions: permissionIds(permissionMap, partnerPermissionKeys.filter((key) => key !== 'partner:staff:write')), isSystem: true, priority: 60, scopeType: 'partner', scopeId: null },
-    { name: 'partner_analyst', displayName: 'Partner Analisti', description: 'Partner metriklerini görüntüleme', permissions: permissionIds(permissionMap, ['partner:metrics:read']), isSystem: true, priority: 40, scopeType: 'partner', scopeId: null },
+    { name: 'partner_analyst', displayName: 'Partner Analisti', description: 'Partner metriklerini görüntüleme', permissions: permissionIds(permissionMap, ['partner:metrics:read', 'partner:billing:read']), isSystem: true, priority: 40, scopeType: 'partner', scopeId: null },
     { name: 'tenant_owner', displayName: 'Kiracı Sahibi', description: 'Tüm kiracı yetkileri', permissions: permissionIds(permissionMap, tenantPermissionKeys), isSystem: true, priority: 100, scopeType: 'tenant', scopeId: null },
     { name: 'admin', displayName: 'Admin', description: 'Rol yönetimi hariç genel kiracı yetkileri', permissions: permissionIds(permissionMap, tenantPermissionKeys.filter((key) => !key.startsWith('admin:roles:'))), isSystem: true, priority: 90, scopeType: 'tenant', scopeId: null },
     { name: 'finance', displayName: 'Finans', description: 'Kiracı finans yetkileri', permissions: permissionIds(permissionMap, ['admin:users:read', 'admin:users:balance', 'admin:transactions:read', 'admin:transactions:write', 'admin:referral:read', 'admin:referral:approve', 'admin:referral:rates', 'admin:agent:read', 'admin:reports:read', 'admin:reports:export']), isSystem: true, priority: 60, scopeType: 'tenant', scopeId: null },
