@@ -97,6 +97,8 @@ export async function aggregateTenantDailyStat(tenantId, dateStr, { currency = '
           sportsTurnover: sportsRows[0]?.turnover ?? 0,
           sportsGgrRealized: sportsRows[0]?.ggr ?? 0,
           bonusCost: bonusRows[0]?.total ?? 0,
+          chargebacks: 0, // No source yet (K28): refunds/reversals must NOT be treated as chargebacks
+          providerFees: 0, // Source documented: external game provider invoices not ingested in core database
           deposits: depositRows[0]?.total ?? 0,
           withdrawals: withdrawRows[0]?.total ?? 0,
           activePlayers: activeIds.size,
@@ -127,6 +129,8 @@ export async function getPartnerDailyMetrics({ tenantId, from, to }) {
     sportsTurnover: row.sportsTurnover,
     sportsGgrRealized: row.sportsGgrRealized,
     bonusCost: row.bonusCost,
+    chargebacks: row.chargebacks ?? 0,
+    providerFees: row.providerFees ?? 0,
     deposits: row.deposits,
     withdrawals: row.withdrawals,
     activePlayers: row.activePlayers < 5 ? '<5' : String(row.activePlayers),
