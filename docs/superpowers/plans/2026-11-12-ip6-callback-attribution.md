@@ -27,6 +27,20 @@
 
 ---
 
+## Reviewer correction (2026-11-12): overrides every conflicting line below
+
+1. **Public repository.** The casino content provider's commercial name and API host never appear in core or in this
+   plan. Defaults for provider URLs stay inside the igames add-on repository.
+2. Tasks 4, 5 and 6 are implemented in the add-on repositories (branch `feat/ip6-…` in each), not in core. Core never
+   imports them; the add-ons attach through `registerTenantCredentialSchema` / `registerTenantProvisioningHook` and the
+   callback helpers from Task 3.
+3. Single mode keeps every callback URL and payload working exactly as today (old URLs without a tenant segment stay
+   valid and resolve to the default tenant). A callback whose tenant cannot be determined in multi mode is rejected and
+   credits nothing (spec §9 G-4).
+4. Never change an existing test to make a new one pass; never weaken signature/HMAC/IP checks from İP-0 (F2 igames IP
+   allowlist, V11 Sumsub raw body, V10/V18 money handling). Do NOT run the full root npm test; run your task's tests and
+   directly related files only.
+
 ## Review Focus
 
 - **Slikair attribution integrity (§8.4):** Slikair payment and payout webhooks must resolve the tenant solely from the stored `SlikairPayment` or `SlikairPayout` document and verify status against Slikair using that specific tenant's credentials. Webhook requests with an unknown or spoofed `payinId` must never credit any user.
@@ -651,7 +665,7 @@ import { registerTenantCredentialSchema } from '../../tenancy/index.js';
 registerTenantCredentialSchema('igames', {
   fields: [
     { key: 'igames.apiToken', label: 'Palace API Token', secret: true, required: true },
-    { key: 'igames.apiBase', label: 'Palace API Base URL', default: 'https://agent.goldslotpalace.com' },
+    { key: 'igames.apiBase', label: 'Provider API base URL', default: '' } // no default in the plan: the add-on keeps its own,
     { key: 'igames.callbackToken', label: 'Palace Callback Token', secret: true, required: true },
     { key: 'igames.agentCode', label: 'Palace Agent Code' },
   ],
