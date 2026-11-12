@@ -1,30 +1,36 @@
 import {
   getAllBrands,
-  getBrandById,
+  getBrandById as getBrandByIdService,
   getBrandBySlug,
   getBrandByDomain,
   getDefaultBrand,
   createBrand,
-  updateBrand,
+  updateBrand as updateBrandService,
   deleteBrand,
   addDomain,
   removeDomain,
   setPrimaryDomain,
   getBrandStats,
 } from '../services/multiBrand.js';
+import { createError } from '../middleware/error.js';
 
 /**
- * GET /api/admin/brands
- * Get all brands
+ * Brand `:id` endpoints are tenant-scoped (İP-5, §9 G-3): a `:id` that
+ * belongs to another tenant answers 404 `NOT_FOUND`, never 403 and never
+ * the record. Single-tenant installs keep the legacy behaviour when the
+ * request carries no tenant.
  */
+
+/** GET /api/admin/brands */
 export async function getAllBrandsHandler(req, res, next) {
   try {
     const { page, limit, isActive, search } = req.query;
-    const result = await getAllBrands({ 
-      page, 
-      limit, 
+    const result = await getAllBrands({
+      page,
+      limit,
       search,
-      isActive: isActive !== undefined ? isActive === 'true' : null 
+      isActive: isActive !== undefined ? isActive === 'true' : null,
+      tenantId: req.tenant?.id ?? null,
     });
     res.json(result);
   } catch (error) {
@@ -32,39 +38,30 @@ export async function getAllBrandsHandler(req, res, next) {
   }
 }
 
-/**
- * GET /api/admin/brands/default
- * Get default brand
- */
+/** GET /api/admin/brands/default */
 export async function getDefaultBrandHandler(req, res, next) {
   try {
-    const brand = await getDefaultBrand();
+    const brand = await getDefaultBrand({ tenantId: req.tenant?.id ?? null });
     res.json({ brand });
   } catch (error) {
     next(error);
   }
 }
 
-/**
- * GET /api/admin/brands/stats
- * Get brand statistics
- */
+/** GET /api/admin/brands/stats */
 export async function getBrandStatsHandler(req, res, next) {
   try {
-    const stats = await getBrandStats();
+    const stats = await getBrandStats({ tenantId: req.tenant?.id ?? null });
     res.json({ stats });
   } catch (error) {
     next(error);
   }
 }
 
-/**
- * GET /api/admin/brands/slug/:slug
- * Get brand by slug
- */
+/** GET /api/admin/brands/slug/:slug */
 export async function getBrandBySlugHandler(req, res, next) {
   try {
-    const brand = await getBrandBySlug(req.params.slug);
+    const brand = await getBrandBySlug(req.params.slug, { tenantId: req.tenant?.id ?? null });
     if (!brand) {
       return res.status(404).json({ error: { code: 'NOT_FOUND', message: 'Brand not found' } });
     }
@@ -74,13 +71,10 @@ export async function getBrandBySlugHandler(req, res, next) {
   }
 }
 
-/**
- * GET /api/admin/brands/domain/:domain
- * Get brand by domain
- */
+/** GET /api/admin/brands/domain/:domain */
 export async function getBrandByDomainHandler(req, res, next) {
   try {
-    const brand = await getBrandByDomain(req.params.domain);
+    const brand = await getBrandByDomain(req.params.domain, { tenantId: req.tenant?.id ?? null });
     if (!brand) {
       return res.status(404).json({ error: { code: 'NOT_FOUND', message: 'Brand not found' } });
     }
@@ -90,31 +84,27 @@ export async function getBrandByDomainHandler(req, res, next) {
   }
 }
 
-/**
- * GET /api/admin/brands/:id
- * Get brand by ID
- */
-export async function getBrandByIdHandler(req, res, next) {
+/** GET /api/admin/brands/:id */
+export async function getBrandById(req, res, next) {
   try {
-    const brand = await getBrandById(req.params.id);
-    if (!brand) {
-      return res.status(404).json({ error: { code: 'NOT_FOUND', message: 'Brand not found' } });
-    }
+    const brand = await getBrandByIdService(req.params.id, { tenantId: req.tenant?.id ?? null });
+    if (!brand) throw createError(404, 'NOT_FOUND', 'Brand not found');
     res.json({ brand });
   } catch (error) {
     next(error);
   }
 }
 
-/**
- * POST /api/admin/brands
- * Create a new brand
- */
+export const getBrandByIdHandler = getBrandById;
+
+/** POST /api/admin/brands */
 export async function createBrandHandler(req, res, next) {
   try {
+    // Never trust a tenantId from the body: the ambient tenant wins.
+    const { tenantId: _skip, ...body } = req.body ?? {};
     const brand = await createBrand({
-      ...req.body,
-      createdBy: req.user.id,
+      ...body,
+      createdBy: req.user?.id,
     });
     res.status(201).json({ brand });
   } catch (error) {
@@ -122,72 +112,60 @@ export async function createBrandHandler(req, res, next) {
   }
 }
 
-/**
- * PATCH /api/admin/brands/:id
- * Update brand
- */
-export async function updateBrandHandler(req, res, next) {
+/** PATCH /api/admin/brands/:id */
+export async function updateBrand(req, res, next) {
   try {
-    const brand = await updateBrand(req.params.id, {
-      ...req.body,
-      updatedBy: req.user.id,
-    });
-    if (!brand) {
-      return res.status(404).json({ error: { code: 'NOT_FOUND', message: 'Brand not found' } });
-    }
+    // Never trust a tenantId from the body: the ambient tenant wins.
+    const { tenantId: _skip, _id, ...body } = req.body ?? {};
+    const brand = await updateBrandService(
+      req.params.id,
+      { ...body, updatedBy: req.user?.id },
+      { tenantId: req.tenant?.id ?? null },
+    );
+    if (!brand) throw createError(404, 'NOT_FOUND', 'Brand not found');
     res.json({ brand });
   } catch (error) {
     next(error);
   }
 }
 
-/**
- * DELETE /api/admin/brands/:id
- * Delete brand
- */
+export const updateBrandHandler = updateBrand;
+
+/** DELETE /api/admin/brands/:id */
 export async function deleteBrandHandler(req, res, next) {
   try {
-    await deleteBrand(req.params.id);
+    await deleteBrand(req.params.id, { tenantId: req.tenant?.id ?? null });
     res.json({ ok: true });
   } catch (error) {
     next(error);
   }
 }
 
-/**
- * POST /api/admin/brands/:id/domains
- * Add domain to brand
- */
+/** POST /api/admin/brands/:id/domains */
 export async function addDomainHandler(req, res, next) {
   try {
     const { domain } = req.body;
-    const brand = await addDomain(req.params.id, domain);
+    const brand = await addDomain(req.params.id, domain, { tenantId: req.tenant?.id ?? null });
     res.json({ brand });
   } catch (error) {
     next(error);
   }
 }
 
-/**
- * DELETE /api/admin/brands/:id/domains/:domain
- * Remove domain from brand
- */
+/** DELETE /api/admin/brands/:id/domains/:domain */
 export async function removeDomainHandler(req, res, next) {
   try {
-    const brand = await removeDomain(req.params.id, req.params.domain);
+    const brand = await removeDomain(req.params.id, req.params.domain, { tenantId: req.tenant?.id ?? null });
     res.json({ brand });
   } catch (error) {
     next(error);
   }
 }
 
-/**
- * PATCH /api/admin/brands/:id/domains/:domain/primary
- * Set primary domain
- */
+/** PATCH /api/admin/brands/:id/domains/:domain/primary */
 export async function setPrimaryDomainHandler(req, res, next) {
   try {
-    const brand = await setPrimaryDomain(req.params.id, req.params.domain);
+    const brand = await setPrimaryDomain(req.params.id, req.params.domain, { tenantId: req.tenant?.id ?? null });
     res.json({ brand });
   } catch (error) {
     next(error);

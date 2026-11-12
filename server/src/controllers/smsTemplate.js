@@ -70,12 +70,12 @@ export function createSmsHandlers({
   }
 
   async function update(req, res) {
-    const template = await service.updateTemplate(req.params.id, req.validated, req.user?.id);
+    const template = await service.updateTemplate(req.params.id, req.validated, req.user?.id, { tenantId: req.tenant?.id ?? null });
     return res.json({ template });
   }
 
   async function remove(req, res) {
-    await service.deleteTemplate(req.params.id);
+    await service.deleteTemplate(req.params.id, { tenantId: req.tenant?.id ?? null });
     return res.json({ ok: true });
   }
 
@@ -88,6 +88,7 @@ export function createSmsHandlers({
       userIds: body.userIds ?? [],
       variables: body.variables ?? {},
       adminId: req.user?.id,
+      tenantId: req.tenant?.id ?? null,
     });
     return res.json(result);
   }
@@ -145,12 +146,12 @@ export function createSmsHandlers({
   }
 
   async function senderUpdate(req, res) {
-    const sender = await senders.updateSender(req.params.id, req.validated, req.user?.id);
+    const sender = await senders.updateSender(req.params.id, req.validated, req.user?.id, { tenantId: req.tenant?.id ?? null });
     return res.json({ sender, rejectedTrialNumbers: sender.rejectedTrialNumbers ?? [] });
   }
 
   async function senderRemove(req, res) {
-    await senders.deleteSender(req.params.id);
+    await senders.deleteSender(req.params.id, { tenantId: req.tenant?.id ?? null });
     return res.json({ ok: true });
   }
 
@@ -159,7 +160,7 @@ export function createSmsHandlers({
    * göndermez. Panelde "Neden engelliyim?" sorusunun tek cevabı.
    */
   async function senderGate(req, res) {
-    const gate = await senders.resolveSenderGate(await getSettings());
+    const gate = await senders.resolveSenderGate(await getSettings(), { tenantId: req.tenant?.id ?? null });
     return res.json({
       blocked: gate.blocked,
       reasons: gate.reasons,
@@ -198,3 +199,18 @@ export function createSmsHandlers({
 
 const handlers = createSmsHandlers();
 export default handlers;
+
+/**
+ * Tenant-scoped template `:id` update (İP-5, §9 G-3): a template that
+ * belongs to another tenant answers 404, never 403. Same scoping the
+ * factory's `update` handler applies; exposed as a named export for
+ * callers that need (req, res, next) directly.
+ */
+export async function updateTemplate(req, res, next) {
+  try {
+    const template = await smsService.updateTemplate(req.params.id, req.validated, req.user?.id, { tenantId: req.tenant?.id ?? null });
+    return res.json({ template });
+  } catch (e) {
+    next(e);
+  }
+}

@@ -1,9 +1,9 @@
 import {
   listTemplates,
-  getTemplateById,
+  getTemplateById as getTemplateByIdService,
   createTemplate,
-  updateTemplate,
-  deleteTemplate,
+  updateTemplate as updateTemplateService,
+  deleteTemplate as deleteTemplateService,
   getTemplateStats,
   listLogs,
   listEvents,
@@ -14,6 +14,7 @@ import {
 import { sendBulk } from '../services/systemMail.js';
 import { getSiteName } from '../branding/index.js';
 import { localeStore } from '../services/localeLive.js';
+import { createError } from '../middleware/error.js';
 
 async function lang() {
   try {
@@ -85,16 +86,18 @@ export async function previewMailHandler(req, res, next) {
   }
 }
 
-/** GET /api/admin/mail-templates/:id */
-export async function getMailTemplateHandler(req, res, next) {
+/** GET /api/admin/mail-templates/:id — tenant-scoped (İP-5, §9 G-3) */
+export async function getTemplateById(req, res, next) {
   try {
-    const doc = await getTemplateById(req.params.id);
-    if (!doc) return res.status(404).json({ error: { code: 'MAIL_NOT_FOUND', message: 'Şablon bulunamadı' } });
+    const doc = await getTemplateByIdService(req.params.id, { tenantId: req.tenant?.id ?? null });
+    if (!doc) throw createError(404, 'NOT_FOUND', 'Şablon bulunamadı');
     res.json({ template: doc, sampleVars: buildSampleVars(doc.event) });
   } catch (e) {
     next(e);
   }
 }
+
+export const getMailTemplateHandler = getTemplateById;
 
 /** POST /api/admin/mail-templates */
 export async function createMailTemplateHandler(req, res, next) {
@@ -106,27 +109,31 @@ export async function createMailTemplateHandler(req, res, next) {
   }
 }
 
-/** PATCH /api/admin/mail-templates/:id */
-export async function updateMailTemplateHandler(req, res, next) {
+/** PATCH /api/admin/mail-templates/:id — tenant-scoped (İP-5, §9 G-3) */
+export async function updateTemplate(req, res, next) {
   try {
-    const doc = await updateTemplate(req.params.id, req.validated, req.user?.id || null);
-    if (!doc) return res.status(404).json({ error: { code: 'MAIL_NOT_FOUND', message: 'Şablon bulunamadı' } });
+    const doc = await updateTemplateService(req.params.id, req.validated, req.user?.id || null, { tenantId: req.tenant?.id ?? null });
+    if (!doc) throw createError(404, 'NOT_FOUND', 'Şablon bulunamadı');
     res.json({ template: doc });
   } catch (e) {
     next(e);
   }
 }
 
-/** DELETE /api/admin/mail-templates/:id */
-export async function deleteMailTemplateHandler(req, res, next) {
+export const updateMailTemplateHandler = updateTemplate;
+
+/** DELETE /api/admin/mail-templates/:id — tenant-scoped (İP-5, §9 G-3) */
+export async function deleteTemplate(req, res, next) {
   try {
-    const result = await deleteTemplate(req.params.id);
-    if (!result) return res.status(404).json({ error: { code: 'MAIL_NOT_FOUND', message: 'Şablon bulunamadı' } });
+    const result = await deleteTemplateService(req.params.id, { tenantId: req.tenant?.id ?? null });
+    if (!result) throw createError(404, 'NOT_FOUND', 'Şablon bulunamadı');
     res.json({ deleted: true, ...result });
   } catch (e) {
     next(e);
   }
 }
+
+export const deleteMailTemplateHandler = deleteTemplate;
 
 /**
  * POST /api/admin/mail-templates/:id/send
@@ -139,6 +146,7 @@ export async function sendMailTemplateHandler(req, res, next) {
       audience: req.validated.audience || null,
       triggeredBy: req.user?.id || null,
       trigger: 'manual',
+      tenantId: req.tenant?.id ?? null,
     });
     invalidateMailTemplateCache();
     res.json(result);
