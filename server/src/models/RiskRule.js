@@ -35,10 +35,9 @@ const schema = new mongoose.Schema({
   // ikisi de aynı anda geçip iki ayrı doküman ekleyebilir (MongoDB'nin
   // bilinen upsert-without-unique-index race'i). Ayrıca iki kuralın aynı
   // isimde olması admin UI'da da kafa karıştırıcı olurdu.
-  // Çok kiracılıda platform şablonları (tenantId: null) için unique index
-  // schema.index üzerinden korunur; kiracı kuralları için bileşik unique
-  // index registerTenantIndexes ile G4'e devredilir.
-  name: { type: String, required: true },
+  // Tek modda global unique yerinde kalır (spec §6.3 G4); kiracı içi bileşik
+  // unique indeks registerTenantIndexes ile G4 geçişinde kurulur.
+  name: { type: String, required: true, unique: true },
   description: { type: String, default: '' },
   enabled: { type: Boolean, default: true },
   priority: { type: Number, default: 0 },
@@ -53,7 +52,6 @@ const schema = new mongoose.Schema({
   metadata: { type: mongoose.Schema.Types.Mixed, default: {} },
 }, { timestamps: true });
 
-schema.index({ name: 1 }, { unique: true, partialFilterExpression: { tenantId: null } });
 schema.index({ enabled: 1, priority: -1 });
 schema.index({ category: 1 });
 schema.index({ brandScope: 1 });

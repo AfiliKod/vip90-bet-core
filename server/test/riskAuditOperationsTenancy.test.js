@@ -111,3 +111,11 @@ test('AuditLog supports platform logs and tenant logs', async () => {
   );
   assert.equal(String(tenantLog.tenantId), String(T1));
 });
+
+test('RiskRule keeps its global unique name index unchanged (single mode, spec §6.3 G4)', async () => {
+  const { default: RiskRule } = await import('../src/models/RiskRule.js');
+  const nameIdx = RiskRule.schema.indexes().filter(([keys]) => Object.keys(keys).length === 1 && keys.name === 1);
+  assert.equal(nameIdx.length, 1);
+  assert.equal(nameIdx[0][1].unique, true);
+  assert.equal(nameIdx[0][1].partialFilterExpression, undefined);
+});
