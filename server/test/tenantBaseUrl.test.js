@@ -18,8 +18,8 @@ describe('Task 5: getTenantBaseUrl and Domain resolution', () => {
     t1 = await Tenant.create({ name: 'Tenant 1', key: 't1' });
     t2 = await Tenant.create({ name: 'Tenant 2', key: 't2' });
 
-    await Domain.create({ host: 'tenant1.bet', tenantId: t1._id, isPrimary: true });
-    await Domain.create({ host: 'tenant2.bet', tenantId: t2._id, isPrimary: true });
+    await Domain.create({ host: 'tenant1.bet', tenantId: t1._id, isPrimary: true, verifiedAt: new Date() });
+    await Domain.create({ host: 'tenant2.bet', tenantId: t2._id, isPrimary: true, verifiedAt: new Date() });
   });
 
   after(async () => {
@@ -27,7 +27,11 @@ describe('Task 5: getTenantBaseUrl and Domain resolution', () => {
     await mongoose.disconnect();
   });
 
-  it('resolves primary domain URL in tenant context', async () => {
+  it('multi mode: resolves the verified primary domain in tenant context', async () => {
+    invalidateTenantBaseUrl();
+    const prevMode = process.env.TENANCY_MODE;
+    process.env.TENANCY_MODE = 'multi';
+    try {
     await runWithTenant(t1._id, async () => {
       const url = await getTenantBaseUrl();
       assert.equal(url, 'https://tenant1.bet');
@@ -37,6 +41,24 @@ describe('Task 5: getTenantBaseUrl and Domain resolution', () => {
       const url = await getTenantBaseUrl();
       assert.equal(url, 'https://tenant2.bet');
     });
+    } finally {
+      if (prevMode === undefined) delete process.env.TENANCY_MODE; else process.env.TENANCY_MODE = prevMode;
+      invalidateTenantBaseUrl();
+    }
+  });
+
+  it('single mode: always the first CLIENT_URL origin, even when Domain rows exist (parity)', async () => {
+    invalidateTenantBaseUrl();
+    const prev = { m: process.env.TENANCY_MODE, c: process.env.CLIENT_URL };
+    process.env.TENANCY_MODE = 'single';
+    process.env.CLIENT_URL = 'https://app.example.com,https://www.example.com';
+    try {
+      const url = await runWithTenant(t1._id, () => getTenantBaseUrl());
+      assert.equal(url, 'https://app.example.com');
+    } finally {
+      if (prev.m === undefined) delete process.env.TENANCY_MODE; else process.env.TENANCY_MODE = prev.m;
+      if (prev.c === undefined) delete process.env.CLIENT_URL; else process.env.CLIENT_URL = prev.c;
+    }
   });
 
   it('falls back to CLIENT_URL in single mode when no domain exists', async () => {

@@ -69,6 +69,10 @@ async function findPrimaryHost({ tenantId, brandId, requireVerified }) {
  */
 export async function getTenantBaseUrl(tenantId, brandId) {
   const mode = getTenancyMode();
+  // Single mode: exact parity with today (first CLIENT_URL origin). The G1 boot
+  // migration also creates Domain rows from the default brand, whose primary host
+  // can differ from CLIENT_URL (e.g. a marketing domain), so Domain is never read here.
+  if (mode !== 'multi') return clientUrlFallback();
   const ctx = tenantContext.get();
   const tenantKey = tenantId ?? getCurrentTenantId();
   const brandKey = brandId ?? (ctx?.mode === 'tenant' ? ctx.brandId : null);
