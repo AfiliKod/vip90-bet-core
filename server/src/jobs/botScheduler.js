@@ -1,12 +1,10 @@
-import { runBotScheduler } from '../services/bot.js';
+import { runBotSchedulerForTenant } from '../services/bot.js';
 
-export function startBotScheduler() {
-  const INTERVAL = 15 * 1000; // her 15 saniyede bir aksiyonu hazır botları kontrol et
-
-  async function run() {
+export function startBotScheduler({ intervalMs = 15 * 1000, run = runBotSchedulerForTenant } = {}) {
+  async function tick() {
     try {
-      const results = await runBotScheduler();
-      const executed = results.filter(r => r.executed).length;
+      const results = await run();
+      const executed = results.filter((r) => r.executed).length;
       if (executed > 0) {
         console.log(`[botScheduler] ${executed}/${results.length} bot actions executed`);
       }
@@ -14,7 +12,8 @@ export function startBotScheduler() {
       console.error('[botScheduler] error:', e.message);
     }
   }
-
-  run();
-  setInterval(run, INTERVAL);
+  tick();
+  const interval = setInterval(tick, intervalMs);
+  if (typeof interval.unref === 'function') interval.unref();
+  return interval;
 }
