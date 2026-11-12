@@ -1,23 +1,30 @@
 import { describe, it, before, after, beforeEach } from 'node:test';
 import assert from 'node:assert/strict';
 import mongoose from 'mongoose';
-import { config } from 'dotenv';
-import { fileURLToPath } from 'url';
-import { dirname, join } from 'path';
 
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = dirname(__filename);
+// Bu dosya server/.env'e bağımlı DEĞİLDİR (clean clone'da da çalışır). Birçok
+// modül env'i import anında önbelleğe alır (örn. config/crypto.js
+// cryptoEnvDefaults() ile CRYPTO_SETTINGS.network'i import'ta dondurur) ve ESM
+// statik import'ları modül gövdesinden ÖNCE çalıştığı için env önce before()
+// içinde ayarlanır, ürün modulleri SONRA dinamik import edilir
+// (slikair-payout.test.js'teki yorumla aynı sebep).
+//
+// Canlı TronGrid isteği atan testler yalnızca CRYPTO_LIVE_TESTS=1 ile koşar.
+const LIVE_TESTS = process.env.CRYPTO_LIVE_TESTS === '1';
 
-// .env dosyasını yükle
-config({ path: join(__dirname, '..', '.env') });
+// crypto-hotWalletBalance.test.js ile AYNI public BIP-39 test mnemonic'i.
+const TEST_MNEMONIC = 'test test test test test test test test test test test junk';
+const TEST_ENV = {
+  CRYPTO_SEED_PHRASE: TEST_MNEMONIC,
+  TRON_NETWORK: 'shasta',
+  USDT_TRY_RATE: '1',
+};
 
-import User from '../src/models/User.js';
-import Transaction from '../src/models/Transaction.js';
-import CryptoDeposit from '../src/models/CryptoDeposit.js';
-import BonusWagering from '../src/models/BonusWagering.js';
-import { deriveDepositAddress, fetchIncomingUSDT, getHotWalletAddress } from '../src/services/cryptoService.js';
-import { shouldAutoCredit, shouldAutoProcessWithdraw, CRYPTO_SETTINGS } from '../src/config/crypto.js';
-import { getSpendableBreakdown, previewForfeitAmount, forfeitActiveWagerings, getLockedAmount } from '../src/services/wagering.js';
+const savedEnv = {};
+let User, Transaction, CryptoDeposit, BonusWagering;
+let deriveDepositAddress, fetchIncomingUSDT, getHotWalletAddress;
+let shouldAutoCredit, shouldAutoProcessWithdraw, CRYPTO_SETTINGS;
+let getSpendableBreakdown, previewForfeitAmount, forfeitActiveWagerings, getLockedAmount;
 
 // ── Yardımcı fonksiyonlar: route handler mantığını birebir simüle eder ──────────
 async function simulateAutoCreditDeposit(user, { usdtAmount, txHash, fromAddress }) {
@@ -134,14 +141,27 @@ async function getTransactionHistory(userId) {
 
 describe('Crypto Payment System - Shasta Testnet', () => {
   before(async () => {
-    // Kasıtlı olarak MONGODB_URI'yi yok sayıyoruz: .env üstteki config() çağrısıyla
-    // yükleniyor ve gerçek geliştirme veritabanını (betzone) işaret ediyor. Bu satır
-    // || ile fallback olsaydı testler admin dahil tüm kullanıcıları silerdi (yaşandı).
+    // Ortam değişkenleri: server/.env yüklenmez; test kendisi ayarlar.
+    for (const k of Object.keys(TEST_ENV)) { savedEnv[k] = process.env[k]; process.env[k] = TEST_ENV[k]; }
+    ({ default: User } = await import('../src/models/User.js'));
+    ({ default: Transaction } = await import('../src/models/Transaction.js'));
+    ({ default: CryptoDeposit } = await import('../src/models/CryptoDeposit.js'));
+    ({ default: BonusWagering } = await import('../src/models/BonusWagering.js'));
+    ({ deriveDepositAddress, fetchIncomingUSDT, getHotWalletAddress } = await import('../src/services/cryptoService.js'));
+    ({ shouldAutoCredit, shouldAutoProcessWithdraw, CRYPTO_SETTINGS } = await import('../src/config/crypto.js'));
+    ({ getSpendableBreakdown, previewForfeitAmount, forfeitActiveWagerings, getLockedAmount } = await import('../src/services/wagering.js'));
+
+    // Kasıtlı olarak kendi ayrı test veritabanı: hangi ortam değişkeni verilirse
+    // verilsin testler admin dahil tüm kullanıcıları sildiği için geliştirme
+    // veritabanına (betzone) asla dokunulmaz (yaşandı).
     await mongoose.connect('mongodb://localhost:27017/betzone_test_crypto');
   });
 
   after(async () => {
     await mongoose.disconnect();
+    for (const k of Object.keys(savedEnv)) {
+      if (savedEnv[k] === undefined) delete process.env[k]; else process.env[k] = savedEnv[k];
+    }
   });
 
   beforeEach(async () => {
@@ -184,7 +204,7 @@ describe('Crypto Payment System - Shasta Testnet', () => {
   });
 
   describe('fetchIncomingUSDT', () => {
-    it('should fetch transactions from Shasta testnet', async () => {
+    it('should fetch transactions from Shasta testnet', { skip: !LIVE_TESTS }, async () => {
       const testAddress = deriveDepositAddress(0);
       try {
         const txs = await fetchIncomingUSDT(testAddress, 0);
@@ -195,7 +215,7 @@ describe('Crypto Payment System - Shasta Testnet', () => {
       }
     });
 
-    it('should handle empty address gracefully', async () => {
+    it('should handle empty address gracefully', { skip: !LIVE_TESTS }, async () => {
       const emptyAddress = deriveDepositAddress(999);
       try {
         const txs = await fetchIncomingUSDT(emptyAddress, 0);

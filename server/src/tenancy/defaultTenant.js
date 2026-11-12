@@ -15,6 +15,7 @@ import Brand from '../models/Brand.js';
 import Migration from '../models/Migration.js';
 import { getTenancyMode } from '../config/tenancy.js';
 import { errorLogger } from '../services/errorLogger.js';
+import { setDefaultTenantId } from './defaultTenantId.js';
 
 export const DEFAULT_TENANT_KEY = 'default';
 export const DEFAULT_TENANT_MIGRATION = Object.freeze({
@@ -188,6 +189,7 @@ export async function ensureDefaultTenant({
   }
 
   const tenant = await Tenant.findById(tenantId);
+  if (tenant && getTenancyMode(env) === 'single') setDefaultTenantId(tenant._id);
   return { tenant, created, domainsCreated, migrationRecorded };
 }
 

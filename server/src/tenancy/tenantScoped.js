@@ -1,6 +1,7 @@
 import mongoose from 'mongoose';
-import { getTenancyEnforcement } from '../config/tenancy.js';
+import { getTenancyEnforcement, getTenancyMode } from '../config/tenancy.js';
 import { tenantContext } from './context.js';
+import { getDefaultTenantId } from './defaultTenantId.js';
 import { TenantScopeError } from './errors.js';
 
 /** Query operations whose filter is scoped to the current tenant. */
@@ -104,6 +105,29 @@ function captureQueryContext(model) {
 
 function queryContext(query) {
   return query[QUERY_CTX] ?? tenantContext.get();
+}
+
+function stampDefaultTenant(doc, ctx) {
+  const tenantId = getDefaultTenantId();
+  if (getTenancyMode() !== 'single' || !tenantId || ctx?.mode === 'tenant' || hasValue(doc.tenantId)) return;
+  doc.tenantId = tenantId;
+}
+
+function updateSetsTenantId(update) {
+  return Object.prototype.hasOwnProperty.call(update, 'tenantId') ||
+    Object.prototype.hasOwnProperty.call(update.$set || {}, 'tenantId') ||
+    Object.prototype.hasOwnProperty.call(update.$setOnInsert || {}, 'tenantId');
+}
+
+/** Stamp the default tenant on an unscoped single-mode upsert before scoping it. */
+function stampDefaultTenantOnUpsert() {
+  const tenantId = getDefaultTenantId();
+  const ctx = queryContext(this);
+  if (getTenancyMode() !== 'single' || !tenantId || ctx?.mode === 'tenant' || !this.getOptions().upsert) return;
+
+  const update = this.getUpdate();
+  if (!update || Array.isArray(update) || updateSetsTenantId(update)) return;
+  this.setUpdate({ ...update, $setOnInsert: { ...(update.$setOnInsert || {}), tenantId } });
 }
 
 /** Query pre-hook: inject/check `tenantId` in the filter. */
@@ -264,6 +288,7 @@ export function tenantScoped(schema) {
   schema.on('init', captureQueryContext);
   schema.on('init', captureAggregateContext);
 
+  schema.pre(['findOneAndUpdate', 'updateOne', 'updateMany', 'replaceOne'], { document: false, query: true }, stampDefaultTenantOnUpsert);
   schema.pre(SCOPED_QUERY_OPS, { document: false, query: true }, scopeQuery);
   schema.pre('aggregate', scopeAggregate);
 
@@ -277,8 +302,10 @@ export function tenantScoped(schema) {
 
   // Only new documents are checked; İP-2 makes tenantId immutable.
   schema.pre('save', function (next) {
-    if (!this.isNew || getTenancyEnforcement() === 'off') return next();
+    if (!this.isNew) return next();
     const ctx = tenantContext.get();
+    stampDefaultTenant(this, ctx);
+    if (getTenancyEnforcement() === 'off') return next();
     if (ctx && ctx.mode === 'platform') return next();
     try {
       stampDoc(this, ctx, this.constructor.modelName, 'save');
@@ -289,11 +316,14 @@ export function tenantScoped(schema) {
   });
 
   schema.pre('insertMany', function (next, docs) {
-    if (getTenancyEnforcement() === 'off') return next();
     const ctx = tenantContext.get();
+    const list = Array.isArray(docs) ? docs : [docs];
+    for (const doc of list) {
+      if (doc && typeof doc === 'object') stampDefaultTenant(doc, ctx);
+    }
+    if (getTenancyEnforcement() === 'off') return next();
     if (ctx && ctx.mode === 'platform') return next();
     try {
-      const list = Array.isArray(docs) ? docs : [docs];
       for (const doc of list) {
         if (doc && typeof doc === 'object') stampDoc(doc, ctx, this.modelName, 'insertMany');
       }

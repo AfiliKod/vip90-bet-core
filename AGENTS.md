@@ -1,0 +1,62 @@
+# Agent Instructions
+
+This file is the single source of agent instructions for this repository.
+
+## Repository role
+
+- `vip90-bet-core` (public, AGPL-3.0) is the **upstream** for the platform core and for the multi-operator
+  platform: tenant isolation, the Platform Owner console, partner management, operator provisioning and billing
+  (decision of 2026-11-09, effective 2026-11-12). Changes to core paths are made here, in pull requests to `main`.
+- The private development repository pulls tagged core releases and adds the private add-ons
+  (`server/src/premium/*`). Nothing is pushed into this repository from there any more; the former sync script is
+  retired. `.core-sync.json` records the last forward sync and is kept as history; do not edit it.
+- Premium add-ons (sports betting, casino content, in-house games) are private and optional. The core never
+  imports them; they attach through registration hooks (`registerTenantProvisioningHook`,
+  `registerTenantCredentialSchema`, `runWithTenant`). The core must run and pass its tests without them.
+
+## Public by default
+
+- No internal hostnames, server paths, IP addresses, secrets, real customer or partner names, or real-looking
+  payment identifiers. Commercial terms live in the database, never in code.
+- CI runs `node scripts/leak-scan.mjs` on every pull request and push; a finding blocks the merge. Fix the content,
+  do not widen the allow-lists without a reason in the PR description.
+- Security issues follow `SECURITY.md`; do not describe an unfixed vulnerability in an issue, PR or document.
+
+## Changelog and versions
+
+Every PR that changes behaviour, configuration, an API, the database schema or anything an operator installs adds
+its entry to `CHANGELOG.md` under `[Yayınlanmadı]`, following `docs/CHANGELOG_GUIDE.md`. CI runs
+`node scripts/check-changelog.mjs`; a deliberate exception carries a `Changelog: none` line in a commit message.
+Versions follow SemVer; core tags are primary, downstream installs record which core tag they pulled.
+
+## Multi-tenant work
+
+- Design: `docs/superpowers/specs/2026-11-09-multi-tenant-design.md`. Plans per work package live in
+  `docs/superpowers/plans/`. Dated records under `docs/superpowers/` are not rewritten.
+- **`2026-11-09`: tenant data isolation is mandatory.** Every operator-owned collection carries `tenantId`;
+  unscoped queries on operator-owned models are rejected by the `tenantScoped` plugin; platform work that runs
+  outside a tenant is marked explicitly with `runAsPlatform(reason, fn)`. The tenant model is `Tenant`; the name
+  `Operator` belongs to the in-house provider's B2B customer model and is never used in the tenant sense.
+  Brand/Jurisdiction pages are functional: a Brand belongs to a tenant, and host → tenant resolution reads the
+  `Domain` collection. The central multi-tenant installation is a new, clean install; existing single-operator
+  demo installs stay single-mode and are not migrated. In multi mode bots, fake winners and the demo deposit never
+  run; staff 2FA is mandatory only in multi mode.
+- Single-operator installs keep working unchanged on the default tenant (`TENANCY_MODE=single`).
+- Operator-owned (TEN) models are compiled with `defineTenantModel(name, schema)` (`server/src/tenancy/models.js`),
+  never `mongoose.model(name, schema)`: it attaches the `tenantScoped` plugin and registers the collection, which is
+  what the G3 backfill and the compound index migration walk.
+- Those schemas carry `tenantId: { type: Schema.Types.ObjectId, ref: 'Tenant', required: false, index: true, immutable: true }`.
+  `required: true` is İP-8 work, not İP-2. `RiskRule` platform templates and platform-wide `AuditLog`/`AdminAction` rows
+  are the documented exceptions and keep `tenantId: null`.
+- Compound `{ tenantId, … }` indexes are registered with `registerTenantIndexes(modelName, [{ keys, options }])`
+  (`server/src/tenancy/indexRegistry.js`) and built online by the G4 migration — they do **not** go into `schema.index()`.
+  Unique ones use `partialFilterExpression`, never `sparse`. Names: `tenant_<field>[_<field>]_uniq`, else `tenant_<field>[_<field>]`.
+- Leave `autoIndex` untouched and never call `syncIndexes()` or `ensureIndexes()`: they drop every index the schema does
+  not list, including unmanaged and partial ones. In single mode the legacy global unique indexes stay in place; dropping
+  an index is always its own explicit migration step.
+- Agent (reseller) and Partner are different concepts; do not merge them.
+
+## Workflow
+
+- Branch from `origin/main`, open PRs against `main`, run `npm test` and the leak scan before pushing.
+- Serialize GitHub mutations, do not burst PRs or retries, never bypass a restriction with another account.
