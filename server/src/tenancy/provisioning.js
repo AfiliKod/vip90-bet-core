@@ -67,6 +67,45 @@ export async function runTenantProvisioningHooks(tenant) {
 }
 
 /**
+ * Structural problems in a credential schema definition, as readable strings.
+ * An empty list means the definition is valid.
+ * @param {string} moduleId
+ * @param {{ fields?: Array<object> }} schema
+ * @returns {string[]}
+ */
+export function validateCredentialSchema(moduleId, schema) {
+  const errors = [];
+  const label = typeof moduleId === 'string' && moduleId !== '' ? `"${moduleId}"` : '<unnamed>';
+  if (!schema || typeof schema !== 'object') {
+    return [`credential schema ${label} must be an object`];
+  }
+  if (!Array.isArray(schema.fields)) {
+    return [`credential schema ${label} requires a fields array`];
+  }
+  if (schema.validate !== undefined && typeof schema.validate !== 'function') {
+    errors.push(`credential schema ${label} validate must be a function`);
+  }
+  schema.fields.forEach((field, index) => {
+    if (!field || typeof field !== 'object') {
+      errors.push(`credential schema ${label} field #${index} must be an object`);
+      return;
+    }
+    if (typeof field.key !== 'string' || field.key.trim() === '') {
+      errors.push(`credential schema ${label} field #${index} needs a non-empty string key`);
+    }
+    if (field.label !== undefined && typeof field.label !== 'string') {
+      errors.push(`credential schema ${label} field "${field.key ?? index}" label must be a string`);
+    }
+    for (const flag of ['secret', 'required']) {
+      if (field[flag] !== undefined && typeof field[flag] !== 'boolean') {
+        errors.push(`credential schema ${label} field "${field.key ?? index}" ${flag} must be a boolean`);
+      }
+    }
+  });
+  return errors;
+}
+
+/**
  * Register the credential form schema a premium module wants rendered for
  * tenant credentials. Registered once per `moduleId` at import time.
  * @param {string} moduleId
@@ -79,6 +118,12 @@ export function registerTenantCredentialSchema(moduleId, schema) {
   }
   if (credentialSchemas.has(moduleId)) {
     throw new Error(`Credential schema already registered: ${moduleId}`);
+  }
+  if (schema && typeof schema === 'object' && Array.isArray(schema.fields)) {
+    const moduleSchemaErrors = validateCredentialSchema(moduleId, schema);
+    if (moduleSchemaErrors.length > 0) {
+      throw new TypeError(`Credential schema "${moduleId}" is invalid: ${moduleSchemaErrors.join('; ')}`);
+    }
   }
   if (!schema || typeof schema !== 'object' || !Array.isArray(schema.fields) || schema.fields.length === 0) {
     throw new Error(`Credential schema "${moduleId}" requires a non-empty fields array`);
