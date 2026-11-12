@@ -40,6 +40,7 @@ test('N4 tenant provisioning creates Tenant, Brand, Domain, seeds subset, and as
   });
 
   assert.equal(result.success, true);
+  assert.equal(typeof result.ownerInvite?.token, 'string', 'a new owner gets a one-time invitation');
   const tenant = await Tenant.findOne({ key: 'gamma' });
   assert.ok(tenant, 'Tenant must exist');
   assert.equal(tenant.status, 'provisioning', 'Tenant starts in provisioning status');
@@ -80,6 +81,7 @@ test('N4 provisioning is idempotent: re-running with same key never duplicates e
     domain: 'gamma.example.com',
     ownerEmail: 'owner@gamma.example.com',
   });
+  assert.equal(rerun.ownerInvite, null, 'a re-run never issues another invitation');
 
   assert.equal(rerun.success, true);
   const tenantCount = await Tenant.countDocuments({ key: 'gamma' });

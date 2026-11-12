@@ -9,6 +9,7 @@ import AuditLog from '../../models/AuditLog.js';
 import { runWithTenant } from '../../tenancy/context.js';
 import { runTenantProvisioningHooks } from '../../tenancy/provisioning.js';
 import { seedTenantSubset } from './tenantSeed.js';
+import { createStaffInvite } from './staffInvite.js';
 
 /**
  * Create the platform-owned records and essential tenant subset for a new
@@ -112,10 +113,13 @@ export async function provisionTenant({
   await seedTenantSubset(tenant._id, { brandName: tenant.name });
   await runTenantProvisioningHooks(tenant);
 
+  let ownerInvite = null;
   if (ownerEmail) {
     const normalizedEmail = ownerEmail.toLowerCase().trim();
     let staff = await StaffAccount.findOne({ email: normalizedEmail });
     if (!staff) {
+      // The random password is never shown; the owner sets one through the
+      // one-time invitation below (2FA enrolment follows at first login).
       staff = await StaffAccount.create({
         email: normalizedEmail,
         username: ownerUsername || normalizedEmail.split('@')[0],
@@ -123,6 +127,7 @@ export async function provisionTenant({
         status: 'active',
         twoFactor: { enabled: false },
       });
+      ownerInvite = await createStaffInvite(staff._id, { createdBy: createdByStaffId });
     }
 
     const tenantOwnerRole = await Role.findOne({ name: 'tenant_owner', scopeType: 'tenant', scopeId: null });
@@ -168,5 +173,7 @@ export async function provisionTenant({
     key: tenant.key,
     domain: domainDoc.host,
     status: tenant.status,
+    // Raw invitation token, returned once when the owner account is created.
+    ownerInvite,
   };
 }
