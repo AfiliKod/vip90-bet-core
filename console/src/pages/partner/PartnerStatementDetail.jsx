@@ -10,11 +10,178 @@ const h = React.createElement;
 
 export const STATEMENT_LINE_TYPES = {
   commission: { label: 'Komisyon (GGR)', color: 'text-emerald-400' },
+  commission_ngr: { label: 'Komisyon (NGR)', color: 'text-emerald-400' },
   sportsbook_fee: { label: 'Spor Bahsi Oran Beslemesi', color: 'text-cyan-400' },
   fixed_fee: { label: 'Sabit Ücret', color: 'text-indigo-400' },
   adjustment: { label: 'Düzeltme', color: 'text-amber-400' },
   minimum_fee_topup: { label: 'Asgari Ücret Tamamlama', color: 'text-purple-400' },
 };
+
+export const DEDUCTION_CATEGORY_LABELS = {
+  bonus: 'Bonus Maliyeti',
+  provider_fee: 'Sağlayıcı / Altyapı Ücreti',
+  tax: 'Vergi',
+  chargeback: 'Ters İbraz / İade',
+  other: 'Diğer Kesinti',
+};
+
+export function renderNgrDeductionBreakdown(line, currency, isExpanded = true, onToggle = null) {
+  if (!line || !isExpanded) return null;
+  const metadata = line.metadata || {};
+  const deductions = Array.isArray(metadata.deductions) ? metadata.deductions : [];
+  const ggrAmount = metadata.ggr != null
+    ? metadata.ggr
+    : ((line.baseAmount || 0) + (metadata.totalDeductions || 0));
+  const rateDisplay = line.rate != null && line.rate !== 0
+    ? `${(line.rate * 100).toFixed(1)}%`
+    : '-';
+
+  return h(
+    'tr',
+    {
+      key: `${line._id || line.date || 'ngr'}-deductions`,
+      className: 'bg-slate-900/90 border-b border-indigo-950/60',
+      'data-testid': 'ngr-deduction-breakdown-row',
+    },
+    h(
+      'td',
+      { colSpan: 7, className: 'px-6 py-4' },
+      h(
+        'div',
+        {
+          className: 'rounded-lg bg-slate-950/80 border border-slate-700/80 p-4 space-y-3',
+          'data-testid': 'ngr-deduction-breakdown',
+        },
+        // Header
+        h(
+          'div',
+          { className: 'flex flex-wrap items-center justify-between gap-2 border-b border-slate-800 pb-2' },
+          h(
+            'div',
+            { className: 'flex items-center gap-2' },
+            h('span', { className: 'text-xs font-semibold text-indigo-300 uppercase tracking-wider' }, 'NGR Kesinti Dökümü (Net Gaming Revenue)'),
+            metadata.ngrDefinitionVersion != null &&
+              h('span', { className: 'text-[11px] px-2 py-0.5 rounded bg-indigo-950 border border-indigo-800 text-indigo-300 font-mono' }, `v${metadata.ngrDefinitionVersion}`)
+          ),
+          h(
+            'div',
+            { className: 'flex items-center gap-3' },
+            metadata.negativeBaseHandling &&
+              h(
+                'span',
+                { className: 'text-xs text-slate-400' },
+                `Negatif Taban: ${metadata.negativeBaseHandling === 'deduct' ? 'Mahsup Et (Deduct)' : 'Sıfır Taban (Zero Floor)'}`
+              ),
+            onToggle &&
+              h(
+                'button',
+                {
+                  type: 'button',
+                  onClick: onToggle,
+                  className: 'text-xs text-slate-400 hover:text-white',
+                },
+                'Kapat ✕'
+              )
+          )
+        ),
+
+        // Summary Metric Cards
+        h(
+          'div',
+          { className: 'grid grid-cols-2 sm:grid-cols-5 gap-3 pt-1 text-xs' },
+          h(
+            'div',
+            { className: 'bg-slate-900/80 p-2.5 rounded border border-slate-800' },
+            h('div', { className: 'text-slate-400 text-[11px]' }, 'Brüt GGR'),
+            h('div', { className: 'font-mono font-semibold text-white mt-0.5' }, formatMoney(ggrAmount, line.currency || currency))
+          ),
+          h(
+            'div',
+            { className: 'bg-slate-900/80 p-2.5 rounded border border-slate-800' },
+            h('div', { className: 'text-slate-400 text-[11px]' }, 'Toplam Kesinti'),
+            h(
+              'div',
+              { className: 'font-mono font-semibold text-rose-400 mt-0.5' },
+              `- ${formatMoney(metadata.totalDeductions || 0, line.currency || currency)}`
+            )
+          ),
+          h(
+            'div',
+            { className: 'bg-slate-900/80 p-2.5 rounded border border-indigo-900/60' },
+            h('div', { className: 'text-indigo-300 text-[11px]' }, 'Net NGR Matrahı'),
+            h('div', { className: 'font-mono font-bold text-white mt-0.5' }, formatMoney(line.baseAmount, line.currency || currency))
+          ),
+          h(
+            'div',
+            { className: 'bg-slate-900/80 p-2.5 rounded border border-slate-800' },
+            h('div', { className: 'text-slate-400 text-[11px]' }, 'Komisyon Oranı'),
+            h('div', { className: 'font-mono font-semibold text-white mt-0.5' }, rateDisplay)
+          ),
+          h(
+            'div',
+            { className: 'bg-slate-900/80 p-2.5 rounded border border-emerald-900/60' },
+            h('div', { className: 'text-emerald-400 text-[11px]' }, 'Hesaplanan Hakediş'),
+            h('div', { className: 'font-mono font-bold text-emerald-300 mt-0.5' }, formatMoney(line.amount, line.currency || currency))
+          )
+        ),
+
+        // Itemized Deductions Table
+        deductions.length > 0 &&
+          h(
+            'div',
+            { className: 'pt-2' },
+            h('div', { className: 'text-[11px] font-semibold text-slate-300 uppercase tracking-wider mb-1.5' }, 'Uygulanan Kesinti Kalemleri'),
+            h(
+              'div',
+              { className: 'overflow-hidden rounded border border-slate-800 bg-slate-900/60' },
+              h(
+                'table',
+                { className: 'min-w-full divide-y divide-slate-800 text-xs' },
+                h(
+                  'thead',
+                  { className: 'bg-slate-950/80 text-slate-400 uppercase text-[10px]' },
+                  h(
+                    'tr',
+                    null,
+                    h('th', { className: 'px-3 py-2 text-left font-semibold' }, 'Kesinti Kategorisi'),
+                    h('th', { className: 'px-3 py-2 text-left font-semibold' }, 'Kalem Etiketi'),
+                    h('th', { className: 'px-3 py-2 text-left font-semibold' }, 'Veri Kaynağı'),
+                    h('th', { className: 'px-3 py-2 text-right font-semibold' }, 'Kesinti Tutarı')
+                  )
+                ),
+                h(
+                  'tbody',
+                  { className: 'divide-y divide-slate-800/60 text-slate-300' },
+                  deductions.map((d, dIdx) =>
+                    h(
+                      'tr',
+                      { key: dIdx, className: 'hover:bg-slate-800/30 transition-colors', 'data-deduction-category': d.category },
+                      h(
+                        'td',
+                        { className: 'px-3 py-1.5 font-medium text-slate-200' },
+                        h(
+                          'span',
+                          { className: 'inline-flex items-center px-1.5 py-0.5 rounded text-[11px] bg-slate-800 border border-slate-700 text-slate-300' },
+                          DEDUCTION_CATEGORY_LABELS[d.category] || d.category
+                        )
+                      ),
+                      h('td', { className: 'px-3 py-1.5 text-white' }, d.label || '-'),
+                      h('td', { className: 'px-3 py-1.5 font-mono text-[11px] text-slate-400' }, d.source || '-'),
+                      h(
+                        'td',
+                        { className: 'px-3 py-1.5 text-right font-mono font-semibold text-rose-400' },
+                        `- ${formatMoney(d.amount, line.currency || currency)}`
+                      )
+                    )
+                  )
+                )
+              )
+            )
+          )
+      )
+    )
+  );
+}
 
 export default function PartnerStatementDetail({ statementId: propStatementId }) {
   const [statementId, setStatementId] = useState(propStatementId || '');
@@ -23,6 +190,14 @@ export default function PartnerStatementDetail({ statementId: propStatementId })
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [downloading, setDownloading] = useState(false);
+  const [expandedLines, setExpandedLines] = useState({});
+
+  const toggleLineExpand = (id) => {
+    setExpandedLines((prev) => ({
+      ...prev,
+      [id]: prev[id] === false ? true : false,
+    }));
+  };
 
   useEffect(() => {
     let id = propStatementId;
@@ -134,14 +309,12 @@ export default function PartnerStatementDetail({ statementId: propStatementId })
         key: line.tenantId?.key || '-',
         total: 0,
         count: 0,
-        ggrBase: 0,
+        matrah: 0,
       };
     }
     acc[opKey].total += line.amount || 0;
     acc[opKey].count += 1;
-    if (line.baseMetric === 'ggr') {
-      acc[opKey].ggrBase += line.baseAmount || 0;
-    }
+    acc[opKey].matrah += line.baseAmount || 0;
     return acc;
   }, {});
 
@@ -290,7 +463,7 @@ export default function PartnerStatementDetail({ statementId: propStatementId })
               h('th', { className: 'px-4 py-3 text-left font-semibold' }, 'Operatör Adı'),
               h('th', { className: 'px-4 py-3 text-left font-semibold' }, 'Operatör Kodu'),
               h('th', { className: 'px-4 py-3 text-right font-semibold' }, 'Satır Sayısı'),
-              h('th', { className: 'px-4 py-3 text-right font-semibold' }, 'GGR Matrahı'),
+              h('th', { className: 'px-4 py-3 text-right font-semibold' }, 'Matrah'),
               h('th', { className: 'px-4 py-3 text-right font-semibold' }, 'Toplam Tutar')
             )
           ),
@@ -304,7 +477,7 @@ export default function PartnerStatementDetail({ statementId: propStatementId })
                 h('td', { className: 'px-4 py-3 font-medium text-white' }, op.name),
                 h('td', { className: 'px-4 py-3 font-mono text-xs text-slate-400' }, op.key),
                 h('td', { className: 'px-4 py-3 text-right text-xs text-slate-300' }, op.count),
-                h('td', { className: 'px-4 py-3 text-right font-mono text-xs text-slate-300' }, formatMoney(op.ggrBase, currency)),
+                h('td', { className: 'px-4 py-3 text-right font-mono text-xs text-slate-300' }, formatMoney(op.matrah, currency)),
                 h('td', { className: 'px-4 py-3 text-right font-mono text-sm font-semibold text-emerald-400' }, formatMoney(op.total, currency))
               )
             )
@@ -356,19 +529,21 @@ export default function PartnerStatementDetail({ statementId: propStatementId })
                 h(
                   'tbody',
                   { className: 'divide-y divide-slate-700/60 text-slate-200' },
-                  operationalLines.map((line) => {
-                    const typeInfo = STATEMENT_LINE_TYPES[line.type] || {
-                      label: line.type,
-                      color: 'text-slate-300',
-                    };
+                  operationalLines.flatMap((line, idx) => {
+                    const isNgr = line.baseMetric === 'ngr';
+                    const lineKey = line._id || `line-${idx}`;
+                    const typeInfo = isNgr
+                      ? (STATEMENT_LINE_TYPES.commission_ngr || { label: 'Komisyon (NGR)', color: 'text-emerald-400' })
+                      : (STATEMENT_LINE_TYPES[line.type] || { label: line.type, color: 'text-slate-300' });
                     const rateDisplay =
                       line.rate != null && line.rate !== 0
                         ? `${(line.rate * 100).toFixed(1)}%`
                         : '-';
+                    const isExpanded = expandedLines[lineKey] !== false;
 
-                    return h(
+                    const row = h(
                       'tr',
-                      { key: line._id, className: 'hover:bg-slate-700/30 transition-colors' },
+                      { key: lineKey, className: 'hover:bg-slate-700/30 transition-colors' },
                       h('td', { className: 'px-4 py-2.5 whitespace-nowrap text-xs font-mono text-slate-300' }, line.date || '-'),
                       h(
                         'td',
@@ -377,10 +552,34 @@ export default function PartnerStatementDetail({ statementId: propStatementId })
                       ),
                       h(
                         'td',
-                        { className: `px-4 py-2.5 whitespace-nowrap text-xs font-medium ${typeInfo.color}` },
-                        typeInfo.label
+                        { className: 'px-4 py-2.5 whitespace-nowrap text-xs' },
+                        h(
+                          'div',
+                          { className: 'flex items-center gap-1.5' },
+                          h('span', { className: `font-medium ${typeInfo.color}` }, typeInfo.label),
+                          isNgr &&
+                            h(
+                              'button',
+                              {
+                                type: 'button',
+                                onClick: () => toggleLineExpand(lineKey),
+                                className: 'text-[11px] font-mono text-indigo-400 hover:text-indigo-300 underline focus:outline-none ml-1',
+                              },
+                              isExpanded ? '▲ Kesintileri Gizle' : '▼ Kesintileri Göster'
+                            )
+                        )
                       ),
-                      h('td', { className: 'px-4 py-2.5 text-xs text-slate-300 max-w-xs truncate' }, line.description || '-'),
+                      h(
+                        'td',
+                        { className: 'px-4 py-2.5 text-xs text-slate-300 max-w-xs' },
+                        h('div', { className: 'truncate' }, line.description || '-'),
+                        isNgr &&
+                          h(
+                            'div',
+                            { className: 'text-[10px] text-slate-400 font-mono mt-0.5' },
+                            `GGR: ${formatMoney(line.metadata?.ggr, line.currency || currency)} | Kesinti: ${formatMoney(line.metadata?.totalDeductions || 0, line.currency || currency)}`
+                          )
+                      ),
                       h(
                         'td',
                         { className: 'px-4 py-2.5 text-right whitespace-nowrap text-xs font-mono text-slate-300' },
@@ -397,6 +596,13 @@ export default function PartnerStatementDetail({ statementId: propStatementId })
                         formatMoney(line.amount, line.currency || currency)
                       )
                     );
+
+                    if (isNgr && (Array.isArray(line.metadata?.deductions) || line.metadata?.totalDeductions != null)) {
+                      const breakdown = renderNgrDeductionBreakdown(line, currency, isExpanded, () => toggleLineExpand(lineKey));
+                      return breakdown ? [row, breakdown] : [row];
+                    }
+
+                    return [row];
                   })
                 )
               )

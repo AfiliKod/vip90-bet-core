@@ -18,7 +18,7 @@ process.env.JWT_SECRET ||= 'test-jwt-secret';
 process.env.JWT_STAFF_SECRET ||= 'test-jwt-staff-secret';
 process.env.TENANCY_MODE = 'multi';
 
-const TEST_MONGO_URI = process.env.TENANCY_TEST_MONGO || 'mongodb://127.0.0.1:27017/vip90_test_ip9c_t6';
+const TEST_MONGO_URI = process.env.TENANCY_TEST_MONGO || 'mongodb://127.0.0.1:27017/vip90_test_ip9d_t7';
 
 let metricsPerm;
 
@@ -286,7 +286,7 @@ test('Partner staff can export statement to CSV', async () => {
     assert.ok(res.headers.get('content-disposition')?.includes('STMT-P-CSV-01.csv'));
 
     const text = await res.text();
-    assert.ok(text.includes('Date,Type,Description,Base Amount,Rate,Amount,Currency'));
+    assert.ok(text.includes('Date,Type,Description,GGR,Deductions,NGR Base,Rate,Amount,Currency'));
     assert.ok(text.includes('Commission for 2026-11-10'));
     assert.ok(text.includes('5000'));
   } finally {
@@ -319,6 +319,122 @@ test('Invalid statement id returns 404 NOT_FOUND', async () => {
       headers: { Authorization: `Bearer ${token}` },
     });
     assert.equal(exportRes.status, 404);
+  } finally {
+    server.close();
+  }
+});
+
+test('Partner staff can view statement with NGR deduction breakdown and export CSV with deduction breakdown columns', async () => {
+  const staff = await StaffAccount.create({ email: 'pstaff_ngr@example.com', username: 'pstaff_ngr', password: 'pwd', status: 'active' });
+  const partner = await Partner.create({ key: 'p-ngr-test', name: 'NGR Partner', createdBy: staff._id });
+  const role = await Role.create({
+    name: 'partner_analyst_ngr',
+    displayName: 'Analyst',
+    scopeType: 'partner',
+    scopeId: partner._id,
+    permissions: [metricsPerm._id],
+  });
+  await RoleAssignment.create({ staffId: staff._id, roleId: role._id, scopeType: 'partner', scopeId: partner._id });
+
+  const tenant = await Tenant.create({ key: 'op-ngr', name: 'Operator NGR' });
+
+  const stmt = await PartnerStatement.create({
+    statementNumber: 'STMT-P-NGR-01',
+    partnerId: partner._id,
+    periodStart: '2026-11-01',
+    periodEnd: '2026-11-30',
+    currency: 'TRY',
+    status: 'issued',
+    grossAmount: 1930,
+    netAmount: 1930,
+    finalAmount: 1930,
+    issuedAt: new Date(),
+    createdBy: staff._id,
+  });
+
+  const deductions = [
+    { category: 'bonus', label: 'Bonus Cost', source: 'stat_field', amount: 1500 },
+    { category: 'chargeback', label: 'Chargebacks', source: 'stat_field', amount: 250 },
+    { category: 'tax', label: 'Gaming Tax', source: 'rate', amount: 600 },
+  ];
+
+  await StatementLine.create({
+    statementId: stmt._id,
+    partnerId: partner._id,
+    tenantId: tenant._id,
+    type: 'commission',
+    date: '2026-11-15',
+    currency: 'TRY',
+    baseMetric: 'ngr',
+    baseAmount: 9650,
+    rate: 0.20,
+    amount: 1930,
+    description: '20% NGR Commission for 2026-11-15',
+    metadata: {
+      ggr: 12000,
+      totalDeductions: 2350,
+      ngr: 9650,
+      deductions,
+      negativeBaseHandling: 'zero_floor',
+    },
+  });
+
+  const token = signStaffAccess(staff, { scopeType: 'partner', scopeId: partner._id, amr: ['pwd', 'otp'] });
+  const { server, base } = await createServer();
+
+  try {
+    // 1. GET /api/partner/statements/:id returns statement lines containing metadata.deductions and baseMetric: 'ngr'
+    const detailRes = await fetch(`${base}/api/partner/statements/${stmt._id}`, {
+      headers: { Authorization: `Bearer ${token}` },
+    });
+    assert.equal(detailRes.status, 200);
+    const detailBody = await detailRes.json();
+    assert.equal(detailBody.lines.length, 1);
+    const line = detailBody.lines[0];
+    assert.equal(line.baseMetric, 'ngr');
+    assert.equal(line.baseAmount, 9650);
+    assert.equal(line.metadata.ggr, 12000);
+    assert.equal(line.metadata.totalDeductions, 2350);
+    assert.ok(Array.isArray(line.metadata.deductions));
+    assert.equal(line.metadata.deductions.length, 3);
+    assert.equal(line.metadata.deductions[0].category, 'bonus');
+    assert.equal(line.metadata.deductions[0].amount, 1500);
+
+    // 2. CSV export includes deduction breakdown details and columns
+    const exportRes = await fetch(`${base}/api/partner/statements/${stmt._id}/export`, {
+      headers: { Authorization: `Bearer ${token}` },
+    });
+    assert.equal(exportRes.status, 200);
+    assert.equal(exportRes.headers.get('content-type'), 'text/csv');
+    const csvContent = await exportRes.text();
+    assert.ok(csvContent.includes('Date,Type,Description,GGR,Deductions,NGR Base,Rate,Amount,Currency'));
+    assert.ok(csvContent.includes('12000'));
+    assert.ok(csvContent.includes('2350'));
+    assert.ok(csvContent.includes('9650'));
+    assert.ok(csvContent.includes('1930'));
+
+    // 3. Cross-partner access returns 404 (IDOR protection)
+    const otherStaff = await StaffAccount.create({ email: 'other_pstaff@example.com', username: 'other_pstaff', password: 'pwd', status: 'active' });
+    const otherPartner = await Partner.create({ key: 'p-other-2', name: 'Other Partner 2', createdBy: otherStaff._id });
+    const otherRole = await Role.create({
+      name: 'partner_analyst_other',
+      displayName: 'Other Analyst',
+      scopeType: 'partner',
+      scopeId: otherPartner._id,
+      permissions: [metricsPerm._id],
+    });
+    await RoleAssignment.create({ staffId: otherStaff._id, roleId: otherRole._id, scopeType: 'partner', scopeId: otherPartner._id });
+    const otherToken = signStaffAccess(otherStaff, { scopeType: 'partner', scopeId: otherPartner._id, amr: ['pwd', 'otp'] });
+
+    const forbiddenDetailRes = await fetch(`${base}/api/partner/statements/${stmt._id}`, {
+      headers: { Authorization: `Bearer ${otherToken}` },
+    });
+    assert.equal(forbiddenDetailRes.status, 404);
+
+    const forbiddenExportRes = await fetch(`${base}/api/partner/statements/${stmt._id}/export`, {
+      headers: { Authorization: `Bearer ${otherToken}` },
+    });
+    assert.equal(forbiddenExportRes.status, 404);
   } finally {
     server.close();
   }
