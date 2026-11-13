@@ -1,8 +1,228 @@
 import React, { useState, useEffect } from 'react';
-import apiClient from '../api/client.js';
+import apiClient, { billingApi } from '../api/client.js';
 import { ALL_CAPABILITIES, COMMERCIAL_MODELS, PARTNER_STATUS_LABELS } from './PartnersList.jsx';
+import { NGR_ERROR_EXPLANATIONS } from './billing/NgrDefinitionEditor.jsx';
 
 const h = React.createElement;
+
+export const COMMERCIAL_BASES = [
+  { value: 'ggr', label: 'GGR Tabanı (ggr)' },
+  { value: 'ngr', label: 'NGR Tabanı (ngr)' },
+  { value: 'turnover', label: 'Turnover Tabanı (turnover)' },
+  { value: 'fixed', label: 'Sabit Tutar Tabanı (fixed)' },
+];
+
+export function PartnerTermsForm({
+  commercialModel,
+  setCommercialModel,
+  commercialBase,
+  setCommercialBase,
+  rate,
+  setRate,
+  currency,
+  setCurrency,
+  minimumFee,
+  setMinimumFee,
+  ngrDefinitionId,
+  setNgrDefinitionId,
+  ngrDefinitionVersion,
+  setNgrDefinitionVersion,
+  availableNgrDefs = [],
+  onSubmit,
+  saving = false,
+  error = null,
+}) {
+  const isNgr = commercialBase === 'ngr' || commercialModel === 'revshare_ngr';
+
+  // Find unique definitions for definition selector
+  const uniqueDefs = [];
+  const seenNames = new Set();
+  for (const def of availableNgrDefs) {
+    if (!seenNames.has(def.name)) {
+      seenNames.add(def.name);
+      uniqueDefs.push(def);
+    }
+  }
+
+  // Get available versions for chosen definition
+  const selectedDef = availableNgrDefs.find((d) => String(d._id) === String(ngrDefinitionId));
+  const versionsForDef = selectedDef
+    ? availableNgrDefs.filter((d) => d.name === selectedDef.name).map((d) => d.version)
+    : [1];
+
+  return h(
+    'div',
+    { className: 'space-y-3 text-xs' },
+
+    error &&
+      h(
+        'div',
+        { className: 'p-3 bg-rose-950/80 border border-rose-800 rounded text-rose-200 text-xs' },
+        error
+      ),
+
+    // Model
+    h(
+      'div',
+      null,
+      h('label', { className: 'block font-medium text-slate-300 mb-1' }, 'Hesaplama Modeli *'),
+      h(
+        'select',
+        {
+          value: commercialModel,
+          onChange: (e) => {
+            const val = e.target.value;
+            setCommercialModel(val);
+            if (val === 'revshare_ngr') setCommercialBase('ngr');
+            else if (val === 'revshare_ggr') setCommercialBase('ggr');
+            else if (val === 'turnover') setCommercialBase('turnover');
+            else if (val === 'fixed') setCommercialBase('fixed');
+          },
+          className: 'w-full px-3 py-2 bg-slate-900 border border-slate-700 rounded text-white',
+        },
+        COMMERCIAL_MODELS.map((m) => h('option', { key: m.value, value: m.value }, m.label))
+      )
+    ),
+
+    // Base
+    h(
+      'div',
+      null,
+      h('label', { className: 'block font-medium text-slate-300 mb-1' }, 'Hesaplama Tabanı (Base) *'),
+      h(
+        'select',
+        {
+          value: commercialBase,
+          onChange: (e) => setCommercialBase(e.target.value),
+          className: 'w-full px-3 py-2 bg-slate-900 border border-slate-700 rounded text-white',
+        },
+        COMMERCIAL_BASES.map((b) => h('option', { key: b.value, value: b.value }, b.label))
+      )
+    ),
+
+    // Rate (Required, no default)
+    h(
+      'div',
+      null,
+      h(
+        'label',
+        { className: 'block font-medium text-slate-300 mb-1' },
+        'Komisyon Oranı (Rate, örn. 0.20 = %20) *'
+      ),
+      h('input', {
+        type: 'number',
+        step: '0.001',
+        min: '0',
+        max: '1',
+        placeholder: 'Zorunlu (örn: 0.20)',
+        value: rate,
+        onChange: (e) => setRate(e.target.value),
+        className: 'w-full px-3 py-2 bg-slate-900 border border-slate-700 rounded text-white',
+        required: true,
+      }),
+      rate === '' &&
+        h('div', { className: 'text-amber-400 text-2xs mt-0.5' }, 'Oran zorunludur; varsayılan değer atanmamaktadır.')
+    ),
+
+    // NGR Definition and Version Pickers when base is NGR
+    isNgr &&
+      h(
+        'div',
+        { className: 'p-3 bg-slate-900/90 border border-indigo-900/60 rounded space-y-2' },
+        h(
+          'div',
+          { className: 'text-2xs font-semibold uppercase tracking-wider text-indigo-400' },
+          'NGR Tanımı ve Sürümü (K28)'
+        ),
+
+        // NGR Definition select
+        h(
+          'div',
+          null,
+          h('label', { className: 'block text-slate-300 mb-1' }, 'NGR Tanımı *'),
+          availableNgrDefs.length === 0
+            ? h(
+                'div',
+                { className: 'text-amber-400 text-2xs' },
+                'Kayıtlı NGR tanımı bulunamadı. ',
+                h('a', { href: '/console/billing/ngr-definitions/new', className: 'underline text-indigo-400' }, 'Yeni Tanım Oluştur')
+              )
+            : h(
+                'select',
+                {
+                  value: ngrDefinitionId,
+                  onChange: (e) => {
+                    const chosenId = e.target.value;
+                    setNgrDefinitionId(chosenId);
+                    const def = availableNgrDefs.find((d) => String(d._id) === String(chosenId));
+                    if (def) setNgrDefinitionVersion(def.version);
+                  },
+                  className: 'w-full px-2.5 py-1.5 bg-slate-800 border border-slate-700 rounded text-white text-xs',
+                },
+                h('option', { value: '' }, '-- NGR Tanımı Seçin --'),
+                availableNgrDefs.map((d) =>
+                  h('option', { key: d._id, value: d._id }, `${d.name} (v${d.version} - ${d.status})`)
+                )
+              )
+        ),
+
+        // NGR Version select
+        h(
+          'div',
+          null,
+          h('label', { className: 'block text-slate-300 mb-1' }, 'NGR Sürümü (Version) *'),
+          h(
+            'select',
+            {
+              value: ngrDefinitionVersion,
+              onChange: (e) => setNgrDefinitionVersion(Number(e.target.value)),
+              className: 'w-full px-2.5 py-1.5 bg-slate-800 border border-slate-700 rounded text-white text-xs',
+            },
+            versionsForDef.map((v) => h('option', { key: v, value: v }, `v${v}`))
+          )
+        )
+      ),
+
+    // Currency & Minimum fee
+    h(
+      'div',
+      { className: 'grid grid-cols-2 gap-2' },
+      h(
+        'div',
+        null,
+        h('label', { className: 'block font-medium text-slate-300 mb-1' }, 'Para Birimi'),
+        h('input', {
+          type: 'text',
+          value: currency,
+          onChange: (e) => setCurrency(e.target.value),
+          className: 'w-full px-3 py-2 bg-slate-900 border border-slate-700 rounded text-white',
+        })
+      ),
+      h(
+        'div',
+        null,
+        h('label', { className: 'block font-medium text-slate-300 mb-1' }, 'Minimum Ücret'),
+        h('input', {
+          type: 'number',
+          value: minimumFee,
+          onChange: (e) => setMinimumFee(e.target.value),
+          className: 'w-full px-3 py-2 bg-slate-900 border border-slate-700 rounded text-white',
+        })
+      )
+    ),
+
+    h(
+      'button',
+      {
+        type: 'button',
+        disabled: saving,
+        onClick: onSubmit,
+        className: 'w-full px-4 py-2 text-xs font-medium text-white bg-indigo-600 hover:bg-indigo-700 rounded transition-colors disabled:opacity-50',
+      },
+      saving ? 'Kaydediliyor...' : 'Ticari Koşulları Kaydet'
+    )
+  );
+}
 
 export default function PartnerDetail({ partnerId: propPartnerId }) {
   const [partnerId, setPartnerId] = useState(propPartnerId || '');
@@ -18,11 +238,23 @@ export default function PartnerDetail({ partnerId: propPartnerId }) {
   const [maxTenants, setMaxTenants] = useState(1);
   const [allowedModulesStr, setAllowedModulesStr] = useState('sports, casino');
   const [commercialModel, setCommercialModel] = useState('revshare_ggr');
-  const [rate, setRate] = useState(0.15);
+  const [commercialBase, setCommercialBase] = useState('ggr');
+  const [rate, setRate] = useState('');
   const [currency, setCurrency] = useState('TRY');
   const [minimumFee, setMinimumFee] = useState(0);
+  const [ngrDefinitionId, setNgrDefinitionId] = useState('');
+  const [ngrDefinitionVersion, setNgrDefinitionVersion] = useState(1);
+  const [availableNgrDefs, setAvailableNgrDefs] = useState([]);
+  const [termsError, setTermsError] = useState(null);
 
   const [saving, setSaving] = useState(false);
+
+  useEffect(() => {
+    // Load NGR definitions for terms picker
+    billingApi.listNgrDefinitions().then((res) => {
+      setAvailableNgrDefs(res?.definitions || []);
+    }).catch(() => {});
+  }, []);
 
   useEffect(() => {
     let id = propPartnerId;
@@ -50,17 +282,20 @@ export default function PartnerDetail({ partnerId: propPartnerId }) {
         setMaxTenants(p.provisioningLimits?.maxTenants ?? 1);
         setAllowedModulesStr((p.provisioningLimits?.allowedModules || ['sports', 'casino']).join(', '));
         const terms = p.defaultCommercialTerms || {};
-        setCommercialModel(terms.model || 'revshare_ggr');
-        setRate(terms.rate ?? 0.15);
+        const m = terms.model || 'revshare_ggr';
+        setCommercialModel(m);
+        setCommercialBase(terms.base || (m === 'revshare_ngr' ? 'ngr' : m === 'turnover' ? 'turnover' : m === 'fixed' ? 'fixed' : 'ggr'));
+        setRate(terms.rate !== undefined && terms.rate !== null ? String(terms.rate) : '');
         setCurrency(terms.currency || 'TRY');
         setMinimumFee(terms.minimumFee ?? 0);
+        setNgrDefinitionId(terms.ngrDefinitionId ? String(terms.ngrDefinitionId) : '');
+        setNgrDefinitionVersion(terms.ngrDefinitionVersion ?? 1);
       }
     } catch (err) {
-      const msg =
-        err.response?.data?.error?.message ||
-        err.response?.data?.message ||
-        'Partner bilgileri yüklenirken bir hata oluştu.';
-      setError(msg);
+      const code = err.response?.data?.error?.code || err.response?.data?.code;
+      const rawMsg = err.response?.data?.error?.message || err.response?.data?.message || 'Partner bilgileri yüklenirken bir hata oluştu.';
+      const explanation = NGR_ERROR_EXPLANATIONS[code] || rawMsg;
+      setError(code ? `[${code}] ${explanation}` : explanation);
     } finally {
       setLoading(false);
     }
@@ -69,17 +304,21 @@ export default function PartnerDetail({ partnerId: propPartnerId }) {
   const handleUpdate = async (patch, successText) => {
     setSaving(true);
     setError(null);
+    setTermsError(null);
     setSuccessMsg(null);
     try {
       const res = await apiClient.patch(`/partners/${partnerId}`, patch);
       setPartner(res.data?.partner);
       setSuccessMsg(successText || 'Değişiklikler başarıyla kaydedildi.');
     } catch (err) {
-      const msg =
-        err.response?.data?.error?.message ||
-        err.response?.data?.message ||
-        'Güncelleme sırasında bir hata oluştu.';
-      setError(msg);
+      const code = err.response?.data?.error?.code || err.response?.data?.code;
+      const rawMsg = err.response?.data?.error?.message || err.response?.data?.message || 'Güncelleme sırasında bir hata oluştu.';
+      const explanation = NGR_ERROR_EXPLANATIONS[code] || rawMsg;
+      const displayMsg = code ? `[${code}] ${explanation}` : explanation;
+      setError(displayMsg);
+      if (code?.startsWith('ERR_TERMS_') || code?.startsWith('ERR_NGR_')) {
+        setTermsError(displayMsg);
+      }
     } finally {
       setSaving(false);
     }
@@ -223,84 +462,64 @@ export default function PartnerDetail({ partnerId: propPartnerId }) {
       h(
         'div',
         { className: 'bg-slate-800 border border-slate-700 rounded-xl p-5 space-y-4' },
-        h('h3', { className: 'text-sm font-semibold text-white border-b border-slate-700 pb-2' }, 'K20/K21 Ticari Koşullar'),
-        h(
-          'div',
-          { className: 'space-y-3 text-xs' },
-          h(
-            'div',
-            null,
-            h('label', { className: 'block font-medium text-slate-300 mb-1' }, 'Hesaplama Modeli'),
-            h(
-              'select',
-              {
-                value: commercialModel,
-                onChange: (e) => setCommercialModel(e.target.value),
-                className: 'w-full px-3 py-2 bg-slate-900 border border-slate-700 rounded text-white',
-              },
-              COMMERCIAL_MODELS.map((m) => h('option', { key: m.value, value: m.value }, m.label))
-            )
-          ),
-          h(
-            'div',
-            null,
-            h('label', { className: 'block font-medium text-slate-300 mb-1' }, 'Komisyon Oranı (Rate, örn. 0.15 = %15)'),
-            h('input', {
-              type: 'number',
-              step: '0.01',
-              min: '0',
-              max: '1',
-              value: rate,
-              onChange: (e) => setRate(e.target.value),
-              className: 'w-full px-3 py-2 bg-slate-900 border border-slate-700 rounded text-white',
-            })
-          ),
-          h(
-            'div',
-            { className: 'grid grid-cols-2 gap-2' },
-            h(
-              'div',
-              null,
-              h('label', { className: 'block font-medium text-slate-300 mb-1' }, 'Para Birimi'),
-              h('input', {
-                type: 'text',
-                value: currency,
-                onChange: (e) => setCurrency(e.target.value),
-                className: 'w-full px-3 py-2 bg-slate-900 border border-slate-700 rounded text-white',
-              })
-            ),
-            h(
-              'div',
-              null,
-              h('label', { className: 'block font-medium text-slate-300 mb-1' }, 'Minimum Ücret'),
-              h('input', {
-                type: 'number',
-                value: minimumFee,
-                onChange: (e) => setMinimumFee(e.target.value),
-                className: 'w-full px-3 py-2 bg-slate-900 border border-slate-700 rounded text-white',
-              })
-            )
-          ),
-          h(
-            'button',
-            {
-              type: 'button',
-              disabled: saving,
-              onClick: () => {
-                handleUpdate({
-                  defaultCommercialTerms: {
-                    model: commercialModel,
-                    rate: Number(rate),
-                    currency,
-                    minimumFee: Number(minimumFee),
-                  },
-                }, 'Ticari koşullar güncellendi.');
-              },
-              className: 'w-full px-4 py-2 text-xs font-medium text-white bg-indigo-600 hover:bg-indigo-700 rounded transition-colors disabled:opacity-50',
-            },
-            saving ? 'Kaydediliyor...' : 'Ticari Koşulları Kaydet'
-          )
-        )
+        h('h3', { className: 'text-sm font-semibold text-white border-b border-slate-700 pb-2' }, 'K20/K21/K28 Ticari Koşullar'),
+        h(PartnerTermsForm, {
+          commercialModel,
+          setCommercialModel,
+          commercialBase,
+          setCommercialBase,
+          rate,
+          setRate,
+          currency,
+          setCurrency,
+          minimumFee,
+          setMinimumFee,
+          ngrDefinitionId,
+          setNgrDefinitionId,
+          ngrDefinitionVersion,
+          setNgrDefinitionVersion,
+          availableNgrDefs,
+          error: termsError,
+          saving,
+          onSubmit: () => {
+            setTermsError(null);
+            if (rate === '' || isNaN(Number(rate))) {
+              setTermsError('Komisyon oranı zorunludur ve sayısal bir değer olmalıdır (varsayılan değer atanmaz).');
+              return;
+            }
+            const numRate = Number(rate);
+            if (numRate < 0 || numRate > 1) {
+              setTermsError('Komisyon oranı 0 ile 1 arasında olmalıdır (örn: 0.20 = %20).');
+              return;
+            }
+            if (commercialBase === 'ngr') {
+              if (!ngrDefinitionId) {
+                setTermsError('NGR hesaplaması için geçerli bir NGR tanımı seçilmelidir.');
+                return;
+              }
+              if (!ngrDefinitionVersion) {
+                setTermsError('NGR tanım sürümü seçilmelidir.');
+                return;
+              }
+            }
+
+            const termsPayload = {
+              model: commercialModel,
+              base: commercialBase,
+              rate: numRate,
+              currency,
+              minimumFee: Number(minimumFee),
+              ...(commercialBase === 'ngr'
+                ? {
+                    ngrDefinitionId,
+                    ngrDefinitionVersion: Number(ngrDefinitionVersion),
+                  }
+                : {}),
+            };
+
+            handleUpdate({ defaultCommercialTerms: termsPayload }, 'Ticari koşullar güncellendi.');
+          },
+        })
       ),
 
       // Contact & Entity Card
