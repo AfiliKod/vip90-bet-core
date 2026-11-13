@@ -50,6 +50,15 @@ test('POST /api/platform/partners creates partner with commercial terms and limi
   const token = signStaffAccess(owner, { scopeType: 'platform', scopeId: null, amr: ['pwd', 'otp'] });
 
   await withPlatformApp(async (base) => {
+    // K28: NGR terms must name an existing NGR definition version.
+    const ngrWithoutDefinition = await fetch(`${base}/partners`, {
+      method: 'POST',
+      headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ key: 'beta-ngr', name: 'Beta NGR', defaultCommercialTerms: { model: 'revshare_ngr', rate: 0.20, currency: 'EUR' } }),
+    });
+    assert.equal(ngrWithoutDefinition.status, 400);
+    assert.equal((await ngrWithoutDefinition.json()).error.code, 'ERR_TERMS_NGR_DEFINITION');
+
     const res = await fetch(`${base}/partners`, {
       method: 'POST',
       headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
@@ -58,14 +67,15 @@ test('POST /api/platform/partners creates partner with commercial terms and limi
         name: 'Beta Partners Ltd',
         capabilities: ['metrics.read', 'staff.manage', 'tenants.create'],
         provisioningLimits: { maxTenants: 5, allowedModules: ['sports'] },
-        defaultCommercialTerms: { model: 'revshare_ngr', rate: 0.20, currency: 'EUR' },
+        defaultCommercialTerms: { model: 'revshare_ggr', rate: 0.20, currency: 'EUR' },
       }),
     });
 
     assert.equal(res.status, 201);
     const body = await res.json();
     assert.equal(body.partner.key, 'beta-partners');
-    assert.equal(body.partner.defaultCommercialTerms.model, 'revshare_ngr');
+    assert.equal(body.partner.defaultCommercialTerms.model, 'revshare_ggr');
+    assert.equal(body.partner.defaultCommercialTerms.base, 'ggr');
     assert.equal(body.partner.defaultCommercialTerms.rate, 0.20);
   });
 });

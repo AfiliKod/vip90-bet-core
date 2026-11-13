@@ -37,6 +37,13 @@ import {
   voidStatementHandler,
   exportStatementCsvHandler,
 } from '../controllers/platformBillingController.js';
+import {
+  listNgrDefinitions,
+  getNgrDefinition,
+  createNgrDefinition,
+  updateNgrDefinition,
+  createNewVersion,
+} from '../controllers/platformNgrController.js';
 
 const TENANTS_MANAGE = 'platform:tenants:manage';
 const ROLES_MANAGE = 'platform:roles:manage';
@@ -69,6 +76,11 @@ export function createPlatformRouter() {
   router.patch('/partners/:id', requireStaffPermission(PARTNERS_MANAGE), updatePartner);
   router.get('/billing/plans', requireStaffPermission(BILLING_READ), listOperatorFeePlans);
   router.post('/billing/plans', requireStaffPermission(BILLING_MANAGE), createOrUpdateFeePlan);
+  router.get('/billing/ngr-definitions', requireStaffPermission(BILLING_READ), listNgrDefinitions);
+  router.post('/billing/ngr-definitions', requireStaffPermission(BILLING_MANAGE), createNgrDefinition);
+  router.get('/billing/ngr-definitions/:id', requireStaffPermission(BILLING_READ), getNgrDefinition);
+  router.put('/billing/ngr-definitions/:id', requireStaffPermission(BILLING_MANAGE), updateNgrDefinition);
+  router.post('/billing/ngr-definitions/:id/versions', requireStaffPermission(BILLING_MANAGE), createNewVersion);
   router.get('/billing/statements', requireStaffPermission(BILLING_READ), listStatements);
   router.get('/billing/statements/:id', requireStaffPermission(BILLING_READ), getStatement);
   router.post('/billing/statements/generate', requireStaffPermission(BILLING_MANAGE), generateStatementsHandler);
