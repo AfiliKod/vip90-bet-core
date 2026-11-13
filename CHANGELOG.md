@@ -18,6 +18,11 @@ Madde formatı ve kategoriler için `docs/CHANGELOG_GUIDE.md`'ye bakın —
 
 ## [Yayınlanmadı]
 
+### Tek modda canlı yönetim akışı varsayılan kiracı olmadan da çalışıyor
+
+**Düzeltildi**
+- **Varsayılan kiracı henüz oluşmamış tek modlu kurulumda yöneticiler canlı yönetim odasına katılamıyordu** (`server/src/socket/handler.js`): İP-7'den sonra `subscribe:admin`, sokete kiracı bağlı değilse hiçbir şey yapmıyordu; aktivite, KYC, destek bildirimleri ve kuyruk sayaçları canlı gelmiyordu. Tek modda bağlamsız soket artık eskisi gibi genel yönetim odasına katılır (izin kontrolü aynı: `admin:activity:read`). Çok modda kiracısız soket yine reddedilir.
+
 ### İP-9c: komisyon, faturalama ve platform çapraz raporları
 **Eklendi**
 - Operatör oran beslemesi maliyet planları, partner ekstreleri, gün bazında geçerli ticari koşullarla GGR komisyon hesaplama, ekstre yaşam döngüsü, denetimli düzeltmeler ve platform/partner raporları eklendi. İlk sürümün komisyon tabanı yalnız GGR'dir (`casinoGgr + sportsGgrRealized`); NGR istekleri uygulanana kadar `ERR_NGR_NOT_IMPLEMENTED` ile reddedilir.
