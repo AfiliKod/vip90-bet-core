@@ -225,3 +225,11 @@ node scripts/staff-recover.mjs --create-owner --email owner@example.com --userna
 **Idempotency.** Every action can be re-run safely: a role that is already held is reported, not duplicated; an account that already exists is reused by `--create-owner`. The exit code is `0` on success and `1` on any error; errors go to stderr. Options can be combined in one call (for example `--reset-password … --promote-owner`), and actions run in a fixed order: list, create-owner, reset-password, reset-2fa, promote-owner.
 
 **After a reset.** Password and 2FA resets invalidate existing sessions; in multi mode the staff member still has to set up 2FA again before their next staff login completes (2FA is mandatory there). Change the temporary password from the panel once access is restored.
+
+## Çok operatörlü yönetim
+
+Çok modda Tenant yöneticisi kendi operatörü için marka/site adı, tüzel kişi ve entegrasyon ayarlarını yönetir. Marka/site adı yoksa istemci Tenant adını geri dönüş olarak kullanır; yasal sayfalar Tenant'ın tüzel kişi adı, sicil numarası ve adresini kullanır.
+
+Personel tokenları oyuncu tokenlarından ayrıdır. Çok modda personel ilk girişte 2FA kurulumunu tamamlamadan erişim tokenı alamaz. Platform kapsamlı personel operatör rotalarında salt okunurdur; geçici yazma yetkisi yalnız Platform Sahibinin gerekçeli, denetimli ve en fazla 24 saatlik grant'iyle mümkündür.
+
+**Partner grants** bölümü, yalnız operatörün kendi personeline açıktır. `admin:partner-grants:read` ile grant'ler listelenir; `admin:partner-grants:write` ile gerekçe, kapsam ve en çok 90 günlük bitiş zamanı verilerek grant oluşturulur veya iptal edilir. Partner personeli kendi erişimi için grant yönetemez. Her verme, iptal ve grant üzerinden yapılan erişim denetim kaydına düşer.

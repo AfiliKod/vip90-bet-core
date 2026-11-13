@@ -36,9 +36,14 @@ olgunlaşmadığını gizlemiyoruz — bkz. [Yol Haritası](#yol-haritası) ve
 
 ---
 
+## Çok operatörlü platform (1.1.0)
+
+Sürüm 1.1.0, birden çok bağımsız operatör için tek merkezi kurulum getirir. Her operatörün verisi, alan adı, callback'leri ve markası ayrıdır; Platform Sahipleri ayrı konsolu kullanır, partnerler ise atanmış yetenekleri içinde çalışır. Komisyon ve NGR tabanlı faturalama denetlenebilir ekstreler üretir. Mevcut tek operatörlü kurulumlar çalışmaya devam eder; yükseltmeden önce CHANGELOG'daki "Kırılan Değişiklikler" notlarını okuyun (örneğin site adı geri dönüşü). Ayrıntılar için [çok operatörlü kurulum kılavuzuna](docs/product/12-cok-operator.md) bakın.
+
 ## İçindekiler
 
 - [Öne Çıkanlar](#öne-çıkanlar)
+- [Çok operatörlü platform (1.1.0)](#çok-operatörlü-platform-110)
 - [Ekran Görüntüleri](#ekran-görüntüleri)
 - [Neler Dahil](#neler-dahil)
 - [Deneyin](#deneyin)
@@ -87,6 +92,8 @@ eklentiler sağlar.
 ## Neler Dahil
 
 ### 🧱 Çekirdek platform
+
+- **Çok operatör katmanı (1.1.0):** merkezi Platform Sahibi konsolu, operatör başına ana makine/marka/callback atfı ve yalıtım, partner yetenekleri ve süreli grant'ler, NGR komisyon tanımları ve CSV ekstreleri. Tek operatörlü kurulumlar çalışmaya devam eder (CHANGELOG'daki kırılan değişiklik notlarına bakın); bkz. [çok operatörlü kılavuz](docs/product/12-cok-operator.md).
 
 - Hesap, e-posta doğrulama, şifre sıfırlama; e-posta/şifre + Google/Telegram
   girişi + **Web3 cüzdan imzasıyla** kayıt/giriş.
@@ -235,6 +242,7 @@ server/src/premium/   Ücretli eklentiler (özel git alt modülleri)
   inhouse-provider/   oyun motoru + game-host/ (ayrı React/Vite uygulaması)
   betting/            sonuçlandırma + oran beslemesi istemcisi + sync job'ları
   igames/             casino aggregator entegrasyonu
+console/   Çok operatörlü kurulumlar için Platform Sahibi konsolu SPA'sı
 ```
 
 `docker compose` yalnızca `mongo`, `app` ve `caddy` servislerini çalıştırır;
@@ -254,8 +262,11 @@ olarak çalışmalıdır (çoklu doküman transaction'ları kullanılır).
   `HomeSidebar`) tek yerden yönetilir, kopyala-yapıştır drift riski yok.
 - Otomatik test paketi: auth, bahis, çevrim, modül kapısı ve i18n
   kapsıyor (`npm test`).
+- **Tenancy katmanı:** doğrulanmış ana makineden operatör çözümü, operatör kapsamlı veri erişimi, operatör başına callback atfı ve ayrı platform/partner API'leri.
 
 ## Hızlı Başlangıç
+
+Yeni merkezi çok operatörlü kurulumda sihirbazı kullanmayın: çok mod ortam değerlerini ayarlayın, migrations çalıştırın, ilk Platform Sahibini bootstrap edin ve operatörleri `/console` üzerinden sağlayın. Kesin kontrol listesi [çok operatörlü kurulum kılavuzundadır](docs/product/12-cok-operator.md).
 
 ### Docker ile (önerilen)
 
@@ -331,6 +342,7 @@ altında (İngilizce):
 - [SSS](docs/product/06-sss.md) · [Video Storyboard'ları](docs/product/07-video-storyboardlari.md)
 - [Bilinen Kısıtlar](docs/product/09-bilinen-kisitlar.md) · [Bonus ve Çevrim](docs/product/10-bonus-ve-cevrim.md)
 - [Admin Araçları — Aktivite Akışı, Demo Veri, Casino Ödülleri](docs/product/11-admin-araclari.md)
+- [Çok Operatörlü Kurulum](docs/product/12-cok-operator.md)
 
 Çekirdekle gelen ödeme ve KYC entegrasyonları:
 [Kripto Ödeme — TRC20 USDT](docs/providers/crypto-trc20.md) ·

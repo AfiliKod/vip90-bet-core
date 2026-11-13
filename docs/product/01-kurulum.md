@@ -1,6 +1,18 @@
 # Installation
 
 There are two ways: **Docker with a single command** (recommended, fast) and **manual installation** (for those who don't want to use Docker). Both lead to the same result: a working VIP90.bet **core platform** (accounts, wallet, bonuses, KYC, risk, admin panel) + a setup wizard that runs from the browser.
+## Tek operatör veya çok operatör seçimi
+
+Varsayılan yol `TENANCY_MODE=single` olan tek operatörlü kurulumdur; mevcut kurulumlar için hiçbir ek adım gerekmez ve `/install` sihirbazı kullanılır.
+
+Bir merkezi kurulumdan birden çok bağımsız operatör çalıştırmak için **yeni, temiz** bir kurulumda `TENANCY_MODE=multi` kullanın. Bu modda `/install` kapalıdır: `TENANCY_ENFORCEMENT=enforce`, tüm `DEMO_*` değerleri `false`, `JWT_STAFF_SECRET`, `OPERATOR_SECRET_ENCRYPTION_KEY`, `PLATFORM_HOST`, `SCOPE_GATE_ENV` ve en az 1825 günlük `AUDIT_RETENTION_DAYS` ayarlanır. Migrations sonrasında ilk Platform Sahibi şu komutla oluşturulur:
+
+```bash
+node scripts/platform-bootstrap.mjs --owner-email owner@example.com --password-stdin
+```
+
+İlk girişte 2FA kurulumu zorunludur. Sonraki operatörler platform ana makinesindeki `/console` üzerinden sağlanır; alan adı TXT doğrulaması ve TLS tamamlanmadan oyuncu trafiğine açılmaz. Ayrıntılı yol için [12 — Çok Operatörlü Kurulum](12-cok-operator.md) belgesini izleyin.
+
 
 The separately sold add-ons (**In-house Games**, **Sports Betting**, **Casino Content**) are installed on top of this core — see [Add-on modules](#add-on-modules-in-house-games-sports-betting-casino-content) at the end of this document. The core opens and works without them.
 

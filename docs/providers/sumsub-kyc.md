@@ -79,7 +79,7 @@ Sumsub identity verification integration for VIP90.bet. Automates KYC (Know Your
 3. Selects "Sumsub" as provider
 4. Enters API credentials (App Token, Secret Key, Level Name, Webhook Secret)
 5. Clicks "Baglanti Testi" to verify credentials
-6. Configures webhook URL in Sumsub dashboard: `https://domain.com/api/webhook/sumsub`
+6. Configures webhook URL in Sumsub dashboard. In multi mode it is `https://operator.example.com/api/webhook/sumsub/:tenantId`; use the tenant id or key returned by provisioning. In single mode it is `https://operator.example.com/api/webhook/sumsub`.
 7. Switches to production credentials when ready
 
 ## Registration & Going Live
@@ -97,7 +97,7 @@ Sumsub identity verification integration for VIP90.bet. Automates KYC (Know Your
    - **App Token** (starts with `app_t_`)
    - **Secret Key** (starts with `sec_`)
 3. Go to **Settings -> Webhooks** and set:
-   - **URL:** `https://your-domain.com/api/webhook/sumsub`
+   - **URL:** single mode: `https://operator.example.com/api/webhook/sumsub`; multi mode: `https://operator.example.com/api/webhook/sumsub/:tenantId`
    - **Secret:** Generate and copy
 4. Go to **Settings -> Verification Levels** and create:
    - Level name: `basic-kyc-level` (or match `SUMSUB_LEVEL_NAME`)
@@ -417,7 +417,7 @@ node --test server/test/kyc.test.js
 
 - [ ] Sumsub account created (sandbox + production)
 - [ ] API credentials configured (KYC card under Settings → Modules)
-- [ ] Webhook URL configured in Sumsub dashboard: `https://your-domain.com/api/webhook/sumsub`
+- [ ] Webhook URL configured in Sumsub dashboard: single mode `https://operator.example.com/api/webhook/sumsub`; multi mode `https://operator.example.com/api/webhook/sumsub/:tenantId`
 - [ ] Webhook secret configured in Sumsub dashboard
 - [ ] Verification level created in Sumsub dashboard
 - [ ] `SUMSUB_LEVEL_NAME` matches level name in Sumsub dashboard
