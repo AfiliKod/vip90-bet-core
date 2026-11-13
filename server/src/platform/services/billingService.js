@@ -23,120 +23,6 @@ if (!StatementLine.schema.path('baseMetric').enumValues.includes('ngr')) {
   StatementLine.schema.path('baseMetric').enum('ngr');
 }
 
-/**
- * Fallback NGR calculation for when calculator has not yet implemented NGR.
- * Calculates daily NGR, itemized deductions, and commission lines in integer minor units.
- */
-function calculateNgrFallback({ partner, links = [], stats = [], feePlans = [], ngrDefinitions = [] }) {
-  const byCurrency = {};
-
-  for (const stat of stats) {
-    const currency = stat.currency || 'TRY';
-    if (!byCurrency[currency]) {
-      byCurrency[currency] = {
-        currency,
-        lines: [],
-        grossAmount: 0,
-        netAmount: 0,
-        _grossAmountCents: 0,
-      };
-    }
-
-    const link = findActiveLink(links, stat.tenantId, stat.date);
-    const terms = link?.commercialTerms || partner?.commercialTerms || partner?.defaultCommercialTerms || { model: 'revshare_ggr', rate: 0.15 };
-
-    if (terms.model === 'revshare_ngr' || terms.base === 'ngr') {
-      const ngrDef = ngrDefinitions.find((def) => (
-        String(def._id) === String(terms.ngrDefinitionId) &&
-        (terms.ngrDefinitionVersion == null || def.version === terms.ngrDefinitionVersion)
-      ));
-      if (!ngrDef) {
-        const err = new Error('NGR definition was not found for the configured commercial terms.');
-        err.code = 'ERR_NGR_DEFINITION_NOT_FOUND';
-        throw err;
-      }
-
-      const components = Array.isArray(ngrDef.ggrComponents) && ngrDef.ggrComponents.length > 0
-        ? new Set(ngrDef.ggrComponents)
-        : new Set(['casino', 'sports']);
-      const casinoGgrCents = components.has('casino') ? toMinorUnits(stat.casinoGgr || 0) : 0;
-      const sportsGgrCents = components.has('sports') ? toMinorUnits(stat.sportsGgrRealized || 0) : 0;
-      const casinoTurnoverCents = components.has('casino') ? toMinorUnits(stat.casinoTurnover || 0) : 0;
-      const sportsTurnoverCents = components.has('sports') ? toMinorUnits(stat.sportsTurnover || 0) : 0;
-
-      const ggrCents = casinoGgrCents + sportsGgrCents;
-      const turnoverCents = casinoTurnoverCents + sportsTurnoverCents;
-
-      const feePlan = findActiveFeePlan(feePlans, stat.tenantId, stat.date);
-      const deductions = [];
-      let totalDeductionsCents = 0;
-
-      for (const item of (ngrDef.items || []).filter((i) => i?.enabled)) {
-        let amountCents = 0;
-        if (item.source === 'stat_field') {
-          amountCents = toMinorUnits(stat[item.params?.field] || 0);
-        } else if (item.source === 'fee_plan' && item.params?.component === 'sportsbookFee') {
-          const sb = feePlan?.sportsbookFee;
-          if (sb && (sb.model === 'turnover_percentage' || sb.model === 'both')) {
-            amountCents = multiplyMinorUnitsByRate(toMinorUnits(stat.sportsTurnover || 0), sb.turnoverRate || 0);
-          }
-        } else if (item.source === 'rate') {
-          const targetCents = item.params?.target === 'turnover' ? turnoverCents : ggrCents;
-          amountCents = multiplyMinorUnitsByRate(targetCents, item.params?.rate || 0);
-        } else if (item.source === 'fixed' && (item.params?.period ?? 'day') === 'day') {
-          amountCents = toMinorUnits(item.params?.amount || 0);
-        }
-
-        totalDeductionsCents += amountCents;
-        deductions.push({
-          category: item.category,
-          label: item.label,
-          source: item.source,
-          amount: fromMinorUnits(amountCents),
-        });
-      }
-
-      const ngrCents = ggrCents - totalDeductionsCents;
-      const negativeBaseHandling = terms.negativeBaseHandling || terms.negativeGgrHandling || 'zero_floor';
-      const effectiveNgrCents = ngrCents < 0 && negativeBaseHandling === 'zero_floor' ? 0 : ngrCents;
-      const rate = terms.rate ?? 0.15;
-      const commissionCents = multiplyMinorUnitsByRate(effectiveNgrCents, rate);
-
-      byCurrency[currency].lines.push({
-        tenantId: stat.tenantId,
-        linkId: link?._id || null,
-        type: 'commission',
-        date: stat.date,
-        currency,
-        baseMetric: 'ngr',
-        baseAmount: fromMinorUnits(ngrCents),
-        rate,
-        amount: fromMinorUnits(commissionCents),
-        description: `${Number((rate * 100).toPrecision(12))}% NGR Commission for ${stat.date}`,
-        metadata: {
-          ggr: fromMinorUnits(ggrCents),
-          totalDeductions: fromMinorUnits(totalDeductionsCents),
-          ngr: fromMinorUnits(ngrCents),
-          deductions,
-          negativeBaseHandling,
-          ngrDefinitionId: ngrDef._id,
-          ngrDefinitionVersion: ngrDef.version,
-        },
-      });
-
-      byCurrency[currency]._grossAmountCents += commissionCents;
-      byCurrency[currency].grossAmount = fromMinorUnits(byCurrency[currency]._grossAmountCents);
-    }
-  }
-
-  for (const curr of Object.keys(byCurrency)) {
-    const group = byCurrency[curr];
-    group.netAmount = group.grossAmount;
-    delete group._grossAmountCents;
-  }
-
-  return byCurrency;
-}
 
 /**
  * Assert that an NGR definition version is not referenced by an issued statement.
@@ -197,7 +83,6 @@ export async function generatePartnerStatements({ partnerId, periodStart, period
 
     // Fetch referenced NgrDefinition records for any links or partner terms where base === 'ngr' or model === 'revshare_ngr'
     const candidateTerms = [
-      partner.commercialTerms,
       partner.defaultCommercialTerms,
       ...links.map((link) => link.commercialTerms),
     ].filter(Boolean);
@@ -235,28 +120,13 @@ export async function generatePartnerStatements({ partnerId, periodStart, period
       }
     }
 
-    let calculationsByCurrency;
-    try {
-      calculationsByCurrency = calculateCommissionForPeriod({
-        partner,
-        links,
-        stats,
-        feePlans,
-        ngrDefinitions,
-      });
-    } catch (err) {
-      if (err.code === 'ERR_NGR_NOT_IMPLEMENTED') {
-        calculationsByCurrency = calculateNgrFallback({
-          partner,
-          links,
-          stats,
-          feePlans,
-          ngrDefinitions,
-        });
-      } else {
-        throw err;
-      }
-    }
+    const calculationsByCurrency = calculateCommissionForPeriod({
+      partner,
+      links,
+      stats,
+      feePlans,
+      ngrDefinitions,
+    });
 
     const statements = [];
 

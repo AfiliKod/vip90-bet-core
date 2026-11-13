@@ -12,7 +12,7 @@ const partnerOperatorLinkSchema = new mongoose.Schema({
   commercialTerms: {
     model:                 { type: String, enum: ['revshare_ggr', 'revshare_ngr', 'turnover', 'fixed'], default: 'revshare_ggr' },
     base:                  { type: String, enum: ['ggr', 'ngr', 'turnover', 'fixed'], default: 'ggr' },
-    rate:                  { type: Number, default: 0.15 },
+    rate:                  { type: Number, default: null },
     currency:              { type: String, default: 'TRY' },
     minimumFee:            { type: Number, default: 0 },
     ngrDefinitionId:       { type: ObjectId, ref: 'NgrDefinition', default: null },

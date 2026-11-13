@@ -1,3 +1,4 @@
+import { findNgrRuleViolation } from './ngrRules.js';
 /**
  * Pure Commission & Sportsbook Fee Calculator Engine.
  *
@@ -180,53 +181,24 @@ export function findActiveFeePlan(feePlans = [], tenantId, dateStr) {
  * @param {object} ngrDef
  * @throws {Error} when enabled deductions overlap
  */
-export function assertNoDoubleDeduction(ngrDef) {
-  const enabledItems = (ngrDef?.items || []).filter((item) => item?.enabled);
-  const categories = new Set();
-  const otherLabels = new Set();
-  const sources = new Set();
-  const alreadyNetOf = new Set(ngrDef?.ggrAlreadyNetOf || []);
-
-  const fail = (message) => {
-    const err = new Error(message);
-    err.code = 'ERR_NGR_DOUBLE_DEDUCTION';
+/** Commercial terms are configuration (K21, K28): no built-in model or rate. */
+function requireConfiguredTerms(terms, stat) {
+  if (!terms || !terms.model || typeof terms.rate !== 'number' || !Number.isFinite(terms.rate)) {
+    const err = new Error(`No commercial terms (model and rate) configured for tenant ${stat?.tenantId} on ${stat?.date}.`);
+    err.code = 'ERR_COMMERCIAL_TERMS_MISSING';
+    err.status = 409;
     throw err;
-  };
-
-  for (const item of enabledItems) {
-    if (alreadyNetOf.has(item.category)) {
-      fail(`Category "${item.category}" is already net in GGR.`);
-    }
-
-    if (item.category === 'other') {
-      const label = String(item.label || '').trim().toLowerCase();
-      if (otherLabels.has(label)) {
-        fail(`Duplicate label "${item.label}" in category "other".`);
-      }
-      otherLabels.add(label);
-    } else {
-      if (categories.has(item.category)) {
-        fail(`Category "${item.category}" is deducted more than once.`);
-      }
-      categories.add(item.category);
-    }
-
-    let sourceKey = null;
-    if (item.source === 'stat_field' && item.params?.field) {
-      sourceKey = `stat_field:${item.params.field}`;
-    } else if (item.source === 'fee_plan' && item.params?.component) {
-      sourceKey = `fee_plan:${item.params.component}`;
-    } else if (item.source === 'rate' && item.params?.target) {
-      sourceKey = `rate:${item.params.target}`;
-    }
-
-    if (sourceKey) {
-      if (sources.has(sourceKey)) {
-        fail(`Source "${sourceKey}" is used more than once.`);
-      }
-      sources.add(sourceKey);
-    }
   }
+}
+
+export function assertNoDoubleDeduction(ngrDef) {
+  const broken = findNgrRuleViolation(ngrDef);
+  if (!broken) return;
+  const err = new Error(broken.message);
+  err.code = 'ERR_NGR_DOUBLE_DEDUCTION';
+  err.status = 409;
+  err.rule = broken.code;
+  throw err;
 }
 
 function resolveNgrDefinition(ngrDefinitions, terms) {
@@ -291,7 +263,8 @@ export function calculateCommissionForPeriod({ partner, links = [], stats = [], 
     }
 
     const link = findActiveLink(links, stat.tenantId, stat.date);
-    const terms = link?.commercialTerms || partner?.defaultCommercialTerms || { model: 'revshare_ggr', rate: 0.15 };
+    const terms = link?.commercialTerms || partner?.defaultCommercialTerms;
+    requireConfiguredTerms(terms, stat);
 
     const model = terms.model || (terms.base === 'turnover' ? 'turnover' : 'revshare_ggr');
 
@@ -301,6 +274,7 @@ export function calculateCommissionForPeriod({ partner, links = [], stats = [], 
       if (!ngrDef) {
         const err = new Error('NGR definition was not found for the configured commercial terms.');
         err.code = 'ERR_NGR_DEFINITION_NOT_FOUND';
+        err.status = 409;
         throw err;
       }
       assertNoDoubleDeduction(ngrDef);
@@ -335,7 +309,7 @@ export function calculateCommissionForPeriod({ partner, links = [], stats = [], 
       const ngrCents = ggrCents - totalDeductionsCents;
       const negativeBaseHandling = terms.negativeBaseHandling || terms.negativeGgrHandling || 'zero_floor';
       const effectiveNgrCents = ngrCents < 0 && negativeBaseHandling === 'zero_floor' ? 0 : ngrCents;
-      const rate = terms.rate ?? 0.15;
+      const rate = terms.rate;
       const commissionCents = multiplyMinorUnitsByRate(effectiveNgrCents, rate);
 
       byCurrency[currency].lines.push({
@@ -368,7 +342,7 @@ export function calculateCommissionForPeriod({ partner, links = [], stats = [], 
       const dayGgrCents = casinoGgrCents + sportsGgrCents;
       const dayGgr = fromMinorUnits(dayGgrCents);
 
-      const rate = terms.rate ?? 0.15;
+      const rate = terms.rate;
       let effectiveGgrCents = dayGgrCents;
 
       if (dayGgrCents < 0) {
@@ -408,7 +382,7 @@ export function calculateCommissionForPeriod({ partner, links = [], stats = [], 
       const dayTurnoverCents = casinoTurnoverCents + sportsTurnoverCents;
       const dayTurnover = fromMinorUnits(dayTurnoverCents);
 
-      const rate = terms.rate ?? 0.05;
+      const rate = terms.rate;
       const commissionCents = multiplyMinorUnitsByRate(dayTurnoverCents, rate);
       const commission = fromMinorUnits(commissionCents);
 
