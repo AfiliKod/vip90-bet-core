@@ -6,6 +6,7 @@ import { verifySocketStaff, verifySocketUser, socketAuthMiddleware } from '../se
 import { initChatSocket } from '../services/chat.js';
 import { broadcastOnlineCount, getOnlineCount } from '../services/onlineCount.js';
 import { adminRoom, clientsRoom, liveRoom } from '../tenancy/tenantKeys.js';
+import { getTenancyMode } from '../config/tenancy.js';
 import { createSocketTenantResolver, socketPacketTenant, socketTenantMiddleware } from './tenant.js';
 
 export function initSocket(io, { resolveSocketTenant = createSocketTenantResolver() } = {}) {
@@ -49,8 +50,10 @@ export function initSocket(io, { resolveSocketTenant = createSocketTenantResolve
     // Ticket/KYC/aktivite gibi admin-only bildirimler. Rol, token'daki
     // kimlik üzerinden DB'den doğrulanır (client'ın beyanına güvenilmez).
     socket.on('subscribe:admin', async ({ token } = {}) => {
-      const targetTenant = socket.data?.tenantId;
-      if (!targetTenant) return;
+      // Single mode before the default tenant exists (G1 not run): the socket is
+      // unbound and admins join the legacy admin room, exactly as before İP-7.
+      const targetTenant = socket.data?.tenantId ?? null;
+      if (!targetTenant && getTenancyMode() !== 'single') return;
       const staff = await verifySocketStaff(token);
       if (staff) {
         const tenantScopedStaff = staff.scp === 'tenant' && String(staff.sid) === String(targetTenant);

@@ -28,6 +28,10 @@ Madde formatı ve kategoriler için `docs/CHANGELOG_GUIDE.md`'ye bakın —
 - Çift kesinti koruması: kaydetme ve hesaplama anında kategori/kaynak tekilliği ile `ggrAlreadyNetOf` kontrolü.
 - Kesinleştirilmiş ekstrelerde kullanılan NGR tanım sürümlerinin dondurulması; hesaplamada tamsayı sent hassasiyeti, negatif NGR taban stratejileri ve ekstre satırlarında kalem dökümü.
 - Platform Konsolu'nda NGR tanım yönetimi; Partner Portalı ve CSV dışa aktarımında kesinti dökümü görünürlüğü.
+### Tek modda canlı yönetim akışı varsayılan kiracı olmadan da çalışıyor
+
+**Düzeltildi**
+- **Varsayılan kiracı henüz oluşmamış tek modlu kurulumda yöneticiler canlı yönetim odasına katılamıyordu** (`server/src/socket/handler.js`): İP-7'den sonra `subscribe:admin`, sokete kiracı bağlı değilse hiçbir şey yapmıyordu; aktivite, KYC, destek bildirimleri ve kuyruk sayaçları canlı gelmiyordu. Tek modda bağlamsız soket artık eskisi gibi genel yönetim odasına katılır (izin kontrolü aynı: `admin:activity:read`). Çok modda kiracısız soket yine reddedilir.
 
 ### İP-9c: komisyon, faturalama ve platform çapraz raporları
 **Eklendi**
