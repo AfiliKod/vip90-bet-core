@@ -18,6 +18,11 @@ Madde formatı ve kategoriler için `docs/CHANGELOG_GUIDE.md`'ye bakın —
 
 ## [Yayınlanmadı]
 
+### Belgeler: çok operatörlü kurulum kılavuzu ve güncellenen belgeler
+
+- **Eklendi:** `docs/product/12-cok-operator.md`; yeni merkezi çok operatörlü kurulum, konsol, operatör sağlama, alan adı/TLS, partnerler, NGR ve ekstreler belgelenmiştir.
+- **Güncellendi:** `README.md`, `README.tr.md`, ürün kurulum/yapılandırma/modül/API/SSS/kısıt/admin belgeleri, ürün belge dizinleri, Sumsub webhook belgesi ve `server/.env.example`.
+
 ### İP-9d: Net Gaming Revenue (NGR) tanımları, kesinti motoru ve partner faturalaması (K28)
 **Kırılan Değişiklikler**
 - **Partner ve bağlantı ticari koşullarında artık yerleşik bir oran (`0.15`) yoktur.** Ticari model ve oranı açıkça yapılandırın; `ngr` tabanı ayrıca bir NGR tanımı gerektirir.

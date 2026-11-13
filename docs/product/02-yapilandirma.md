@@ -7,6 +7,24 @@ Some integration credentials exist in both layers: the value saved from the admi
 **The `.env` fallback is single-mode only.** Under `TENANCY_MODE=multi` a tenant that has not saved a credential in the panel gets the field's own default (empty for credentials), **never** the server's `SMTP_PASS`, `SLIKAIR_SECRET_KEY`, `TWILIO_AUTH_TOKEN`, `SUMSUB_SECRET_KEY` and so on — otherwise every tenant would silently share the first operator's accounts. Only platform-wide settings (Sentry, Turnstile, alert channels) keep reading their `.env` default. Existing single installs see no change; see [Multi-tenant settings resolution](#multi-tenant-settings-resolution).
 
 ## `.env` variables
+### Çok operatörlü tenancy, platform ve saklama
+
+Bu grupta partner veya faturalama için ayrı ortam değişkeni yoktur: partner yetkileri, ticari koşullar, ücret planları ve NGR tanımları platform veritabanında yönetilir. Kodun bu amaçla okuduğu tüm ortam değerleri şunlardır:
+
+| Değişken | Tek mod | Çok mod |
+|---|---|---|
+| `TENANCY_MODE` | Boş veya `single`; varsayılan budur. | `multi` ile merkezi kurulum açılır. |
+| `TENANCY_ENFORCEMENT` | Boşsa G3 backfill tamamlanana kadar `off`, sonra `log`; açıkça `off`/`log`/`enforce` seçilebilir. | Her zaman `enforce`; farklı açık değer başlangıç hatasıdır. |
+| `JWT_STAFF_SECRET` | İsteğe bağlıdır; boşsa staff tokenı yine ayrı audience ile ana JWT sırrını kullanır. | Zorunludur. |
+| `OPERATOR_SECRET_ENCRYPTION_KEY` | Panel sırlarını şifrelemek için gereklidir. | Zorunludur; 64 hex karakterdir. |
+| `PLATFORM_HOST` | Gerekmez. | Platform/partner API'leri ve `/console` için platform ana makinesi; ör. `platform.example.com`. |
+| `SCOPE_GATE_ENV` | İsteğe bağlı ölçüm etiketi. | `staging` veya `production` seçildiğinde N6 kapsam ihlallerini gün bazında kaydeder; boşsa ölçüm yoktur. |
+| `AUDIT_RETENTION_DAYS` | İsteğe bağlıdır. | En az `1825`; daha düşük veya geçersiz değer sunucunun başlamasını engeller. |
+| `DEMO_BOTS`, `DEMO_FAKE_WINNERS`, `DEMO_INSTANT_DEPOSIT`, `DEMO_DATA` | `true` olduğunda ilgili demo özelliğini açar. | Hepsi `false` olmalıdır; `true` başlangıç hatasıdır. |
+| `LEGAL_ENTITY_NAME`, `LEGAL_ENTITY_REGISTRATION_NO`, `LEGAL_ENTITY_ADDRESS` | Varsayılan Tenant ilk oluşturulurken okunur; sonrası veritabanındadır. | Operatör bazında sağlama/konsol verisi kullanılır; ortak `.env` değeri operatör sırrı veya ayarı olarak kullanılmaz. |
+
+`PLATFORM_HOST` yalnız ana makine adını ya da şemalı bir kökeni kabul eden kurulum akışlarında kullanılır; örnek `platform.example.com` yeterlidir. Ayrıntılı işletim akışı için [12 — Çok Operatörlü Kurulum](12-cok-operator.md) belgesine bakın.
+
 
 Description of the keys in `server/.env.example`, checked against the code that reads them. Example files contain a few variables the code does **not** read; those are marked below (and the root `.env.example` is an older file that additionally lists variables that no longer exist, such as the rate-limit tunables). In the Docker path the file is the root `.env` (see `.env.docker.example`), not `server/.env`.
 
@@ -140,9 +158,9 @@ The tenancy switch and the demo feature switches are parsed and validated at sta
 
 | Variable | Required | What it does |
 |---|---|---|
-| `TENANCY_MODE` | No (default `single`) | `single` (one operator, behaviour unchanged) or `multi` (one database per tenant). Any other value — including a typo such as `mulit` — refuses to start instead of silently falling back to `single` |
+| `TENANCY_MODE` | No (default `single`) | `single` (one operator, behaviour unchanged) or `multi` (one central installation with tenant-isolated data). Any other value — including a typo such as `mulit` — refuses to start instead of silently falling back to `single` |
 | `TENANCY_ENFORCEMENT` | No | What `tenantScoped` does with an unscoped query on a tenant-owned model: `off` (nothing is injected or checked), `log` (injects the tenant inside a tenant context, counts and warns on unscoped queries, never throws) or `enforce` (`500 TENANT_SCOPE`). Unset/empty means `enforce` in `multi`, and in `single` it means `log` once the G3 backfill is recorded complete for every collection, `off` until then (G7; see [Tenant scoping of money and admin paths](#tenant-scoping-of-money-and-admin-paths-ip-5)); an explicit `off`/`log` in `multi` refuses to start |
-| `JWT_STAFF_SECRET` | Only with `TENANCY_MODE=multi` (used from İP-3) | Signs the encrypted staff/2FA material. Unset or empty while `TENANCY_MODE=multi` refuses to start |
+| `JWT_STAFF_SECRET` | Only with `TENANCY_MODE=multi` (used from İP-3) | Signs staff access tokens; staff and player token audiences remain separate. Unset or empty while `TENANCY_MODE=multi` refuses to start |
 | `PLATFORM_HOST` | Only to publish the console on its own host (multi) | The Platform Owner console host (İP-9a). When set, `/api/platform/*` and `/console` are served **only** on this host; a tenant domain never serves them — the request goes through tenant resolution instead. Unset (development), the path prefix alone decides whether a request is a platform request. Source: `server/src/middleware/tenantHost.js`, `server/src/app.js` |
 | `SCOPE_GATE_ENV` | No (multi, N6 telemetry) | e.g. `staging` or `production`. When set, every tenant-scope violation is counted per UTC day in `ScopeGateDay`, so the go-live gates (14 consecutive clean days on staging, 7 on production) can be read at `GET /api/platform/system/scope-gates`. Unset, nothing is recorded. Source: `server/src/platform/services/scopeTelemetry.js` |
 | `AUDIT_RETENTION_DAYS` | No (default 365 single / 1825 multi) | Audit log retention in days (K24). In `TENANCY_MODE=multi` the value must be at least **1825 (5 years)**: a lower value refuses to start, and the `AuditLog` TTL and post-closure legal retention (`legalRetentionUntil`) floor at 1825 regardless. The TTL index `expireAfterSeconds` is fixed at start-up — changing this variable on an existing database does **not** rebuild it; apply a `collMod` on the `createdAt_-1` TTL index of the `auditlogs` collection to change `expireAfterSeconds` (e.g. `db.runCommand({ collMod: 'auditlogs', index: { name: 'createdAt_-1', expireAfterSeconds: <days×86400> } })`). Single mode keeps its 365-day default. Source: `server/src/models/AuditLog.js`, `server/src/config/tenancy.js` |
