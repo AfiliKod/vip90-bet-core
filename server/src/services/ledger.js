@@ -99,8 +99,9 @@ export async function createTransaction(data, options = {}) {
     }
   }
 
-  // Get active currency
-  const currency = await getActiveCurrency();
+  // A provider-confirmed payment retains its original currency. Other ledger
+  // callers keep the tenant's active currency as before.
+  const currency = data.currency ? { code: data.currency } : await getActiveCurrency();
 
   // Create transaction
   const transaction = await Transaction.create([{

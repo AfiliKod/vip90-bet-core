@@ -5,7 +5,7 @@ import { registerTenantIndexes } from '../tenancy/indexRegistry.js';
 const schema = new mongoose.Schema({
   tenantId:      { type: mongoose.Schema.Types.ObjectId, ref: 'Tenant', required: false, index: true, immutable: true },
   userId:        { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true },
-  type:          { type: String, enum: ['deposit','withdraw','bet','win','bonus','refund','admin_adjustment','crypto_deposit','crypto_withdraw','casino_return','bonus_conversion','referral_commission','bonus_forfeit','agent_transfer_in','agent_transfer_out','agent_commission','tip_sent','tip_received','rain','cashback','reversal','casino_bet','casino_win','casino_cancel','casino_transfer'], required: true },
+  type:          { type: String, enum: ['deposit','withdraw','bet','win','bonus','refund','admin_adjustment','crypto_deposit','crypto_withdraw','casino_return','bonus_conversion','referral_commission','bonus_forfeit','agent_transfer_in','agent_transfer_out','agent_commission','tip_sent','tip_received','rain','cashback','reversal','chargeback','deposit_refund','casino_bet','casino_win','casino_cancel','casino_transfer'], required: true },
   amount:        { type: Number, required: true },
   balanceBefore: { type: Number, required: true },
   balanceAfter:  { type: Number, required: true },

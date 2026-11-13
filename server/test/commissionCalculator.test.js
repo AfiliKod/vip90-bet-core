@@ -207,6 +207,22 @@ test('calculateCommissionForPeriod runtime guard rejects duplicate deduction cat
   );
 });
 
+test('calculateCommissionForPeriod deducts fixed per_chargeback fees by that day\'s chargeback count', () => {
+  const ngrDefinition = {
+    _id: 'ND_CHARGEBACK_FEE', version: 1, ggrComponents: ['casino'], items: [
+      { category: 'other', label: 'PSP chargeback handling fee', enabled: true, source: 'fixed', params: { amount: 15, period: 'per_chargeback' } },
+    ],
+  };
+  const result = calculateCommissionForPeriod({
+    partner: { _id: 'P1' },
+    links: [{ tenantId: 'T1', validFrom: new Date('2026-11-01'), commercialTerms: { model: 'revshare_ngr', base: 'ngr', rate: 1, currency: 'TRY', ngrDefinitionId: 'ND_CHARGEBACK_FEE' } }],
+    stats: [{ tenantId: 'T1', date: '2026-11-15', currency: 'TRY', casinoGgr: 100, chargebackCount: 3 }],
+    ngrDefinitions: [ngrDefinition],
+  });
+  assert.equal(result.TRY.lines[0].baseAmount, 55);
+  assert.equal(result.TRY.lines[0].metadata.deductions[0].amount, 45);
+});
+
 test('calculateCommissionForPeriod handles negative NGR with zero_floor and deduct strategies', () => {
   const partner = { _id: 'P1' };
   const ngrDef = {

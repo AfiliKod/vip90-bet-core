@@ -1003,6 +1003,7 @@ export default {
   'slikair.groupCrypto': 'Crypto',
   'slikair.created': 'Created',
   'slikair.refunded': 'Refunded',
+  'slikair.chargeback': 'Chargeback',
 
   // Mines (previously missing keys)
   'games.mines.autoBet': 'Auto Bet',
@@ -2467,6 +2468,8 @@ export default {
   'admin.activityFeed.viewUser': 'View User',
   'admin.activityFeed.type.deposit': 'Deposit',
   'admin.activityFeed.type.withdraw': 'Withdraw',
+  'admin.activityFeed.type.depositRefund': 'Deposit Refund',
+  'admin.activityFeed.type.depositChargeback': 'Chargeback',
   'admin.activityFeed.type.betPlaced': 'Bet Placed',
   'admin.activityFeed.type.betSettled': 'Bet Settled',
   'admin.activityFeed.type.gameSession': 'Game Session',

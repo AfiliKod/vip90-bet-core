@@ -6,7 +6,7 @@ const schema = new mongoose.Schema({
   tenantId: { type: mongoose.Schema.Types.ObjectId, ref: 'Tenant', required: false, index: true, immutable: true },
   type: {
     type: String,
-    enum: ['deposit', 'withdraw', 'bet_placed', 'bet_settled', 'game_session', 'kyc_submitted', 'login_risk', 'risk_flag'],
+    enum: ['deposit', 'withdraw', 'deposit_refund', 'deposit_chargeback', 'bet_placed', 'bet_settled', 'game_session', 'kyc_submitted', 'login_risk', 'risk_flag'],
     required: true,
   },
   userId: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true },

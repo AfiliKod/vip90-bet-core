@@ -9,6 +9,8 @@ import { AdminTable, AdminTableRow, AdminTableCell, AdminTableActionsCell, Admin
 const STATUS_TABS = [
   { key: 'all', label: 'all' },
   { key: 'succeeded', label: 'slikair.succeeded' },
+  { key: 'refunded', label: 'slikair.refunded' },
+  { key: 'chargeback', label: 'slikair.chargeback' },
   { key: 'pending', label: 'slikair.pending' },
   { key: 'failed', label: 'slikair.failed' },
 ];
@@ -51,6 +53,7 @@ export default function SlikairPayments() {
   const statusColor = (s) => {
     if (s === 'succeeded') return 'text-success';
     if (s === 'failed') return 'text-danger';
+    if (s === 'chargeback') return 'text-danger';
     if (s === 'pending' || s === 'processing') return 'text-warning';
     return 'text-text-3';
   };
@@ -61,7 +64,7 @@ export default function SlikairPayments() {
   // canlıda gerçekleşti). 'BLIK' gibi marka adları zaten çeviri key'i değil,
   // noktasız oldukları için t()'e hiç verilmiyor.
   const statusLabel = (s) => {
-    const map = { created: 'slikair.created', pending: 'slikair.pending', processing: 'slikair.processing', succeeded: 'slikair.succeeded', failed: 'slikair.failed', refunded: 'slikair.refunded' };
+    const map = { created: 'slikair.created', pending: 'slikair.pending', processing: 'slikair.processing', succeeded: 'slikair.succeeded', failed: 'slikair.failed', refunded: 'slikair.refunded', chargeback: 'slikair.chargeback' };
     const key = map[s];
     return key ? t(key) : s;
   };
@@ -255,6 +258,8 @@ export default function SlikairPayments() {
                   {p.reasonCode && <div><span className="text-text-3">{t('admin.slikair.detailReason')}</span> <span className="text-text-1">{p.reasonCode}</span></div>}
                   {p.declineReason && <div><span className="text-text-3">{t('admin.slikair.detailDecline')}</span> <span className="text-text-1">{p.declineReason}</span></div>}
                   {p.creditedAt && <div><span className="text-text-3">{t('admin.slikair.detailCredit')}</span> <span className="text-text-1">{fmt.formatDateTime(p.creditedAt)}</span></div>}
+                  {p.reversedAt && <div><span className="text-text-3">Ters kayıt:</span> <span className="text-text-1">{fmt.formatDateTime(p.reversedAt)} ({p.reversalType})</span></div>}
+                  {p.reversalTransactionId && <div className="col-span-2"><span className="text-text-3">Ters kayıt işlemi:</span> <span className="font-mono text-text-1">{p.reversalTransactionId._id || p.reversalTransactionId}</span>{p.reversalTransactionId.type && <span className="text-text-2"> — {p.reversalTransactionId.type}, {formatMoney(Math.abs(p.reversalTransactionId.amount))} {p.reversalTransactionId.currency}</span>}</div>}
                 </div>
               </AdminExpandRow>
             </Fragment>

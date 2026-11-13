@@ -18,6 +18,22 @@ Madde formatı ve kategoriler için `docs/CHANGELOG_GUIDE.md`'ye bakın —
 
 ## [Yayınlanmadı]
 
+### Slikair iade ve chargeback bildirimleri artık işleniyor
+
+**Düzeltildi**
+- Slikair `refunded` ve `chargeback` bildirimleri artık yalnız `get-status` ile
+  durum, tutar ve para birimi doğrulandıktan sonra, tek ve ilişkili bir defter
+  ters kaydı olarak işlenir. Chargeback ayrıca risk incelemesi ve yönetici
+  etkinlik bildirimi oluşturur.
+- `TenantDailyStat.chargebacks` ve `chargebackCount` artık doğrulanmış
+  chargeback defter kayıtlarından doldurulur; vaka başı PSP maliyeti için NGR
+  tanımı `per_chargeback` dönemini destekler.
+
+**Kırılan Değişiklikler**
+- Chargeback sonrası oyuncu bakiyesi artık eksiye düşebilir; borç kapanana
+  kadar mevcut yeterli-bakiye kontrolleri çekim ve bahisleri engeller.
+- `TenantDailyStat.chargebacks` artık gerçek chargeback tutarlarıyla doldurulur.
+
 ### İP-9d: Net Gaming Revenue (NGR) tanımları, kesinti motoru ve partner faturalaması (K28)
 **Kırılan Değişiklikler**
 - **Partner ve bağlantı ticari koşullarında artık yerleşik bir oran (`0.15`) yoktur.** Ticari model ve oranı açıkça yapılandırın; `ngr` tabanı ayrıca bir NGR tanımı gerektirir.
