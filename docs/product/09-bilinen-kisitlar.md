@@ -175,6 +175,13 @@ Since İP-7 the demo machinery never runs under `TENANCY_MODE=multi`. The effect
 
 `server/src/services/slikairService.js` / `server/src/controllers/slikairController.js` / `server/src/routes/slikair.js` (merged 2026-09-17) provide a full deposit gateway integration — user deposit initiation, payin/payout webhook processing, admin payment/payout views (`client/src/pages/admin/SlikairPayments.jsx`), and ledger integration via `createTransaction()`.
 
+**Chargeback data is now a real source:** verified Slikair `chargeback`
+notifications reverse the original credited deposit once, may take a player
+balance negative, and enter `TenantDailyStat.chargebacks`/`chargebackCount`.
+Refunds remain separate from chargebacks. Slikair provides no chargeback fee,
+so `providerFees` still has no source; use a separately labelled
+`per_chargeback` NGR cost only when the operator's PSP contract supplies it.
+
 **The integration only works against Slikair sandbox credentials.** Accepting real, live payments requires KYB (company documents, gaming license) with Slikair plus commercial pricing negotiation — **neither has been completed**. The code path is production-ready; the underlying merchant account is not. Do not enable this in production until the sandbox `SLIKAIR_MERCHANT_ID`/`SLIKAIR_MERCHANT_TOKEN`/`SLIKAIR_SITE_ID` are swapped for real, live-approved credentials.
 
 Two related production incidents were fixed the same day this was merged: `getWebhookUrl()` defaulted to a non-existent `api.vip90.bet` subdomain (NXDOMAIN — webhooks could never reach the server) and the `uuid` package was used but never declared in `server/package.json`, crash-looping the server in production (`Cannot find package 'uuid'`, 60+ systemd restarts) until it was replaced with `node:crypto`'s built-in `randomUUID()`. `server/src/server.js` also gained global `unhandledRejection`/`uncaughtException` handlers as an independent hardening fix found the same day.
@@ -302,6 +309,6 @@ Two related production incidents were fixed the same day this was merged: `getWe
 
 - Merkezi çok operatörlü kurulum, İP-10 ölçek eşiklerine kadar tek Node süreci varsayımıyla çalışır; süreçler arası önbellek/iş koordinasyonu bu sürümün kapsamı değildir.
 - `TenantDailyStat` partner görünümünde günlük toplamdır; ham oyuncu olayları veya anlık akış değildir ve `activePlayers < 5` küçük hücreleri gizlenir.
-- `chargebacks` ile `providerFees` istatistik alanları ve NGR kesintileri bulunur, fakat çekirdek bunları dolduran bir dış veri kaynağı sunmaz. İadeler ve ledger reversalları chargeback değildir.
+- `chargebacks` / `chargebackCount`, Slikair'in doğrulanmış `chargeback` bildirimlerinden dolar; başka bir ödeme sağlayıcısının chargeback'i henüz okunmaz. `providerFees`'i dolduran bir kaynak yoktur (oran ya da sabit kesinti olarak tanımlayın). Slikair chargeback ücreti bildirmez; ücret `per_chargeback` sabit kesintisiyle girilir. İadeler (`deposit_refund`, `refund`) ve defter ters kayıtları (`reversal`) chargeback değildir.
 - NGR sabit kesintileri yalnız günlük periyodu destekler; kesilmiş/uzlaştırılmış ekstrelerin kullandığı NGR sürümü değiştirilemez, yeni sürüm oluşturulmalıdır.
 - Partner Grant en fazla 90 gündür. Platform yazma istisnası yalnız Platform Sahibi tarafından verilir ve en fazla 24 saattir.

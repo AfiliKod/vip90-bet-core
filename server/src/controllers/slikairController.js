@@ -17,6 +17,9 @@ import SlikairPayment from '../models/SlikairPayment.js';
 import SlikairPayout from '../models/SlikairPayout.js';
 import * as slikairService from '../services/slikairService.js';
 import { createTransaction, emitDepositRisk, adjustBalance, isDuplicateTransaction } from '../services/ledger.js';
+import { reverseCreditedDeposit, flagChargebackForReview } from '../services/pspReversal.js';
+import { evaluateRisk } from '../services/riskEngine.js';
+import { logActivity } from '../services/activityFeed.js';
 import { updateDailyStats, checkPlayerEligibility } from '../services/responsibleGaming.js';
 import { assertNoOpenIgamesSession } from '../services/igamesSessionGuard.js';
 import { isSlikairConfigured } from '../config/slikairConfig.js';
@@ -275,11 +278,6 @@ export async function handlePayinWebhook(req, res, next) {
     // Doğrulama, bakiye ve ledger yazımları kaydın kiracısı altında çalışır;
     // get-status çağrısı o kiracının Slikair kimlik bilgilerini kullanır.
     const process = async () => {
-      // Idempotency: zaten succeeded ise tekrar kredi yapma
-      if (payment.status === 'succeeded') {
-        return res.status(200).json({ ok: true, message: 'Already processed' });
-      }
-
       // Durum haritası
       const statusMap = {
         100: 'pending',      // Created
@@ -293,7 +291,6 @@ export async function handlePayinWebhook(req, res, next) {
         311: 'failed',       // Capture failed
         317: 'failed',       // Invalid CVV
         318: 'failed',       // Expired card
-        320: 'refunded',     // Refunded
         330: 'failed',       // Risk decline
       };
 
@@ -312,7 +309,86 @@ export async function handlePayinWebhook(req, res, next) {
       // zaten hiçbir zaman doğrudan güvenilmiyor, bu sadece get-status
       // çapraz doğrulamasının ÇALIŞIP ÇALIŞMAYACAĞINI belirliyor; daha sık
       // doğrulama yapmak asla daha az güvenli olamaz.
-      const newStatus = status === 'succeeded' ? 'succeeded' : (statusMap[status_code] || payment.status);
+      const lifecycleStatuses = new Set(['processing', 'succeeded', 'failed', 'refunded', 'chargeback']);
+      const newStatus = lifecycleStatuses.has(status) ? status : (statusMap[status_code] || payment.status);
+      const reversalKind = newStatus === 'chargeback' ? 'chargeback' : (newStatus === 'refunded' ? 'refund' : null);
+      const wasCredited = Boolean(payment.creditedAt || payment.reversalTransactionId || payment.status === 'succeeded');
+
+      if (reversalKind && wasCredited) {
+        let verifiedReversal = false;
+        let statusCheck;
+        try {
+          statusCheck = await _slikairService.getPaymentStatus(payin_id);
+          verifiedReversal = statusCheck?.status === newStatus
+            && Number(statusCheck?.amount) === Number(payment.amount)
+            && statusCheck?.currency === payment.currency;
+        } catch (e) {
+          errorLogger.critical('slikair_reversal_webhook_verification_error',
+            `payin_id=${payin_id} için ${newStatus} get-status doğrulaması başarısız oldu: ${e.message}`, { payinId: payin_id });
+        }
+        if (!verifiedReversal) {
+          errorLogger.critical('slikair_reversal_webhook_verification_failed',
+            `payin_id=${payin_id} ${newStatus} bildirimi get-status ile doğrulanmadı — bakiye DEĞİŞMEDİ`,
+            { payinId: payin_id, webhookBody: req.body, statusCheck, storedAmount: payment.amount, storedCurrency: payment.currency });
+          await SlikairPayment.updateOne({ _id: payment._id }, { $set: {
+            [`metadata.unverifiedReversalWebhook`]: { status, status_code, amount, currency, receivedAt: new Date() },
+            webhookReceivedAt: new Date(),
+          } });
+          return res.status(200).json({ ok: true });
+        }
+
+        const session = await mongoose.startSession();
+        let reversal;
+        try {
+          reversal = await withTransactionRetry(session, () => reverseCreditedDeposit({
+            payment,
+            kind: reversalKind,
+            amount: payment.amount,
+            currency: payment.currency,
+            session,
+          }));
+          // A refund followed by chargeback records the later lifecycle state,
+          // but it never creates a second debit.
+          if (!reversal.reversed) {
+            await SlikairPayment.updateOne({ _id: payment._id }, { $set: {
+              status: newStatus,
+              statusCode: status_code,
+              webhookReceivedAt: new Date(),
+            } });
+          }
+        } finally {
+          await session.endSession();
+        }
+        if (reversal?.reversed) {
+          const activity = {
+            type: reversalKind === 'chargeback' ? 'deposit_chargeback' : 'deposit_refund',
+            userId: payment.userId,
+            status: 'completed',
+            summary: `Slikair ${reversalKind === 'chargeback' ? 'chargeback' : 'iade'}: ${payment.amount} ${payment.currency}`,
+            amount: payment.amount,
+            currency: payment.currency,
+            referenceId: reversal.transaction._id,
+            referenceModel: 'Transaction',
+            data: { payinId: payment.payinId },
+          };
+          await logActivity(activity);
+          if (reversalKind === 'chargeback') {
+            await evaluateRisk(payment.userId, 'chargeback', {
+              amount: payment.amount,
+              currency: payment.currency,
+              payinId: payment.payinId,
+            }).catch((e) => console.error(`[Slikair] chargeback risk evaluation failed: ${e.message}`));
+            // After the rule evaluation, which rewrites riskStatus from its own decision.
+            await flagChargebackForReview({
+              playerId: payment.userId, payinId: payment.payinId, amount: payment.amount, currency: payment.currency,
+            }).catch((e) => console.error(`[Slikair] chargeback review flag failed: ${e.message}`));
+          }
+        }
+        return res.status(200).json({ ok: true });
+      }
+
+      // Idempotency: already credited payments accept only verified reversals above.
+      if (payment.status === 'succeeded') return res.status(200).json({ ok: true, message: 'Already processed' });
 
       // GÜVENLİK: Slikair'in webhook'ları (DMN) imzasız — OpenAPI spec'i webhook
       // endpoint'i için açıkça `security: []` belirtiyor, HMAC/imza header'ı da
@@ -708,6 +784,7 @@ export async function getPayments(req, res, next) {
     const [payments, total] = await Promise.all([
       SlikairPayment.find(filter)
         .populate('userId', 'username email')
+        .populate('reversalTransactionId', 'type amount currency balanceBefore balanceAfter status createdAt')
         .sort({ createdAt: -1 })
         .skip(skip)
         .limit(Number(limit)),
@@ -724,7 +801,8 @@ export async function getPaymentById(req, res, next) {
   try {
     const filter = tenantFilter(req, { _id: req.params.id });
     const payment = await SlikairPayment.findOne(filter)
-      .populate('userId', 'username email balance');
+      .populate('userId', 'username email balance')
+      .populate('reversalTransactionId', 'type amount currency balanceBefore balanceAfter status createdAt');
     if (!payment) throw createError(404, 'NOT_FOUND', 'İşlem bulunamadı');
     res.json({ payment });
   } catch (e) { next(e); }

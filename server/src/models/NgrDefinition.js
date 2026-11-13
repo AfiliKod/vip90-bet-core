@@ -23,7 +23,7 @@ const deductionItemSchema = new mongoose.Schema({
     target: { type: String, enum: ['ggr', 'turnover', null], default: null },
     rate: { type: Number, default: null, min: 0, max: 1 },
     amount: { type: Number, default: null, min: 0 },
-    period: { type: String, enum: ['day', 'period', null], default: 'day' },
+    period: { type: String, enum: ['day', 'period', 'per_chargeback', null], default: 'day' },
   },
 }, { _id: false });
 

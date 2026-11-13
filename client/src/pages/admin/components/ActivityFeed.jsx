@@ -15,6 +15,8 @@ import { socket } from '../../../services/socket'; // doğrulandı: authStore.js
 const TYPE_META = {
   deposit:       { icon: 'payments',      tone: 'text-emerald-400', tile: 'bg-emerald-400/10 border-emerald-400/20' },
   withdraw:      { icon: 'arrow_upward',  tone: 'text-amber-400',   tile: 'bg-amber-400/10 border-amber-400/20' },
+  deposit_refund:{ icon: 'undo',          tone: 'text-amber-400',   tile: 'bg-amber-400/10 border-amber-400/20' },
+  deposit_chargeback: { icon: 'gavel',    tone: 'text-red-400',     tile: 'bg-red-400/10 border-red-400/20' },
   bet_placed:    { icon: 'target',        tone: 'text-sky-400',     tile: 'bg-sky-400/10 border-sky-400/20' },
   bet_settled:   { icon: 'flag',          tone: 'text-violet-400',  tile: 'bg-violet-400/10 border-violet-400/20' },
   game_session:  { icon: 'casino',        tone: 'text-fuchsia-400', tile: 'bg-fuchsia-400/10 border-fuchsia-400/20' },
@@ -29,6 +31,8 @@ const TYPE_META = {
 const TYPE_KEY_SEGMENT = {
   deposit: 'deposit',
   withdraw: 'withdraw',
+  deposit_refund: 'depositRefund',
+  deposit_chargeback: 'depositChargeback',
   bet_placed: 'betPlaced',
   bet_settled: 'betSettled',
   game_session: 'gameSession',
@@ -63,6 +67,10 @@ function renderValue(ev, t, fmt) {
       return <span className="font-semibold text-emerald-300 tabular-nums">+{money()}</span>;
     case 'withdraw':
       return <span className="font-semibold text-amber-300 tabular-nums">−{money()}</span>;
+    case 'deposit_refund':
+      return <span className="font-semibold text-amber-300 tabular-nums">−{money()}</span>;
+    case 'deposit_chargeback':
+      return <span className="font-semibold text-red-300 tabular-nums">−{money()}</span>;
     case 'bet_placed':
       return t('admin.activityFeed.row.betPlaced', { stake: fmt.formatNumber(ev.amount ?? 0), count: ev.data?.selectionCount ?? '?' });
     case 'bet_settled':

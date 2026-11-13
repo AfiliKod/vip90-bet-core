@@ -13,10 +13,10 @@ const tenantDailyStatSchema = new mongoose.Schema({
   sportsTurnover: { type: Number, default: 0 },
   sportsGgrRealized: { type: Number, default: 0 },
   bonusCost: { type: Number, default: 0 },
-  // Chargebacks and provider fees (K28, spec §4.3.6):
-  // No core ledger source yet: refunds are returned payouts and reversals are ledger reversals,
-  // neither is an operator chargeback cost. External provider invoices are not tracked in core.
+  // Chargebacks are verified PSP chargeback ledger rows. External provider
+  // invoices are still not tracked in core.
   chargebacks: { type: Number, default: 0 },
+  chargebackCount: { type: Number, default: 0 },
   providerFees: { type: Number, default: 0 },
   deposits: { type: Number, default: 0 },
   withdrawals: { type: Number, default: 0 },

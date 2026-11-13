@@ -64,7 +64,7 @@ Sürüm 1.1.0, birden çok bağımsız operatör için tek merkezi kurulum getir
 |---|---|
 | 🛠️ **Kapsamlı admin panel (çekirdek)** | Kullanıcılar, roller/izinler, canlı KPI+gelir grafikli analitik, tema/marka editörü, statik sayfa ve ana sayfa slider düzenleyicileri, modül aç/kapa, cüzdan (banka/kripto/Slikair), destek masası, oyuncu segmentasyonu, risk/uyumluluk, sistem sağlık izleme |
 | 💰 **Uçtan uca kripto ödeme (modül)** | USDT-TRC20 — HD cüzdan tabanlı yatırma takibi + hot wallet üzerinden otomatik/onaylı çekim, admin panelden işlem geçmişi, cüzdan imzasıyla Web3 girişi |
-| 💳 **Slikair ödeme ağ geçidi (modül)** | Kart ve alternatif yöntemlerle para yatırma; yalnızca sandbox kimlikleriyle doğrulandı, canlı için Slikair KYB gerekir |
+| 💳 **Slikair ödeme ağ geçidi (modül)** | Kart ve alternatif yöntemlerle para yatırma; iade ve chargeback bildirimleri doğrulanıp bakiyeye yansıtılır, chargeback'te hesap risk incelemesine alınır; yalnızca sandbox kimlikleriyle doğrulandı, canlı için Slikair KYB gerekir |
 | 🪪 **Çift KYC sistemi (modül)** | Yerel belge inceleme (admin onay/red kuyruğu) veya Sumsub ile otomatik doğrulama — panelden seçilebilir |
 | 👑 **VIP & gerçek zamanlı cashback** | Varsayılan 5 seviyeli VIP programı (Bronze–Diamond, panelden düzenlenir); her sonuçlanan bahis/rounddan sonra seviyeye göre anlık cashback bakiyeye işler |
 | 🌍 **Çok dilli altyapı & PWA** | 8 dil sözlüğü (oyuncu ekranları 8 dilde çevrili; TR ve EN'de admin paneli de tam, diğer 6 dilde admin panelinin bir kısmı İngilizce) + global dil değiştirici, kurulabilir Progressive Web App, iOS Capacitor kabuğu |
@@ -112,7 +112,7 @@ eklentiler sağlar.
 
 - **USDT-TRC20** kripto ödeme — HD cüzdan tabanlı yatırma takibi, hot wallet
   üzerinden çekim.
-- **Slikair** kart/alternatif ödeme ağ geçidi (sandbox; canlı için KYB şart).
+- **Slikair** kart/alternatif ödeme ağ geçidi (sandbox; canlı için KYB şart): doğrulanmış iade ve chargeback'ler yatırımı bakiyeden geri alır, chargeback hesabı incelemeye alır ve NGR'ye gerçek veri sağlar.
 - **KYC** — yerel belge inceleme (onay/red kuyruğu) veya **Sumsub**
   entegrasyonu, ikisinden biri panelden seçilir.
 

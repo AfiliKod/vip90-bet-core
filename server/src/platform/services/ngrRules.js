@@ -20,7 +20,7 @@ export const STAT_FIELD_CATEGORY = Object.freeze({
 
 export const NGR_CATEGORIES = Object.freeze(['bonus', 'provider_fee', 'tax', 'chargeback', 'other']);
 export const NGR_SOURCES = Object.freeze(['stat_field', 'fee_plan', 'rate', 'fixed']);
-export const FIXED_PERIODS = Object.freeze(['day']);
+export const FIXED_PERIODS = Object.freeze(['day', 'per_chargeback']);
 
 function violation(code, message) {
   return { code, message };
@@ -50,6 +50,10 @@ export function findNgrRuleViolation(definition) {
     }
     if (item.source === 'fixed' && !FIXED_PERIODS.includes(item.params?.period ?? 'day')) {
       return violation('ERR_NGR_UNSUPPORTED_PERIOD', `Fixed deductions support the period(s): ${FIXED_PERIODS.join(', ')}.`);
+    }
+    if (item.source === 'fixed' && item.params?.period === 'per_chargeback'
+      && !['chargeback', 'other'].includes(item.category)) {
+      return violation('ERR_NGR_INVALID_CATEGORY', 'A per_chargeback deduction must use the chargeback or other category.');
     }
 
     if (item.category === 'other') {

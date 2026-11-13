@@ -12,7 +12,7 @@ const schema = new mongoose.Schema({
   paymentMethod:    { type: String, required: true },
   email:            { type: String, required: true },
   country:          { type: String, required: true },
-  status:           { type: String, enum: ['created', 'pending', 'processing', 'succeeded', 'failed', 'refunded'], default: 'created' },
+  status:           { type: String, enum: ['created', 'pending', 'processing', 'succeeded', 'failed', 'refunded', 'chargeback'], default: 'created' },
   statusCode:       { type: Number, default: null },
   reasonCode:       { type: String, default: null },
   declineReason:    { type: String, default: null },
@@ -20,6 +20,9 @@ const schema = new mongoose.Schema({
   metadata:         { type: mongoose.Schema.Types.Mixed, default: {} },
   webhookReceivedAt:{ type: Date, default: null },
   creditedAt:       { type: Date, default: null },
+  reversedAt:       { type: Date, default: null },
+  reversalTransactionId: { type: mongoose.Schema.Types.ObjectId, ref: 'Transaction', default: null },
+  reversalType:     { type: String, enum: ['refund', 'chargeback'], default: null },
   isSeed:           { type: Boolean, default: false, index: true },
 }, { timestamps: true });
 

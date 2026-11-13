@@ -62,6 +62,10 @@ Partner, yalnız etkin bağlantısı olan operatörlerin günlük toplam metrikl
 
 Ticari koşul GGR, NGR, ciro veya sabit tabanı seçer. NGR, seçilen GGR bileşeninden tanımlı bonus/sağlayıcı ücreti/vergi/chargeback/diğer kesintilerini çıkarır; aynı kaynak, kategori veya GGR'de zaten net olan maliyet iki kez düşülemez. Ekstre gün bazlı toplamlarla üretilir, kesilir ve CSV olarak dışa aktarılabilir.
 
-### Chargeback neden 0 görünür?
+### Chargeback nedir, kim öder ve nasıl işlenir?
 
-Günlük istatistikte `chargebacks` alanı vardır, fakat çekirdekte bunu besleyen bir chargeback veri kaynağı henüz yoktur. İade ve defter ters kaydı chargeback sayılmaz; bu nedenle alan başlangıçta 0'dır.
+Chargeback, oyuncunun kart yatırımını bankası üzerinden geri almasıdır. Banka parayı ödeme sağlayıcısından, sağlayıcı da operatörden geri alır; yani bedeli operatör (kiracı) öder. Slikair bunu yatırım bildiriminde `status: "chargeback"` olarak bildirir.
+
+Bildirim imzasız olduğu için çekirdek önce Slikair'in durum sorgusuyla doğrular (aynı durum, tutar ve para birimi). Doğrulanınca: yatırım tutarı oyuncunun bakiyesinden bir kez düşülür (bakiye eksiye inebilir; eksi bakiyede çekim ve bahis yapılamaz), `chargeback` defter satırı asıl yatırıma bağlanır, hesap yüksek önemde `PSP_CHARGEBACK` bulgusuyla risk incelemesine alınır ve personel bulguyu kapatana kadar incelemede kalır, yönetim akışına bildirim düşer. Doğrulanamayan bildirim parayı hareket ettirmez, yalnız kaydedilir.
+
+Doğrulanmış chargeback'ler günlük istatistikte `chargebacks` (tutar) ve `chargebackCount` (adet) olarak toplanır ve NGR'deki chargeback kalemi bu gerçek veriyle çalışır. Slikair chargeback ücreti bildirmez; sözleşmenizdeki ücreti NGR tanımında `per_chargeback` sabit kesintisiyle girin. PSP iadesi (`refunded`) de bakiyeden düşülür ama chargeback sayılmaz ve hesabı işaretlemez.

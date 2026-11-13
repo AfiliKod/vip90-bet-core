@@ -293,8 +293,12 @@ export function calculateCommissionForPeriod({ partner, links = [], stats = [], 
         } else if (item.source === 'rate') {
           const targetCents = item.params?.target === 'turnover' ? turnoverCents : ggrCents;
           amountCents = multiplyMinorUnitsByRate(targetCents, item.params?.rate || 0);
-        } else if (item.source === 'fixed' && (item.params?.period ?? 'day') === 'day') {
-          amountCents = toMinorUnits(item.params?.amount || 0);
+        } else if (item.source === 'fixed') {
+          if ((item.params?.period ?? 'day') === 'day') {
+            amountCents = toMinorUnits(item.params?.amount || 0);
+          } else if (item.params?.period === 'per_chargeback') {
+            amountCents = toMinorUnits(item.params?.amount || 0) * Number(stat.chargebackCount || 0);
+          }
         }
 
         totalDeductionsCents += amountCents;

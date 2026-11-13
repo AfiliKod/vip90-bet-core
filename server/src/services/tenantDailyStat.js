@@ -29,7 +29,7 @@ export async function aggregateTenantDailyStat(tenantId, dateStr, { currency = '
       userId: { $nin: excludedUserIds },
     };
 
-    const [depositRows, withdrawRows, casinoRows, sportsRows, bonusRows, newPlayers] = await Promise.all([
+    const [depositRows, withdrawRows, casinoRows, sportsRows, bonusRows, chargebackRows, newPlayers] = await Promise.all([
       Transaction.aggregate([
         { $match: { ...dayMatch, type: { $in: DEPOSIT_TYPES }, status: 'completed', currency } },
         { $group: { _id: null, total: { $sum: '$amount' }, players: { $addToSet: '$userId' } } },
@@ -66,6 +66,10 @@ export async function aggregateTenantDailyStat(tenantId, dateStr, { currency = '
         { $match: { ...dayMatch, type: 'bonus', status: 'completed', currency } },
         { $group: { _id: null, total: { $sum: '$amount' } } },
       ]),
+      Transaction.aggregate([
+        { $match: { ...dayMatch, type: 'chargeback', status: 'completed', currency } },
+        { $group: { _id: null, total: { $sum: { $abs: '$amount' } }, count: { $sum: 1 } } },
+      ]),
       User.countDocuments({
         tenantId: tid,
         isBot: { $ne: true },
@@ -97,7 +101,8 @@ export async function aggregateTenantDailyStat(tenantId, dateStr, { currency = '
           sportsTurnover: sportsRows[0]?.turnover ?? 0,
           sportsGgrRealized: sportsRows[0]?.ggr ?? 0,
           bonusCost: bonusRows[0]?.total ?? 0,
-          chargebacks: 0, // No source yet (K28): refunds/reversals must NOT be treated as chargebacks
+          chargebacks: chargebackRows[0]?.total ?? 0,
+          chargebackCount: chargebackRows[0]?.count ?? 0,
           providerFees: 0, // Source documented: external game provider invoices not ingested in core database
           deposits: depositRows[0]?.total ?? 0,
           withdrawals: withdrawRows[0]?.total ?? 0,
@@ -130,6 +135,7 @@ export async function getPartnerDailyMetrics({ tenantId, from, to }) {
     sportsGgrRealized: row.sportsGgrRealized,
     bonusCost: row.bonusCost,
     chargebacks: row.chargebacks ?? 0,
+    chargebackCount: row.chargebackCount ?? 0,
     providerFees: row.providerFees ?? 0,
     deposits: row.deposits,
     withdrawals: row.withdrawals,

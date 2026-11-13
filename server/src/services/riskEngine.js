@@ -60,6 +60,9 @@ function buildSignalContext(signals, recentSignals) {
   return ctx;
 }
 
+/** Finding codes that hold the account in REVIEW while ACTIVE. */
+export const STICKY_REVIEW_CODES = Object.freeze(['PSP_CHARGEBACK']);
+
 export async function evaluateRisk(playerId, event, context = {}, opts = {}) {
   const { isSeed = false, suppressActivity = false } = opts;
   const start = Date.now();
@@ -119,15 +122,22 @@ export async function evaluateRisk(playerId, event, context = {}, opts = {}) {
     }
   }
 
+  // Findings that keep the account in manual review until staff resolve or
+  // dismiss them, whatever later rule evaluations decide (e.g. a confirmed PSP
+  // chargeback). Without such a finding the rule decision applies as before.
+  const stickyReview = decision === EVALUATION_DECISION.ALLOW
+    && await RiskFinding.exists({ playerId, status: FINDING_STATUS.ACTIVE, code: { $in: STICKY_REVIEW_CODES } });
+  const effectiveDecision = stickyReview ? EVALUATION_DECISION.REVIEW : decision;
+
   const updateData = {
     riskScore: totalScore,
     riskLevel,
-    riskStatus: decision === EVALUATION_DECISION.ALLOW ? RISK_STATUS.CLEAR
-      : decision === EVALUATION_DECISION.REVIEW ? RISK_STATUS.REVIEW
-      : decision === EVALUATION_DECISION.RESTRICT ? RISK_STATUS.RESTRICTED
+    riskStatus: effectiveDecision === EVALUATION_DECISION.ALLOW ? RISK_STATUS.CLEAR
+      : effectiveDecision === EVALUATION_DECISION.REVIEW ? RISK_STATUS.REVIEW
+      : effectiveDecision === EVALUATION_DECISION.RESTRICT ? RISK_STATUS.RESTRICTED
       : RISK_STATUS.BLOCKED,
     activeFlags: findings.map(f => f.code),
-    reviewRequired: decision === EVALUATION_DECISION.REVIEW,
+    reviewRequired: effectiveDecision === EVALUATION_DECISION.REVIEW,
     lastEvaluatedAt: new Date(),
     evaluatedBy: 'system',
     reason: event,
@@ -145,7 +155,7 @@ export async function evaluateRisk(playerId, event, context = {}, opts = {}) {
     jurisdictionId: profile.jurisdictionId,
     event,
     context: fullContext,
-    decision,
+    decision: effectiveDecision,
     riskLevel,
     score: totalScore,
     findings,
@@ -156,26 +166,26 @@ export async function evaluateRisk(playerId, event, context = {}, opts = {}) {
     isSeed,
   });
 
-  if (decision !== EVALUATION_DECISION.ALLOW) {
+  if (effectiveDecision !== EVALUATION_DECISION.ALLOW) {
     await logAuditEvent({
       actorId: null,
       actorType: 'system',
       actorUsername: 'system',
-      action: `risk.evaluation.${decision.toLowerCase()}`,
+      action: `risk.evaluation.${effectiveDecision.toLowerCase()}`,
       category: 'system',
       targetType: 'player',
       targetId: playerId,
-      after: { decision, riskLevel, score: totalScore, findings: findings.map(f => f.code) },
+      after: { decision: effectiveDecision, riskLevel, score: totalScore, findings: findings.map(f => f.code) },
       reason: event,
     });
   }
 
   return {
-    decision,
+    decision: effectiveDecision,
     riskLevel,
     score: totalScore,
     findings,
-    requiredAction: decision !== EVALUATION_DECISION.ALLOW ? decision : null,
+    requiredAction: effectiveDecision !== EVALUATION_DECISION.ALLOW ? effectiveDecision : null,
   };
 }
 

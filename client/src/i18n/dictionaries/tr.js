@@ -1002,6 +1002,7 @@ export default {
   'slikair.groupCrypto': 'Kripto',
   'slikair.created': 'Oluşturuldu',
   'slikair.refunded': 'İade',
+  'slikair.chargeback': 'Ters ibraz',
 
   // Mines (eksik kalan anahtarlar)
   'games.mines.autoBet': 'Otomatik Bahis',
@@ -2670,6 +2671,8 @@ export default {
   'admin.activityFeed.viewUser': 'Kullanıcıyı Görüntüle',
   'admin.activityFeed.type.deposit': 'Yatırma',
   'admin.activityFeed.type.withdraw': 'Çekim',
+  'admin.activityFeed.type.depositRefund': 'Yatırma İadesi',
+  'admin.activityFeed.type.depositChargeback': 'Ters İbraz',
   'admin.activityFeed.type.betPlaced': 'Bahis',
   'admin.activityFeed.type.betSettled': 'Bahis Sonucu',
   'admin.activityFeed.type.gameSession': 'Oyun Oturumu',

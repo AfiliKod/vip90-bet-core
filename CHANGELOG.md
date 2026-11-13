@@ -18,6 +18,21 @@ Madde formatı ve kategoriler için `docs/CHANGELOG_GUIDE.md`'ye bakın —
 
 ## [Yayınlanmadı]
 
+### Slikair iade ve chargeback bildirimleri artık işleniyor
+
+**Düzeltildi**
+- Slikair `refunded` ve `chargeback` bildirimleri artık yalnız `get-status` ile
+  durum, tutar ve para birimi doğrulandıktan sonra, tek ve ilişkili bir defter
+  ters kaydı olarak işlenir. Chargeback ayrıca risk incelemesi ve yönetici
+  etkinlik bildirimi oluşturur.
+- `TenantDailyStat.chargebacks` ve `chargebackCount` artık doğrulanmış
+  chargeback defter kayıtlarından doldurulur; vaka başı PSP maliyeti için NGR
+  tanımı `per_chargeback` dönemini destekler.
+
+**Kırılan Değişiklikler**
+- Chargeback sonrası oyuncu bakiyesi artık eksiye düşebilir; borç kapanana
+  kadar mevcut yeterli-bakiye kontrolleri çekim ve bahisleri engeller.
+- `TenantDailyStat.chargebacks` artık gerçek chargeback tutarlarıyla doldurulur.
 ### Belgeler: çok operatörlü kurulum kılavuzu ve güncellenen belgeler
 
 - **Eklendi:** `docs/product/12-cok-operator.md`; yeni merkezi çok operatörlü kurulum, konsol, operatör sağlama, alan adı/TLS, partnerler, NGR ve ekstreler belgelenmiştir.

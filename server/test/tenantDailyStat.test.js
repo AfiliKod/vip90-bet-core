@@ -157,3 +157,25 @@ test('aggregateTenantDailyStat sets chargebacks and providerFees to 0 and does n
   assert.equal(rows[0].chargebacks, 0);
   assert.equal(rows[0].providerFees, 0);
 });
+
+test('aggregateTenantDailyStat uses completed chargeback transactions only', async () => {
+  const tenantId = new mongoose.Types.ObjectId();
+  const userId = new mongoose.Types.ObjectId();
+  const day = '2026-11-16';
+  const createdAt = new Date(`${day}T10:00:00.000Z`);
+  await runWithTenant(tenantId, () => User.create({
+    _id: userId, username: 'chargeback_stat_player', email: 'chargeback-stat@example.com', password: 'test-password',
+  }));
+  for (const [type, amount] of [['chargeback', -125], ['chargeback', -75], ['deposit_refund', -80], ['refund', 80], ['reversal', -50]]) {
+    await runWithTenant(tenantId, () => Transaction.create({
+      userId, type, amount, balanceBefore: 0, balanceAfter: 0, currency: 'TRY', status: 'completed', createdAt,
+    }));
+  }
+  await runWithTenant(tenantId, () => Transaction.create({
+    userId, type: 'chargeback', amount: -999, balanceBefore: 0, balanceAfter: 0, currency: 'TRY', status: 'failed', createdAt,
+  }));
+
+  const stat = await aggregateTenantDailyStat(tenantId, day, { currency: 'TRY' });
+  assert.equal(stat.chargebacks, 200);
+  assert.equal(stat.chargebackCount, 2);
+});
