@@ -63,7 +63,7 @@ Version 1.1.0 adds one central installation for multiple independent operators. 
 |---|---|
 | 🛠️ **Full admin panel (core)** | Users, roles/permissions, analytics with live KPIs and revenue charts, theme/brand editor, static page and homepage slider editors, module switches, wallet (bank/crypto/Slikair), help desk, player segmentation, risk/compliance, system health monitoring |
 | 💰 **End-to-end crypto payments (module)** | USDT-TRC20: HD-wallet deposit tracking, automatic or approved withdrawals from a hot wallet, transaction history in the admin panel, Web3 login with a wallet signature |
-| 💳 **Slikair payment gateway (module)** | Card and alternative-method deposits; verified with sandbox credentials only, going live requires Slikair KYB |
+| 💳 **Slikair payment gateway (module)** | Card and alternative-method deposits; refund and chargeback notices are verified and reversed on the balance, a chargeback puts the account under risk review; verified with sandbox credentials only, going live requires Slikair KYB |
 | 🪪 **Two KYC options (module)** | Local document review (admin approve/reject queue) or automated verification with Sumsub, selectable in the panel |
 | 👑 **VIP and real-time cashback** | Default 5-level VIP programme (Bronze–Diamond, editable in the panel); level-based cashback is credited right after each settled bet or round |
 | 🌍 **Multi-language and PWA** | 8 language dictionaries (player screens translated in all 8; the admin panel is complete in English and Turkish, partly English in the other six) with a global language switcher, installable Progressive Web App, iOS Capacitor shell |
@@ -112,7 +112,8 @@ the paid add-ons.
 - **USDT-TRC20** crypto payments: HD-wallet deposit tracking, withdrawals
   from a hot wallet.
 - **Slikair** card/alternative payment gateway (sandbox; live use requires
-  KYB).
+  KYB): verified refunds and chargebacks reverse the deposit on the balance,
+  a chargeback puts the account under review and feeds real data into NGR.
 - **KYC**: local document review (approve/reject queue) or the **Sumsub**
   integration, one of them selected in the panel.
 
