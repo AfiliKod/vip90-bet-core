@@ -214,6 +214,24 @@ export const billingApi = {
   issueStatement: async (id) => (await apiClient.post(`/billing/statements/${id}/issue`)).data,
   addAdjustment: async (id, data) => (await apiClient.post(`/billing/statements/${id}/adjustments`, data)).data,
   voidStatement: async (id, data) => (await apiClient.post(`/billing/statements/${id}/void`, data)).data,
+  listNgrDefinitions: async () => (await apiClient.get('/billing/ngr-definitions')).data,
+  getNgrDefinition: async (id) => (await apiClient.get(`/billing/ngr-definitions/${id}`)).data,
+  createNgrDefinition: async (data) => (await apiClient.post('/billing/ngr-definitions', data)).data,
+  updateNgrDefinition: async (id, data) => (await apiClient.put(`/billing/ngr-definitions/${id}`, data)).data,
+  createNewNgrVersion: async (id, data) => (await apiClient.post(`/billing/ngr-definitions/${id}/versions`, data)).data,
+};
+
+export const ngrApi = {
+  list: billingApi.listNgrDefinitions,
+  get: billingApi.getNgrDefinition,
+  create: billingApi.createNgrDefinition,
+  update: billingApi.updateNgrDefinition,
+  createVersion: billingApi.createNewNgrVersion,
+  listNgrDefinitions: billingApi.listNgrDefinitions,
+  getNgrDefinition: billingApi.getNgrDefinition,
+  createNgrDefinition: billingApi.createNgrDefinition,
+  updateNgrDefinition: billingApi.updateNgrDefinition,
+  createNewNgrVersion: billingApi.createNewNgrVersion,
 };
 
 export const reportsApi = {

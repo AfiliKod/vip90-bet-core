@@ -41,6 +41,16 @@ export default function StatementDetail({ statementId: propStatementId }) {
   const [voidReason, setVoidReason] = useState('');
   const [voidError, setVoidError] = useState(null);
 
+  // NGR line expansion
+  const [expandedNgrLines, setExpandedNgrLines] = useState({});
+
+  const toggleNgrLine = (lineKey) => {
+    setExpandedNgrLines((prev) => ({
+      ...prev,
+      [lineKey]: !prev[lineKey],
+    }));
+  };
+
   useEffect(() => {
     let id = propStatementId || routeParams.id;
     if (!id && typeof window !== 'undefined') {
@@ -420,11 +430,15 @@ export default function StatementDetail({ statementId: propStatementId }) {
               h(
                 'tbody',
                 { className: 'divide-y divide-slate-800/60' },
-                lines.map((line, idx) => {
+                lines.flatMap((line, idx) => {
+                  const lineKey = line._id || `line-${idx}`;
+                  const isNgr = line.baseMetric === 'ngr';
+                  const isExpanded = Boolean(expandedNgrLines[lineKey]);
                   const typeInfo = LINE_TYPE_MAP[line.type] || { label: line.type, badge: 'bg-slate-800 text-slate-300' };
-                  return h(
+
+                  const mainRow = h(
                     'tr',
-                    { key: line._id || idx, className: 'hover:bg-slate-800/40 transition-colors' },
+                    { key: lineKey, className: 'hover:bg-slate-800/40 transition-colors' },
                     h('td', { className: 'py-3 px-4 font-mono text-slate-400' }, line.date || '-'),
                     h(
                       'td',
@@ -433,7 +447,13 @@ export default function StatementDetail({ statementId: propStatementId }) {
                         'span',
                         { className: `inline-flex px-2 py-0.5 rounded text-xs font-medium border ${typeInfo.badge}` },
                         typeInfo.label
-                      )
+                      ),
+                      isNgr &&
+                        h(
+                          'span',
+                          { className: 'ml-1.5 inline-flex px-1.5 py-0.5 rounded text-2xs font-mono font-semibold bg-indigo-950 text-indigo-300 border border-indigo-700/60' },
+                          'NGR'
+                        )
                     ),
                     h('td', { className: 'py-3 px-4 text-slate-300' }, line.tenantId?.name || line.tenantId?.key || '-'),
                     h(
@@ -445,7 +465,17 @@ export default function StatementDetail({ statementId: propStatementId }) {
                     h(
                       'td',
                       { className: 'py-3 px-4 text-right text-slate-400' },
-                      line.baseAmount ? formatMoney(line.baseAmount, line.currency) : '-'
+                      line.baseAmount ? formatMoney(line.baseAmount, line.currency) : '-',
+                      isNgr &&
+                        h(
+                          'button',
+                          {
+                            type: 'button',
+                            onClick: () => toggleNgrLine(lineKey),
+                            className: 'block ml-auto mt-1 px-1.5 py-0.5 rounded text-2xs font-medium bg-indigo-950 text-indigo-300 border border-indigo-700/60 hover:bg-indigo-900 transition-colors',
+                          },
+                          isExpanded ? '▲ Kesintileri Gizle' : '▼ Kesinti Dökümü'
+                        )
                     ),
                     h(
                       'td',
@@ -458,6 +488,96 @@ export default function StatementDetail({ statementId: propStatementId }) {
                       formatMoney(line.amount, line.currency)
                     )
                   );
+
+                  if (!isNgr || !isExpanded) {
+                    return [mainRow];
+                  }
+
+                  const detailRow = h(
+                    'tr',
+                    { key: `${lineKey}-drawer`, className: 'bg-slate-950/80 border-t border-b border-indigo-900/40' },
+                    h(
+                      'td',
+                      { colSpan: 7, className: 'p-4' },
+                      h(
+                        'div',
+                        { className: 'space-y-3 bg-slate-900 p-4 rounded-lg border border-slate-800' },
+                        h(
+                          'div',
+                          { className: 'flex items-center justify-between border-b border-slate-800 pb-2' },
+                          h(
+                            'div',
+                            { className: 'flex items-center gap-2' },
+                            h('span', { className: 'text-xs font-semibold text-white' }, 'NGR Hesaplama ve Kesinti Dökümü'),
+                            h('span', { className: 'px-2 py-0.5 rounded text-2xs font-mono bg-indigo-950 text-indigo-300 border border-indigo-800' }, `${line.currency}`)
+                          ),
+                          line.metadata?.ngrDefinitionVersion &&
+                            h('span', { className: 'text-2xs text-slate-400 font-mono' }, `Tanım Sürümü: v${line.metadata.ngrDefinitionVersion}`)
+                        ),
+                        // 4 Summary Metrics Cards
+                        h(
+                          'div',
+                          { className: 'grid grid-cols-2 sm:grid-cols-4 gap-3 text-xs' },
+                          h(
+                            'div',
+                            { className: 'p-2.5 rounded bg-slate-800/60 border border-slate-700/50' },
+                            h('div', { className: 'text-slate-400 text-2xs' }, 'Brüt GGR'),
+                            h('div', { className: 'text-sm font-semibold text-white' }, formatMoney(line.metadata?.ggr ?? line.baseAmount, line.currency))
+                          ),
+                          h(
+                            'div',
+                            { className: 'p-2.5 rounded bg-slate-800/60 border border-slate-700/50' },
+                            h('div', { className: 'text-slate-400 text-2xs' }, 'Toplam Kesintiler'),
+                            h('div', { className: 'text-sm font-semibold text-rose-400' }, `-${formatMoney(line.metadata?.totalDeductions ?? 0, line.currency)}`)
+                          ),
+                          h(
+                            'div',
+                            { className: 'p-2.5 rounded bg-slate-800/60 border border-slate-700/50' },
+                            h('div', { className: 'text-slate-400 text-2xs' }, 'Net NGR'),
+                            h('div', { className: 'text-sm font-semibold text-indigo-300' }, formatMoney(line.metadata?.ngr ?? line.baseAmount, line.currency))
+                          ),
+                          h(
+                            'div',
+                            { className: 'p-2.5 rounded bg-slate-800/60 border border-slate-700/50' },
+                            h('div', { className: 'text-slate-400 text-2xs' }, `Komisyon (${line.rate ? `${(line.rate * 100).toFixed(2)}%` : '-'})`),
+                            h('div', { className: 'text-sm font-semibold text-emerald-400' }, formatMoney(line.amount, line.currency))
+                          )
+                        ),
+                        // Itemized deductions list
+                        Array.isArray(line.metadata?.deductions) && line.metadata.deductions.length > 0
+                          ? h(
+                              'div',
+                              { className: 'space-y-1.5 pt-1' },
+                              h('div', { className: 'text-2xs font-semibold text-slate-400 uppercase tracking-wider' }, 'Uygulanan Kesinti Kalemleri:'),
+                              h(
+                                'div',
+                                { className: 'divide-y divide-slate-800/80 rounded border border-slate-800 bg-slate-950/40' },
+                                line.metadata.deductions.map((ded, dIdx) =>
+                                  h(
+                                    'div',
+                                    { key: dIdx, className: 'flex items-center justify-between px-3 py-2 text-xs' },
+                                    h(
+                                      'div',
+                                      { className: 'flex items-center gap-2' },
+                                      h(
+                                        'span',
+                                        { className: 'px-1.5 py-0.5 rounded text-2xs font-mono font-medium bg-slate-800 text-slate-300 border border-slate-700' },
+                                        ded.category
+                                      ),
+                                      h('span', { className: 'text-slate-200' }, ded.label),
+                                      ded.source && h('span', { className: 'text-slate-500 text-2xs' }, `(${ded.source})`)
+                                    ),
+                                    h('span', { className: 'font-mono font-semibold text-rose-400' }, `-${formatMoney(ded.amount, line.currency)}`)
+                                  )
+                                )
+                              )
+                            )
+                          : h('div', { className: 'text-xs text-slate-500 italic' }, 'Bu kalemde herhangi bir ek kesinti uygulanmadı.')
+                      )
+                    )
+                  );
+
+                  return [mainRow, detailRow];
                 })
               )
             )

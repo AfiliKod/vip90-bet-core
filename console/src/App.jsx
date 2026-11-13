@@ -24,6 +24,8 @@ import BillingDashboard from './pages/billing/BillingDashboard.jsx';
 import StatementsList from './pages/billing/StatementsList.jsx';
 import StatementDetail from './pages/billing/StatementDetail.jsx';
 import OperatorFeePlans from './pages/billing/OperatorFeePlans.jsx';
+import NgrDefinitionsList from './pages/billing/NgrDefinitionsList.jsx';
+import NgrDefinitionEditor from './pages/billing/NgrDefinitionEditor.jsx';
 import PlatformReports from './pages/reports/PlatformReports.jsx';
 
 function ProtectedRoute({ children }) {
@@ -63,6 +65,11 @@ function PartnerStatementDetailRoute() {
 function StatementDetailRoute() {
   const { id } = useParams();
   return <StatementDetail key={id} statementId={id} />;
+}
+
+function NgrDefinitionEditorRoute() {
+  const { id } = useParams();
+  return <NgrDefinitionEditor key={id} definitionId={id} />;
 }
 
 function PlatformRoute({ children }) {
@@ -130,6 +137,9 @@ export default function App() {
           <Route path="billing/plans" element={<PlatformRoute><OperatorFeePlans /></PlatformRoute>} />
           <Route path="billing/statements" element={<PlatformRoute><StatementsList /></PlatformRoute>} />
           <Route path="billing/statements/:id" element={<PlatformRoute><StatementDetailRoute /></PlatformRoute>} />
+          <Route path="billing/ngr-definitions" element={<PlatformRoute><NgrDefinitionsList /></PlatformRoute>} />
+          <Route path="billing/ngr-definitions/new" element={<PlatformRoute><NgrDefinitionEditor /></PlatformRoute>} />
+          <Route path="billing/ngr-definitions/:id" element={<PlatformRoute><NgrDefinitionEditorRoute /></PlatformRoute>} />
           <Route path="reports" element={<PlatformRoute><PlatformReports /></PlatformRoute>} />
 
           {/* Partner views under /console/partner/* */}
