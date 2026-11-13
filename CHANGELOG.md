@@ -18,6 +18,10 @@ Madde formatı ve kategoriler için `docs/CHANGELOG_GUIDE.md`'ye bakın —
 
 ## [Yayınlanmadı]
 
+## [1.1.0] — 2026-11-13
+
+**Öne çıkanlar:** tek merkezi kurulumla birden çok bağımsız operatör (kiracı yalıtımı, kiracıya göre callback/marka/soket/işler), Platform Sahibi konsolu ve operatör sağlama, partner yönetimi ve portalı, komisyon/faturalama ve yapılandırılabilir NGR (K28), Slikair iade ve chargeback işleme. Tek operatörlü kurulumlar `TENANCY_MODE=single` ile çalışmaya devam eder; yükseltmeden önce aşağıdaki **Kırılan Değişiklikler** notlarını okuyun (özellikle site adı geri dönüşü, chargeback sonrası eksi bakiye ve çok modda ticari koşulların varsayılan orana sahip olmaması). Ayrıntılı kılavuz: `docs/product/12-cok-operator.md`.
+
 ### Slikair iade ve chargeback bildirimleri artık işleniyor
 
 **Düzeltildi**
