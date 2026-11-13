@@ -173,6 +173,93 @@ export function findActiveFeePlan(feePlans = [], tenantId, dateStr) {
 }
 
 /**
+ * Reject an NGR definition that would deduct the same cost more than once.
+ * This mirrors model validation because this pure calculator may be called
+ * with plain objects that did not pass through Mongoose.
+ *
+ * @param {object} ngrDef
+ * @throws {Error} when enabled deductions overlap
+ */
+export function assertNoDoubleDeduction(ngrDef) {
+  const enabledItems = (ngrDef?.items || []).filter((item) => item?.enabled);
+  const categories = new Set();
+  const otherLabels = new Set();
+  const sources = new Set();
+  const alreadyNetOf = new Set(ngrDef?.ggrAlreadyNetOf || []);
+
+  const fail = (message) => {
+    const err = new Error(message);
+    err.code = 'ERR_NGR_DOUBLE_DEDUCTION';
+    throw err;
+  };
+
+  for (const item of enabledItems) {
+    if (alreadyNetOf.has(item.category)) {
+      fail(`Category "${item.category}" is already net in GGR.`);
+    }
+
+    if (item.category === 'other') {
+      const label = String(item.label || '').trim().toLowerCase();
+      if (otherLabels.has(label)) {
+        fail(`Duplicate label "${item.label}" in category "other".`);
+      }
+      otherLabels.add(label);
+    } else {
+      if (categories.has(item.category)) {
+        fail(`Category "${item.category}" is deducted more than once.`);
+      }
+      categories.add(item.category);
+    }
+
+    let sourceKey = null;
+    if (item.source === 'stat_field' && item.params?.field) {
+      sourceKey = `stat_field:${item.params.field}`;
+    } else if (item.source === 'fee_plan' && item.params?.component) {
+      sourceKey = `fee_plan:${item.params.component}`;
+    } else if (item.source === 'rate' && item.params?.target) {
+      sourceKey = `rate:${item.params.target}`;
+    }
+
+    if (sourceKey) {
+      if (sources.has(sourceKey)) {
+        fail(`Source "${sourceKey}" is used more than once.`);
+      }
+      sources.add(sourceKey);
+    }
+  }
+}
+
+function resolveNgrDefinition(ngrDefinitions, terms) {
+  return ngrDefinitions.find((definition) => (
+    String(definition._id) === String(terms.ngrDefinitionId)
+    && (terms.ngrDefinitionVersion == null || definition.version === terms.ngrDefinitionVersion)
+  ));
+}
+
+function getNgrComponentCents(stat, ggrComponents) {
+  const components = Array.isArray(ggrComponents) && ggrComponents.length > 0
+    ? new Set(ggrComponents)
+    : new Set(['casino', 'sports']);
+  const casinoGgrCents = components.has('casino') ? toMinorUnits(stat.casinoGgr || 0) : 0;
+  const sportsGgrCents = components.has('sports') ? toMinorUnits(stat.sportsGgrRealized || 0) : 0;
+  const casinoTurnoverCents = components.has('casino') ? toMinorUnits(stat.casinoTurnover || 0) : 0;
+  const sportsTurnoverCents = components.has('sports') ? toMinorUnits(stat.sportsTurnover || 0) : 0;
+
+  return {
+    ggrCents: casinoGgrCents + sportsGgrCents,
+    turnoverCents: casinoTurnoverCents + sportsTurnoverCents,
+  };
+}
+
+function calculateSportsbookFeeCents(feePlan, sportsTurnoverCents) {
+  const sportsbookFee = feePlan?.sportsbookFee;
+  if (!sportsbookFee || !['turnover_percentage', 'both'].includes(sportsbookFee.model)) {
+    return 0;
+  }
+  return multiplyMinorUnitsByRate(sportsTurnoverCents, sportsbookFee.turnoverRate || 0);
+}
+
+/**
  * Calculate commission and fees for a set of TenantDailyStat entries.
  * Pure function: never mutates inputs or performs database calls.
  *
@@ -185,9 +272,10 @@ export function findActiveFeePlan(feePlans = [], tenantId, dateStr) {
  * @param {Array<object>} [params.links=[]]
  * @param {Array<object>} [params.stats=[]]
  * @param {Array<object>} [params.feePlans=[]]
+ * @param {Array<object>} [params.ngrDefinitions=[]]
  * @returns {Record<string, { currency: string, lines: Array<object>, grossAmount: number, netAmount: number }>}
  */
-export function calculateCommissionForPeriod({ partner, links = [], stats = [], feePlans = [] }) {
+export function calculateCommissionForPeriod({ partner, links = [], stats = [], feePlans = [], ngrDefinitions = [] }) {
   const byCurrency = {};
 
   for (const stat of stats) {
@@ -205,16 +293,76 @@ export function calculateCommissionForPeriod({ partner, links = [], stats = [], 
     const link = findActiveLink(links, stat.tenantId, stat.date);
     const terms = link?.commercialTerms || partner?.defaultCommercialTerms || { model: 'revshare_ggr', rate: 0.15 };
 
-    if (terms.model === 'revshare_ngr' || terms.base === 'ngr') {
-      const err = new Error('NGR calculation is not yet implemented; only GGR is supported in this version.');
-      err.code = 'ERR_NGR_NOT_IMPLEMENTED';
-      throw err;
-    }
-
     const model = terms.model || (terms.base === 'turnover' ? 'turnover' : 'revshare_ggr');
 
     // 1. Commission line calculation
-    if (model === 'revshare_ggr' || terms.base === 'ggr') {
+    if (model === 'revshare_ngr' || terms.base === 'ngr') {
+      const ngrDef = resolveNgrDefinition(ngrDefinitions, terms);
+      if (!ngrDef) {
+        const err = new Error('NGR definition was not found for the configured commercial terms.');
+        err.code = 'ERR_NGR_DEFINITION_NOT_FOUND';
+        throw err;
+      }
+      assertNoDoubleDeduction(ngrDef);
+
+      const { ggrCents, turnoverCents } = getNgrComponentCents(stat, ngrDef.ggrComponents);
+      const feePlan = findActiveFeePlan(feePlans, stat.tenantId, stat.date);
+      const deductions = [];
+      let totalDeductionsCents = 0;
+
+      for (const item of (ngrDef.items || []).filter((candidate) => candidate?.enabled)) {
+        let amountCents = 0;
+        if (item.source === 'stat_field') {
+          amountCents = toMinorUnits(stat[item.params?.field] || 0);
+        } else if (item.source === 'fee_plan' && item.params?.component === 'sportsbookFee') {
+          amountCents = calculateSportsbookFeeCents(feePlan, toMinorUnits(stat.sportsTurnover || 0));
+        } else if (item.source === 'rate') {
+          const targetCents = item.params?.target === 'turnover' ? turnoverCents : ggrCents;
+          amountCents = multiplyMinorUnitsByRate(targetCents, item.params?.rate || 0);
+        } else if (item.source === 'fixed' && (item.params?.period ?? 'day') === 'day') {
+          amountCents = toMinorUnits(item.params?.amount || 0);
+        }
+
+        totalDeductionsCents += amountCents;
+        deductions.push({
+          category: item.category,
+          label: item.label,
+          source: item.source,
+          amount: fromMinorUnits(amountCents),
+        });
+      }
+
+      const ngrCents = ggrCents - totalDeductionsCents;
+      const negativeBaseHandling = terms.negativeBaseHandling || terms.negativeGgrHandling || 'zero_floor';
+      const effectiveNgrCents = ngrCents < 0 && negativeBaseHandling === 'zero_floor' ? 0 : ngrCents;
+      const rate = terms.rate ?? 0.15;
+      const commissionCents = multiplyMinorUnitsByRate(effectiveNgrCents, rate);
+
+      byCurrency[currency].lines.push({
+        tenantId: stat.tenantId,
+        linkId: link?._id || null,
+        type: 'commission',
+        date: stat.date,
+        currency,
+        baseMetric: 'ngr',
+        baseAmount: fromMinorUnits(ngrCents),
+        rate,
+        amount: fromMinorUnits(commissionCents),
+        description: `${Number((rate * 100).toPrecision(12))}% NGR Commission for ${stat.date}`,
+        metadata: {
+          ggr: fromMinorUnits(ggrCents),
+          totalDeductions: fromMinorUnits(totalDeductionsCents),
+          ngr: fromMinorUnits(ngrCents),
+          deductions,
+          negativeBaseHandling,
+          ngrDefinitionId: ngrDef._id,
+          ngrDefinitionVersion: ngrDef.version,
+        },
+      });
+
+      byCurrency[currency]._grossAmountCents += commissionCents;
+      byCurrency[currency].grossAmount = fromMinorUnits(byCurrency[currency]._grossAmountCents);
+    } else if (model === 'revshare_ggr' || terms.base === 'ggr') {
       const casinoGgrCents = toMinorUnits(stat.casinoGgr || 0);
       const sportsGgrCents = toMinorUnits(stat.sportsGgrRealized || 0);
       const dayGgrCents = casinoGgrCents + sportsGgrCents;
@@ -303,7 +451,7 @@ export function calculateCommissionForPeriod({ partner, links = [], stats = [], 
 
     // 2. K20 Sportsbook odds feed fee calculation
     const feePlan = findActiveFeePlan(feePlans, stat.tenantId, stat.date);
-    if (feePlan?.sportsbookFee && feePlan.sportsbookFee.model !== 'none') {
+    if (model !== 'revshare_ngr' && terms.base !== 'ngr' && feePlan?.sportsbookFee && feePlan.sportsbookFee.model !== 'none') {
       const sb = feePlan.sportsbookFee;
       if (sb.model === 'turnover_percentage' || sb.model === 'both') {
         const sportsTurnoverCents = toMinorUnits(stat.sportsTurnover || 0);

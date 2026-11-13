@@ -94,21 +94,151 @@ test('calculateCommissionForPeriod isolates currencies strictly', () => {
   assert.equal(result.EUR.grossAmount, 500.00);
 });
 
-test('calculateCommissionForPeriod rejects revshare_ngr with ERR_NGR_NOT_IMPLEMENTED', () => {
+test('calculateCommissionForPeriod computes revshare_ngr matching exact worked numeric example', () => {
+  const partner = { _id: 'P1' };
+  const ngrDef = {
+    _id: 'ND1',
+    name: 'Full Deduction NGR',
+    version: 1,
+    ggrComponents: ['casino', 'sports'],
+    ggrAlreadyNetOf: [],
+    items: [
+      { category: 'bonus', label: 'Bonus Cost', enabled: true, source: 'stat_field', params: { field: 'bonusCost' } },
+      { category: 'chargeback', label: 'Payment Chargebacks', enabled: true, source: 'stat_field', params: { field: 'chargebacks' } },
+      { category: 'provider_fee', label: 'Sportsbook Odds Feed Fee', enabled: true, source: 'fee_plan', params: { component: 'sportsbookFee' } },
+      { category: 'tax', label: 'Gaming Tax (5% GGR)', enabled: true, source: 'rate', params: { target: 'ggr', rate: 0.05 } },
+      { category: 'other', label: 'Hosting Recovery', enabled: true, source: 'fixed', params: { amount: 150 } },
+    ],
+  };
+  const links = [{
+    partnerId: 'P1',
+    tenantId: 'T1',
+    validFrom: new Date('2026-11-01'),
+    validTo: null,
+    commercialTerms: {
+      model: 'revshare_ngr',
+      base: 'ngr',
+      rate: 0.20,
+      currency: 'TRY',
+      ngrDefinitionId: 'ND1',
+      ngrDefinitionVersion: 1,
+      negativeBaseHandling: 'zero_floor',
+    },
+  }];
+  const feePlans = [{
+    tenantId: 'T1',
+    validFrom: new Date('2026-11-01'),
+    validTo: null,
+    sportsbookFee: { model: 'turnover_percentage', turnoverRate: 0.02, currency: 'TRY' },
+  }];
+  const stats = [{
+    tenantId: 'T1',
+    date: '2026-11-15',
+    currency: 'TRY',
+    casinoGgr: 10000,
+    sportsGgrRealized: 2000,
+    sportsTurnover: 50000,
+    bonusCost: 1500,
+    chargebacks: 250,
+  }];
+
+  const result = calculateCommissionForPeriod({ partner, links, stats, feePlans, ngrDefinitions: [ngrDef] });
+
+  assert.ok(result.TRY);
+  assert.equal(result.TRY.grossAmount, 1700.00);
+  assert.equal(result.TRY.lines.length, 1);
+
+  const line = result.TRY.lines[0];
+  assert.equal(line.type, 'commission');
+  assert.equal(line.baseMetric, 'ngr');
+  assert.equal(line.baseAmount, 8500.00);
+  assert.equal(line.rate, 0.20);
+  assert.equal(line.amount, 1700.00);
+
+  const meta = line.metadata;
+  assert.equal(meta.ggr, 12000.00);
+  assert.equal(meta.totalDeductions, 3500.00);
+  assert.equal(meta.ngr, 8500.00);
+  assert.equal(meta.deductions.length, 5);
+  assert.equal(meta.deductions.find((deduction) => deduction.category === 'bonus').amount, 1500.00);
+  assert.equal(meta.deductions.find((deduction) => deduction.category === 'chargeback').amount, 250.00);
+  assert.equal(meta.deductions.find((deduction) => deduction.category === 'provider_fee').amount, 1000.00);
+  assert.equal(meta.deductions.find((deduction) => deduction.category === 'tax').amount, 600.00);
+  assert.equal(meta.deductions.find((deduction) => deduction.category === 'other').amount, 150.00);
+});
+
+test('calculateCommissionForPeriod runtime guard rejects duplicate deduction category and source', () => {
   const partner = { _id: 'P1' };
   const links = [{
     partnerId: 'P1',
     tenantId: 'T1',
     validFrom: new Date('2026-11-01'),
     validTo: null,
-    commercialTerms: { model: 'revshare_ngr', rate: 0.15, currency: 'TRY' },
+    commercialTerms: { model: 'revshare_ngr', base: 'ngr', rate: 0.15, currency: 'TRY', ngrDefinitionId: 'ND_BAD' },
   }];
-  const stats = [{ tenantId: 'T1', date: '2026-11-01', currency: 'TRY', casinoGgr: 1000, sportsGgrRealized: 0 }];
+  const stats = [{ tenantId: 'T1', date: '2026-11-01', currency: 'TRY', casinoGgr: 1000, bonusCost: 100 }];
 
+  const duplicateCategory = {
+    _id: 'ND_BAD',
+    version: 1,
+    ggrComponents: ['casino'],
+    items: [
+      { category: 'bonus', label: 'Bonus 1', enabled: true, source: 'stat_field', params: { field: 'bonusCost' } },
+      { category: 'bonus', label: 'Bonus 2', enabled: true, source: 'rate', params: { target: 'ggr', rate: 0.05 } },
+    ],
+  };
   assert.throws(
-    () => calculateCommissionForPeriod({ partner, links, stats, feePlans: [] }),
-    (err) => err.code === 'ERR_NGR_NOT_IMPLEMENTED'
+    () => calculateCommissionForPeriod({ partner, links, stats, feePlans: [], ngrDefinitions: [duplicateCategory] }),
+    (err) => err.code === 'ERR_NGR_DOUBLE_DEDUCTION'
   );
+
+  const duplicateSource = {
+    _id: 'ND_BAD',
+    version: 1,
+    ggrComponents: ['casino'],
+    items: [
+      { category: 'bonus', label: 'Bonus Cost', enabled: true, source: 'stat_field', params: { field: 'bonusCost' } },
+      { category: 'other', label: 'Bonus Adjustment', enabled: true, source: 'stat_field', params: { field: 'bonusCost' } },
+    ],
+  };
+  assert.throws(
+    () => calculateCommissionForPeriod({ partner, links, stats, feePlans: [], ngrDefinitions: [duplicateSource] }),
+    (err) => err.code === 'ERR_NGR_DOUBLE_DEDUCTION'
+  );
+});
+
+test('calculateCommissionForPeriod handles negative NGR with zero_floor and deduct strategies', () => {
+  const partner = { _id: 'P1' };
+  const ngrDef = {
+    _id: 'ND1',
+    name: 'Standard NGR',
+    version: 1,
+    ggrComponents: ['casino'],
+    items: [{ category: 'bonus', label: 'Bonus Cost', enabled: true, source: 'stat_field', params: { field: 'bonusCost' } }],
+  };
+  const stats = [{ tenantId: 'T1', date: '2026-11-01', currency: 'TRY', casinoGgr: 1000, bonusCost: 1500 }];
+  const linksFloor = [{
+    partnerId: 'P1',
+    tenantId: 'T1',
+    validFrom: new Date('2026-11-01'),
+    validTo: null,
+    commercialTerms: { model: 'revshare_ngr', base: 'ngr', rate: 0.20, currency: 'TRY', ngrDefinitionId: 'ND1', negativeBaseHandling: 'zero_floor' },
+  }];
+
+  const resFloor = calculateCommissionForPeriod({ partner, links: linksFloor, stats, feePlans: [], ngrDefinitions: [ngrDef] });
+  assert.equal(resFloor.TRY.lines[0].baseAmount, -500.00);
+  assert.equal(resFloor.TRY.lines[0].amount, 0.00);
+
+  const linksDeduct = [{
+    partnerId: 'P1',
+    tenantId: 'T1',
+    validFrom: new Date('2026-11-01'),
+    validTo: null,
+    commercialTerms: { model: 'revshare_ngr', base: 'ngr', rate: 0.20, currency: 'TRY', ngrDefinitionId: 'ND1', negativeBaseHandling: 'deduct' },
+  }];
+  const resDeduct = calculateCommissionForPeriod({ partner, links: linksDeduct, stats, feePlans: [], ngrDefinitions: [ngrDef] });
+  assert.equal(resDeduct.TRY.lines[0].baseAmount, -500.00);
+  assert.equal(resDeduct.TRY.lines[0].amount, -100.00);
 });
 
 test('calculateCommissionForPeriod handles negative GGR with zero_floor and deduct strategies', () => {
