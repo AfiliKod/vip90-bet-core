@@ -47,7 +47,7 @@ test('Partner model enforces key regex and K27 default capabilities', async () =
   assert.deepEqual(partner.capabilities, ['metrics.read', 'staff.manage']);
   assert.equal(partner.provisioningLimits.maxTenants, 1);
   assert.deepEqual(partner.defaultCommercialTerms.model, 'revshare_ggr');
-  assert.equal(partner.defaultCommercialTerms.rate, 0.15);
+  assert.equal(partner.defaultCommercialTerms.rate, null); // K28: no built-in commercial rate
 });
 
 test('PartnerOperatorLink enforces at most one active link per tenant via partial unique index', async () => {

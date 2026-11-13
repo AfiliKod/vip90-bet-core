@@ -57,6 +57,8 @@ const LEGACY_UNIQUE_INDEXES = {
   // İP-9c billing (platform models, no legacy data). Reviewed 2026-11-13.
   OperatorFeePlan: [{ keys: { tenantId: 1, validTo: 1 }, options: { unique: true, partialFilterExpression: { validTo: null }, background: true } }],
   PartnerStatement: [{ keys: { statementNumber: 1 }, options: { unique: true, background: true } }],
+  // İP-9d NGR definitions are versioned per name (platform model). Reviewed 2026-11-13.
+  NgrDefinition: [{ keys: { name: 1, version: 1 }, options: { unique: true, background: true } }],
   // One active partner link per tenant (partial on validTo: null). Reviewed 2026-11-13.
   PartnerOperatorLink: [{ keys: { tenantId: 1, validTo: 1 }, options: { unique: true, partialFilterExpression: { validTo: null }, background: true } }],
   RoleAssignment: [{ keys: { staffId: 1, roleId: 1, scopeType: 1, scopeId: 1 }, options: { unique: true, background: true } }],

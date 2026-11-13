@@ -9,7 +9,7 @@ import TenantDailyStat from '../src/models/TenantDailyStat.js';
 import { runWithTenant } from '../src/tenancy/context.js';
 import { aggregateTenantDailyStat, getPartnerDailyMetrics } from '../src/services/tenantDailyStat.js';
 
-const TEST_DB = process.env.TENANCY_TEST_MONGO || 'mongodb://127.0.0.1:27017/vip90_test_ip5_t8_daily_stats';
+const TEST_DB = process.env.TENANCY_TEST_MONGO || 'mongodb://127.0.0.1:27017/vip90_test_ip9d_t2';
 const T1 = new mongoose.Types.ObjectId();
 const TODAY = '2026-11-12';
 
@@ -19,6 +19,13 @@ before(async () => {
   process.env.TENANCY_MODE = 'multi';
   await mongoose.connect(TEST_DB);
   await mongoose.connection.dropDatabase();
+  await Promise.all([
+    User.createIndexes(),
+    TenantDailyStat.createIndexes(),
+    Transaction.createIndexes(),
+    Bet.createIndexes(),
+    CasinoRound.createIndexes(),
+  ]);
 
   // Create real players
   const p1 = await runWithTenant(T1, () => User.create({ username: 'real_p1', email: 'p1@stat.test', password: 'test-password', createdAt: new Date('2026-11-12T01:00:00Z') }));
@@ -100,4 +107,53 @@ test('partner view applies small-cell suppression for activePlayers < 5 and excl
   assert.equal(rows[0].deposits, 100);
   assert.equal(rows[0].email, undefined);
   assert.equal(rows[0].username, undefined);
+});
+
+test('aggregateTenantDailyStat sets chargebacks and providerFees to 0 and does not derive chargebacks from reversals or refunds', async () => {
+  const T2 = new mongoose.Types.ObjectId();
+  const U2 = new mongoose.Types.ObjectId();
+  const DAY = '2026-11-15';
+  const start = new Date(`${DAY}T10:00:00.000Z`);
+
+  await runWithTenant(T2, () => User.create({
+    _id: U2,
+    username: 'player_reversal_test',
+    email: 'player_reversal@stat.example.com',
+    password: 'test-password',
+  }));
+
+  // Reversal transaction (e.g. deposit reversal or bet reversal)
+  await runWithTenant(T2, () => Transaction.create({
+    userId: U2,
+    type: 'reversal',
+    amount: -200,
+    balanceBefore: 500,
+    balanceAfter: 300,
+    currency: 'TRY',
+    status: 'completed',
+    createdAt: start,
+  }));
+
+  // Refund transaction (failed payout returned to player wallet)
+  await runWithTenant(T2, () => Transaction.create({
+    userId: U2,
+    type: 'refund',
+    amount: -50,
+    balanceBefore: 300,
+    balanceAfter: 250,
+    currency: 'TRY',
+    status: 'completed',
+    createdAt: start,
+  }));
+
+  const stat = await aggregateTenantDailyStat(T2, DAY, { currency: 'TRY' });
+  // Per Reviewer Correction (2026-11-13, K28): reversals and refunds are not chargebacks; leaves chargebacks at 0
+  assert.equal(stat.chargebacks, 0);
+  assert.equal(stat.providerFees, 0);
+
+  // Verify partner view includes chargebacks and providerFees (both 0)
+  const rows = await getPartnerDailyMetrics({ tenantId: T2, from: DAY, to: DAY });
+  assert.equal(rows.length, 1);
+  assert.equal(rows[0].chargebacks, 0);
+  assert.equal(rows[0].providerFees, 0);
 });

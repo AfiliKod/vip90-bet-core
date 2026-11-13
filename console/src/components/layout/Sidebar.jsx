@@ -8,6 +8,7 @@ export const platformNav = [
   { name: 'Partners', path: '/partners' },
   { name: 'Domains', path: '/domains' },
   { name: 'Billing & Fee Plans', path: '/billing' },
+  { name: 'NGR Tanımları', path: '/billing/ngr-definitions' },
   { name: 'Platform Reports', path: '/reports' },
   { name: 'Scope Gates (N6)', path: '/scope-gates' },
 ];

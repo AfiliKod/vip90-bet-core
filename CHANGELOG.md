@@ -18,6 +18,16 @@ Madde formatı ve kategoriler için `docs/CHANGELOG_GUIDE.md`'ye bakın —
 
 ## [Yayınlanmadı]
 
+### İP-9d: Net Gaming Revenue (NGR) tanımları, kesinti motoru ve partner faturalaması (K28)
+**Kırılan Değişiklikler**
+- **Partner ve bağlantı ticari koşullarında artık yerleşik bir oran (`0.15`) yoktur.** Ticari model ve oranı açıkça yapılandırın; `ngr` tabanı ayrıca bir NGR tanımı gerektirir.
+- **`chargebacks` ve `providerFees` alanlarının henüz veri kaynağı yoktur.** İkisi de `0` varsayılır; gerçek bir kaynak eklenene kadar oran veya sabit kesinti yapılandırın. İadeler ve ters kayıtlar chargeback sayılmaz.
+
+**Eklendi**
+- Platform düzeyinde sürümlü `NgrDefinition` modeli, kesinti kategorileri (`bonus`, `provider_fee`, `tax`, `chargeback`, `other`) ve veri kaynakları (`stat_field`, `fee_plan`, `rate`, `fixed`).
+- Çift kesinti koruması: kaydetme ve hesaplama anında kategori/kaynak tekilliği ile `ggrAlreadyNetOf` kontrolü.
+- Kesinleştirilmiş ekstrelerde kullanılan NGR tanım sürümlerinin dondurulması; hesaplamada tamsayı sent hassasiyeti, negatif NGR taban stratejileri ve ekstre satırlarında kalem dökümü.
+- Platform Konsolu'nda NGR tanım yönetimi; Partner Portalı ve CSV dışa aktarımında kesinti dökümü görünürlüğü.
 ### Tek modda canlı yönetim akışı varsayılan kiracı olmadan da çalışıyor
 
 **Düzeltildi**
@@ -25,7 +35,7 @@ Madde formatı ve kategoriler için `docs/CHANGELOG_GUIDE.md`'ye bakın —
 
 ### İP-9c: komisyon, faturalama ve platform çapraz raporları
 **Eklendi**
-- Operatör oran beslemesi maliyet planları, partner ekstreleri, gün bazında geçerli ticari koşullarla GGR komisyon hesaplama, ekstre yaşam döngüsü, denetimli düzeltmeler ve platform/partner raporları eklendi. İlk sürümün komisyon tabanı yalnız GGR'dir (`casinoGgr + sportsGgrRealized`); NGR istekleri uygulanana kadar `ERR_NGR_NOT_IMPLEMENTED` ile reddedilir.
+- Operatör oran beslemesi maliyet planları, partner ekstreleri, gün bazında geçerli ticari koşullarla GGR komisyon hesaplama, ekstre yaşam döngüsü, denetimli düzeltmeler ve platform/partner raporları eklendi.
 - Ticari model, oranlar, sabit ücretler ve negatif GGR davranışı yapılandırmadandır; kurulum sahibi S3 kapsamındaki ticari koşulları doğrulamalıdır.
 
 ### İP-9b: partner yönetimi, partner portalı ve denetimli operatör erişimi

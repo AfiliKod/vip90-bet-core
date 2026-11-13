@@ -3,6 +3,7 @@ import Partner from '../../models/Partner.js';
 import PartnerOperatorLink from '../../models/PartnerOperatorLink.js';
 import { createError } from '../../middleware/error.js';
 import { writePlatformLevelAudit } from '../services/platformAudit.js';
+import { assertValidCommercialTerms } from '../services/commercialTerms.js';
 
 function validId(id) {
   return mongoose.isObjectIdOrHexString(id);
@@ -37,6 +38,7 @@ export async function createPartner(req, res, next) {
     const { key, name, legalEntity, contact, capabilities, provisioningLimits, defaultCommercialTerms } = req.body;
     if (!key || !name) throw createError(400, 'KEY_AND_NAME_REQUIRED', 'Partner key and name are required');
 
+    const validTerms = defaultCommercialTerms ? await assertValidCommercialTerms(defaultCommercialTerms) : undefined;
     const partner = await Partner.create({
       key,
       name,
@@ -44,7 +46,7 @@ export async function createPartner(req, res, next) {
       contact,
       capabilities,
       provisioningLimits,
-      defaultCommercialTerms,
+      defaultCommercialTerms: validTerms,
       createdBy: req.staff.id,
     });
     await writePlatformLevelAudit(req, 'PARTNER_CREATED', {
@@ -86,7 +88,10 @@ export async function updatePartner(req, res, next) {
     if (status) partner.status = status;
     if (capabilities) partner.capabilities = capabilities;
     if (provisioningLimits) partner.provisioningLimits = mergedSubdoc(partner.provisioningLimits, provisioningLimits);
-    if (defaultCommercialTerms) partner.defaultCommercialTerms = mergedSubdoc(partner.defaultCommercialTerms, defaultCommercialTerms);
+    if (defaultCommercialTerms) {
+      const merged = mergedSubdoc(partner.defaultCommercialTerms, defaultCommercialTerms);
+      partner.defaultCommercialTerms = await assertValidCommercialTerms(merged);
+    }
     if (contact) partner.contact = mergedSubdoc(partner.contact, contact);
     if (legalEntity) partner.legalEntity = mergedSubdoc(partner.legalEntity, legalEntity);
 

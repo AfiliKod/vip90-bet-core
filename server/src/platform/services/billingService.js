@@ -4,10 +4,52 @@ import TenantDailyStat from '../../models/TenantDailyStat.js';
 import PartnerOperatorLink from '../../models/PartnerOperatorLink.js';
 import OperatorFeePlan from '../../models/OperatorFeePlan.js';
 import Partner from '../../models/Partner.js';
+import NgrDefinition from '../../models/NgrDefinition.js';
+import mongoose from 'mongoose';
 import { runAsPlatform } from '../../tenancy/context.js';
 import { createError } from '../../middleware/error.js';
-import { calculateCommissionForPeriod, roundMoney } from './commissionCalculator.js';
+import {
+  calculateCommissionForPeriod,
+  roundMoney,
+  toMinorUnits,
+  fromMinorUnits,
+  multiplyMinorUnitsByRate,
+  findActiveLink,
+  findActiveFeePlan,
+} from './commissionCalculator.js';
 import { writePlatformLevelAudit } from './platformAudit.js';
+
+
+
+/**
+ * Assert that an NGR definition version is not referenced by an issued statement.
+ * If referenced, throws a 409 ERR_NGR_DEFINITION_IN_USE error.
+ *
+ * @param {string|mongoose.Types.ObjectId} definitionId
+ * @param {number} version
+ */
+export async function assertNgrDefinitionNotIssued(definitionId, version) {
+  const targetId = mongoose.Types.ObjectId.isValid(definitionId)
+    ? new mongoose.Types.ObjectId(definitionId)
+    : definitionId;
+  const inUse = await PartnerStatement.exists({
+    'metadata.ngrDefinitionsUsed': {
+      $elemMatch: {
+        id: { $in: [targetId, String(definitionId)] },
+        version: Number(version),
+      },
+    },
+    status: { $in: ['issued', 'settled'] },
+  });
+  if (inUse) {
+    const err = createError(
+      409,
+      'ERR_NGR_DEFINITION_IN_USE',
+      'NGR definition version is referenced by an issued statement and cannot be modified.'
+    );
+    throw err;
+  }
+}
 
 export async function generatePartnerStatements({ partnerId, periodStart, periodEnd, staffId, req }) {
   return runAsPlatform('billing-statement-generation', async () => {
@@ -36,7 +78,53 @@ export async function generatePartnerStatements({ partnerId, periodStart, period
     }).lean();
     const feePlans = await OperatorFeePlan.find({ tenantId: { $in: tenantIds } }).lean();
 
-    const calculationsByCurrency = calculateCommissionForPeriod({ partner, links, stats, feePlans });
+    // Fetch referenced NgrDefinition records for any links or partner terms where base === 'ngr' or model === 'revshare_ngr'
+    const candidateTerms = [
+      partner.defaultCommercialTerms,
+      ...links.map((link) => link.commercialTerms),
+    ].filter(Boolean);
+
+    const ngrDefIds = new Set();
+    for (const terms of candidateTerms) {
+      if ((terms.base === 'ngr' || terms.model === 'revshare_ngr') && terms.ngrDefinitionId) {
+        ngrDefIds.add(String(terms.ngrDefinitionId));
+      }
+    }
+
+    let ngrDefinitions = [];
+    if (ngrDefIds.size > 0) {
+      const baseDefs = await NgrDefinition.find({
+        _id: { $in: Array.from(ngrDefIds) },
+      }).lean();
+      ngrDefinitions = [...baseDefs];
+
+      const additionalQueries = [];
+      for (const terms of candidateTerms) {
+        if ((terms.base === 'ngr' || terms.model === 'revshare_ngr') && terms.ngrDefinitionId && terms.ngrDefinitionVersion) {
+          const matched = baseDefs.find((d) => String(d._id) === String(terms.ngrDefinitionId));
+          if (matched && matched.version !== terms.ngrDefinitionVersion) {
+            additionalQueries.push({ name: matched.name, version: terms.ngrDefinitionVersion });
+          }
+        }
+      }
+      if (additionalQueries.length > 0) {
+        const extraDefs = await NgrDefinition.find({ $or: additionalQueries }).lean();
+        for (const extra of extraDefs) {
+          if (!ngrDefinitions.some((d) => String(d._id) === String(extra._id))) {
+            ngrDefinitions.push(extra);
+          }
+        }
+      }
+    }
+
+    const calculationsByCurrency = calculateCommissionForPeriod({
+      partner,
+      links,
+      stats,
+      feePlans,
+      ngrDefinitions,
+    });
+
     const statements = [];
 
     for (const [currency, data] of Object.entries(calculationsByCurrency)) {
@@ -65,6 +153,49 @@ export async function generatePartnerStatements({ partnerId, periodStart, period
       statement.netAmount = roundMoney(data.grossAmount + (statement.adjustmentsAmount || 0));
       statement.finalAmount = statement.netAmount;
       statement.linesCount = data.lines.length;
+
+      // Track all NGR definitions used by lines in this statement
+      const ngrDefsUsedMap = new Map();
+      for (const line of data.lines) {
+        if (line.metadata?.ngrDefinitionId) {
+          const key = `${line.metadata.ngrDefinitionId}:${line.metadata.ngrDefinitionVersion}`;
+          if (!ngrDefsUsedMap.has(key)) {
+            const defDoc = ngrDefinitions.find(
+              (d) => String(d._id) === String(line.metadata.ngrDefinitionId) &&
+                     (line.metadata.ngrDefinitionVersion == null || d.version === line.metadata.ngrDefinitionVersion)
+            );
+            ngrDefsUsedMap.set(key, {
+              id: line.metadata.ngrDefinitionId,
+              version: line.metadata.ngrDefinitionVersion || defDoc?.version || 1,
+              name: defDoc?.name || null,
+            });
+          }
+        }
+      }
+
+      for (const terms of candidateTerms) {
+        if (terms?.ngrDefinitionId && (terms.base === 'ngr' || terms.model === 'revshare_ngr')) {
+          const defDoc = ngrDefinitions.find((d) => String(d._id) === String(terms.ngrDefinitionId));
+          if (defDoc) {
+            const version = terms.ngrDefinitionVersion || defDoc.version;
+            const key = `${defDoc._id}:${version}`;
+            if (!ngrDefsUsedMap.has(key)) {
+              ngrDefsUsedMap.set(key, {
+                id: defDoc._id,
+                version,
+                name: defDoc.name,
+              });
+            }
+          }
+        }
+      }
+
+      const ngrDefinitionsUsed = Array.from(ngrDefsUsedMap.values());
+      statement.metadata = {
+        ...(statement.metadata || {}),
+        ...(ngrDefinitionsUsed.length > 0 ? { ngrDefinitionsUsed } : {}),
+      };
+
       await statement.save();
 
       await StatementLine.deleteMany({ statementId: statement._id, type: { $ne: 'adjustment' } });

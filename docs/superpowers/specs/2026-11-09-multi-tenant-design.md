@@ -439,7 +439,13 @@ PartnerOperatorLink {
   _id, partnerId, tenantId,
   validFrom (dahil), validTo (hariç, null = açık),
   capabilities: [capability] | null,   // null = partnerin seti; doluysa bu kiracı için daraltma (genişletemez)
-  commercialTerms: { model: 'revshare_ggr'|'revshare_ngr'|'turnover'|'fixed', rate, currency, minimumFee },
+  commercialTerms: {
+    model: 'revshare_ggr'|'revshare_ngr'|'turnover'|'fixed',
+    base: 'ggr'|'ngr'|'turnover'|'fixed',
+    ngrDefinitionId, ngrDefinitionVersion, // K28 (İP-9d): NGR tanımı ve sürüm referansı
+    negativeBaseHandling: 'zero_floor'|'deduct', // K28: negatif taban stratejisi
+    rate, currency, minimumFee
+  },
   createdBy, endedBy, endReason
 }
 ```
@@ -474,7 +480,7 @@ Kurallar:
   + `{tenantId, validTo:null}` partial unique).
 - Partner değiştirme ya da doğrudan yönetime geçiş = mevcut bağlantıyı `validTo=now` ile kapat, yenisini aç (ya da
   açma). Kiracı verisine hiç dokunulmaz (K2).
-- Komisyon hesabı: `TenantDailyStat` günü × o günde geçerli bağlantının koşulları.
+- Komisyon hesabı: `TenantDailyStat` günü × o günde geçerli bağlantının koşulları (K28 / İP-9d: hesaplama tabanı yapılandırılabilir olup GGR, NGR, turnover, fixed desteklenir; NGR seçildiğinde ilgili `NgrDefinition` kalemleri düşülerek hesaplanır, aynı maliyet asla iki kez düşülemez).
 
 #### 4.3.5 PartnerGrant (açık erişim izni)
 
@@ -509,11 +515,14 @@ Bağlantı kapanınca izinler otomatik geçersizdir (istek anında `PartnerOpera
 ```
 TenantDailyStat { tenantId, brandId?, date (kiracı saat diliminde), currency,
   casinoTurnover, casinoGgr, sportsTurnover, sportsGgrRealized, bonusCost, deposits, withdrawals,
+  chargebacks, providerFees,
   activePlayers, newPlayers, depositors, ftd, computedAt }
 unique {tenantId, brandId, date, currency}
 ```
 
-Bir iş tarafından `isSeed`, `isBot` ve demo etkinliği hariç doldurulur. Partner uç noktaları yalnız bu koleksiyonu
+Bir iş tarafından `isSeed`, `isBot` ve demo etkinliği hariç doldurulur. K28 (İP-9d) gereği NGR kesintileri için
+`chargebacks` (tamamlanan iade ve ters ibraz hareketleri) `Transaction` tablosundan toplanır; `providerFees` ise
+harici veri akışı entegre edilene kadar 0 varsayılanı ile tutulur. Partner uç noktaları yalnız bu koleksiyonu
 okur; fiziksel olarak kişisel veri döndüremez. Küçük hücre bastırma: aktif oyuncu < 5 ise partner görünümünde "<5".
 Koleksiyon, işi ve partner uç noktaları core'dadır (K18). `currency` alanı kiracının tek para birimidir (K14);
 anahtarda kalır ki çoklu para birimi geldiğinde şema değişmesin.
@@ -877,9 +886,10 @@ eklentilere dokunan kısımlar kendi private alt modüllerinde yapılır.
 | İP-9a | **Kritik yol (Y2).** Platform Sahibi paneli ve operatör yönetimi: multi kurulum (N1-N2), platform konsolu (`console/`), kiracı provizyonu (N4, tohum alt kümesi, sağlayıcı Operator kaydı kancası), alan adı doğrulama + TLS, canlıya çıkış listesi (N5), yeni merkezi kurulumun staging'i ve N6 kapıları | İP-8 | operatör #2 platform tarafından provizyonla canlı | 8. bölüm (partner hariç); N6 staging kapısı | core |
 | İP-9b | Partner yönetimi: `Partner`, yetenek seti, `PartnerOperatorLink`, partnerin kendi operatörlerini oluşturma/yönetme (K16), `PartnerGrant` (okuma + sınırlı yazma), partner portalı (`console/` içinde partner kapsamı) | İP-9a | partner kaynaklı operatörler | 8.1 partner testleri; satış ortağı senaryosu uçtan uca | core |
 | İP-9c | Komisyon ve faturalama (`TenantDailyStat` × bağlantı koşulları), platform çapraz raporları | İP-9b | faturalama | S3 yanıtına göre kabul | core |
+| İP-9d | NGR hesaplama motoru, NGR tanımları (`NgrDefinition`), çift kesinti koruması, `TenantDailyStat` kesinti alanları, konsol ve partner portalı dökümleri (K28) | İP-9c | faturalama NGR | K28 kabul testleri; NGR ekstreleri | core |
 | İP-10 | Ölçek: Socket.IO Redis adaptörü, süreç içi Map'lerin (OAuth state, Web3 nonce, oran sınırlayıcı) paylaşımlı depoya taşınması, ikinci süreç | eşik aşılınca (aşağıda) | yatay ölçek | iki süreçte soket ve OAuth testleri | core |
 
-Sıra ve kritik yol (varsayım Y2): İP-0 → İP-U → İP-1 … İP-8 → İP-9a = operatör #2 canlı. İP-9b ve İP-9c
+Sıra ve kritik yol (varsayım Y2): İP-0 → İP-U → İP-1 … İP-8 → İP-9a = operatör #2 canlı. İP-9b, İP-9c ve İP-9d
 sonra gelebilir; partner kaynaklı ilk operatör İP-9b'yi bekler. Başlangıçta tek Node süreci yeterlidir.
 
 İP-10 eşiği: merkezi kurulum üretiminde aşağıdakilerden biri sürekli görülürse İP-10 kritik yola girer; o zamana
@@ -1164,21 +1174,22 @@ kapandı (K18) ve listeden çıkarıldı.
 | Y3 | Diğer kendi kurduğu kurulumlar (premium alıcıları, public core kullanıcıları) kendi başına güncelleyecek mi? | Evet. Tek mod geçişleri gözetimsiz güvenli, idempotent, yarıda kalırsa devam eden ve yöneticiyi asla dışarıda bırakmayan şekilde yazılır; tek modda `enforce` zorlanmaz | Yanlışsa (yalnız VIP90 güncelliyorsa) geçişler elle, bakım penceresiyle yapılabilir; tasarım yine aynı kalır, yalnız güvenlik payı fazladır | 6.1, 6.3, 8.6 |
 | Y4 | In-house sağlayıcının VIP90 dışında müşterisi var mı? | Var sayılır; in-house callback ve tema değişiklikleri geriye uyumlu tutulur (eski callback biçimi ve sabit tema, yeni alanlar yokken aynen çalışır) | Yoksa uyumluluk katmanı İP-6'dan sonra kaldırılabilir | İP-6 |
 
-Sahibin 2026-11-12 kararları (11.2'deki açık sorulara yanıt, bağlayıcı):
+Sahibin 2026-11-12 ve 2026-11-13 kararları (11.2'deki açık sorulara yanıt, bağlayıcı):
 
-| # | Karar (sahip, 2026-11-12) | Yanıtladığı soru |
+| # | Karar (sahip, 2026-11-12 / 2026-11-13) | Yanıtladığı soru |
 |---|---|---|
 | K19 | Kripto saklama operatör başınadır: her operatörün bağımsız cüzdanı, tohumu ve anahtar yönetimi vardır; VIP90 operatör fonlarını emanet tutmaz | S1 |
 | K20 | Spor bahsi (oran beslemesi) maliyeti operatör bazında sabit ücret ve hacim bazlı ücret seçenekleriyle yansıtılır; model operatör başına seçilir | S2 |
-| K21 | Partner ticari modeli partner bazında seçilebilir (toptan, gelir paylaşımı ya da ikisi). Komisyon tabanı ilk sürümde GGR'dir; NGR hesaplaması eklendiğinde partner başına seçilebilir olur (varsayım, sahip teyit edecek) | S3 |
+| K21 | Partner ticari modeli partner bazında seçilebilir (toptan, gelir paylaşımı ya da ikisi). Komisyon tabanı yapılandırılabilirdir (GGR, NGR, turnover, fixed); ilk sürümde GGR hesaplaması sunulmuş olup NGR İP-9d ile eklenir (K28) | S3 |
 | K22 | Casino içerik sağlayıcılarında operatör başına ayrı agent hesabı kullanılır ve sağlayıcının yazılı onayı olmadan o sağlayıcıyla operatör canlıya çıkmaz | S4 |
 | K23 | VIP90 (platform) personelinin operatör verisine erişimi varsayılan olarak salt okunurdur; yazma ancak süreli, gerekçeli ve denetim kaydına yazılan istisnai erişimle yapılır | S5 |
 | K24 | Finansal ve uyum denetim kayıtları için en az 5 yıllık saklama hedeflenir; süre mevzuata göre yapılandırılabilir (bugünkü 365 gün TTL bu kayıtlar için yetersizdir) | S6 |
 | K25 | Operatör alan adlarının HTTPS sertifikası Cloudflare for SaaS (özel host adları) ile verilir | S8 |
 | K26 | Operatör kapanışı: veri dışa aktarımı, hukuki saklama süresi boyunca saklama ve süre sonunda kontrollü silme | S9 |
 | K27 | Partnerin varsayılan yetkileri yalnız kendi portföyünün toplulaştırılmış metrikleri ve kendi personelinin yönetimidir; diğer yetenekler partner başına açıkça verilir | S10 |
+| K28 | Partner komisyonu NGR kullanır. Hesaplama tabanı yapılandırılabilir kalır (GGR, NGR, turnover, fixed). NGR tanımında bonuslar, sağlayıcı ücretleri, vergiler, ters ibrazlar (chargeback) ve diğer kesintiler ayrı ayrı tanımlanabilir. Aynı maliyet asla iki kez düşülemez (İP-9d) | S3 |
 
-S7 K14 ile kapanmıştı. 11.2'deki S1-S10'un tamamı yanıtlanmıştır.
+S7 K14 ile kapanmıştı. 11.2'deki S1-S10'un tamamı yanıtlanmıştır (S3 K21 ve K28 ile nihai bağlandı).
 
 ### 11.2 Açık sorular
 
@@ -1186,7 +1197,7 @@ S7 K14 ile kapanmıştı. 11.2'deki S1-S10'un tamamı yanıtlanmıştır.
 |---|---|---|
 | S1 | Kripto saklama: kiracı başına tohum ve hot wallet mı (kiracının fonu ayrık, operasyon yükü kiracı başına), yoksa platform saklaması + kiracı alt hesapları mı (lisans/emanet sorumluluğu VIP90'da)? | 4.5, İP-4, İP-6 |
 | S2 | Paylaşımlı odds feed maliyeti kiracılara nasıl yansıtılacak (sabit, bahis hacmi, spor modülü lisansı)? Kiracı başına marj/olay görünürlüğü kaplaması gerekiyor mu? | 4.6, İP-9c |
-| S3 | Partner faturalama modeli: partner VIP90'a mı öder (toptan), VIP90 partnere mi komisyon öder (rev-share), ikisi birden mi? GGR mı NGR mı (NGR bugün hesaplanmıyor)? | 4.3.4, 4.3.6, İP-9c |
+| S3 | Kapandı (K21, K28): Partner komisyonu NGR kullanır; hesaplama tabanı yapılandırılabilir kalır (GGR, NGR, turnover, fixed). NGR tanımında bonuslar, sağlayıcı ücretleri, vergiler, ters ibrazlar ve diğer kesintiler ayrı ayrı tanımlanır ve aynı maliyet asla iki kez düşülemez (İP-9d) | 4.3.4, 4.3.6, İP-9c, İP-9d |
 | S4 | Igames: her operatörün kendi agent hesabı ve kimlik bilgileri karara bağlandı (K13). Açık kalan: Palace'ın ticari izni (VIP90 altında birden çok operatöre ayrı agent hesabı açılması ve bunun sözleşme koşulları) ayrıca teyit edilecek. Teyit gelmeden Igames'li bir kiracı canlıya çıkmaz | İP-6, İP-9a (N5) |
 | S5 | Platform personeli kiracı adına para hareketi (bakiye düzeltme, onay) yapabilsin mi, yoksa yalnız salt okuma + denetimli destek mi? | 5.3 |
 | S6 | Platform ve partner denetim kayıtlarının saklama süresi (bugün TTL 365 gün)? | 4.3.7 |
@@ -1198,6 +1209,8 @@ S7 K14 ile kapanmıştı. 11.2'deki S1-S10'un tamamı yanıtlanmıştır.
 ---
 
 ## 12. Değişiklik kaydı
+
+- **2026-11-13 kararlar:** sahip K28 kararını verdi (S3 nihai bağlandı): Partner komisyonu NGR kullanır. Hesaplama tabanı yapılandırılabilir kalır (GGR, NGR, turnover, fixed). NGR tanımında bonuslar, sağlayıcı ücretleri, vergiler, ters ibrazlar (chargeback) ve diğer kesintiler ayrı ayrı tanımlanabilir. Aynı maliyet asla iki kez düşülemez. İP-9d iş paketi tanımlandı.
 
 - **2026-11-12 kararlar:** sahip S1-S10'u yanıtladı (K19-K27, 11.1'in sonunda).
 - **2026-11-12 onay:** sahip raporu v2 metniyle onayladı. İP-0 tamamlandı (bet PR #221-#224, core senkronu `bet@5a379f3`,

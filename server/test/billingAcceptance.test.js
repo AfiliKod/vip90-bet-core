@@ -311,8 +311,8 @@ test('İP-9c billing lifecycle keeps currency, terms, issued statements, and par
       headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${financeToken}` },
       body: JSON.stringify({ partnerId: ngrPartner._id, periodStart: '2026-11-01', periodEnd: '2026-11-30' }),
     });
-    assert.equal(ngrGeneration.response.status, 500);
-    assert.equal(ngrGeneration.body.error.code, 'ERR_NGR_NOT_IMPLEMENTED');
+    assert.equal(ngrGeneration.response.status, 409);
+    assert.equal(ngrGeneration.body.error.code, 'ERR_NGR_DEFINITION_NOT_FOUND');
   } finally {
     await new Promise((resolve, reject) => server.close((error) => error ? reject(error) : resolve()));
   }

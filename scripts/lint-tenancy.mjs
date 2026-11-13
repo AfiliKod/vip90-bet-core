@@ -31,7 +31,7 @@ export function checkRunAsPlatformUsage(filePath, content) {
 }
 
 // Catalog / platform models addressed by id without a tenant filter on purpose.
-export const UNSCOPED_ID_LOOKUP_MODELS = new Set(['Event', 'GameTask']);
+export const UNSCOPED_ID_LOOKUP_MODELS = new Set(['Event', 'GameTask', 'NgrDefinition']);
 
 export function checkControllerQueries(filePath, content) {
   const norm = filePath.replace(/\\/g, '/');
