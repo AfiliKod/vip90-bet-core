@@ -19,9 +19,6 @@ import {
 } from './commissionCalculator.js';
 import { writePlatformLevelAudit } from './platformAudit.js';
 
-if (!StatementLine.schema.path('baseMetric').enumValues.includes('ngr')) {
-  StatementLine.schema.path('baseMetric').enum('ngr');
-}
 
 
 /**

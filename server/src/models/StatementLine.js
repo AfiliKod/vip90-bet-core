@@ -16,7 +16,7 @@ const statementLineSchema = new mongoose.Schema({
   currency: { type: String, required: true },
   baseMetric: {
     type: String,
-    enum: ['ggr', 'turnover', 'fixed', 'manual'],
+    enum: ['ggr', 'ngr', 'turnover', 'fixed', 'manual'],
     default: 'ggr',
   },
   baseAmount: { type: Number, default: 0 },

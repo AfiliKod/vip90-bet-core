@@ -4,10 +4,6 @@ import StatementLine from '../../models/StatementLine.js';
 import { csvText, csvNumber } from '../utils/csv.js';
 import { createError } from '../../middleware/error.js';
 
-if (!StatementLine.schema.path('baseMetric').enumValues.includes('ngr')) {
-  StatementLine.schema.path('baseMetric').enum('ngr');
-}
-
 export async function listPartnerStatements(req, res, next) {
   try {
     const partnerId = req.staff.scopeId;
