@@ -35,9 +35,14 @@ yet; see the [Roadmap](#roadmap) and [Known Limitations](docs/product/09-bilinen
 
 ---
 
+## Multi-operator platform (1.1.0)
+
+Version 1.1.0 adds one central installation for multiple independent operators. Each operator has isolated data, its own domain, callbacks and branding; Platform Owners use a dedicated console, while partners operate within assigned capabilities. Commission and NGR-based billing produce auditable statements. Existing single-operator installations keep working; read the "Breaking changes" notes in the CHANGELOG before upgrading (for example the site-name fallback). See [the multi-operator guide](docs/product/12-cok-operator.md).
+
 ## Contents
 
 - [Highlights](#highlights)
+- [Multi-operator platform (1.1.0)](#multi-operator-platform-110)
 - [Screenshots](#screenshots)
 - [What's Included](#whats-included)
 - [Try it](#try-it)
@@ -86,6 +91,8 @@ the paid add-ons.
 ## What's Included
 
 ### 🧱 Core platform
+
+- **Multi-operator layer (1.1.0):** central Platform Owner console, per-tenant host/brand/callback attribution and isolation, partner capabilities and limited grants, NGR commission definitions and CSV statements. Single-operator installs keep working (see the CHANGELOG breaking notes); see the [multi-operator guide](docs/product/12-cok-operator.md).
 
 - Accounts, email verification, password reset; email/password, Google and
   Telegram login, and registration/login with a **Web3 wallet signature**.
@@ -234,6 +241,7 @@ server/src/premium/   Paid add-ons (private git submodules)
   inhouse-provider/   game engine + game-host/ (separate React/Vite app)
   betting/            settlement + odds feed client + sync jobs
   igames/             casino aggregator integration
+console/   Platform Owner console SPA for multi-operator installations
 ```
 
 `docker compose` runs only the `mongo`, `app` and `caddy` services;
@@ -252,8 +260,11 @@ single-node replica set (multi-document transactions are used).
   `HomeSidebar`) are managed in one place, so copies cannot drift apart.
 - Automated test suite covering auth, betting, wagering, the module gate and
   i18n (`npm test`).
+- **Tenancy layer:** verified host-to-tenant resolution, tenant-scoped data access, per-tenant callback attribution, and separate platform/partner APIs.
 
 ## Quick Start
+
+For a new central multi-operator installation, do not use the setup wizard: set the multi-mode environment values, run migrations, bootstrap the first Platform Owner, then provision operators from `/console`. The exact checklist is in the [multi-operator guide](docs/product/12-cok-operator.md).
 
 ### With Docker (recommended)
 
@@ -330,6 +341,7 @@ Operator documentation lives in [`docs/product/`](docs/product/README.md):
 - [FAQ](docs/product/06-sss.md) · [Video Storyboards](docs/product/07-video-storyboardlari.md)
 - [Known Limitations](docs/product/09-bilinen-kisitlar.md) · [Bonus and Wagering](docs/product/10-bonus-ve-cevrim.md)
 - [Admin Tools — Activity Feed, Demo Data, Casino Rewards](docs/product/11-admin-araclari.md)
+- [Multi-operator Installation](docs/product/12-cok-operator.md)
 
 Payment and KYC integrations included with the core:
 [Crypto Payments — TRC20 USDT](docs/providers/crypto-trc20.md) ·

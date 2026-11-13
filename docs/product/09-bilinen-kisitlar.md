@@ -297,3 +297,11 @@ Two related production incidents were fixed the same day this was merged: `getWe
 - **`Bet` modeli round başına tutmuyor (submodule).** In-house turları
   `CasinoRound`'a yazılıyor, `Bet`'e değil; oyuncu "bahis geçmişi" ekranı
   in-house için ayrı bir yol kullanıyor.
+
+## Çok operatörlü işletim sınırları
+
+- Merkezi çok operatörlü kurulum, İP-10 ölçek eşiklerine kadar tek Node süreci varsayımıyla çalışır; süreçler arası önbellek/iş koordinasyonu bu sürümün kapsamı değildir.
+- `TenantDailyStat` partner görünümünde günlük toplamdır; ham oyuncu olayları veya anlık akış değildir ve `activePlayers < 5` küçük hücreleri gizlenir.
+- `chargebacks` ile `providerFees` istatistik alanları ve NGR kesintileri bulunur, fakat çekirdek bunları dolduran bir dış veri kaynağı sunmaz. İadeler ve ledger reversalları chargeback değildir.
+- NGR sabit kesintileri yalnız günlük periyodu destekler; kesilmiş/uzlaştırılmış ekstrelerin kullandığı NGR sürümü değiştirilemez, yeni sürüm oluşturulmalıdır.
+- Partner Grant en fazla 90 gündür. Platform yazma istisnası yalnız Platform Sahibi tarafından verilir ve en fazla 24 saattir.

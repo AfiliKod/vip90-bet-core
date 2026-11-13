@@ -44,6 +44,63 @@ All endpoints are grouped under `/api` (except the setup wizard, which is under 
 | Sumsub webhook | `POST /api/webhook/sumsub` | Sumsub verification result callback (outside the module gate) |
 | Setup | `/install` | Single-page setup wizard (first deploy, no terminal needed) |
 
+## Platform, partner ve personel daveti API'leri
+
+Bu iki grup yalnız TENANCY_MODE=multi altında sunulur; tek modda 404 döner. Platform rotalarının tamamı platform kapsamlı staff tokenı, partner rotalarının tamamı partner kapsamlı staff tokenı ister. Aşağıdaki izinler ek rota iznidir.
+
+### Personel daveti
+
+| Yöntem | Yol | İzin | Kısa amaç |
+|---|---|---|---|
+| POST | /api/staff/auth/accept-invite | Genel; e-posta akış limiti | Tek kullanımlı personel davet tokenı ile parolayı belirler. |
+
+### /api/platform/*
+
+| Yöntem | Yol | İzin | Kısa amaç |
+|---|---|---|---|
+| GET | /api/platform/system/scope-gates | platform:tenants:manage | N6 kapsam kapılarını okur. |
+| GET, POST | /api/platform/tenants | platform:tenants:manage | Operatörleri listeler veya sağlar. |
+| GET | /api/platform/tenants/:id | platform:tenants:manage | Operatör ve canlıya alma listesini gösterir. |
+| PATCH | /api/platform/tenants/:id/status | platform:tenants:manage | Operatör durumunu değiştirir. |
+| POST | /api/platform/tenants/:id/write-grants | platform:tenants:manage + Platform Sahibi | En fazla 24 saatlik yazma istisnası verir. |
+| DELETE | /api/platform/tenants/:id/write-grants/:grantId | platform:tenants:manage + Platform Sahibi | Yazma istisnasını iptal eder. |
+| POST | /api/platform/tenants/:id/owner-invite | platform:tenants:manage | Uygun sahip için daveti yeniden üretir. |
+| GET | /api/platform/tenants/:id/domains, /api/platform/domains | platform:tenants:manage | Operatör veya tüm alan adlarını listeler. |
+| POST | /api/platform/tenants/:id/domains/:domainId/verify-dns | platform:tenants:manage | TXT sahipliğini doğrular. |
+| POST | /api/platform/tenants/:id/domains/:domainId/sync-tls | platform:tenants:manage | TLS durumunu yeniler. |
+| GET | /api/platform/staff | platform:roles:manage | Platform personelini listeler. |
+| GET, POST | /api/platform/partners | platform:partners:manage | Partnerleri listeler veya oluşturur. |
+| GET, PATCH | /api/platform/partners/:id | platform:partners:manage | Partneri okur veya günceller. |
+| GET, POST | /api/platform/billing/plans | platform:billing:read / platform:billing:manage | Operatör ücret planlarını listeler veya yazar. |
+| GET, POST | /api/platform/billing/ngr-definitions | platform:billing:read / platform:billing:manage | NGR tanımlarını listeler veya oluşturur. |
+| GET, PUT | /api/platform/billing/ngr-definitions/:id | platform:billing:read / platform:billing:manage | NGR tanımını okur veya günceller. |
+| POST | /api/platform/billing/ngr-definitions/:id/versions | platform:billing:manage | NGR tanımının yeni sürümünü oluşturur. |
+| GET | /api/platform/billing/statements, /api/platform/billing/statements/:id | platform:billing:read | Ekstreleri listeler veya gösterir. |
+| POST | /api/platform/billing/statements/generate | platform:billing:manage | Dönem taslak ekstrelerini üretir. |
+| POST | /api/platform/billing/statements/:id/issue | platform:billing:manage | Taslak ekstreyi keser. |
+| POST | /api/platform/billing/statements/:id/adjustments | platform:billing:manage | Denetimli düzeltme ekler. |
+| POST | /api/platform/billing/statements/:id/void | platform:billing:manage | Ekstreyi iptal eder. |
+| GET | /api/platform/billing/statements/:id/export | platform:billing:read | Ekstre CSV'sini verir. |
+| GET | /api/platform/reports/cross-tenant, /api/platform/reports/sportsbook-odds, /api/platform/reports/partner-balances, /api/platform/reports/commercial-balances | platform:reports:read | Platform çapraz raporlarını verir. |
+| GET | /api/platform/reports/cross-tenant/export, /api/platform/reports/sportsbook-odds/export | platform:reports:read | İlgili platform raporunu CSV olarak verir. |
+
+### /api/partner/*
+
+| Yöntem | Yol | İzin | Kısa amaç |
+|---|---|---|---|
+| GET | /api/partner/me | Partner staff | Partner profilini verir. |
+| GET | /api/partner/metrics | partner:metrics:read | Portföy günlük toplam metriklerini verir. |
+| GET, POST | /api/partner/tenants | partner:metrics:read / partner:tenants:create | Partner operatörlerini listeler veya kota içinde sağlar. |
+| GET | /api/partner/tenants/:id, /api/partner/tenants/:id/metrics | partner:metrics:read | Operatör veya metriklerini verir. |
+| PATCH | /api/partner/tenants/:id/status | partner:tenants:status:write | İzinli operatör durumunu değiştirir. |
+| POST | /api/partner/tenants/:id/owner-invite | partner:tenants:staff:write | Sahip davetini yeniden üretir. |
+| PUT | /api/partner/tenants/:id/integrations | partner:tenants:integrations:write | İzinli operatör entegrasyonlarını günceller. |
+| GET, POST | /api/partner/staff | partner:staff:write | Partner personelini listeler veya davet eder. |
+| PATCH | /api/partner/staff/:id/suspend | partner:staff:write | Partner personelini askıya alır. |
+| GET | /api/partner/statements, /api/partner/statements/:id | partner:metrics:read | Partner ekstrelerini listeler veya gösterir. |
+| GET | /api/partner/statements/:id/export | partner:metrics:read | Partner ekstre CSV'sini verir. |
+
+
 ## Authentication model
 
 - Access token: short-lived JWT, in the `Authorization: Bearer <token>` header.

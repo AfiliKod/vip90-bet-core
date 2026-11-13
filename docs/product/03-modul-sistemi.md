@@ -92,3 +92,9 @@ The three paid add-ons are separate commercial products from the core platform. 
 ## More
 
 For known product limitations not covered by the module system (KYC flow, agent system, multi-tier affiliate, VIP cashback, etc.), see [09 — Known Limitations](09-bilinen-kisitlar.md).
+
+## Çok operatörlü eklenti bağlantısı
+
+Çekirdek, ücretli eklentileri doğrudan içe aktarmak zorunda değildir. Eklenti, operatör sağlanırken çalışacak idempotent işlemlerini `registerTenantProvisioningHook` ile kaydeder; hook'lar operatör bağlamında sıralı çalışır ve hata sağlama isteğine geri döner. Eklentinin operatör bazlı gizli ayar formu `registerTenantCredentialSchema` ile kayıt edilir; alanlar anahtar, etiket, `secret` ve `required` bilgisi taşıyabilir ve isteğe bağlı doğrulama çalıştırabilir.
+
+Sağlayıcı callback'i isteğin kendisinde operatör taşımıyorsa çekirdek önce kayıtlı ödeme veya payout kaydını platform kapsamında bulur, sonra içindeki `tenantId` ile callback'i doğru operatöre atfeder. Böylece bir callback ortak ortam değişkeniyle başka operatörün hesabına yönlenmez. Eklenti kendi callback protokolünü bu atfa uyacak şekilde tasarlamalı; çekirdek kurulu olmayan eklentiyi yine başlatabilir.

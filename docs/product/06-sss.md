@@ -43,3 +43,25 @@ PWA (addable to home screen, offline shell) support exists. A Capacitor iOS proj
 
 **Does it work on shared hosting?**
 No. Because Node.js + MongoDB + WebSocket work together, a real VPS is needed, minimum 4 vCPU / 8 GB RAM recommended. See [01 — Installation](01-kurulum.md).
+
+## Çok operatörlü kullanım
+
+### Tek operatör olarak bir şey değiştirmem gerekir mi?
+
+Hayır. `TENANCY_MODE` tanımlı değilse `single` varsayılandır; mevcut kurulum, personel ve oyuncu akışları değişmeden çalışır.
+
+### Yeni bir operatörü nasıl eklerim?
+
+Yeni merkezi kurulumda Platform Sahibi konsolundan operatör sağlayın, sahip davet bağlantısını güvenli biçimde iletin ve alan adı için `_domain-verify.<host>` TXT doğrulaması ile TLS durumunu tamamlayın. Canlıya alma listesi geçmeden operatör oyuncu trafiğine açılmaz. Bkz. [12 — Çok Operatörlü Kurulum](12-cok-operator.md).
+
+### Partner neyi görebilir, neyi göremez?
+
+Partner, yalnız etkin bağlantısı olan operatörlerin günlük toplam metriklerini, kendi personelini, izinli operatör yapılandırmasını ve ekstrelerini görür. Oyuncu kimlikleri gösterilmez; küçük aktif oyuncu hücreleri `"<5"` olur. Ham oyuncu veya finans verisi ancak operatörün süreli, gerekçeli PartnerGrant'i ve uygun kapsamı varsa erişilebilir. Partner kendi adına bu grant'i veremez.
+
+### Komisyon ve NGR nasıl hesaplanır?
+
+Ticari koşul GGR, NGR, ciro veya sabit tabanı seçer. NGR, seçilen GGR bileşeninden tanımlı bonus/sağlayıcı ücreti/vergi/chargeback/diğer kesintilerini çıkarır; aynı kaynak, kategori veya GGR'de zaten net olan maliyet iki kez düşülemez. Ekstre gün bazlı toplamlarla üretilir, kesilir ve CSV olarak dışa aktarılabilir.
+
+### Chargeback neden 0 görünür?
+
+Günlük istatistikte `chargebacks` alanı vardır, fakat çekirdekte bunu besleyen bir chargeback veri kaynağı henüz yoktur. İade ve defter ters kaydı chargeback sayılmaz; bu nedenle alan başlangıçta 0'dır.
