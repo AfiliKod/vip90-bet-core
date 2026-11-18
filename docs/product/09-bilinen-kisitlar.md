@@ -179,8 +179,10 @@ Since İP-7 the demo machinery never runs under `TENANCY_MODE=multi`. The effect
 notifications reverse the original credited deposit once, may take a player
 balance negative, and enter `TenantDailyStat.chargebacks`/`chargebackCount`.
 Refunds remain separate from chargebacks. Slikair provides no chargeback fee,
-so `providerFees` still has no source; use a separately labelled
-`per_chargeback` NGR cost only when the operator's PSP contract supplies it.
+so use a separately labelled `per_chargeback` NGR cost only when the
+operator's PSP contract supplies it. `providerFees` is instead populated from
+the casino provider contract schedules; their monthly minimum is stored for
+invoicing but is not applied by the daily aggregation.
 
 **The integration only works against Slikair sandbox credentials.** Accepting real, live payments requires KYB (company documents, gaming license) with Slikair plus commercial pricing negotiation — **neither has been completed**. The code path is production-ready; the underlying merchant account is not. Do not enable this in production until the sandbox `SLIKAIR_MERCHANT_ID`/`SLIKAIR_MERCHANT_TOKEN`/`SLIKAIR_SITE_ID` are swapped for real, live-approved credentials.
 
@@ -310,6 +312,6 @@ Two related production incidents were fixed the same day this was merged: `getWe
 - Merkezi çok operatörlü kurulum, İP-10 ölçek eşiklerine kadar tek Node süreci varsayımıyla çalışır; süreçler arası önbellek/iş koordinasyonu bu sürümün kapsamı değildir.
 - Kapasite ölçümü (İP-10a) her iki modda çalışır: sunucu 10 saniyede bir örnek alır ve 15 dakikalık pencereler hâlinde saklar (90 gün). Eşikler: soket p95 > 2000, event loop p99 > 100 ms, CPU ort. > %70; CPU'da "aşıldı" durumu son 7 günde en az 3 pencere eşiği aşınca oluşur. Eşiğin %70'i "eşiğe yaklaşıyor" sayılır. Sonuç `GET /api/health/status` yanıtındaki `capacity` alanında görünür; çok modda platform konsolundaki "Kapasite Ölçümü" kartı ve `GET /api/platform/system/capacity` aynı değerlendirmeyi gösterir. Ölçüm penceresi başına süreç kimliği (`host`, `pid`) tutulur; birden çok süreç çalıştırılırsa pencereler süreç başına ayrı değerlendirilir. Eşikler `CAPACITY_SOCKETS_P95`, `CAPACITY_EVENT_LOOP_P99_MS`, `CAPACITY_CPU_PCT` ile değiştirilebilir.
 - `TenantDailyStat` partner görünümünde günlük toplamdır; ham oyuncu olayları veya anlık akış değildir ve `activePlayers < 5` küçük hücreleri gizlenir.
-- `chargebacks` / `chargebackCount`, Slikair'in doğrulanmış `chargeback` bildirimlerinden dolar; başka bir ödeme sağlayıcısının chargeback'i henüz okunmaz. `providerFees`'i dolduran bir kaynak yoktur (oran ya da sabit kesinti olarak tanımlayın). Slikair chargeback ücreti bildirmez; ücret `per_chargeback` sabit kesintisiyle girilir. İadeler (`deposit_refund`, `refund`) ve defter ters kayıtları (`reversal`) chargeback değildir.
+- `chargebacks` / `chargebackCount`, Slikair'in doğrulanmış `chargeback` bildirimlerinden dolar; başka bir ödeme sağlayıcısının chargeback'i henüz okunmaz. `providerFees`, sağlayıcı sözleşme takvimlerindeki GGR oranından gelir; negatif sağlayıcı GGR'sinde günlük ücret sıfırdır ve aylık asgari ücret yalnız bilgi amaçlı saklanır. Slikair chargeback ücreti bildirmez; ücret `per_chargeback` sabit kesintisiyle girilir. İadeler (`deposit_refund`, `refund`) ve defter ters kayıtları (`reversal`) chargeback değildir.
 - NGR sabit kesintileri yalnız günlük periyodu destekler; kesilmiş/uzlaştırılmış ekstrelerin kullandığı NGR sürümü değiştirilemez, yeni sürüm oluşturulmalıdır.
 - Partner Grant en fazla 90 gündür. Platform yazma istisnası yalnız Platform Sahibi tarafından verilir ve en fazla 24 saattir.

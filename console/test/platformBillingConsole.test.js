@@ -17,6 +17,7 @@ const BillingDashboardMod = await import('../src/pages/billing/BillingDashboard.
 const StatementsListMod = await import('../src/pages/billing/StatementsList.jsx');
 const StatementDetailMod = await import('../src/pages/billing/StatementDetail.jsx');
 const OperatorFeePlansMod = await import('../src/pages/billing/OperatorFeePlans.jsx');
+const ProviderFeeSchedulesMod = await import('../src/pages/billing/ProviderFeeSchedules.jsx');
 const PlatformReportsMod = await import('../src/pages/reports/PlatformReports.jsx');
 const SidebarMod = await import('../src/components/layout/Sidebar.jsx');
 
@@ -24,12 +25,14 @@ const BillingDashboard = BillingDashboardMod.default;
 const StatementsList = StatementsListMod.default;
 const StatementDetail = StatementDetailMod.default;
 const OperatorFeePlans = OperatorFeePlansMod.default;
+const ProviderFeeSchedules = ProviderFeeSchedulesMod.default;
 const PlatformReports = PlatformReportsMod.default;
 const platformNav = SidebarMod.platformNav;
 
 test('Sidebar includes Billing and Reports in platformNav', () => {
   const paths = platformNav.map((i) => i.path);
   assert.ok(paths.includes('/billing'), 'Platform nav must have /billing');
+  assert.ok(paths.includes('/billing/provider-fees'), 'Platform nav must have provider fee schedules');
   assert.ok(paths.includes('/reports'), 'Platform nav must have /reports');
 });
 
@@ -38,12 +41,16 @@ test('Billing and Reports page components are valid React elements', () => {
   assert.equal(typeof StatementsList, 'function');
   assert.equal(typeof StatementDetail, 'function');
   assert.equal(typeof OperatorFeePlans, 'function');
+  assert.equal(typeof ProviderFeeSchedules, 'function');
   assert.equal(typeof PlatformReports, 'function');
 });
 
 test('billingApi client exports all required platform billing endpoints', () => {
   assert.equal(typeof billingApi.listPlans, 'function');
   assert.equal(typeof billingApi.savePlan, 'function');
+  assert.equal(typeof billingApi.listProviderFeeSchedules, 'function');
+  assert.equal(typeof billingApi.createProviderFeeSchedule, 'function');
+  assert.equal(typeof billingApi.closeProviderFeeSchedule, 'function');
   assert.equal(typeof billingApi.listStatements, 'function');
   assert.equal(typeof billingApi.getStatement, 'function');
   assert.equal(typeof billingApi.generateStatements, 'function');

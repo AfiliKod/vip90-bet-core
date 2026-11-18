@@ -40,6 +40,13 @@ Madde formatı ve kategoriler için `docs/CHANGELOG_GUIDE.md`'ye bakın —
   günlüğüne bir kez `[capacity]` uyarısı yazılır; çok modda ayrıca platform
   personeli için sistem etkinlik kaydı (AuditLog, `actorType: system`)
   oluşturulur.
+### İP-9f: sağlayıcı sözleşme ücretleri
+
+**Eklendi**
+- Casino sağlayıcılarının GGR oranlı sözleşme takvimleri, operatöre özel
+  öncelik, denetimli platform API'si ve Faturalandırma konsolu eklendi.
+- `TenantDailyStat.providerFees` ile sağlayıcı bazlı ücret dökümü artık günlük
+  casino GGR'sinden hesaplanır; negatif sağlayıcı GGR'sine ücret uygulanmaz.
 ### PWA manifest artık kurulumun/operatörün markasıyla sunuluyor
 
 **Düzeltildi**

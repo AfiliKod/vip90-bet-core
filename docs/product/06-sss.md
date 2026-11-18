@@ -60,7 +60,7 @@ Partner, yalnız etkin bağlantısı olan operatörlerin günlük toplam metrikl
 
 ### Komisyon ve NGR nasıl hesaplanır?
 
-Ticari koşul GGR, NGR, ciro veya sabit tabanı seçer. NGR, seçilen GGR bileşeninden tanımlı bonus/sağlayıcı ücreti/vergi/chargeback/diğer kesintilerini çıkarır; aynı kaynak, kategori veya GGR'de zaten net olan maliyet iki kez düşülemez. Ekstre gün bazlı toplamlarla üretilir, kesilir ve CSV olarak dışa aktarılabilir.
+Ticari koşul GGR, NGR, ciro veya sabit tabanı seçer. NGR, seçilen GGR bileşeninden tanımlı bonus/sağlayıcı ücreti/vergi/chargeback/diğer kesintilerini çıkarır; aynı kaynak, kategori veya GGR'de zaten net olan maliyet iki kez düşülemez. Casino sağlayıcı ücreti, sözleşme takvimindeki günlük GGR oranından `providerFees` alanına gelir; operatöre özel oran varsayılan oranı geçersiz kılar, negatif sağlayıcı GGR'sinde ücret sıfırdır ve aylık asgari ücret günlük hesaplanmaz. Ekstre gün bazlı toplamlarla üretilir, kesilir ve CSV olarak dışa aktarılabilir.
 
 ### Chargeback nedir, kim öder ve nasıl işlenir?
 
