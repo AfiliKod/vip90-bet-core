@@ -18,6 +18,7 @@ const tenantDailyStatSchema = new mongoose.Schema({
   chargebacks: { type: Number, default: 0 },
   chargebackCount: { type: Number, default: 0 },
   providerFees: { type: Number, default: 0 },
+  providerFeesByProvider: { type: Map, of: Number, default: () => ({}) },
   deposits: { type: Number, default: 0 },
   withdrawals: { type: Number, default: 0 },
   activePlayers: { type: Number, default: 0 },

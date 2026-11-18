@@ -24,6 +24,7 @@ import BillingDashboard from './pages/billing/BillingDashboard.jsx';
 import StatementsList from './pages/billing/StatementsList.jsx';
 import StatementDetail from './pages/billing/StatementDetail.jsx';
 import OperatorFeePlans from './pages/billing/OperatorFeePlans.jsx';
+import ProviderFeeSchedules from './pages/billing/ProviderFeeSchedules.jsx';
 import NgrDefinitionsList from './pages/billing/NgrDefinitionsList.jsx';
 import NgrDefinitionEditor from './pages/billing/NgrDefinitionEditor.jsx';
 import PlatformReports from './pages/reports/PlatformReports.jsx';
@@ -135,6 +136,7 @@ export default function App() {
           <Route path="scope-gates" element={<PlatformRoute><Dashboard /></PlatformRoute>} />
           <Route path="billing" element={<PlatformRoute><BillingDashboard /></PlatformRoute>} />
           <Route path="billing/plans" element={<PlatformRoute><OperatorFeePlans /></PlatformRoute>} />
+          <Route path="billing/provider-fees" element={<PlatformRoute><ProviderFeeSchedules /></PlatformRoute>} />
           <Route path="billing/statements" element={<PlatformRoute><StatementsList /></PlatformRoute>} />
           <Route path="billing/statements/:id" element={<PlatformRoute><StatementDetailRoute /></PlatformRoute>} />
           <Route path="billing/ngr-definitions" element={<PlatformRoute><NgrDefinitionsList /></PlatformRoute>} />
