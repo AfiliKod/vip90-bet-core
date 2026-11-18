@@ -18,6 +18,10 @@ Madde formatı ve kategoriler için `docs/CHANGELOG_GUIDE.md`'ye bakın —
 
 ## [Yayınlanmadı]
 
+## [1.2.0] — 2026-11-18
+
+**Öne çıkanlar:** sağlayıcı sözleşme ücretleri NGR'nin `providerFees` kalemini gerçek veriyle besliyor (İP-9f), İP-10 ölçek eşikleri için kapasite ölçümü (İP-10a), PWA manifesti artık önbellekteki derleme manifesti yerine kurulumun/operatörün markasıyla sunuluyor; README'ler ve operatör belgeleri genişletildi ve güncellendi (adım adım çok operatörlü kılavuz, tam API referansı). Tek operatörlü kurulumlar için ayar gerekmez.
+
 ### Belgeler: 1.2.0 için genişletilmiş ve güncellenmiş belgeler
 
 - `README.md`, `README.tr.md`, `docs/README.md` ve `docs/product/README.md` çok operatör, faturalama/NGR, kapasite ve operatör bazlı PWA bilgileriyle güncellendi.
