@@ -1,5 +1,12 @@
 # Known Limitations
 
+## 1.2.0 güncel sınırlar
+
+- Kapasite ölçümü vardır; yatay ölçekleme, trafik dağıtma veya eşik aşılınca otomatik müdahale yoktur.
+- `ProviderFeeSchedule` günlük ücretleri yalnız casino round sağlayıcılarının pozitif GGR'sinden hesaplar. Spor veya başka sağlayıcı türleri için `providerFees` kaynağı yoktur.
+- Doğrulanmış chargeback alma Slikair bildiriminden gelir; başka ödeme sağlayıcısının eşdeğer kaynağı yoktur.
+- Sağlayıcı takvimindeki aylık asgari ücret günlük NGR toplamına uygulanmaz; sözleşme bilgisidir.
+
 _Last verified: 2026-10-08 (i18n coverage and deploy notes re-measured; SMS sender screen, referral settings and add-on `sourceId` resolved); before that 2026-10-03 (documentation audit, then updated after the code fixes of internal PR #132; earlier verification 2026-09-17 after the PAM/Risk-Fraud Completion plan). Items below marked RESOLVED 2026-10-03 were checked in the core code; where a fix lives in an add-on submodule (`server/src/premium/*`, not checked out in the documentation worktree) it is stated from the fix reports and was not re-read here._
 
 This document lists features that are **defined but not end-to-end connected** or **partially functional** in the codebase. The goal is for the operator to be aware of this before encountering a situation where "I see a field/service in the panel but the behavior isn't what I expected." Each item has been verified by reading the relevant code.

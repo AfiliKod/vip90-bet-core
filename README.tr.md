@@ -36,14 +36,14 @@ olgunlaşmadığını gizlemiyoruz — bkz. [Yol Haritası](#yol-haritası) ve
 
 ---
 
-## Çok operatörlü platform (1.1.0)
+## Çok operatörlü platform (1.1.0–1.2.0)
 
-Sürüm 1.1.0, birden çok bağımsız operatör için tek merkezi kurulum getirir. Her operatörün verisi, alan adı, callback'leri ve markası ayrıdır; Platform Sahipleri ayrı konsolu kullanır, partnerler ise atanmış yetenekleri içinde çalışır. Komisyon ve NGR tabanlı faturalama denetlenebilir ekstreler üretir. Mevcut tek operatörlü kurulumlar çalışmaya devam eder; yükseltmeden önce CHANGELOG'daki "Kırılan Değişiklikler" notlarını okuyun (örneğin site adı geri dönüşü). Ayrıntılar için [çok operatörlü kurulum kılavuzuna](docs/product/12-cok-operator.md) bakın.
+Sürüm 1.1.0, birden çok bağımsız operatör için tek merkezi kurulum getirir. Her operatörün verisi, alan adı, callback'leri ve markası ayrıdır; Platform Sahipleri ayrı konsolu kullanır, partnerler ise atanmış yetenekleri içinde çalışır. Sürüm 1.2.0, günlük NGR verisini besleyen sağlayıcı ücret takvimlerini, ölçek eşikleri için kapasite ölçümünü ve operatöre göre PWA manifestini ekler. Mevcut tek operatörlü kurulumlar çalışmaya devam eder; yükseltmeden önce CHANGELOG notlarını okuyun. Ayrıntılar için [çok operatörlü kurulum kılavuzuna](docs/product/12-cok-operator.md) bakın.
 
 ## İçindekiler
 
 - [Öne Çıkanlar](#öne-çıkanlar)
-- [Çok operatörlü platform (1.1.0)](#çok-operatörlü-platform-110)
+- [Çok operatörlü platform (1.1.0–1.2.0)](#çok-operatörlü-platform-110120)
 - [Ekran Görüntüleri](#ekran-görüntüleri)
 - [Neler Dahil](#neler-dahil)
 - [Deneyin](#deneyin)
@@ -63,6 +63,7 @@ Sürüm 1.1.0, birden çok bağımsız operatör için tek merkezi kurulum getir
 | | |
 |---|---|
 | 🛠️ **Kapsamlı admin panel (çekirdek)** | Kullanıcılar, roller/izinler, canlı KPI+gelir grafikli analitik, tema/marka editörü, statik sayfa ve ana sayfa slider düzenleyicileri, modül aç/kapa, cüzdan (banka/kripto/Slikair), destek masası, oyuncu segmentasyonu, risk/uyumluluk, sistem sağlık izleme |
+| 🏢 **Çok operatörlü işletim (1.1.0–1.2.0)** | Yalıtılmış operatörler ve doğrulanmış alan adları, Platform Sahibi konsolu, partner portalı ve kapsamlı grant'ler; NGR/ekstre, sağlayıcı ücret takvimleri, soket/event-loop/CPU ölçek sinyalleri |
 | 💰 **Uçtan uca kripto ödeme (modül)** | USDT-TRC20 — HD cüzdan tabanlı yatırma takibi + hot wallet üzerinden otomatik/onaylı çekim, admin panelden işlem geçmişi, cüzdan imzasıyla Web3 girişi |
 | 💳 **Slikair ödeme ağ geçidi (modül)** | Kart ve alternatif yöntemlerle para yatırma; iade ve chargeback bildirimleri doğrulanıp bakiyeye yansıtılır, chargeback'te hesap risk incelemesine alınır; yalnızca sandbox kimlikleriyle doğrulandı, canlı için Slikair KYB gerekir |
 | 🪪 **Çift KYC sistemi (modül)** | Yerel belge inceleme (admin onay/red kuyruğu) veya Sumsub ile otomatik doğrulama — panelden seçilebilir |
@@ -93,7 +94,7 @@ eklentiler sağlar.
 
 ### 🧱 Çekirdek platform
 
-- **Çok operatör katmanı (1.1.0):** merkezi Platform Sahibi konsolu, operatör başına ana makine/marka/callback atfı ve yalıtım, partner yetenekleri ve süreli grant'ler, NGR komisyon tanımları ve CSV ekstreleri. Tek operatörlü kurulumlar çalışmaya devam eder (CHANGELOG'daki kırılan değişiklik notlarına bakın); bkz. [çok operatörlü kılavuz](docs/product/12-cok-operator.md).
+- **Çok operatör katmanı (1.1.0–1.2.0):** merkezi Platform Sahibi konsolu, operatör başına ana makine/marka/callback atfı ve yalıtım, partner yetenekleri ve süreli grant'ler, NGR komisyon tanımları, sağlayıcı ücret takvimleri ve CSV ekstreleri. Kapasite örnekleyicisi ölçek sinyallerini kaydeder; PWA kurulum adı operatör markasını kullanır. Bkz. [çok operatörlü kılavuz](docs/product/12-cok-operator.md).
 
 - Hesap, e-posta doğrulama, şifre sıfırlama; e-posta/şifre + Google/Telegram
   girişi + **Web3 cüzdan imzasıyla** kayıt/giriş.
@@ -113,6 +114,11 @@ eklentiler sağlar.
 - **USDT-TRC20** kripto ödeme — HD cüzdan tabanlı yatırma takibi, hot wallet
   üzerinden çekim.
 - **Slikair** kart/alternatif ödeme ağ geçidi (sandbox; canlı için KYB şart): doğrulanmış iade ve chargeback'ler yatırımı bakiyeden geri alır, chargeback hesabı incelemeye alır ve NGR'ye gerçek veri sağlar.
+
+### 📊 Faturalama, NGR ve partnerler
+
+- Platform Sahibi operatör ücret planını, sürümlü NGR tanımını ve sağlayıcı ücret takvimini tanımlar. Operatöre özel sağlayıcı takvimi platform varsayılanını ezer; zararlı sağlayıcı gününde oranlı ücret oluşmaz. Taslak partner ekstresi incelenir, kesilir, düzeltilebilir, iptal edilebilir ve CSV alınabilir.
+- Partner portalı günlük toplam metrik verir; oyuncu kimliği içermez ve beşten az etkin oyuncuyu gizler. Partner grant'leri süreli, kapsamlı ve denetim kayıtlıdır.
 - **KYC** — yerel belge inceleme (onay/red kuyruğu) veya **Sumsub**
   entegrasyonu, ikisinden biri panelden seçilir.
 
@@ -263,10 +269,11 @@ olarak çalışmalıdır (çoklu doküman transaction'ları kullanılır).
 - Otomatik test paketi: auth, bahis, çevrim, modül kapısı ve i18n
   kapsıyor (`npm test`).
 - **Tenancy katmanı:** doğrulanmış ana makineden operatör çözümü, operatör kapsamlı veri erişimi, operatör başına callback atfı ve ayrı platform/partner API'leri.
+- **Kapasite örnekleyicisi:** her 10 saniyede bağlı soketleri ve süreç CPU'sunu; her 15 dakikada soket p95, event-loop p99 ve CPU ortalamasını kaydeder.
 
 ## Hızlı Başlangıç
 
-Yeni merkezi çok operatörlü kurulumda sihirbazı kullanmayın: çok mod ortam değerlerini ayarlayın, migrations çalıştırın, ilk Platform Sahibini bootstrap edin ve operatörleri `/console` üzerinden sağlayın. Kesin kontrol listesi [çok operatörlü kurulum kılavuzundadır](docs/product/12-cok-operator.md).
+Tek operatörlü kurulumda aşağıdaki sihirbazı kullanın. Yeni merkezi çok operatörlü kurulumda sihirbazı kullanmayın: çok mod ortam değerlerini ayarlayın, migrations çalıştırın, ilk Platform Sahibini bootstrap edin ve operatörleri `/console` üzerinden sağlayın. Kesin [tek/çok mod kontrol listesi](docs/product/12-cok-operator.md#boş-veritabanından-yeni-merkezi-kurulum) kılavuzdadır.
 
 ### Docker ile (önerilen)
 
@@ -317,12 +324,14 @@ npm run test:e2e       # Playwright uçtan uca testleri
 - `helmet`, `express-mongo-sanitize`, katmanlı `express-rate-limit` (sınırlar
   `server/src/middleware/rateLimit.js` içinde sabit, env ile ayarlanmaz).
 - Admin için TOTP tabanlı 2FA; isteğe bağlı `ADMIN_ALLOWED_IPS` ile `/api/admin/*` IP/CIDR kısıtı ve Cloudflare Turnstile (ikisi de env tanımlanınca açılır, varsayılan kapalı).
+- Çok modda personel 2FA zorunludur; operatöre ait koleksiyonlar tenancy katmanıyla zorlanır ve platform personeli süreli/denetimli yazma grant'i yoksa operatör rotalarında salt okunurdur.
 - `kyc-verification` modülü açıkken oyuncu para çekimleri onaylı KYC ister (`KYC_REQUIRED`).
 - Modül kapısı ile lisans/yetki sınırları API seviyesinde uygulanır.
 - RBAC ile rol bazlı erişim kontrolü — tüm admin endpointleri izin
   doğrulaması yapar.
 - Audit trail — tüm kritik admin işlemleri kaydedilir (oyuncu
   müdahaleleri, finansal işlemler, KYC kararları, modül değişiklikleri).
+- Faturalama kayıtları ve NGR tanımları yasal saklama metaverisini taşır; çok modda denetim saklama alt sınırı beş yıldır.
 - Sorumlu oyun kontrolleri — para yatırma/çekme/kayıp/çevrim limitleri,
   soğuma süreleri, kendi kendine hariç tutma, hesap kısıtlamaları.
 - Canlı sohbet moderasyonu — yasaklama/susturma/mesaj silme işlemleri
@@ -347,7 +356,8 @@ altında (İngilizce):
 Çekirdekle gelen ödeme ve KYC entegrasyonları:
 [Kripto Ödeme — TRC20 USDT](docs/providers/crypto-trc20.md) ·
 [Yerel (Manuel) KYC](docs/providers/local-kyc.md) ·
-[Sumsub KYC](docs/providers/sumsub-kyc.md).
+[Sumsub KYC](docs/providers/sumsub-kyc.md) ·
+[Slikair Ödemeleri](docs/providers/slikair.md).
 
 Ücretli eklentilerin (In-house Games, Sports Betting, Casino Content) teknik
 belgeleri ve oyun matematiği eklentilerle birlikte teslim edilir. Sürüm
@@ -362,12 +372,15 @@ referansları için [Bilinen Kısıtlar](docs/product/09-bilinen-kisitlar.md):
 
 - **Live Casino** — canlı krupiyeli masa/video oyunları planlanan gelecek
   güncellemedir; kodda `live-casino` modülü, bağlayıcı ve kapı yoktur.
-- **Çok kademeli affiliate** — bugün yalnızca tek kademe var: davet
-  edilen kullanıcının ürettiği ev karının bir yüzdesi doğrudan referans
-  verene ödeniyor. Alt-referansların (2. kademe ve ötesi) da komisyon
-  getirdiği bir yapı henüz yok.
-- **Marka verisi izolasyonu** — çoklu marka yönetimi var, ama çekirdek
-  modellerde `brandId` olmadığı için veri izolasyonu uygulanmıyor.
+- **Çok kademeli affiliate** — bugün yalnızca tek kademe var: davet edilen
+  oyuncunun ürettiği kazancın bir yüzdesi doğrudan davet edene gider; alt
+  davetler (2. kademe ve sonrası) henüz kazanç üretmez.
+- **Operatör içinde marka verisi izolasyonu** — operatörler (kiracılar) 1.1.0'dan
+  beri birbirinden yalıtılmıştır, ama bir operatörün markaları aynı veriyi
+  paylaşır; çekirdek modellerde `brandId` yoktur.
+- **Ölçüm sonrasında yatay ölçekleme (İP-10):** 1.2.0 kapasiteyi ölçer ve eşik uyarısı üretir; dağıtık ölçekleme denetleyicisi eklemez.
+- **Casino round dışındaki sağlayıcı ücretleri:** ücret takvimleri bugün yalnız casino sağlayıcı GGR'sinden toplanır.
+- **Slikair dışındaki chargeback kaynağı:** doğrulanmış chargeback alma bugün Slikair için uygulanmıştır.
 
 ## Lisanslama
 

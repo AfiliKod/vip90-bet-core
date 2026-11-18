@@ -1,6 +1,8 @@
-# VIP90.bet Documentation
+# VIP90.bet Ürün Belgeleri
 
 This directory is written for operators who have purchased the product — not for developers who already know the codebase (that documentation lives in our internal planning directory `docs/superpowers/`, which is not published to this repository, and in code comments).
+
+Sürüm 1.2.0 için bu dizin sağlayıcı ücret takvimleri/NGR, kapasite eşikleri, operatör bazlı PWA manifestleri, partner grant'leri ve Slikair ters kayıtları için güncel operasyon bilgisini içerir.
 
 - [01 — Installation](01-kurulum.md) — from scratch to a working core setup (Docker or manual), plus how to install the paid add-ons (In-house Games, Sports Betting, Casino Content).
 - [02 — Configuration](02-yapilandirma.md) — `.env` variables (including which listed ones the code does not read) and panel-managed settings with their menu locations.

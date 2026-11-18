@@ -1,5 +1,14 @@
 # Admin Operations Tools — Activity Feed, Demo Data, Casino Rewards
 
+## 1.2.0 tenant-admin işlemleri
+
+- **Partner grant:** Tenant yöneticisi partner grant'lerini görür (`admin:partner-grants:read`), gerekçe, kapsam ve en fazla 90 günle verir veya iptal eder (`admin:partner-grants:write`). Kapsamlar `players:read`, `players:pii`, `finance:read`, `reports:raw`, `support:write`, `players:status:write`, `promotions:assign` şeklindedir. Oluşturma, iptal ve kullanım AuditLog'a yazılır; partner kendi grant'ini veremez.
+- **Slikair iade/chargeback:** Ödeme görünümü doğrulanmış `refunded`/`chargeback` olaylarını gösterir. Çekirdek bildirimi sağlayıcının durum, tutar ve para birimi yanıtıyla eşleştirir; iade `deposit_refund`, chargeback `chargeback` defter satırı oluşturur. Chargeback `PSP_CHARGEBACK` risk bulgusunu açar; yetkili risk personeli bunu risk ekranında review, resolve veya dismiss eder. Aynı ödeme ikinci kez borçlanmaz.
+- **Negatif bakiye:** Chargeback bakiyeyi eksiye indirebilir; bakiye yeterliliği kontrolleri yeni bahis/çekimi reddeder, borç kapatılmadan finans hareketi gözden geçirilmelidir.
+- **2FA ve yazma sınırı:** Multi modda personel 2FA zorunludur. Platform personeli tenant rotasında varsayılan salt okunurdur; yalnız Platform Sahibi gerekçeli, en fazla 24 saatlik denetimli write grant verebilir.
+- **Marka, tüzel kişi ve PWA:** Site adı/renkleri tenant ayarlarından, tüzel kişi Tenant kaydından gelir. `/manifest.webmanifest` istek operatörünün kurulum adını ve ana rengini üretir.
+- **Kapasite:** Status sayfasının `capacity` alanı ve konsol kartı son 15 dakikalık soket p95, event-loop p99, CPU ortalamasını gösterir. `approaching` gözlem/plan, `exceeded` altyapı müdahalesi demektir; otomatik ölçekleme yoktur.
+
 _Last verified: 2026-10-02 against `server/src/routes/admin.js`, `server/src/controllers/admin.js`, `server/src/services/activityFeed.js`, `server/src/services/demoData/`, `server/src/services/casinoPromo/`._
 
 Three admin-panel tools added between 2026-09-22 and 2026-10-02. Each section covers what the tool does, which permission it needs, its endpoints, and what to watch out for.
