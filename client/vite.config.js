@@ -9,60 +9,14 @@ export default defineConfig({
     VitePWA({
       registerType: 'autoUpdate',
       includeAssets: ['favicon.svg'],
-      manifest: {
-        name: 'VIP90.bet',
-        short_name: 'VIP90.bet',
-        description: 'Spor bahis ve casino platformu',
-        theme_color: '#7c3aed',
-        background_color: '#0f172a',
-        display: 'standalone',
-        orientation: 'portrait-primary',
-        scope: '/',
-        start_url: '/',
-        icons: [
-          {
-            src: '/icons/icon-72x72.png',
-            sizes: '72x72',
-            type: 'image/png'
-          },
-          {
-            src: '/icons/icon-96x96.png',
-            sizes: '96x96',
-            type: 'image/png'
-          },
-          {
-            src: '/icons/icon-128x128.png',
-            sizes: '128x128',
-            type: 'image/png'
-          },
-          {
-            src: '/icons/icon-144x144.png',
-            sizes: '144x144',
-            type: 'image/png'
-          },
-          {
-            src: '/icons/icon-152x152.png',
-            sizes: '152x152',
-            type: 'image/png'
-          },
-          {
-            src: '/icons/icon-192x192.png',
-            sizes: '192x192',
-            type: 'image/png',
-            purpose: 'any maskable'
-          },
-          {
-            src: '/icons/icon-384x384.png',
-            sizes: '384x384',
-            type: 'image/png'
-          },
-          {
-            src: '/icons/icon-512x512.png',
-            sizes: '512x512',
-            type: 'image/png'
-          }
-        ],
-      },
+      // Manifest build sırasında ÜRETİLMEZ. `/manifest.webmanifest` sunucudan
+      // gelir (İP-8, server/src/routes/manifest.js): tek modda kurulumun
+      // ayarlarındaki site adı/marka rengi, çok modda istek host'una çözülen
+      // operatörün markası. Build'de üretilen sabit manifest hem çekirdeğe ürün
+      // adı taşıyordu hem de service worker onu precache'leyip kiracıya özel
+      // yanıtı gölgeliyordu. index.html'deki <link rel="manifest"> bağlantısı
+      // bu rotayı gösterir; manifest precache listesine GİRMEZ (pwa-build-check).
+      manifest: false,
       workbox: {
         // 2026-10-02: skipWaiting/clientsClaim YOKTU. Bu yüzden yeni service
         // worker indirilip "waiting"de kalıyor ve eski bundle'ı servis etmeye

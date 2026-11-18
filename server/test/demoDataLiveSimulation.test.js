@@ -7,6 +7,7 @@ import Transaction from '../src/models/Transaction.js';
 import Setting from '../src/models/Setting.js';
 import { _setIOGetter, _getIOGetter } from '../src/services/activityFeed.js';
 import * as registry from '../src/services/demoData/registry.js';
+import { setRandomSource } from '../src/services/demoData/randomUtils.js';
 import {
   startDemoDataLiveJob, stopDemoDataLiveJob, isDemoDataLiveJobRunning, runDemoDataLiveTick, _waitForIdle,
 } from '../src/jobs/demoDataLiveSimulation.js';
@@ -62,13 +63,13 @@ describe('jobs/demoDataLiveSimulation', () => {
     // Tick rastgele bir kategori seçer; yalnız kullanıcı havuzu yüklü olduğu
     // için başka kategori (casino, spor) seçilirse null döner ve test %50'ye
     // yakın oranda düşüyordu. 0.6 → tek tick, kategori `users`, tip `deposit`.
-    const realRandom = Math.random;
-    Math.random = () => 0.6;
+    // Seed'ler artık Math.random'ı doğrudan çağırmıyor; RNG enjekte edilir.
+    setRandomSource(() => 0.6);
     let results;
     try {
       results = await runDemoDataLiveTick();
     } finally {
-      Math.random = realRandom;
+      setRandomSource(Math.random);
     }
     assert.deepEqual(results.map(r => r.category), ['users']);
     assert.ok(results[0].result, 'kullanıcı havuzu varken tick bir işlem üretmeli');

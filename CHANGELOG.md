@@ -18,6 +18,17 @@ Madde formatı ve kategoriler için `docs/CHANGELOG_GUIDE.md`'ye bakın —
 
 ## [Yayınlanmadı]
 
+### PWA manifest artık kurulumun/operatörün markasıyla sunuluyor
+
+**Düzeltildi**
+- **İstemci derlemesi sabit `manifest.webmanifest` üretmiyor.** Build, çekirdek ürün adıyla bir manifest üretiyor ve service worker onu precache'leyip sunucunun `/manifest.webmanifest` yanıtını gölgeliyordu; kurulan uygulamalar hiçbir zaman operatörün adını ve rengini görmüyordu. `index.html` artık bu rotaya bağlanır; manifest precache listesine girmez, uygulama ikonları precache'te kalır. Tek modda manifest adı ayarlardaki site adından, çok modda istek host'una çözülen operatörden gelir (İP-8 rotası).
+- Build sonrası `client/scripts/__tests__/pwa-build-check.mjs` gerçek `dist/sw.js` precache listesini denetler: manifest precache edilirse ya da build sabit bir manifest dosyası üretirse derleme kırılır.
+
+### Demo veri seed'leri sabit tohumla deterministik üretilebilir
+
+**Değişti**
+- Demo veri üreticileri rastgeleliği artık tek ve enjekte edilebilir bir kaynaktan alır (`randomUtils.setRandomSource`); varsayılan `Math.random` olduğu için çalışma zamanı üretimi değişmez. `demoData-seed-economics` testi sabit tohumlu PRNG (mulberry32) kullanır; spor marjı bandının aralıklı düşmesi giderildi.
+
 ## [1.1.0] — 2026-11-13
 
 **Öne çıkanlar:** tek merkezi kurulumla birden çok bağımsız operatör (kiracı yalıtımı, kiracıya göre callback/marka/soket/işler), Platform Sahibi konsolu ve operatör sağlama, partner yönetimi ve portalı, komisyon/faturalama ve yapılandırılabilir NGR (K28), Slikair iade ve chargeback işleme. Tek operatörlü kurulumlar `TENANCY_MODE=single` ile çalışmaya devam eder; yükseltmeden önce aşağıdaki **Kırılan Değişiklikler** notlarını okuyun (özellikle site adı geri dönüşü, chargeback sonrası eksi bakiye ve çok modda ticari koşulların varsayılan orana sahip olmaması). Ayrıntılı kılavuz: `docs/product/12-cok-operator.md`.
