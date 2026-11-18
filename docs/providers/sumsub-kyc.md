@@ -1,5 +1,9 @@
 # Sumsub KYC Provider Integration
 
+## Çok operatörlü webhook adresi
+
+Multi modda her operatörün webhook adresi `POST https://operator.example.com/api/webhook/sumsub/:tenantId` biçimindedir; `tenantId` ilgili Tenant kimliğidir. Genel `POST /api/webhook/sumsub` rotası da vardır, ancak merkezi kurulumda bildirimin doğru operatöre atanması için operatör URL'si ve tenant kimliği kullanılmalıdır. Her operatörün Sumsub kimlik bilgileri kendi kapsamlı ayarlarında tutulur; bir operatörde eksik ayar diğer operatörün bilgilerine geri düşmez.
+
 ## Overview
 
 Sumsub identity verification integration for VIP90.bet. Automates KYC (Know Your Customer) verification with document capture, liveness detection, and AML screening.

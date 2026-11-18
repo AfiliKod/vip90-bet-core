@@ -1,5 +1,22 @@
 # Configuration
 
+## 1.2.0 çok-mod ve kapasite değişkenleri
+
+| Değişken | Değer / davranış |
+|---|---|
+| `TENANCY_MODE` | `single` varsayılandır; merkezi kurulum için `multi`. |
+| `TENANCY_ENFORCEMENT` | Multi modda `enforce` zorunludur; single modda açık değer önceliklidir. |
+| `JWT_STAFF_SECRET` | Multi modda zorunlu ayrı personel-token imza anahtarı. |
+| `OPERATOR_SECRET_ENCRYPTION_KEY` | Multi modda zorunlu 64 hex AES-256-GCM anahtarı. |
+| `PLATFORM_HOST` | Platform konsolu/API ana makinesi, ör. `platform.example.com`. |
+| `AUDIT_RETENTION_DAYS` | Multi modda en az `1825`. |
+| `SCOPE_GATE_ENV` | Boş, `staging` veya `production`; kapsam kapısı temiz gün hesabını açar. |
+| `CAPACITY_SOCKETS_P95` | Pozitif sayı; yoksa `2000`. |
+| `CAPACITY_EVENT_LOOP_P99_MS` | Pozitif sayı; yoksa `100`. |
+| `CAPACITY_CPU_PCT` | Pozitif sayı; yoksa `70`; CPU için `exceeded` son 7 günde üç pencere ister. |
+
+Örnekleyici her 10 saniyede soket/CPU örneği alır, her 15 dakikada `CapacityWindow` kaydeder. Bu ayarlar yalnız değerlendirme eşiklerini değiştirir; yatay ölçekleme eklemez.
+
 There are two layers: **`.env` file** (requires restart, server setup) and **panel-managed settings** (effective immediately, operator's daily work — stored in the database).
 
 Some integration credentials exist in both layers: the value saved from the admin panel (encrypted in the database) wins, an empty panel value falls back to the environment variable. **Saving a secret field from the panel requires `OPERATOR_SECRET_ENCRYPTION_KEY`** (64 hex characters) in `.env`; without it the save fails.

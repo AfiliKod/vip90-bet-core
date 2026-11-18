@@ -1,5 +1,9 @@
 # Module System
 
+## Çok operatörlü eklenti kancaları
+
+Özel eklentiler çekirdeğin zorunlu bağımlılığı değildir. Operatör sağlama sırasında `registerTenantProvisioningHook`, operatöre ait kimlik bilgisi şeması için `registerTenantCredentialSchema` ve tenant kapsamındaki iş için `runWithTenant` kullanılır. Çekirdek, ücretli eklentiler yokken de başlar/test edilir. Eklentiler platform içlerini doğrudan içe aktarmak yerine `server/src/tenancy/index.js` dışa aktarımlarını kullanır.
+
 VIP90.bet's core platform (accounts, wallet, bonus/wagering engine, KYC, risk and compliance tools, basic admin panel) is always enabled — it is fully functional after purchase, no additional steps needed, and it starts even when none of the add-ons below are present.
 
 Three **paid add-ons** are sold/licensed separately and live in private git submodules under `server/src/premium/` (installation: [01 — Installation § Add-on modules](01-kurulum.md#add-on-modules-in-house-games-sports-betting-casino-content)). Four more modules ship with the core. All seven can be switched on and off from **Settings → Modules**:

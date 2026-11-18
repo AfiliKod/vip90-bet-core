@@ -73,6 +73,8 @@ Bu iki grup yalnız TENANCY_MODE=multi altında sunulur; tek modda 404 döner. P
 | GET, POST | /api/platform/partners | platform:partners:manage | Partnerleri listeler veya oluşturur. |
 | GET, PATCH | /api/platform/partners/:id | platform:partners:manage | Partneri okur veya günceller. |
 | GET, POST | /api/platform/billing/plans | platform:billing:read / platform:billing:manage | Operatör ücret planlarını listeler veya yazar. |
+| GET, POST | /api/platform/billing/provider-fee-schedules | platform:billing:read / platform:billing:manage | Sağlayıcı ücret takvimlerini listeler veya oluşturur. |
+| POST | /api/platform/billing/provider-fee-schedules/:id/close | platform:billing:manage | Açık takvimi verilen tarihte kapatır. |
 | GET, POST | /api/platform/billing/ngr-definitions | platform:billing:read / platform:billing:manage | NGR tanımlarını listeler veya oluşturur. |
 | GET, PUT | /api/platform/billing/ngr-definitions/:id | platform:billing:read / platform:billing:manage | NGR tanımını okur veya günceller. |
 | POST | /api/platform/billing/ngr-definitions/:id/versions | platform:billing:manage | NGR tanımının yeni sürümünü oluşturur. |
@@ -100,6 +102,32 @@ Bu iki grup yalnız TENANCY_MODE=multi altında sunulur; tek modda 404 döner. P
 | PATCH | /api/partner/staff/:id/suspend | partner:staff:write | Partner personelini askıya alır. |
 | GET | /api/partner/statements, /api/partner/statements/:id | partner:metrics:read | Partner ekstrelerini listeler veya gösterir. |
 | GET | /api/partner/statements/:id/export | partner:metrics:read | Partner ekstre CSV'sini verir. |
+
+### Platform/partner alanları ve hata sözleşmesi
+
+`POST /api/staff/auth/accept-invite`, `{ token, password }` alır ve `{ ok, email }` döner; geçersiz, süresi dolmuş (72 saat) ya da kullanılmış davet `400 INVITE_INVALID`, 12 karakterden kısa parola `400 PASSWORD_TOO_SHORT` döner. Platform ve partner çağrılarında kimlik görünmüyorsa veya bağlantı kapsam dışındaysa `NOT_FOUND` dönebilir.
+
+| Yol | Önemli istek alanları | Önemli yanıtlar/hatalar |
+|---|---|---|
+| `POST /api/platform/tenants` | Operatör `key`, `name`, alan adı/marka, tüzel kişi, entitlement ve isteğe bağlı sahip | `201` tenant ve ilk yanıtta `ownerInviteUrl`; `TENANT_KEY_TAKEN`. |
+| `PATCH /api/platform/tenants/:id/status` | `status`, `reason`, `force?` | Durum sonucu; `TENANT_CLOSED` terminaldir. |
+| `POST .../:id/write-grants` | `staffId`, `reason`, bitiş zamanı | `{ grant }`; Platform Sahibi gerekir; `REASON_REQUIRED`, `INVALID_WRITE_GRANT_DURATION`. |
+| `POST /api/platform/partners` / `PATCH .../:id` | `key`, `name`, `legalEntity`, `contact`, `capabilities`, `provisioningLimits`, `defaultCommercialTerms` | `{ partner }`; `active`/`suspended`/`closed`. |
+| `POST /api/platform/billing/plans` | `tenantId`, `sportsbookFee`, `platformFee`, `notes` | `201` plan; `TENANTID_IS_REQUIRED`. Yeni plan açık eskisini kapatır. |
+| `POST /api/platform/billing/provider-fee-schedules` | `tenantId?`, `provider`, `rateOfGgr`, `minimumMonthlyFee`, `currency`, `validFrom`, `note?` | `201` takvim; `PROVIDER_RATEOFGGR_AND_CURRENCY_ARE_REQUIRED`, `INVALID_PROVIDER_FEE_SCHEDULE`. |
+| `POST .../provider-fee-schedules/:id/close` | `validTo` | `{ schedule }`; yoksa `NOT_FOUND`. |
+| `POST /api/platform/billing/ngr-definitions` | `name`, `description?`, `ggrComponents`, `ggrAlreadyNetOf`, `items` | `201` sürüm 1; `NAME_IS_REQUIRED`, `ERR_NGR_*`. |
+| `PUT .../ngr-definitions/:id` / `POST .../:id/versions` | NGR alanları | `{ definition }`; kesilmiş ekstrede kullanılan sürüm için `ERR_NGR_DEFINITION_IN_USE`. |
+| `POST .../statements/generate` | `partnerId`, `periodStart`, `periodEnd` | `{ statements }`; `PARTNERID_PERIODSTART_AND_PERIODEND_ARE_REQUIRED`, `ERR_STATEMENT_ALREADY_ISSUED`, `ERR_COMMERCIAL_TERMS_MISSING`. |
+| `POST .../statements/:id/issue` | — | `{ statement }`; yalnız `draft`, aksi `ERR_INVALID_STATUS`. |
+| `POST .../statements/:id/adjustments` | `amount`, `description`, `reason` | `{ statement }`; `AMOUNT_AND_DESCRIPTION_ARE_REQUIRED`. |
+| `POST .../statements/:id/void` | `reason` | `{ statement }`; iptal edilmiş ekstreye yeni işlem yapılamaz. |
+| `GET /api/platform/reports/*` | `from`, `to`, isteğe bağlı `currency`, `groupBy`, `partnerId` | Tarih isteyen raporlarda eksik tarih `400`; export rotaları CSV döner. |
+| `POST /api/partner/tenants` | Tenant sağlama gövdesi | `201`; `PARTNER_NOT_ACTIVE`, `MAX_TENANTS_EXCEEDED`, `MODULE_NOT_ALLOWED`. |
+| `PUT /api/partner/tenants/:id/integrations` | `provider`, `credentials` | `{ ok, provider, configured }`; bağlantı/yetenek gerekir. |
+| `POST /api/partner/staff` / `PATCH .../:id/suspend` | `email`, `username`, `roleName?` / yol kimliği | `201` personel+davet veya güncel personel. |
+
+`GET /api/platform/system/capacity`, `{ state, evaluatedAt, windowStart, sockets, eventLoop, cpu }` verir. Her metrikte `value`, `threshold`, `state`; CPU'da `windowsOverThreshold`, `requiredWindows` bulunur. Genel `GET /api/health/status` aynı değerlendirmeyi `capacity` alanında verir; değerlendirme başarısızsa `state: 'unknown'` döner.
 
 
 ## Authentication model

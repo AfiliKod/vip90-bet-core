@@ -1,5 +1,15 @@
 # Slikair ödeme sağlayıcısı
 
+## Doğrulama, durumlar ve risk incelemesi
+
+Slikair bildirimi tek başına para hareketi oluşturmaz. Çekirdek operatörün kendi kimlik bilgileriyle `get-status` çağrısı yapar; olayın kayıtlı yatırımla durum, tutar ve para biriminde eşleşmesini bekler. `processing`, `succeeded` ve `failed` sağlayıcı yaşam döngüsü durumlarıdır. Doğrulanmış `refunded` önceki yatırmayı `deposit_refund` ile, doğrulanmış `chargeback` ise `chargeback` ile geri alır; ikincisi `PSP_CHARGEBACK` risk bulgusu açar. Yetkili risk personeli bulguyu Risk ekranında review, resolve veya dismiss eder.
+
+Ters kayıt idempotenttir: iade sonrasında gelen chargeback ödeme durumunu güncelleyebilir ama ikinci borç yazmaz. Chargeback negatif bakiye oluşturabilir; bakiye yeterliliği kontrolleri yeni bahis/çekimi engeller.
+
+## Ücret ve NGR yapılandırması
+
+Slikair webhook'u PSP ücret tutarı vermez. Doğrulanmış chargeback tutarı günlük istatistikte `chargebacks`, olay sayısı `chargebackCount` olur. Olay başı PSP masrafı sözleşmesi varsa NGR'de ayrı etiketli `other`, `fixed` kaynak ve `per_chargeback` dönemiyle tanımlanır. Casino sağlayıcı GGR ücreti ayrıdır: `ProviderFeeSchedule` sağlayıcı, `rateOfGgr`, para birimi, tarih ve isteğe bağlı aylık asgari ücreti taşır. Operatöre özel takvim platform varsayılanını ezer; negatif sağlayıcı gününde günlük ücret sıfırdır; aylık asgari ücret günlük hesapta uygulanmaz.
+
 Slikair yatırma bildirimi imzasızdır. Bu nedenle `succeeded`, `refunded` ve
 `chargeback` bildirimleri tek başına bakiyeyi değiştirmez: çekirdek, kiracının
 kendi Slikair kimlik bilgileriyle `get-status` çağrısı yapar; durumun, tutarın

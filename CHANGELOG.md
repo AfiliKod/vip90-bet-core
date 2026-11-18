@@ -18,6 +18,12 @@ Madde formatı ve kategoriler için `docs/CHANGELOG_GUIDE.md`'ye bakın —
 
 ## [Yayınlanmadı]
 
+### Belgeler: 1.2.0 için genişletilmiş ve güncellenmiş belgeler
+
+- `README.md`, `README.tr.md`, `docs/README.md` ve `docs/product/README.md` çok operatör, faturalama/NGR, kapasite ve operatör bazlı PWA bilgileriyle güncellendi.
+- `docs/product/01-kurulum.md`, `02-yapilandirma.md`, `03-modul-sistemi.md`, `05-api-referansi.md`, `06-sss.md`, `09-bilinen-kisitlar.md`, `11-admin-araclari.md` ve `12-cok-operator.md` kurulum, ortam, API, partner grant, chargeback/risk, ücret takvimi, kapasite ve operasyon akışlarıyla genişletildi.
+- `docs/providers/slikair.md` ve `docs/providers/sumsub-kyc.md` ters kayıt/NGR ücret ve operatör kapsamlı webhook bilgileriyle güncellendi.
+
 ### Kapasite ölçümü (İP-10a)
 
 **Eklendi**

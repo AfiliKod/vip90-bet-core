@@ -1,5 +1,9 @@
 # Installation
 
+## Çok operatörlü merkezi kurulum
+
+Bu belgedeki kurulum sihirbazı tek operatörlü kurulum içindir. Yeni merkezi kurulumda boş bir MongoDB replica set kullanın; mevcut tek-operatör demo verisini çok moda taşımayın. `TENANCY_MODE=multi` ve zorunlu ortam değerlerini ayarlayın, ilk Platform Sahibini `node scripts/platform-bootstrap.mjs --owner-email owner@example.com --password-stdin` ile oluşturun, ardından ilk operatörü platform konsolundan sağlayın. Tam sıra: [12 — Çok Operatörlü Kurulum](12-cok-operator.md#boş-veritabanından-yeni-merkezi-kurulum).
+
 There are two ways: **Docker with a single command** (recommended, fast) and **manual installation** (for those who don't want to use Docker). Both lead to the same result: a working VIP90.bet **core platform** (accounts, wallet, bonuses, KYC, risk, admin panel) + a setup wizard that runs from the browser.
 ## Tek operatör veya çok operatör seçimi
 

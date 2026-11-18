@@ -35,14 +35,14 @@ yet; see the [Roadmap](#roadmap) and [Known Limitations](docs/product/09-bilinen
 
 ---
 
-## Multi-operator platform (1.1.0)
+## Multi-operator platform (1.1.0–1.2.0)
 
-Version 1.1.0 adds one central installation for multiple independent operators. Each operator has isolated data, its own domain, callbacks and branding; Platform Owners use a dedicated console, while partners operate within assigned capabilities. Commission and NGR-based billing produce auditable statements. Existing single-operator installations keep working; read the "Breaking changes" notes in the CHANGELOG before upgrading (for example the site-name fallback). See [the multi-operator guide](docs/product/12-cok-operator.md).
+Version 1.1.0 adds one central installation for multiple independent operators. Each operator has isolated data, its own domain, callbacks and branding; Platform Owners use a dedicated console, while partners operate within assigned capabilities. Version 1.2.0 adds provider fee schedules that feed daily NGR data, capacity measurement for scale thresholds, and a PWA manifest whose install name follows the requesting operator. Existing single-operator installations keep working; read the "Breaking changes" notes in the CHANGELOG before upgrading. See [the multi-operator guide](docs/product/12-cok-operator.md).
 
 ## Contents
 
 - [Highlights](#highlights)
-- [Multi-operator platform (1.1.0)](#multi-operator-platform-110)
+- [Multi-operator platform (1.1.0–1.2.0)](#multi-operator-platform-110120)
 - [Screenshots](#screenshots)
 - [What's Included](#whats-included)
 - [Try it](#try-it)
@@ -62,6 +62,7 @@ Version 1.1.0 adds one central installation for multiple independent operators. 
 | | |
 |---|---|
 | 🛠️ **Full admin panel (core)** | Users, roles/permissions, analytics with live KPIs and revenue charts, theme/brand editor, static page and homepage slider editors, module switches, wallet (bank/crypto/Slikair), help desk, player segmentation, risk/compliance, system health monitoring |
+| 🏢 **Multi-operator operations (1.1.0–1.2.0)** | Isolated operators and verified domains, Platform Owner console, partner portal and scoped grants; NGR/statement billing, provider fee schedules, and measured socket/event-loop/CPU scale signals |
 | 💰 **End-to-end crypto payments (module)** | USDT-TRC20: HD-wallet deposit tracking, automatic or approved withdrawals from a hot wallet, transaction history in the admin panel, Web3 login with a wallet signature |
 | 💳 **Slikair payment gateway (module)** | Card and alternative-method deposits; refund and chargeback notices are verified and reversed on the balance, a chargeback puts the account under risk review; verified with sandbox credentials only, going live requires Slikair KYB |
 | 🪪 **Two KYC options (module)** | Local document review (admin approve/reject queue) or automated verification with Sumsub, selectable in the panel |
@@ -92,7 +93,7 @@ the paid add-ons.
 
 ### 🧱 Core platform
 
-- **Multi-operator layer (1.1.0):** central Platform Owner console, per-tenant host/brand/callback attribution and isolation, partner capabilities and limited grants, NGR commission definitions and CSV statements. Single-operator installs keep working (see the CHANGELOG breaking notes); see the [multi-operator guide](docs/product/12-cok-operator.md).
+- **Multi-operator layer (1.1.0–1.2.0):** central Platform Owner console, per-tenant host/brand/callback attribution and isolation, partner capabilities and limited grants, NGR commission definitions, provider fee schedules and CSV statements. The capacity sampler records scale signals; the PWA install name uses the operator’s branding. Single-operator installs keep working; see the [multi-operator guide](docs/product/12-cok-operator.md).
 
 - Accounts, email verification, password reset; email/password, Google and
   Telegram login, and registration/login with a **Web3 wallet signature**.
@@ -113,7 +114,13 @@ the paid add-ons.
   from a hot wallet.
 - **Slikair** card/alternative payment gateway (sandbox; live use requires
   KYB): verified refunds and chargebacks reverse the deposit on the balance,
-  a chargeback puts the account under review and feeds real data into NGR.
+  a chargeback puts the account under risk review and feeds verified chargeback
+  data into NGR.
+
+### 📊 Billing, NGR and partners
+
+- Platform Owners configure operator fee plans, versioned NGR definitions and provider fee schedules. A tenant-specific provider schedule overrides the platform default; a losing provider day produces no percentage fee. Draft partner statements can be reviewed, issued, adjusted, voided and exported as CSV.
+- Partner portal metrics are aggregated daily, contain no player identities and suppress active-player counts below five. Partner grants are time-limited, scoped and audited.
 - **KYC**: local document review (approve/reject queue) or the **Sumsub**
   integration, one of them selected in the panel.
 
@@ -261,11 +268,12 @@ single-node replica set (multi-document transactions are used).
   `HomeSidebar`) are managed in one place, so copies cannot drift apart.
 - Automated test suite covering auth, betting, wagering, the module gate and
   i18n (`npm test`).
-- **Tenancy layer:** verified host-to-tenant resolution, tenant-scoped data access, per-tenant callback attribution, and separate platform/partner APIs.
+- **Tenancy layer:** verified host-to-tenant resolution, tenant-scoped data access, per-tenant callback attribution, separate platform/partner APIs, and staff/platform scope checks.
+- **Capacity sampler:** every 10 seconds it samples connected sockets and process CPU; every 15 minutes it persists socket p95, event-loop p99 and CPU average for threshold evaluation.
 
 ## Quick Start
 
-For a new central multi-operator installation, do not use the setup wizard: set the multi-mode environment values, run migrations, bootstrap the first Platform Owner, then provision operators from `/console`. The exact checklist is in the [multi-operator guide](docs/product/12-cok-operator.md).
+For a single-operator installation, use the setup wizard below. For a new central multi-operator installation, do not use that wizard: set the multi-mode environment values, run migrations, bootstrap the first Platform Owner, then provision operators from `/console`. The exact [single-versus-multi checklist](docs/product/12-cok-operator.md#new-central-installation-from-an-empty-database) includes the bootstrap command.
 
 ### With Docker (recommended)
 
@@ -317,6 +325,9 @@ npm run test:e2e       # Playwright end-to-end tests
   are constants in `server/src/middleware/rateLimit.js`, not env settings).
 - TOTP 2FA for admins; optional IP/CIDR restriction for `/api/admin/*` with
   `ADMIN_ALLOWED_IPS`, and Cloudflare Turnstile (both off until configured).
+- In multi mode, staff 2FA is mandatory, tenant-owned collections are enforced
+  by the tenancy layer, and platform staff are read-only on tenant routes unless
+  a Platform Owner grants a time-limited, audited write exception.
 - With the `kyc-verification` module on, player withdrawals require an
   approved KYC (`KYC_REQUIRED`).
 - License and permission boundaries enforced at the API level by the module
@@ -324,6 +335,8 @@ npm run test:e2e       # Playwright end-to-end tests
 - Role-based access control (RBAC): every admin endpoint checks a permission.
 - Audit trail for all critical admin actions (player interventions, financial
   operations, KYC decisions, module changes).
+- Billing records and NGR definitions retain their legal retention metadata;
+  multi-mode audit retention is configured with a minimum of five years.
 - Responsible gaming controls: deposit/withdrawal/loss/wager limits, cool-off
   periods, self-exclusion, account restrictions.
 - Live chat moderation: bans, mutes and message deletions are logged with
@@ -347,7 +360,8 @@ Operator documentation lives in [`docs/product/`](docs/product/README.md):
 Payment and KYC integrations included with the core:
 [Crypto Payments — TRC20 USDT](docs/providers/crypto-trc20.md) ·
 [Local (Manual) KYC](docs/providers/local-kyc.md) ·
-[Sumsub KYC](docs/providers/sumsub-kyc.md).
+[Sumsub KYC](docs/providers/sumsub-kyc.md) ·
+[Slikair Payments](docs/providers/slikair.md).
 
 The technical documentation and game maths of the paid add-ons (In-house
 Games, Sports Betting, Casino Content) ship with the add-ons. Release
@@ -366,8 +380,15 @@ not hidden. Full details and code references:
 - **Multi-tier affiliate**: today there is a single tier only. A percentage of
   the house profit an invited user generates goes directly to the person who
   invited them; sub-referrals (tier 2 and beyond) earn nothing yet.
-- **Brand data isolation**: multi-brand management exists, but the core
-  models have no `brandId`, so data isolation is not enforced.
+- **Brand data isolation inside an operator**: operators (tenants) are isolated
+  from each other since 1.1.0, but brands within one operator share its data;
+  the core models carry no `brandId`.
+- **Horizontal scaling beyond measurement (İP-10):** 1.2.0 measures capacity
+  and alerts by threshold; it does not add a distributed scaling controller.
+- **Provider fees outside casino rounds:** provider fee schedules currently
+  aggregate casino-provider GGR only.
+- **A chargeback source other than Slikair:** verified chargeback ingestion is
+  currently implemented for Slikair.
 
 ## Licensing
 

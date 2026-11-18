@@ -1,5 +1,15 @@
 # Frequently Asked Questions
 
+## 1.2.0: sağlayıcı ücretleri, kapasite ve PWA
+
+**Sağlayıcı ücreti NGR'ye nasıl girer?** Platform Sahibi bir `ProviderFeeSchedule` tanımlar. Operatöre özel takvim platform varsayılanını ezer. Pozitif casino sağlayıcı GGR'si `rateOfGgr` ile günlük `providerFees` olur; negatif GGR'de oranlı ücret sıfırdır. NGR bunu `provider_fee` + `stat_field: providerFees` olarak bir kez düşer. `minimumMonthlyFee` günlük hesapta uygulanmaz.
+
+**Kapasite durumu ne anlatır?** Örnekleyici 10 saniyede ölçer, 15 dakikalık pencerede soket p95/event-loop p99/CPU ortalamasını değerlendirir. `approaching` (%70) planlama, `exceeded` müdahale sinyalidir; sistem otomatik ölçeklemez.
+
+**PWA kurulum adı neden operatöre göre değişir?** `/manifest.webmanifest` sunucudan gelir ve istek ana makinesinin site adı/ana rengini kullanır; ayar yoksa tenant adı geri dönüş değeridir.
+
+**Chargeback sonrası bakiye neden negatif olabilir?** Doğrulanmış Slikair chargeback'i önceki yatırımı geri alır. Oyuncu bakiyeyi kullandıysa sonuç negatif olur; bakiye kuralları yeni bahis ve çekimi engeller, olay `PSP_CHARGEBACK` risk incelemesine gider.
+
 This list was compiled from real buyer questions on similar products — the goal is to leave no ambiguity before purchase.
 
 **What is included, which parts are sold separately?**
