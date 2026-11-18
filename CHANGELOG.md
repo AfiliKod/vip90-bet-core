@@ -40,6 +40,16 @@ Madde formatı ve kategoriler için `docs/CHANGELOG_GUIDE.md`'ye bakın —
   günlüğüne bir kez `[capacity]` uyarısı yazılır; çok modda ayrıca platform
   personeli için sistem etkinlik kaydı (AuditLog, `actorType: system`)
   oluşturulur.
+### PWA manifest artık kurulumun/operatörün markasıyla sunuluyor
+
+**Düzeltildi**
+- **İstemci derlemesi sabit `manifest.webmanifest` üretmiyor.** Build, çekirdek ürün adıyla bir manifest üretiyor ve service worker onu precache'leyip sunucunun `/manifest.webmanifest` yanıtını gölgeliyordu; kurulan uygulamalar hiçbir zaman operatörün adını ve rengini görmüyordu. `index.html` artık bu rotaya bağlanır; manifest precache listesine girmez, uygulama ikonları precache'te kalır. Tek modda manifest adı ayarlardaki site adından, çok modda istek host'una çözülen operatörden gelir (İP-8 rotası).
+- Build sonrası `client/scripts/__tests__/pwa-build-check.mjs` gerçek `dist/sw.js` precache listesini denetler: manifest precache edilirse ya da build sabit bir manifest dosyası üretirse derleme kırılır.
+
+### Demo veri seed'leri sabit tohumla deterministik üretilebilir
+
+**Değişti**
+- Demo veri üreticileri rastgeleliği artık tek ve enjekte edilebilir bir kaynaktan alır (`randomUtils.setRandomSource`); varsayılan `Math.random` olduğu için çalışma zamanı üretimi değişmez. `demoData-seed-economics` testi sabit tohumlu PRNG (mulberry32) kullanır; spor marjı bandının aralıklı düşmesi giderildi.
 
 ## [1.1.0] — 2026-11-13
 

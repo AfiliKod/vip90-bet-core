@@ -13,16 +13,35 @@ import ActivityEvent from '../src/models/ActivityEvent.js';
 import { _setIOGetter, _getIOGetter } from '../src/services/activityFeed.js';
 import * as casinoSeed from '../src/services/demoData/casinoSeed.js';
 import * as sportsSeed from '../src/services/demoData/sportsSeed.js';
+import { setRandomSource } from '../src/services/demoData/randomUtils.js';
 
 const ORIGINAL_IO_GETTER = _getIOGetter();
+
+// Seed'ler varsayılan olarak Math.random kullanır; burada sabit tohumlu bir
+// PRNG enjekte edilir ki üretim her koşuda birebir aynı olsun ve bant
+// kontrolleri rastgeleliğe bağlı kalmadan kararlı kalsın.
+const FIXED_SEED = 0x5eed2026;
+
+function mulberry32(seed) {
+  let a = seed >>> 0;
+  return function next() {
+    a = (a + 0x6d2b79f5) >>> 0;
+    let t = a;
+    t = Math.imul(t ^ (t >>> 15), t | 1);
+    t ^= t + Math.imul(t ^ (t >>> 7), t | 61);
+    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+  };
+}
 
 describe('demoData seed ekonomisi — pozitif house-edge', () => {
   before(async () => {
     _setIOGetter(() => null);
+    setRandomSource(mulberry32(FIXED_SEED));
     await mongoose.connect('mongodb://localhost:27017/betzone_test_demo_data_economics');
   });
   after(async () => {
     _setIOGetter(ORIGINAL_IO_GETTER);
+    setRandomSource(Math.random);
     await mongoose.disconnect();
   });
   beforeEach(async () => {

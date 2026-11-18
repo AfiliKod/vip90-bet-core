@@ -1,9 +1,22 @@
+// Demo seed'lerin tek rastgelelik kaynağı. Varsayılan Math.random'dır; testler
+// sabit tohumlu bir PRNG enjekte edip üretimi deterministik yapabilir
+// (bkz. demoData-seed-economics.test.js). Çalışma zamanı davranışı değişmez.
+let randomSource = Math.random;
+
+export function setRandomSource(fn = Math.random) {
+  randomSource = fn;
+}
+
+export function random() {
+  return randomSource();
+}
+
 export function randomInt(min, max) {
-  return Math.floor(Math.random() * (max - min + 1)) + min;
+  return Math.floor(random() * (max - min + 1)) + min;
 }
 
 export function randomFloat(min, max, decimals = 2) {
-  return parseFloat((Math.random() * (max - min) + min).toFixed(decimals));
+  return parseFloat((random() * (max - min) + min).toFixed(decimals));
 }
 
 export function pick(arr) {
@@ -12,7 +25,7 @@ export function pick(arr) {
 
 export function pickWeighted(weightedEntries) {
   const total = weightedEntries.reduce((sum, [, weight]) => sum + weight, 0);
-  let r = Math.random() * total;
+  let r = random() * total;
   for (const [value, weight] of weightedEntries) {
     if (r < weight) return value;
     r -= weight;
@@ -21,5 +34,5 @@ export function pickWeighted(weightedEntries) {
 }
 
 export function randomPastDate(maxDaysAgo) {
-  return new Date(Date.now() - Math.random() * maxDaysAgo * 24 * 60 * 60 * 1000);
+  return new Date(Date.now() - random() * maxDaysAgo * 24 * 60 * 60 * 1000);
 }
