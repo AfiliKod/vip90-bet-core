@@ -7,7 +7,7 @@ import * as riskSeed from './riskSeed.js';
 import * as ticketSeed from './ticketSeed.js';
 import * as agentSeed from './agentSeed.js';
 import * as paymentRequestSeed from './paymentRequestSeed.js';
-import { pickWeighted } from './randomUtils.js';
+import { random, pickWeighted } from './randomUtils.js';
 
 export const CATEGORY_IDS = ['users', 'sports', 'casino', 'kyc', 'risk', 'tickets', 'agents', 'payments'];
 
@@ -57,7 +57,7 @@ export async function getStatus() {
 }
 
 export async function runLiveTick() {
-  const tickCount = Math.random() < 0.3 ? 2 : 1;
+  const tickCount = random() < 0.3 ? 2 : 1;
   const results = [];
   for (let i = 0; i < tickCount; i++) {
     const category = pickWeighted(LIVE_TICK_WEIGHTS);

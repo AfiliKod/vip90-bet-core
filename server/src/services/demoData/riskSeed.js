@@ -7,7 +7,7 @@ import RiskFinding from '../../models/RiskFinding.js';
 import { evaluateRisk } from '../riskEngine.js';
 import { initDefaultRules } from '../riskRule.js';
 import { getSeedUserPool, load as loadUsers } from './userSeed.js';
-import { pick } from './randomUtils.js';
+import { random, pick } from './randomUtils.js';
 
 // Her context, initDefaultRules varsayılan setinden TAM olarak 1 kuralı eşleştirir
 // (eksik alanlar evaluateCondition'da false döner — bkz. riskRule.js).
@@ -59,7 +59,7 @@ export async function load(count) {
   let created = 0;
   for (let batchStart = 0; batchStart < count; batchStart += SEED_BATCH_SIZE) {
     const batchCount = Math.min(SEED_BATCH_SIZE, count - batchStart, pool.length);
-    const batchPlayers = [...pool].sort(() => Math.random() - 0.5).slice(0, batchCount);
+    const batchPlayers = [...pool].sort(() => random() - 0.5).slice(0, batchCount);
     // Toplu seed activity feed'i spamlememeli (insertMany backfill davranışıyla aynı)
     await Promise.all(batchPlayers.map((player, i) => {
       const scenario = SCENARIOS[(batchStart + i) % SCENARIOS.length];
