@@ -90,6 +90,10 @@ Aynı maliyet iki kez düşülemez: etkin kategori bir kez kullanılabilir (yaln
 
 `SCOPE_GATE_ENV` ayarlıysa kapsam ihlalleri UTC gününe göre kalıcı olarak sayılır. Konsol; staging için ardışık 14 temiz gün, production için ardışık 7 temiz gün ister. Değişken boşsa ölçüm başlatılmaz; bu, çok moddaki zorunlu `enforce` davranışını değiştirmez.
 
+## Kapasite ölçümü (İP-10a)
+
+Platform konsolundaki "Kapasite Ölçümü" kartı, N6 kapılarının yanında son tamamlanmış 15 dakikalık pencerenin değerlendirmesini gösterir: eşzamanlı soket p95, event loop gecikmesi p99 (ms) ve süreç CPU ortalaması (%). Her metrik `ok`, `approaching` (eşiğin %70'i) veya `exceeded` durumundadır; CPU'da `exceeded` için son 7 günde en az 3 pencerenin %70 eşiğini aşması gerekir. Varsayılan eşikler soket p95 2000, event loop p99 100 ms, CPU %70'tir; `CAPACITY_SOCKETS_P95`, `CAPACITY_EVENT_LOOP_P99_MS`, `CAPACITY_CPU_PCT` ile değiştirilebilir. Aynı veri `GET /api/platform/system/capacity` rotasından (`platform:tenants:manage` izni) okunur. Durum `approaching`/`exceeded`'a her değişimde sunucu günlüğüne bir `[capacity]` uyarısı yazılır ve platform personeli için bir etkinlik kaydı (AuditLog, `actorType: system`) oluşturulur. Ölçüm her iki modda çalışır; tek modda yalnız günlük uyarısı yazılır, etkinlik kaydı çok moda özgüdür.
+
 ## Sık hatalar
 
 | Kod | Anlamı | Yapılacak işlem |

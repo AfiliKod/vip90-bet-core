@@ -35,6 +35,7 @@ import { initDefaultSmsSender } from './services/smsSender.js';
 import { assertTenancyStartup, getTenancyMode, refreshTenantIdBackfillGate } from './config/tenancy.js';
 import { runTenancyBoot } from './tenancy/defaultTenant.js';
 import { startDemoJobs } from './jobs/demoJobs.js';
+import { startCapacitySampler } from './services/capacityMetrics.js';
 
 try {
   assertTenancyStartup();
@@ -219,6 +220,8 @@ connectDB()
     initDefaultSmsTemplates().catch(err => console.error('initDefaultSmsTemplates error:', err.message));
     initDefaultSmsSender().catch(err => console.error('initDefaultSmsSender error:', err.message));
     initSocket(io);
+    // İP-10a: capacity measurement runs in both modes until the İP-10 thresholds.
+    startCapacitySampler({ io });
     initCrashGameNamespace(io);
     initRouletteGameNamespace(io);
     startCleanupJob();

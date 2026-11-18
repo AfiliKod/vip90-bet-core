@@ -18,6 +18,28 @@ Madde formatı ve kategoriler için `docs/CHANGELOG_GUIDE.md`'ye bakın —
 
 ## [Yayınlanmadı]
 
+### Kapasite ölçümü (İP-10a)
+
+**Eklendi**
+- Sunucu her iki modda 10 saniyede bir kapasite örneği alır (bağlı soket sayısı,
+  event loop gecikmesi, süreç CPU kullanımı) ve 15 dakikalık pencereler hâlinde
+  platform koleksiyonu `CapacityWindow`'a yazar (soket p95, event loop p99 ms,
+  CPU ort. %; 90 gün TTL). Ölçüm zamanlayıcısı süreci açık tutmaz.
+- `GET /api/health/status` yanıtına `capacity` alanı eklendi
+  (`{ state, sockets, eventLoop, cpu }`); mevcut alanlar değişmedi. İlk pencere
+  tamamlanmadan değerler `null`, durum `ok`'dır.
+- Çok modda `GET /api/platform/system/capacity` rotası
+  (`platform:tenants:manage`) ve Platform Sahibi konsolunda N6 kapılarının
+  yanında "Kapasite Ölçümü" kartı eklendi.
+- Eşikler: soket p95 > 2000, event loop p99 > 100 ms, CPU ort. > %70 (15
+  dakikalık pencere); eşiğin %70'i "eşiğe yaklaşıyor" sayılır. CPU'da "aşıldı"
+  durumu son 7 günde en az 3 pencere eşiği aşınca oluşur. Eşikler
+  `CAPACITY_SOCKETS_P95`, `CAPACITY_EVENT_LOOP_P99_MS`, `CAPACITY_CPU_PCT` ile
+  değiştirilebilir; boş/geçersiz değer varsayılana düşer.
+- Bir metriğin durumu "eşiğe yaklaşıyor"/"aşıldı"ya her değişimde sunucu
+  günlüğüne bir kez `[capacity]` uyarısı yazılır; çok modda ayrıca platform
+  personeli için sistem etkinlik kaydı (AuditLog, `actorType: system`)
+  oluşturulur.
 ### İP-9f: sağlayıcı sözleşme ücretleri
 
 **Eklendi**

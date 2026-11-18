@@ -59,6 +59,7 @@ Bu iki grup yalnız TENANCY_MODE=multi altında sunulur; tek modda 404 döner. P
 | Yöntem | Yol | İzin | Kısa amaç |
 |---|---|---|---|
 | GET | /api/platform/system/scope-gates | platform:tenants:manage | N6 kapsam kapılarını okur. |
+| GET | /api/platform/system/capacity | platform:tenants:manage | İP-10a kapasite değerlendirmesini okur (son 15 dakikalık pencere; soket p95, event loop p99, CPU). |
 | GET, POST | /api/platform/tenants | platform:tenants:manage | Operatörleri listeler veya sağlar. |
 | GET | /api/platform/tenants/:id | platform:tenants:manage | Operatör ve canlıya alma listesini gösterir. |
 | PATCH | /api/platform/tenants/:id/status | platform:tenants:manage | Operatör durumunu değiştirir. |
@@ -644,5 +645,5 @@ Destructive/financial endpoints additionally apply `blockDemoAdmin` (marked belo
 | Method + Path | Auth | Notes |
 |---|---|---|
 | `GET /api/health` | Public | `{ ok: true, env }` — uptime monitoring |
-| `GET /api/health/status` | Public | `{ api, db, igames, oddsSource, payment, onlineCount, sync }` — deep health, not cached |
+| `GET /api/health/status` | Public | `{ api, db, igames, oddsSource, payment, onlineCount, sync, capacity }` — deep health, not cached. `capacity` (İP-10a) is the latest 15-minute window evaluation: `{ state, sockets, eventLoop, cpu }`, each metric `{ value, state, threshold }` with `state` `ok`/`approaching`/`exceeded` (`cpu` also carries `windowsOverThreshold` and `requiredWindows: 3`); before the first completed window the values are `null` and the state is `ok` |
 | `GET /api/img?url=` | Public | Hotlink-protected CDN image proxy (only accepts `image/*` content-type) |
