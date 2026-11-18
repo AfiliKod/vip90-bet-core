@@ -116,6 +116,14 @@ export default function BillingDashboard() {
         h(
           'a',
           {
+            href: '/console/billing/provider-fees',
+            className: 'px-3 py-2 text-xs font-medium text-slate-200 bg-slate-800 hover:bg-slate-700 rounded-md border border-slate-700 transition-colors',
+          },
+          'Sağlayıcı Ücretleri'
+        ),
+        h(
+          'a',
+          {
             href: '/console/billing/statements',
             className: 'px-3 py-2 text-xs font-medium text-white bg-indigo-600 hover:bg-indigo-700 rounded-md shadow-sm transition-colors',
           },

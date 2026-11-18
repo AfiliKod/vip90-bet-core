@@ -38,6 +38,11 @@ import {
   exportStatementCsvHandler,
 } from '../controllers/platformBillingController.js';
 import {
+  listProviderFeeSchedules,
+  createProviderFeeSchedule,
+  closeProviderFeeSchedule,
+} from '../controllers/providerFeeSchedulesController.js';
+import {
   listNgrDefinitions,
   getNgrDefinition,
   createNgrDefinition,
@@ -76,6 +81,9 @@ export function createPlatformRouter() {
   router.patch('/partners/:id', requireStaffPermission(PARTNERS_MANAGE), updatePartner);
   router.get('/billing/plans', requireStaffPermission(BILLING_READ), listOperatorFeePlans);
   router.post('/billing/plans', requireStaffPermission(BILLING_MANAGE), createOrUpdateFeePlan);
+  router.get('/billing/provider-fee-schedules', requireStaffPermission(BILLING_READ), listProviderFeeSchedules);
+  router.post('/billing/provider-fee-schedules', requireStaffPermission(BILLING_MANAGE), createProviderFeeSchedule);
+  router.post('/billing/provider-fee-schedules/:id/close', requireStaffPermission(BILLING_MANAGE), closeProviderFeeSchedule);
   router.get('/billing/ngr-definitions', requireStaffPermission(BILLING_READ), listNgrDefinitions);
   router.post('/billing/ngr-definitions', requireStaffPermission(BILLING_MANAGE), createNgrDefinition);
   router.get('/billing/ngr-definitions/:id', requireStaffPermission(BILLING_READ), getNgrDefinition);

@@ -4,11 +4,24 @@ import Transaction from '../models/Transaction.js';
 import Bet from '../models/Bet.js';
 import CasinoRound from '../models/CasinoRound.js';
 import TenantDailyStat from '../models/TenantDailyStat.js';
+import ProviderFeeSchedule from '../models/ProviderFeeSchedule.js';
 import { runAsPlatform } from '../tenancy/context.js';
+import { fromMinorUnits, multiplyMinorUnitsByRate, toMinorUnits } from '../platform/services/commissionCalculator.js';
 
 const DAY_MS = 86_400_000;
 const DEPOSIT_TYPES = ['deposit', 'crypto_deposit'];
 const WITHDRAW_TYPES = ['withdraw', 'crypto_withdraw'];
+
+function activeProviderFeeSchedule(schedules, tenantId, provider, dayStart) {
+  const isActive = (schedule) => {
+    const from = new Date(schedule.validFrom).getTime();
+    const to = schedule.validTo ? new Date(schedule.validTo).getTime() : null;
+    return schedule.provider === provider && from <= dayStart.getTime() && (to === null || to > dayStart.getTime());
+  };
+
+  return schedules.find((schedule) => String(schedule.tenantId) === String(tenantId) && isActive(schedule))
+    || schedules.find((schedule) => schedule.tenantId === null && isActive(schedule));
+}
 
 // Recompute one tenant/day/currency row; bot, seed and demo activity is excluded (spec §4.3.6).
 export async function aggregateTenantDailyStat(tenantId, dateStr, { currency = 'TRY', brandId = null } = {}) {
@@ -29,7 +42,7 @@ export async function aggregateTenantDailyStat(tenantId, dateStr, { currency = '
       userId: { $nin: excludedUserIds },
     };
 
-    const [depositRows, withdrawRows, casinoRows, sportsRows, bonusRows, chargebackRows, newPlayers] = await Promise.all([
+    const [depositRows, withdrawRows, casinoRows, providerCasinoRows, sportsRows, bonusRows, chargebackRows, newPlayers] = await Promise.all([
       Transaction.aggregate([
         { $match: { ...dayMatch, type: { $in: DEPOSIT_TYPES }, status: 'completed', currency } },
         { $group: { _id: null, total: { $sum: '$amount' }, players: { $addToSet: '$userId' } } },
@@ -42,6 +55,10 @@ export async function aggregateTenantDailyStat(tenantId, dateStr, { currency = '
       CasinoRound.aggregate([
         { $match: { ...dayMatch, currency } },
         { $group: { _id: null, turnover: { $sum: '$bet' }, ggr: { $sum: { $subtract: ['$bet', '$payout'] } }, players: { $addToSet: '$userId' } } },
+      ]),
+      CasinoRound.aggregate([
+        { $match: { ...dayMatch, currency } },
+        { $group: { _id: '$provider', ggr: { $sum: { $subtract: ['$bet', '$payout'] } } } },
       ]),
       Bet.aggregate([
         { $match: { ...dayMatch, currency, status: { $ne: 'cancelled' } } },
@@ -92,6 +109,28 @@ export async function aggregateTenantDailyStat(tenantId, dateStr, { currency = '
       { $count: 'count' },
     ]);
 
+    const providers = providerCasinoRows.map((row) => row._id).filter(Boolean);
+    const schedules = providers.length === 0 ? [] : await ProviderFeeSchedule.find({
+      provider: { $in: providers },
+      tenantId: { $in: [tid, null] },
+      validFrom: { $lte: start },
+      $or: [{ validTo: null }, { validTo: { $gt: start } }],
+    }).lean();
+
+    const providerFeesByProvider = {};
+    let providerFeesCents = 0;
+    for (const row of providerCasinoRows) {
+      if (!row._id) continue;
+      const ggrCents = toMinorUnits(row.ggr || 0);
+      const schedule = activeProviderFeeSchedule(schedules, tid, row._id, start);
+      // A provider with a losing day has no daily contracted percentage fee.
+      const feeCents = ggrCents > 0 && schedule
+        ? multiplyMinorUnitsByRate(ggrCents, schedule.rateOfGgr)
+        : 0;
+      providerFeesByProvider[row._id] = fromMinorUnits(feeCents);
+      providerFeesCents += feeCents;
+    }
+
     return TenantDailyStat.findOneAndUpdate(
       { tenantId: tid, brandId, date: dateStr, currency },
       {
@@ -103,7 +142,8 @@ export async function aggregateTenantDailyStat(tenantId, dateStr, { currency = '
           bonusCost: bonusRows[0]?.total ?? 0,
           chargebacks: chargebackRows[0]?.total ?? 0,
           chargebackCount: chargebackRows[0]?.count ?? 0,
-          providerFees: 0, // Source documented: external game provider invoices not ingested in core database
+          providerFees: fromMinorUnits(providerFeesCents),
+          providerFeesByProvider,
           deposits: depositRows[0]?.total ?? 0,
           withdrawals: withdrawRows[0]?.total ?? 0,
           activePlayers: activeIds.size,

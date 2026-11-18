@@ -109,7 +109,7 @@ test('partner view applies small-cell suppression for activePlayers < 5 and excl
   assert.equal(rows[0].username, undefined);
 });
 
-test('aggregateTenantDailyStat sets chargebacks and providerFees to 0 and does not derive chargebacks from reversals or refunds', async () => {
+test('aggregateTenantDailyStat leaves providerFees at 0 without an applicable schedule and does not derive chargebacks from reversals or refunds', async () => {
   const T2 = new mongoose.Types.ObjectId();
   const U2 = new mongoose.Types.ObjectId();
   const DAY = '2026-11-15';
@@ -149,9 +149,9 @@ test('aggregateTenantDailyStat sets chargebacks and providerFees to 0 and does n
   const stat = await aggregateTenantDailyStat(T2, DAY, { currency: 'TRY' });
   // Per Reviewer Correction (2026-11-13, K28): reversals and refunds are not chargebacks; leaves chargebacks at 0
   assert.equal(stat.chargebacks, 0);
-  assert.equal(stat.providerFees, 0);
+  assert.equal(stat.providerFees, 0); // No provider GGR/schedule exists for this tenant/day.
 
-  // Verify partner view includes chargebacks and providerFees (both 0)
+  // Verify partner view includes chargebacks and providerFees (both 0 here).
   const rows = await getPartnerDailyMetrics({ tenantId: T2, from: DAY, to: DAY });
   assert.equal(rows.length, 1);
   assert.equal(rows[0].chargebacks, 0);
