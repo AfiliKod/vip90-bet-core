@@ -4,7 +4,7 @@ import crypto from 'crypto';
 import User from '../../models/User.js';
 import Transaction from '../../models/Transaction.js';
 import ActivityEvent from '../../models/ActivityEvent.js';
-import { randomInt, randomFloat, pick, randomPastDate } from './randomUtils.js';
+import { random, randomInt, randomFloat, pick, randomPastDate } from './randomUtils.js';
 
 const SEED_DOMAIN = 'seed.local';
 // Güvenlik (2026-10-03): seed kullanıcılar eskiden kaynakta açık duran tek bir
@@ -53,7 +53,7 @@ function toAsciiSlug(str) {
 function randomHumanIdentity() {
   const suffix = randomInt(1000, 9999);
   let displayName, slug;
-  if (Math.random() < 0.5) {
+  if (random() < 0.5) {
     const first = pick(FIRST_NAMES);
     const last = pick(LAST_NAMES);
     displayName = `${first} ${last}`;

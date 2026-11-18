@@ -2,7 +2,7 @@
 import Event from '../../models/Event.js';
 import Bet from '../../models/Bet.js';
 import { getSeedUserPool, load as loadUsers } from './userSeed.js';
-import { randomFloat, pick, randomPastDate } from './randomUtils.js';
+import { random, randomFloat, pick, randomPastDate } from './randomUtils.js';
 
 const DEMO_LEAGUE = 'SEEDLIG';
 const TEAMS = ['Seed United', 'Seed City', 'Seed Athletic', 'Seed Rovers', 'Seed Wanderers', 'Seed Town'];
@@ -64,7 +64,7 @@ export async function load(count) {
     // E[ggr] = stake·(1−0.94) = +0.06·stake (her odd için pozitif house edge).
     // Eski sabit %40 kazanma (E[odd]≈2.77) −%10.7 EV üretip GGR'yi negatife çeviriyordu.
     const winProb = (1 / odd.value) * 0.94;
-    const outcome = Math.random() < winProb ? 'won' : 'lost';
+    const outcome = random() < winProb ? 'won' : 'lost';
     const createdAt = randomPastDate(90);
     docs.push({
       userId: user._id,
@@ -111,7 +111,7 @@ export async function liveTick() {
   await bet.save();
 
   const winProb = (1 / odd.value) * 0.94;
-  const outcome = Math.random() < winProb ? 'won' : 'lost';
+  const outcome = random() < winProb ? 'won' : 'lost';
   bet.status = outcome;
   bet.selections[0].outcome = outcome;
   bet.settledAt = new Date();

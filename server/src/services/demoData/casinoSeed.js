@@ -1,7 +1,7 @@
 // server/src/services/demoData/casinoSeed.js
 import CasinoRound from '../../models/CasinoRound.js';
 import { getSeedUserPool, load as loadUsers } from './userSeed.js';
-import { randomFloat, pick, randomPastDate } from './randomUtils.js';
+import { random, randomFloat, pick, randomPastDate } from './randomUtils.js';
 
 const SEED_GAMES = [
   { gameId: 'dice', gameTitle: 'Dice' },
@@ -27,7 +27,7 @@ function randomRound(userId, isSeed, createdAt) {
   // Eski oran (p=0.45, m=5) RTP=%135 üretiyordu → analytics GGR = −net
   // formülüyle seed'i kar-ZARAR hesabında oyuncu lehine çevirip
   // Dashboard combined total'i negatife çekiyordu (₺-43.4B = −43.4k).
-  const win = Math.random() < 0.40;
+  const win = random() < 0.40;
   const payout = win ? randomFloat(bet, bet * 3.8) : 0;
   return {
     userId, gameId: game.gameId, gameTitle: game.gameTitle, provider: 'inhouse',

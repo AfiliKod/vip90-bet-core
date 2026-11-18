@@ -7,6 +7,8 @@ import manifestRoutes from '../src/routes/manifest.js';
 import Tenant from '../src/models/Tenant.js';
 import Brand from '../src/models/Brand.js';
 import { runWithTenant } from '../src/tenancy/context.js';
+import { setDefaultTenantId } from '../src/tenancy/defaultTenantId.js';
+import { setBrandingField, invalidateBranding } from '../src/branding/index.js';
 
 const TEST_DB = process.env.TENANCY_TEST_MONGO || 'mongodb://127.0.0.1:27017/vip90_test_ip8_t5_manifest';
 const T1 = new mongoose.Types.ObjectId();
@@ -58,5 +60,22 @@ test('manifest endpoint serves application/manifest+json with no-cache headers',
     assert.equal(body.name, 'Alpha Bet');
   } finally {
     server.close();
+  }
+});
+
+test('single mode manifest name comes from the saved site name setting', async () => {
+  const savedMode = process.env.TENANCY_MODE;
+  process.env.TENANCY_MODE = 'single';
+  setDefaultTenantId(T1);
+  try {
+    await setBrandingField('siteName', 'Settings Brand', null);
+    const m = await buildManifestPayload();
+    assert.equal(m.name, 'Settings Brand');
+    assert.equal(m.short_name, 'Settings Brand');
+  } finally {
+    setDefaultTenantId(null);
+    invalidateBranding();
+    if (savedMode === undefined) delete process.env.TENANCY_MODE;
+    else process.env.TENANCY_MODE = savedMode;
   }
 });
