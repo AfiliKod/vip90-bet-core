@@ -11,7 +11,7 @@ import {
   requirePlatformOwner,
 } from '../controllers/platformTenantsController.js';
 import { listDomains, verifyDns, refreshTls } from '../controllers/platformDomainsController.js';
-import { getScopeGates } from '../controllers/platformSystemController.js';
+import { getScopeGates, getCapacity } from '../controllers/platformSystemController.js';
 import { listPlatformStaff } from '../controllers/platformStaffController.js';
 import {
   listPartners,
@@ -58,6 +58,7 @@ export function createPlatformRouter() {
   router.use(requireStaff('platform'));
 
   router.get('/system/scope-gates', requireStaffPermission(TENANTS_MANAGE), getScopeGates);
+  router.get('/system/capacity', requireStaffPermission(TENANTS_MANAGE), getCapacity);
   router.get('/tenants', requireStaffPermission(TENANTS_MANAGE), listTenants);
   router.post('/tenants', requireStaffPermission(TENANTS_MANAGE), createTenant);
   router.get('/tenants/:id', requireStaffPermission(TENANTS_MANAGE), getTenant);

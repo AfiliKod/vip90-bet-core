@@ -3,9 +3,24 @@ import apiClient from '../api/client.js';
 
 const h = React.createElement;
 
+const CAPACITY_STATE_META = {
+  ok: { label: 'Normal', className: 'bg-emerald-950 text-emerald-400 border border-emerald-500/40' },
+  approaching: { label: 'Eşiğe Yaklaşıyor', className: 'bg-amber-950 text-amber-400 border border-amber-500/40' },
+  exceeded: { label: 'Eşik Aşıldı', className: 'bg-rose-950 text-rose-400 border border-rose-500/40' },
+};
+
+function capacityBadge(metric) {
+  if (!metric || metric.value === null || metric.value === undefined) {
+    return h('span', { className: 'px-2.5 py-0.5 rounded text-xs font-semibold bg-slate-900 text-slate-400 border border-slate-700' }, 'Ölçüm Bekleniyor');
+  }
+  const meta = CAPACITY_STATE_META[metric.state] || CAPACITY_STATE_META.ok;
+  return h('span', { className: `px-2.5 py-0.5 rounded text-xs font-semibold ${meta.className}` }, meta.label);
+}
+
 export default function Dashboard() {
   const [tenants, setTenants] = useState([]);
   const [scopeGates, setScopeGates] = useState(null);
+  const [capacity, setCapacity] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
 
@@ -17,9 +32,10 @@ export default function Dashboard() {
     setLoading(true);
     setError(null);
     try {
-      const [tRes, gRes] = await Promise.allSettled([
+      const [tRes, gRes, cRes] = await Promise.allSettled([
         apiClient.get('/tenants'),
         apiClient.get('/system/scope-gates'),
+        apiClient.get('/system/capacity'),
       ]);
 
       if (tRes.status === 'fulfilled') {
@@ -27,6 +43,9 @@ export default function Dashboard() {
       }
       if (gRes.status === 'fulfilled') {
         setScopeGates(gRes.value.data);
+      }
+      if (cRes.status === 'fulfilled') {
+        setCapacity(cRes.value.data);
       }
     } catch (err) {
       setError('Genel bakış verileri yüklenirken bir sorun oluştu.');
@@ -254,6 +273,87 @@ export default function Dashboard() {
             h('span', null, `Son İhlal: ${productionGate.lastViolationDay || 'Kayıt Yok'}`)
           )
         )
+      )
+    ),
+
+    // İP-10a Capacity Measurement Card
+    h(
+      'div',
+      { className: 'bg-slate-800 border border-slate-700 rounded-xl p-6 space-y-6' },
+      h(
+        'div',
+        { className: 'flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 border-b border-slate-700 pb-3' },
+        h(
+          'div',
+          null,
+          h('h2', { className: 'text-lg font-semibold text-white' }, 'Kapasite Ölçümü (İP-10 Eşikleri)'),
+          h(
+            'p',
+            { className: 'text-xs text-slate-400 mt-0.5' },
+            '15 dakikalık pencerelerde soket p95, event loop gecikmesi p99 ve süreç CPU ortalaması ölçülür. Eşiğin %70\'ine ulaşmak İP-10 (yatay ölçek) tasarımını başlatır; CPU eşiği son 7 günde en az 3 pencere aşılınca geçer.'
+          )
+        ),
+        capacityBadge(capacity ? { value: 1, state: capacity.state } : null)
+      ),
+      h(
+        'div',
+        { className: 'grid grid-cols-1 md:grid-cols-3 gap-6' },
+        [
+          {
+            key: 'sockets',
+            title: 'Eşzamanlı Soket (p95)',
+            metric: capacity?.sockets,
+            format: (v) => `${v}`,
+            thresholdText: (t) => `Eşik: ${t}`,
+          },
+          {
+            key: 'eventLoop',
+            title: 'Event Loop Gecikmesi (p99)',
+            metric: capacity?.eventLoop,
+            format: (v) => `${v} ms`,
+            thresholdText: (t) => `Eşik: ${t} ms`,
+          },
+          {
+            key: 'cpu',
+            title: 'Süreç CPU (ort.)',
+            metric: capacity?.cpu,
+            format: (v) => `%${v}`,
+            thresholdText: (t) => `Eşik: %${t}`,
+          },
+        ].map((item) =>
+          h(
+            'div',
+            { key: item.key, className: 'p-5 bg-slate-900/80 rounded-xl border border-slate-700 space-y-3' },
+            h(
+              'div',
+              { className: 'flex justify-between items-center gap-2' },
+              h('h3', { className: 'font-semibold text-white text-sm' }, item.title),
+              capacityBadge(item.metric)
+            ),
+            h(
+              'p',
+              { className: 'text-2xl font-bold text-white' },
+              item.metric && item.metric.value !== null && item.metric.value !== undefined
+                ? item.format(item.metric.value)
+                : '—'
+            ),
+            h(
+              'div',
+              { className: 'pt-2 border-t border-slate-800 flex justify-between text-[11px] text-slate-400' },
+              h('span', null, item.metric ? item.thresholdText(item.metric.threshold) : ''),
+              item.key === 'cpu' && item.metric
+                ? h('span', null, `Son 7 gün eşik üstü: ${item.metric.windowsOverThreshold ?? 0} / ${item.metric.requiredWindows ?? 3}`)
+                : null
+            )
+          )
+        )
+      ),
+      h(
+        'p',
+        { className: 'text-[11px] text-slate-500' },
+        capacity?.windowStart
+          ? `Son pencere başlangıcı: ${new Date(capacity.windowStart).toLocaleString('tr-TR')}`
+          : 'Henüz tamamlanmış 15 dakikalık ölçüm penceresi yok; sunucu başladıktan sonra ilk pencere 15 dakika içinde yazılır.'
       )
     ),
 

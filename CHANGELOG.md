@@ -18,6 +18,29 @@ Madde formatı ve kategoriler için `docs/CHANGELOG_GUIDE.md`'ye bakın —
 
 ## [Yayınlanmadı]
 
+### Kapasite ölçümü (İP-10a)
+
+**Eklendi**
+- Sunucu her iki modda 10 saniyede bir kapasite örneği alır (bağlı soket sayısı,
+  event loop gecikmesi, süreç CPU kullanımı) ve 15 dakikalık pencereler hâlinde
+  platform koleksiyonu `CapacityWindow`'a yazar (soket p95, event loop p99 ms,
+  CPU ort. %; 90 gün TTL). Ölçüm zamanlayıcısı süreci açık tutmaz.
+- `GET /api/health/status` yanıtına `capacity` alanı eklendi
+  (`{ state, sockets, eventLoop, cpu }`); mevcut alanlar değişmedi. İlk pencere
+  tamamlanmadan değerler `null`, durum `ok`'dır.
+- Çok modda `GET /api/platform/system/capacity` rotası
+  (`platform:tenants:manage`) ve Platform Sahibi konsolunda N6 kapılarının
+  yanında "Kapasite Ölçümü" kartı eklendi.
+- Eşikler: soket p95 > 2000, event loop p99 > 100 ms, CPU ort. > %70 (15
+  dakikalık pencere); eşiğin %70'i "eşiğe yaklaşıyor" sayılır. CPU'da "aşıldı"
+  durumu son 7 günde en az 3 pencere eşiği aşınca oluşur. Eşikler
+  `CAPACITY_SOCKETS_P95`, `CAPACITY_EVENT_LOOP_P99_MS`, `CAPACITY_CPU_PCT` ile
+  değiştirilebilir; boş/geçersiz değer varsayılana düşer.
+- Bir metriğin durumu "eşiğe yaklaşıyor"/"aşıldı"ya her değişimde sunucu
+  günlüğüne bir kez `[capacity]` uyarısı yazılır; çok modda ayrıca platform
+  personeli için sistem etkinlik kaydı (AuditLog, `actorType: system`)
+  oluşturulur.
+
 ## [1.1.0] — 2026-11-13
 
 **Öne çıkanlar:** tek merkezi kurulumla birden çok bağımsız operatör (kiracı yalıtımı, kiracıya göre callback/marka/soket/işler), Platform Sahibi konsolu ve operatör sağlama, partner yönetimi ve portalı, komisyon/faturalama ve yapılandırılabilir NGR (K28), Slikair iade ve chargeback işleme. Tek operatörlü kurulumlar `TENANCY_MODE=single` ile çalışmaya devam eder; yükseltmeden önce aşağıdaki **Kırılan Değişiklikler** notlarını okuyun (özellikle site adı geri dönüşü, chargeback sonrası eksi bakiye ve çok modda ticari koşulların varsayılan orana sahip olmaması). Ayrıntılı kılavuz: `docs/product/12-cok-operator.md`.

@@ -437,6 +437,19 @@ export function createApp() {
     } catch {
       result.oddsSource = 'unknown';
     }
+    // İP-10a: latest capacity window vs the İP-10 thresholds (no secrets).
+    try {
+      const { evaluateCapacity } = await import('./services/capacityMetrics.js');
+      const capacity = await evaluateCapacity();
+      result.capacity = {
+        state: capacity.state,
+        sockets: capacity.sockets,
+        eventLoop: capacity.eventLoop,
+        cpu: capacity.cpu,
+      };
+    } catch {
+      result.capacity = { state: 'unknown', sockets: null, eventLoop: null, cpu: null };
+    }
     res.set('Cache-Control', 'no-store');
     res.json(result);
   });
