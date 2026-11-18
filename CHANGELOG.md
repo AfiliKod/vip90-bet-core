@@ -18,6 +18,10 @@ Madde formatı ve kategoriler için `docs/CHANGELOG_GUIDE.md`'ye bakın —
 
 ## [Yayınlanmadı]
 
+## [1.2.0] — 2026-11-18
+
+**Öne çıkanlar:** sağlayıcı sözleşme ücretleri NGR'nin `providerFees` kalemini gerçek veriyle besliyor (İP-9f), İP-10 ölçek eşikleri için kapasite ölçümü (İP-10a), PWA manifesti artık önbellekteki derleme manifesti yerine kurulumun/operatörün markasıyla sunuluyor. Tek operatörlü kurulumlar için ayar gerekmez.
+
 ### Kapasite ölçümü (İP-10a)
 
 **Eklendi**
