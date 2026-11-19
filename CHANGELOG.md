@@ -18,6 +18,8 @@ Madde formatı ve kategoriler için `docs/CHANGELOG_GUIDE.md`'ye bakın —
 
 ## [Yayınlanmadı]
 
+## [1.2.1] — 2026-11-19
+
 ### Site adı boşken "Default" görünmüyor
 
 **Düzeltildi**
