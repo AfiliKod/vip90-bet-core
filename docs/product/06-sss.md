@@ -6,7 +6,7 @@
 
 **Kapasite durumu ne anlatır?** Örnekleyici 10 saniyede ölçer, 15 dakikalık pencerede soket p95/event-loop p99/CPU ortalamasını değerlendirir. `approaching` (%70) planlama, `exceeded` müdahale sinyalidir; sistem otomatik ölçeklemez.
 
-**PWA kurulum adı neden operatöre göre değişir?** `/manifest.webmanifest` sunucudan gelir ve istek ana makinesinin site adı/ana rengini kullanır; ayar yoksa tenant adı geri dönüş değeridir.
+**PWA kurulum adı neden operatöre göre değişir?** `/manifest.webmanifest` sunucudan gelir ve istek ana makinesinin site adı/ana rengini kullanır; ayar yoksa tenant adı geri dönüş değeridir. Kurulumda otomatik açılan varsayılan kiracının yer tutucu adı (`Default`) marka sayılmaz; site adı ayarlanmamış tek operatörlü kurulumda başlık, PWA adı ve e-postalar kurulum adresinin host'unu (`CLIENT_URL`'deki ilk adres) gösterir. Doğru ad için **Kişiselleştirme → Marka → Site adı** alanını doldurun.
 
 **Chargeback sonrası bakiye neden negatif olabilir?** Doğrulanmış Slikair chargeback'i önceki yatırımı geri alır. Oyuncu bakiyeyi kullandıysa sonuç negatif olur; bakiye kuralları yeni bahis ve çekimi engeller, olay `PSP_CHARGEBACK` risk incelemesine gider.
 

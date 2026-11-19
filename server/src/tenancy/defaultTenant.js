@@ -16,6 +16,7 @@ import Migration from '../models/Migration.js';
 import { getTenancyMode } from '../config/tenancy.js';
 import { errorLogger } from '../services/errorLogger.js';
 import { setDefaultTenantId } from './defaultTenantId.js';
+import { DEFAULT_TENANT_PLACEHOLDER_NAME } from './tenantDisplayName.js';
 
 export const DEFAULT_TENANT_KEY = 'default';
 export const DEFAULT_TENANT_MIGRATION = Object.freeze({
@@ -110,7 +111,7 @@ async function findOrCreateDefaultTenant(env) {
       {
         $setOnInsert: {
           key: DEFAULT_TENANT_KEY,
-          name: 'Default',
+          name: DEFAULT_TENANT_PLACEHOLDER_NAME,
           isDefault: true,
           status: 'active',
           ownership: 'direct',

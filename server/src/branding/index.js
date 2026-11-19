@@ -13,6 +13,7 @@ import { clientUrlFallback } from '../tenancy/tenantBaseUrl.js';
 import { getCurrentTenantId } from '../tenancy/context.js';
 import { getDefaultTenantId } from '../tenancy/defaultTenantId.js';
 import { getTenancyMode } from '../config/tenancy.js';
+import { brandableTenantName } from '../tenancy/tenantDisplayName.js';
 
 const KEY_PREFIX = 'branding.';
 const dbKey = id => `${KEY_PREFIX}${id}`;
@@ -53,8 +54,9 @@ export async function getSiteName() {
   if (values.siteName) return values.siteName;
   const tenantId = getCurrentTenantId() ?? (getTenancyMode() === 'single' ? getDefaultTenantId() : null);
   if (tenantId && mongoose.connection.readyState === 1) {
-    const tenant = await Tenant.findById(tenantId).select('name').lean();
-    if (tenant?.name) return tenant.name;
+    const tenant = await Tenant.findById(tenantId).select('name isDefault').lean();
+    const name = brandableTenantName(tenant);
+    if (name) return name;
   }
   // Son çare: kurulumun kendi adresinin host'u (CLIENT_URL). Çekirdek ürün adı
   // taşımaz; e-posta, KYC bildirimi ve statik sayfalar boş ad almaz.

@@ -91,3 +91,47 @@ test('wallet nonce message uses the install host when no brand name is available
     server.close();
   }
 });
+// The default tenant created at boot carries the placeholder name 'Default'.
+// It is not a brand: an unset siteName must fall back to the install host, and
+// the manifest and /api/branding must not show it either.
+const PLACEHOLDER = new mongoose.Types.ObjectId();
+
+test('the auto-created default tenant placeholder name is never used as the site name', async () => {
+  const { DEFAULT_TENANT_PLACEHOLDER_NAME, brandableTenantName } = await import('../src/tenancy/tenantDisplayName.js');
+  assert.equal(DEFAULT_TENANT_PLACEHOLDER_NAME, 'Default');
+  assert.equal(brandableTenantName({ name: 'Default', isDefault: true }), null);
+  assert.equal(brandableTenantName({ name: 'Default', isDefault: false }), 'Default');
+  assert.equal(brandableTenantName({ name: 'Default Tenant', isDefault: true }), 'Default Tenant');
+  assert.equal(brandableTenantName(null), null);
+
+  await Tenant.updateOne({ _id: DEFAULT }, { $set: { isDefault: false } });
+  await Tenant.create({ _id: PLACEHOLDER, key: 'placeholder-default', name: 'Default', isDefault: true, status: 'active' });
+  process.env.TENANCY_MODE = 'single';
+  try {
+    setDefaultTenantId(PLACEHOLDER);
+    invalidateBranding();
+    assert.equal(await getSiteName(), INSTALL_HOST);
+
+    const { buildManifestPayload } = await import('../src/controllers/manifestController.js');
+    const manifest = await runWithTenant(PLACEHOLDER, () => buildManifestPayload());
+    assert.equal(manifest.name, INSTALL_HOST);
+
+    const { default: brandingRoutes } = await import('../src/routes/branding.js');
+    const app = express();
+    app.use((req, res, next) => runWithTenant(PLACEHOLDER, next));
+    app.use('/api/branding', brandingRoutes);
+    const server = app.listen(0);
+    try {
+      const res = await fetch(`http://127.0.0.1:${server.address().port}/api/branding`);
+      const body = await res.json();
+      assert.equal(body.tenantName, null);
+      assert.equal(body.values.siteName, INSTALL_HOST);
+    } finally {
+      server.close();
+    }
+  } finally {
+    setDefaultTenantId(null);
+    invalidateBranding();
+    process.env.TENANCY_MODE = 'multi';
+  }
+});
