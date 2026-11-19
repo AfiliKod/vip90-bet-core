@@ -298,17 +298,17 @@ User wants to withdraw 900₺:
 // server/src/config/crypto.js
 export const CRYPTO_SETTINGS = {
   deposit: {
-    autoCreditLimit: 100,       // Admin panelinden değiştirilebilir
+    autoCreditLimit: 100,       // Configurable in the admin panel
     requireApprovalAbove: 100,
   },
   withdraw: {
-    autoProcessLimit: 15,       // Admin panelinden değiştirilebilir
+    autoProcessLimit: 15,       // Configurable in the admin panel
     requireApprovalAbove: 15,
   },
   minWithdraw: 5,
 
-  // Admin panelinden değiştirilebilir
-  usdtTryRate: 1,               // 1 USDT = X TRY dönüşüm oranı
+  // Configurable in the admin panel
+  usdtTryRate: 1,               // 1 USDT = X TRY conversion rate
   network: 'mainnet',           // mainnet | shasta | nile
 };
 ```
@@ -347,7 +347,7 @@ Return txHash → Notify user
 
 | Pair | Default Rate | Admin Panel |
 |------|-------------|-------------|
-| USDT_TRY | 1 | ✅ Değiştirilebilir |
+| USDT_TRY | 1 | ✅ Configurable |
 | USDT_EUR | 0.92 | — |
 | USDT_GBP | 0.79 | — |
 | USDT_USD | 1 | — |
@@ -357,12 +357,12 @@ Return txHash → Notify user
 ```javascript
 import { CRYPTO_SETTINGS } from '../config/crypto.js';
 
-// Admin panelinden değiştirilen oran kullanılır
+// Uses the rate changed in the admin panel
 const rate = CRYPTO_SETTINGS.usdtTryRate;
 const tryAmount = usdtAmount * rate;
 ```
 
-> **Not:** Dönüşüm oranı `Settings → Modules → Crypto Payment Gateway` kartından değiştirilebilir ve DB'de saklanır (`Setting` `crypto.settings`); panelden kaydedilen oran `.env`'deki `USDT_TRY_RATE`'in önüne geçer. Panelden hiç kaydedilmediyse `USDT_TRY_RATE` kullanılır.
+> **Note:** The conversion rate is configurable in the `Settings → Modules → Crypto Payment Gateway` card and is stored in the database (`Setting` `crypto.settings`); a rate saved in the panel overrides `USDT_TRY_RATE` from `.env`. If no rate has been saved in the panel, `USDT_TRY_RATE` is used.
 
 ## API Endpoints
 
@@ -394,16 +394,16 @@ All `/api/crypto/*` routes require a logged-in user and sit behind the `crypto-p
 ### Configuration
 
 ```env
-TRON_NETWORK=shasta    # .env dosyasından VARSAYILAN
+TRON_NETWORK=shasta    # Default from the .env file
 ```
 
-> **Not:** Ağ seçimi artık `Settings → Modules → Crypto Payment Gateway` kartından da değiştirilebilir. Admin panelinden yapılan değişiklikler `CRYPTO_SETTINGS.network` objesini günceller. Ancak **hot wallet private key** ve **seed phrase** ortam değişkenlerinden okunduğu için, testnet'ten mainnet'e geçiş sunucuyu yeniden başlatmayı gerektirir.
+> **Note:** Network selection is also configurable in the `Settings → Modules → Crypto Payment Gateway` card. Panel changes update `CRYPTO_SETTINGS.network`. However, because the **hot wallet private key** and **seed phrase** are read from environment variables, switching from testnet to mainnet requires a server restart.
 
-### Admin Panelinden Ağ Değişimi
+### Changing the Network in the Admin Panel
 
-| Ağ | Seçenek | Durum |
+| Network | Option | Status |
 |----|---------|-------|
-| Mainnet | `mainnet` | 🔴 Üretim |
+| Mainnet | `mainnet` | 🔴 Production |
 | Shasta | `shasta` | 🟡 Testnet |
 | Nile | `nile` | 🔵 Testnet |
 
@@ -448,17 +448,17 @@ const isValid = /^T[A-Za-z0-9]{33}$/.test(address);
 
 ```env
 CRYPTO_SEED_PHRASE=your mnemonic phrase here
-USDT_TRY_RATE=1              # Varsayılan dönüşüm oranı (admin panelinden değiştirilebilir)
-TRON_NETWORK=mainnet          # Varsayılan ağ (admin panelinden değiştirilebilir)
+USDT_TRY_RATE=1              # Default conversion rate (configurable in the admin panel)
+TRON_NETWORK=mainnet          # Default network (configurable in the admin panel)
 HOT_WALLET_PRIVATE_KEY=optional_separate_hot_wallet_key
 ```
 
-> **Not:** `USDT_TRY_RATE` ve `TRON_NETWORK` admin panelinden değiştirilebilir. Panelden kaydedilen anahtar DB'de saklanır ve `.env` değerinin **önüne geçer**; o anahtar için `.env`'i sonradan değiştirmek etkisizdir. Panelden hiç kaydedilmemiş anahtarlar `.env` değerini izler. Ayarlar açılışta ve deposit/withdraw yollarında en çok 30 sn'de bir yeniden okunur; tek instance varsayılır. Geçersiz `USDT_TRY_RATE` 1'e düşer (loglanır).
+> **Note:** `USDT_TRY_RATE` and `TRON_NETWORK` are configurable in the admin panel. A key saved in the panel is stored in the database and **overrides** its `.env` value; changing `.env` later for that key has no effect. Keys never saved in the panel follow `.env`. Settings are re-read at startup and at most every 30 seconds on deposit/withdrawal paths; a single instance is assumed. An invalid `USDT_TRY_RATE` falls back to 1 and is logged.
 
 ## Known Limitations
 
 1. **Single Network:** Only TRON (TRC20) supported
-2. **Rate Persistence:** Dönüşüm oranı ve ağ seçimi in-memory saklanır, sunucu restart'ta `.env` değerlerine döner
+2. **Rate Persistence:** The conversion rate and network selection are stored in memory and return to `.env` values on server restart.
 3. **No Multi-sig:** Additional security needed for large amounts
 
 ## Related Files

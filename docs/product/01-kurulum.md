@@ -1,21 +1,21 @@
 # Installation
 
-## Çok operatörlü merkezi kurulum
+## Central Multi-Operator Installation
 
-Bu belgedeki kurulum sihirbazı tek operatörlü kurulum içindir. Yeni merkezi kurulumda boş bir MongoDB replica set kullanın; mevcut tek-operatör demo verisini çok moda taşımayın. `TENANCY_MODE=multi` ve zorunlu ortam değerlerini ayarlayın, ilk Platform Sahibini `node scripts/platform-bootstrap.mjs --owner-email owner@example.com --password-stdin` ile oluşturun, ardından ilk operatörü platform konsolundan sağlayın. Tam sıra: [12 — Çok Operatörlü Kurulum](12-cok-operator.md#boş-veritabanından-yeni-merkezi-kurulum).
+The setup wizard in this document is for single-operator installations. For a new central installation, use an empty MongoDB replica set; do not move existing single-operator demo data into multi mode. Set `TENANCY_MODE=multi` and the required environment values, create the first Platform Owner with `node scripts/platform-bootstrap.mjs --owner-email owner@example.com --password-stdin`, then provision the first operator from the platform console. Full sequence: [12 — Multi-Operator Installation](12-cok-operator.md#new-central-installation-from-an-empty-database).
 
 There are two ways: **Docker with a single command** (recommended, fast) and **manual installation** (for those who don't want to use Docker). Both lead to the same result: a working VIP90.bet **core platform** (accounts, wallet, bonuses, KYC, risk, admin panel) + a setup wizard that runs from the browser.
-## Tek operatör veya çok operatör seçimi
+## Choosing Single or Multi Operator
 
-Varsayılan yol `TENANCY_MODE=single` olan tek operatörlü kurulumdur; mevcut kurulumlar için hiçbir ek adım gerekmez ve `/install` sihirbazı kullanılır.
+The default path is a single-operator installation with `TENANCY_MODE=single`; existing installations need no additional steps and use the `/install` wizard.
 
-Bir merkezi kurulumdan birden çok bağımsız operatör çalıştırmak için **yeni, temiz** bir kurulumda `TENANCY_MODE=multi` kullanın. Bu modda `/install` kapalıdır: `TENANCY_ENFORCEMENT=enforce`, tüm `DEMO_*` değerleri `false`, `JWT_STAFF_SECRET`, `OPERATOR_SECRET_ENCRYPTION_KEY`, `PLATFORM_HOST`, `SCOPE_GATE_ENV` ve en az 1825 günlük `AUDIT_RETENTION_DAYS` ayarlanır. Migrations sonrasında ilk Platform Sahibi şu komutla oluşturulur:
+To operate multiple independent operators from one central installation, use `TENANCY_MODE=multi` on a **new, clean** installation. In this mode `/install` is disabled: set `TENANCY_ENFORCEMENT=enforce`, every `DEMO_*` value to `false`, `JWT_STAFF_SECRET`, `OPERATOR_SECRET_ENCRYPTION_KEY`, `PLATFORM_HOST`, `SCOPE_GATE_ENV`, and `AUDIT_RETENTION_DAYS` to at least 1825 days. After migrations, create the first Platform Owner with:
 
 ```bash
 node scripts/platform-bootstrap.mjs --owner-email owner@example.com --password-stdin
 ```
 
-İlk girişte 2FA kurulumu zorunludur. Sonraki operatörler platform ana makinesindeki `/console` üzerinden sağlanır; alan adı TXT doğrulaması ve TLS tamamlanmadan oyuncu trafiğine açılmaz. Ayrıntılı yol için [12 — Çok Operatörlü Kurulum](12-cok-operator.md) belgesini izleyin.
+2FA setup is mandatory at first login. Provision later operators through `/console` on the platform host; they cannot receive player traffic until domain TXT verification and TLS are complete. Follow [12 — Multi-Operator Installation](12-cok-operator.md) for the detailed path.
 
 
 The separately sold add-ons (**In-house Games**, **Sports Betting**, **Casino Content**) are installed on top of this core — see [Add-on modules](#add-on-modules-in-house-games-sports-betting-casino-content) at the end of this document. The core opens and works without them.
@@ -179,8 +179,8 @@ If site settings (`Setting` collection) have never been written, `healthcheck.js
 - **"Cannot connect to MongoDB"** — check that `MONGODB_URI` is correct and that you've added the IP of the server you're installing from to the allowed IP list of your MongoDB server. `node server/scripts/healthcheck.js` shows this on the first line.
 - **Crashes with "JWT_SECRET undefined" error** — make sure the `.env` file is in the `server/` directory (manual installation) or in the root `.env` that Compose reads as `env_file` (Docker), and that no required fields are left empty.
 - **`/install` says "system already installed" but I forgot my admin password** — the wizard won't re-run for security reasons while an `admin` role user exists; use the password reset flow (in-app "forgot my password") or direct database access.
-- **Casino games don't load / `503 MODULE_NOT_INSTALLED` on `/api/igames`** — the Casino Content add-on is not installed in this deployment (see [Add-on modules](#add-on-modules-in-house-games-sports-betting-casino-content)); if it is installed and you get `503 Igames Casino API henüz yapılandırılmadı`, the provider token is missing (see [02 — Configuration § Casino provider](02-yapilandirma.md)).
-- **`503 MODULE_NOT_INSTALLED` on `/api/provider/v1` or `/api/inhouse-provider`** — the In-house Games add-on is not installed (no error is logged, the optional import fails silently). If it is installed, check the server log for `[config] Eksik ortam değişkeni: GAME_HOST_URL|GAME_HOST_SECRET|PROVIDER_SESSION_SECRET`.
+- **Casino games do not load / `503 MODULE_NOT_INSTALLED` on `/api/igames`** — the Casino Content add-on is not installed in this deployment (see [Add-on modules](#add-on-modules-in-house-games-sports-betting-casino-content)); if it is installed and returns a provider-not-configured response, the provider token is missing (see [02 — Configuration § Casino provider](02-yapilandirma.md)).
+- **`503 MODULE_NOT_INSTALLED` on `/api/provider/v1` or `/api/inhouse-provider`** — the In-house Games add-on is not installed (no error is logged because the optional import fails silently). If it is installed, check the server log for a missing `GAME_HOST_URL`, `GAME_HOST_SECRET`, or `PROVIDER_SESSION_SECRET` configuration value.
 - **Mongo error `Transaction numbers are only allowed on a replica set member or mongos`** — MongoDB runs as a standalone instance; run it as a replica set (see Requirements).
 
 ## Add-on modules (In-house Games, Sports Betting, Casino Content)
@@ -217,7 +217,7 @@ If you deploy from CI, the job needs read access to the add-on repositories to f
    - `PROVIDER_SESSION_SECRET` — signs the ~15-minute game session token; a third, different secret.
    - `OPERATOR_SECRET_ENCRYPTION_KEY` — 64 hex characters (`node -e "console.log(require('crypto').randomBytes(32).toString('hex'))"`); encrypts the operator API secret.
    - `INHOUSE_PROVIDER_API_BASE`, `INHOUSE_PROVIDER_API_KEY_ID`, `INHOUSE_PROVIDER_API_SECRET` — filled with the output of step 2.
-   The server logs `[config] Eksik ortam değişkeni: ...` at start if `GAME_HOST_URL`, `GAME_HOST_SECRET` or `PROVIDER_SESSION_SECRET` is missing.
+   The server logs a missing-environment-variable message at startup if `GAME_HOST_URL`, `GAME_HOST_SECRET`, or `PROVIDER_SESSION_SECRET` is missing.
 2. **Create "Operator #1"** (this site as its own provider tenant), from `server/`:
    ```bash
    node src/scripts/migrations/create-operator-one.mjs

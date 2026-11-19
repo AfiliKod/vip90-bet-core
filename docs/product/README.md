@@ -1,8 +1,8 @@
-# VIP90.bet Ürün Belgeleri
+# VIP90.bet Product Documentation
 
 This directory is written for operators who have purchased the product — not for developers who already know the codebase (that documentation lives in our internal planning directory `docs/superpowers/`, which is not published to this repository, and in code comments).
 
-Sürüm 1.2.0 için bu dizin sağlayıcı ücret takvimleri/NGR, kapasite eşikleri, operatör bazlı PWA manifestleri, partner grant'leri ve Slikair ters kayıtları için güncel operasyon bilgisini içerir.
+For version 1.2.0, this directory contains current operating information for provider-fee schedules/NGR, capacity thresholds, operator-specific PWA manifests, partner grants, and Slikair reversals.
 
 - [01 — Installation](01-kurulum.md) — from scratch to a working core setup (Docker or manual), plus how to install the paid add-ons (In-house Games, Sports Betting, Casino Content).
 - [02 — Configuration](02-yapilandirma.md) — `.env` variables (including which listed ones the code does not read) and panel-managed settings with their menu locations.
@@ -13,7 +13,8 @@ Sürüm 1.2.0 için bu dizin sağlayıcı ücret takvimleri/NGR, kapasite eşikl
 - [09 — Known Limitations](09-bilinen-kisitlar.md) — remaining gaps (Live Casino, multi-tier affiliate, provider-side bonus/freeround constraints, Slikair webhook signature, partly English admin panel in six languages, multi-brand isolation, reconciliation stubs); items fixed on 2026-10-03 (KYC withdrawal gate, Turnstile/admin IP allowlist, ledger double writes, deploy gaps, Slikair deposit risk check) are kept there as RESOLVED notes. Also covers the in-house games compliance audit (2026-10-08): the age gate, per-round responsible-gaming limits, the session cap and the standalone audit report are RESOLVED there; KYC for casino launch, jurisdiction/geo blocking, RNG modulo bias, the in-engine session limit and the missing RTP simulators are listed as still open.
 - [10 — Bonus and Wagering](10-bonus-ve-cevrim.md) — locked-balance bonus model, wagering weights, withdrawal/forfeit flow, trial bonus script.
 - [11 — Admin Tools](11-admin-araclari.md) — live activity feed, demo data generator, casino rewards (bonus call + freeround).
-- [12 — Çok Operatörlü Kurulum](12-cok-operator.md) — yeni merkezi kurulumda operatör sağlama, platform konsolu, partnerler, NGR ve ekstreler.
+- [12 — Multi-Operator Installation](12-cok-operator.md) — operator provisioning, the platform console, partners, NGR, and statements in a new central installation.
+- [Adding a New Provider](../providers/adding-a-provider.md) — documented implementation patterns for payment, KYC, SMS, email, and casino-content providers.
 
 Related documents outside this directory: [`docs/seo-settings.md`](../seo-settings.md) (SEO settings), [`docs/mail-templates.md`](../mail-templates.md) and [`docs/sms-gateway/README.md`](../sms-gateway/README.md) (email and SMS), [`docs/social-login.md`](../social-login.md) (Google / Telegram / MetaMask sign-in, panel + `.env` setup), and the core payment/KYC integrations in `docs/providers/` ([crypto](../providers/crypto-trc20.md), [local KYC](../providers/local-kyc.md), [Slikair](../providers/slikair.md), [Sumsub](../providers/sumsub-kyc.md)). Game mathematics and the technical documentation of the paid add-ons ship with the add-ons.
 

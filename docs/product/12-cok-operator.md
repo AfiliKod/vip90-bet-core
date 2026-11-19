@@ -1,204 +1,203 @@
-# Çok operatörlü kurulum
+# Multi-Operator Installation
 
-Sürüm 1.1.0 ile tek bir merkezi kurulum, birbirinden yalıtılmış birden çok operatörü çalıştırabilir. Her operatörün alan adı, marka ayarları, personeli, entegrasyon ayarları ve işletme verisi ayrıdır. Platform Sahibi konsolu, partner portalı, komisyon/NGR hesapları ve ekstreler bu merkezi kurulumun parçalarıdır.
+Since version 1.1.0, one central installation can operate multiple isolated operators. Each operator has separate domains, branding, staff, integration settings, and operating data. The Platform Owner console, partner portal, commission/NGR calculations, and statements are part of that central installation.
 
-Bu kılavuz yalnızca **yeni ve temiz** çok operatörlü kurulumlar içindir. Mevcut tek operatörlü kurulumları taşımaya yönelik bir yol değildir.
+This guide is only for **new, clean** multi-operator installations. It is not a migration path for existing single-operator installations.
 
-## Modlar
+## Modes
 
-| Mod | Kullanım | Gerekli işlem |
+| Mode | Use | Required action |
 |---|---|---|
-| `single` | Bir kurulum, bir varsayılan operatör | Hiçbir yeni ayar gerekmez; mevcut akış sürer. |
-| `multi` | Bir merkezi kurulum, bağımsız birçok operatör | Aşağıdaki ortam ayarları, bootstrap ve alan adı doğrulaması gerekir. |
+| `single` | One installation, one default operator | No new configuration is required; the existing flow continues. |
+| `multi` | One central installation, many independent operators | The environment settings, bootstrap, and domain verification below are required. |
 
-Çok modda veri erişimi zorunlu olarak kiracı kapsamındadır. Bir operatörün kaydı diğer operatörün kimliğiyle istenirse erişim verilmez; istemciye `404` döner. Demo botları, sahte kazananlar, anlık demo yatırması ve demo veri üretimi çok modda kapalıdır.
+In multi mode, data access is always tenant-scoped. Requesting one operator's record with another operator's identity does not grant access; the client receives `404`. Demo bots, fake winners, instant demo deposits, and demo-data generation are disabled in multi mode.
 
-## Yeni çok operatörlü kurulumu açma
+## Starting a New Multi-Operator Installation
 
-Önce `server/.env` içinde aşağıdaki değerleri tanımlayın. `JWT_STAFF_SECRET` ve `OPERATOR_SECRET_ENCRYPTION_KEY` üretim sırlarıdır; örnek değer kullanmayın.
+First define the following values in `server/.env`. `JWT_STAFF_SECRET` and `OPERATOR_SECRET_ENCRYPTION_KEY` are production secrets; do not use example values.
 
-| Değişken | Çok modda değer/kural | Amaç |
+| Variable | Multi-mode value/rule | Purpose |
 |---|---|---|
-| `TENANCY_MODE` | `multi` | Merkezi çok operatörlü çalışma. |
-| `TENANCY_ENFORCEMENT` | `enforce` (başka değer kabul edilmez) | Kapsamsız operatör verisi sorgularını engeller. |
-| `JWT_STAFF_SECRET` | Zorunlu | Personel token ailelerini imzalar. |
-| `OPERATOR_SECRET_ENCRYPTION_KEY` | Zorunlu, 64 hex karakter | Panelde saklanan operatör sırlarını şifreler. |
-| `PLATFORM_HOST` | Platform konsolunun alan adı, ör. `platform.example.com` | `/console` ile platform/partner API yollarını platform ana makinesine bağlar. |
-| `SCOPE_GATE_ENV` | `staging` veya `production` | Kapsam ihlallerinin N6 ölçümünü kaydeder. |
-| `AUDIT_RETENTION_DAYS` | En az `1825` | Denetim ve kapanış sonrası saklama süresinin alt sınırı. |
-| `DEMO_BOTS`, `DEMO_FAKE_WINNERS`, `DEMO_INSTANT_DEPOSIT`, `DEMO_DATA` | Hepsi `false` | Çok modda demo davranışları yasaktır. |
-| `LEGAL_ENTITY_NAME`, `LEGAL_ENTITY_REGISTRATION_NO`, `LEGAL_ENTITY_ADDRESS` | Varsayılan operatör için isteğe bağlı | Varsayılan kiracı ilk kez oluşturulurken yasal bilgileri verir. |
+| `TENANCY_MODE` | `multi` | Enables central multi-operator operation. |
+| `TENANCY_ENFORCEMENT` | `enforce` (no other value is accepted) | Blocks unscoped queries for operator data. |
+| `JWT_STAFF_SECRET` | Required | Signs the staff-token family. |
+| `OPERATOR_SECRET_ENCRYPTION_KEY` | Required, 64 hexadecimal characters | Encrypts operator secrets saved in the panel. |
+| `PLATFORM_HOST` | Platform-console domain, for example `platform.example.com` | Binds `/console` and platform/partner API paths to the platform host. |
+| `SCOPE_GATE_ENV` | `staging` or `production` | Records N6 scope-violation measurement. |
+| `AUDIT_RETENTION_DAYS` | At least `1825` | Minimum retention period after audit and closure. |
+| `DEMO_BOTS`, `DEMO_FAKE_WINNERS`, `DEMO_INSTANT_DEPOSIT`, `DEMO_DATA` | All `false` | Demo behaviour is forbidden in multi mode. |
+| `LEGAL_ENTITY_NAME`, `LEGAL_ENTITY_REGISTRATION_NO`, `LEGAL_ENTITY_ADDRESS` | Optional for the default operator | Provides legal details when the default tenant is first created. |
 
-Kurulum sihirbazı çok modda kapalıdır. Migrations'ı çalıştırdıktan sonra `platform-001-bootstrap` kaydı, platform izinlerini, rol şablonlarını, saklama ayarını ve gerekli indeksleri hazırlar. İlk Platform Sahibini oluşturmak için şunu çalıştırın:
+The setup wizard is disabled in multi mode. After running migrations, the `platform-001-bootstrap` record prepares platform permissions, role templates, retention settings, and required indexes. Create the first Platform Owner with:
 
 ```bash
 node scripts/platform-bootstrap.mjs --owner-email owner@example.com --password-stdin
 ```
 
-`--password-stdin` isteğe bağlıdır; verilmezse betik geçici parolayı yalnız terminalde bir kez gösterir. İlk girişte Platform Sahibi 2FA kurulumunu tamamlamak zorundadır. Çok modda 2FA doğrulaması olmayan personel erişim tokenı verilmez.
+`--password-stdin` is optional; without it, the script shows a temporary password only once in the terminal. The Platform Owner must complete 2FA setup at first login. Staff without 2FA verification receive no access token in multi mode.
 
-## Konsol ve operatör sağlama
+## Console and Operator Provisioning
 
-Platform Sahibi konsolu çok modda yalnız platform ana makinesindeki `/console` yolunda sunulur: örneğin `https://platform.example.com/console`. Operatör oluşturma; `provisioning` durumunda bir Tenant, varsayılan marka, birincil Domain, temel ayarlar ve isteğe bağlı sahip personelini oluşturur.
+In multi mode, the Platform Owner console is available only at `/console` on the platform host, for example `https://platform.example.com/console`. Creating an operator creates a Tenant in `provisioning` status, a default brand, primary Domain, base settings, and optionally its owner staff account.
 
-Sahip için oluşturulan davet bağlantısı yalnız ilk sağlama yanıtında gösterilir. Bağlantı tek kullanımlıktır ve 72 saat geçerlidir. İlk bağlantı kaybolursa, hesap henüz giriş yapmamışsa konsoldan tekrar üretilebilir; giriş yapmış sahip parolasını kendi akışıyla sıfırlar.
+The owner invitation link is shown only in the first provisioning response. It is single-use and valid for 72 hours. If it is lost, the console can generate it again while the account has not signed in; an owner who has signed in resets their password through their own flow.
 
-### Alan adı doğrulama ve TLS
+### Domain Verification and TLS
 
-Her operatör alan adı, oyuncu trafiğine açılmadan önce DNS ile doğrulanır. Konsolun verdiği jetonu şu TXT adına ekleyin:
+Every operator domain must be verified through DNS before it can receive player traffic. Add the token supplied by the console to this TXT name:
 
 ```text
 _domain-verify.operator.example.com
 ```
 
-Konsoldan DNS doğrulamasını başlatın; doğrulama, alan adının kökünde aynı jetonu bulmayı da kabul eder. Yalnız `verifiedAt` kaydı olan alan adları operatöre çözülür. Ardından TLS durumunu yenileyin; DNS doğrulaması tek başına TLS'i etkin yapmaz.
+Start DNS verification from the console; verification also accepts the same token at the domain apex. Only domains with a `verifiedAt` record resolve to an operator. Then refresh the TLS status; DNS verification alone does not enable TLS.
 
-### Canlıya alma kontrolü
+### Go-Live Checklist
 
-Operatörü `active` yapmadan önce konsolun kontrol listesini tamamlayın:
+Complete the console checklist before setting an operator to `active`:
 
-- tüzel kişi adı, sicil numarası ve adresi;
-- casino içeriği yetkisi varsa yazılı sağlayıcı onayı ve belge başvurusu;
-- PSP sandbox yatırma/çekme testi;
-- KYC webhook testi;
-- e-posta gönderim testi;
-- birincil alan adı için doğrulanmış DNS ve etkin TLS.
+- legal-entity name, registration number, and address;
+- written provider approval and document application when casino content is authorised;
+- PSP sandbox deposit/withdrawal test;
+- KYC webhook test;
+- email delivery test;
+- verified DNS and active TLS for the primary domain.
 
-Durum yaşam döngüsü `provisioning → active ⇄ suspended → closed` şeklindedir. `closed` terminal durumdur. Kapanışta silme, yapılandırılmış denetim saklama süresinden ve beş yıldan önce yapılamaz.
+The status lifecycle is `provisioning → active ⇄ suspended → closed`. `closed` is terminal. On closure, deletion cannot occur before the configured audit-retention period and five years.
 
-## Personel erişimi ve yazma istisnası
+## Staff Access and the Write Exception
 
-Platform kapsamlı personel, operatör rotalarında varsayılan olarak yalnız GET/HEAD/OPTIONS kullanabilir. Yazma denemesi `403 PLATFORM_READ_ONLY` döner ve denetim kaydı oluşturur. Yalnız Platform Sahibi; gerekçeli, belirli personel ve operatör için en fazla 24 saatlik yazma izni verebilir. Bu izin iptal edildiğinde veya süresi dolduğunda erişim yeniden salt okunur olur.
+Platform-scoped staff can use only GET/HEAD/OPTIONS on operator routes by default. A write attempt returns `403 PLATFORM_READ_ONLY` and creates an audit record. Only a Platform Owner may grant a justified write exception for a named staff member and operator for at most 24 hours. When the grant is revoked or expires, access becomes read-only again.
 
-## Partnerler
+## Partners
 
-Partnerin etkin olma durumu, yetenekleri (`metrics.read`, personel yönetimi, operatör oluşturma/durum/entegrasyon/sahip daveti gibi), operatör kotası, izinli modülleri ve entitlement tavanı ayrı tanımlanır. Bir partner personelinin etkin izni, rol izni ile partner ve gerekiyorsa operatör-bağlantısı yeteneğinin kesişimidir; bir rol tek başına partnerin sınırını genişletmez.
+A partner's active status, capabilities (such as `metrics.read`, staff management, operator creation/status/integration/owner invitation), operator quota, permitted modules, and entitlement ceiling are configured separately. A partner staff member's effective permission is the intersection of their role permission and the partner's and, where applicable, operator-link capability; a role alone cannot expand the partner boundary.
 
-Partner portalı kendi portföyündeki operatörleri, personeli, entegrasyon ayarlarını, metrikleri ve ekstreleri gösterir. Metrikler günlük toplamlardan üretilir, oyuncu kimliği içermez ve `activePlayers < 5` olduğunda değer `"<5"` olarak gizlenir.
+The partner portal shows operators in its portfolio, staff, integration settings, metrics, and statements. Metrics are calculated from daily aggregates, contain no player identities, and suppress the value as `"<5"` when `activePlayers < 5`.
 
-Operatör sahibi, partnerin operatör verisine ihtiyaç duyduğu sınırlı durumlarda PartnerGrant verir veya iptal eder. Grant; kapsamlar (`players:read`, `players:pii`, `finance:read`, `reports:raw`, `support:write`, `players:status:write`, `promotions:assign`), gerekçe, başlangıç/bitiş zamanı ve veren personeli kaydeder; en uzun süresi 90 gündür. Verme, iptal ve kullanım denetim kaydına yazılır. Partner kendi adına grant veremez.
+An operator owner grants or revokes a PartnerGrant only in the limited cases where the partner needs operator data. A grant records scopes (`players:read`, `players:pii`, `finance:read`, `reports:raw`, `support:write`, `players:status:write`, `promotions:assign`), reason, start/end time, and granting staff member; it can last at most 90 days. Granting, revocation, and use are audited. A partner cannot grant access to itself.
 
-## Faturalama ve NGR
+## Billing and NGR
 
-Operatör ücret planı (K20), spor için sabit/ciro yüzdesi/ikisi; platform için sabit/GGR yüzdesi/ikisi modellerini içerir. Partner ticari koşulları ise komisyon tabanını `ggr`, `ngr`, `turnover` veya `fixed` olarak seçer. Ekstre akışı taslak oluşturma, kesme (`issued`), denetimli düzeltme, iptal (`voided`) ve CSV dışa aktarmadan oluşur. Kesilmiş veya uzlaştırılmış ekstredeki NGR tanım sürümü değiştirilemez.
+An operator fee plan (K20) supports fixed/turnover percentage/both models for sports and fixed/GGR percentage/both models for the platform. Partner commercial terms select `ggr`, `ngr`, `turnover`, or `fixed` as the commission basis. The statement flow consists of drafting, issuing (`issued`), audited adjustment, voiding (`voided`), and CSV export. The NGR definition version on an issued or settled statement cannot change.
 
-NGR tanımı (K28) casino ve/veya spor GGR bileşenlerini ve bonus, sağlayıcı ücreti, vergi, chargeback, diğer kesintilerini içerir. Kesinti kaynağı günlük istatistik alanı, ücret planı, oran veya günlük sabit tutardır. Tanımlar sürümlüdür; NGR koşulu belirli bir tanım kimliği ve sürümüne bağlanır.
+An NGR definition (K28) contains casino and/or sports GGR components and bonus, provider-fee, tax, chargeback, and other deductions. A deduction source is a daily-stat field, fee plan, rate, or daily fixed amount. Definitions are versioned; an NGR term is tied to a specific definition ID and version.
 
-Aynı maliyet iki kez düşülemez: etkin kategori bir kez kullanılabilir (yalnız `other` farklı etiketlerle çoğalabilir); aynı istatistik alanı veya ücret planı bileşeni iki satıra bağlanamaz; GGR zaten bir maliyetten net ise o maliyet yeniden düşülemez. `rate` ve `fixed`, yeni maliyet hesapladığı için aynı hedef üzerinde ayrı satırlar olabilir. `providerFees`, açık `ProviderFeeSchedule` sözleşmesindeki sağlayıcı bazlı GGR oranlarından günlük hesaplanır; operatöre özel takvim, aynı gün ve sağlayıcı için platform varsayılanından önceliklidir. Negatif sağlayıcı GGR'sinde günlük ücret alınmaz; aylık asgari ücret sözleşmede bilgi amaçlı saklanır ve günlük hesaplamaya uygulanmaz. NGR'de bunu `provider_fee` kategorisinde `stat_field: providerFees` olarak kullanın. K20 spor bahisleri besleme maliyeti (`fee_plan: sportsbookFee`) `providerFees`'e dahil değildir; ayrı bir maliyettir. İkisi birlikte kullanılacaksa biri `provider_fee`, diğeri farklı etiketli `other` kalemi olur (her kategori bir kez). `chargebacks` ve `chargebackCount`, Slikair'in doğrulanmış `chargeback` bildirimlerinden dolar (bkz. [Slikair](../providers/slikair.md)): chargeback tutarı oyuncunun bakiyesinden düşülür, hesap risk incelemesine alınır ve NGR'deki `chargeback` kalemi `stat_field: chargebacks` ile bu tutarı kullanır. PSP chargeback ücreti için ayrı etiketli bir `other` kalemi `fixed` + `per_chargeback` olarak tanımlanır. İadeler ve defter ters kayıtları chargeback değildir.
+The same cost cannot be deducted twice: an active category can be used once (only `other` may repeat with distinct labels); one statistics field or fee-plan component cannot be tied to two lines; and a cost already netted from GGR cannot be deducted again. `rate` and `fixed` may be separate lines against the same target because they calculate new costs. `providerFees` is calculated daily from provider-specific GGR rates in an open `ProviderFeeSchedule` contract; an operator-specific schedule takes precedence over the platform default for the same date and provider. A provider with negative GGR incurs no daily fee; the monthly minimum is retained as contract information and is not applied to the daily calculation. Use this in NGR as `provider_fee` with `stat_field: providerFees`. The K20 sports-betting feed cost (`fee_plan: sportsbookFee`) is not included in `providerFees`; it is a separate cost. If both are used, one is `provider_fee` and the other an `other` item with a distinct label (each category is used once). `chargebacks` and `chargebackCount` are populated from verified Slikair `chargeback` notifications (see [Slikair](../providers/slikair.md)): the chargeback amount is deducted from the player balance, the account enters risk review, and the NGR `chargeback` item uses that amount through `stat_field: chargebacks`. Define a separate `other` item with `fixed` + `per_chargeback` for a PSP chargeback fee. Refunds and ledger reversals are not chargebacks.
 
-## N6 kapsam kapıları
+## N6 Scope Gates
 
-`SCOPE_GATE_ENV` ayarlıysa kapsam ihlalleri UTC gününe göre kalıcı olarak sayılır. Konsol; staging için ardışık 14 temiz gün, production için ardışık 7 temiz gün ister. Değişken boşsa ölçüm başlatılmaz; bu, çok moddaki zorunlu `enforce` davranışını değiştirmez.
+When `SCOPE_GATE_ENV` is set, scope violations are persistently counted by UTC day. The console requires 14 consecutive clean days for staging and 7 for production. If the variable is empty, measurement does not start; this does not change the mandatory multi-mode `enforce` behaviour.
 
-## Kapasite ölçümü (İP-10a)
+## Capacity Measurement (İP-10a)
 
-Platform konsolundaki "Kapasite Ölçümü" kartı, N6 kapılarının yanında son tamamlanmış 15 dakikalık pencerenin değerlendirmesini gösterir: eşzamanlı soket p95, event loop gecikmesi p99 (ms) ve süreç CPU ortalaması (%). Her metrik `ok`, `approaching` (eşiğin %70'i) veya `exceeded` durumundadır; CPU'da `exceeded` için son 7 günde en az 3 pencerenin %70 eşiğini aşması gerekir. Varsayılan eşikler soket p95 2000, event loop p99 100 ms, CPU %70'tir; `CAPACITY_SOCKETS_P95`, `CAPACITY_EVENT_LOOP_P99_MS`, `CAPACITY_CPU_PCT` ile değiştirilebilir. Aynı veri `GET /api/platform/system/capacity` rotasından (`platform:tenants:manage` izni) okunur. Durum `approaching`/`exceeded`'a her değişimde sunucu günlüğüne bir `[capacity]` uyarısı yazılır ve platform personeli için bir etkinlik kaydı (AuditLog, `actorType: system`) oluşturulur. Ölçüm her iki modda çalışır; tek modda yalnız günlük uyarısı yazılır, etkinlik kaydı çok moda özgüdür.
+The platform console's "Capacity Measurement" card shows the latest completed 15-minute-window evaluation beside the N6 gates: concurrent-socket p95, event-loop-delay p99 (ms), and process CPU average (%). Each metric is `ok`, `approaching` (70% of the threshold), or `exceeded`; CPU requires at least three windows above the 70% threshold in the last seven days to become `exceeded`. Defaults are socket p95 2000, event-loop p99 100 ms, and CPU 70%; configure them with `CAPACITY_SOCKETS_P95`, `CAPACITY_EVENT_LOOP_P99_MS`, and `CAPACITY_CPU_PCT`. The same data is available at `GET /api/platform/system/capacity` with `platform:tenants:manage`. Each transition to `approaching` or `exceeded` writes a `[capacity]` warning to the server log and creates an activity record for platform staff (AuditLog, `actorType: system`). Measurement runs in both modes; single mode writes only the log warning, while the activity record is multi-mode-specific.
 
-## Sık hatalar
+## Common Errors
 
-| Kod | Anlamı | Yapılacak işlem |
+| Code | Meaning | Action |
 |---|---|---|
-| `TENANT_NOT_FOUND` | Ana makine doğrulanmış bir Domain'e bağlı değildir. | DNS TXT doğrulamasını tamamlayın; doğru alan adını kullanın. |
-| `TENANT_NOT_READY` | Operatör hâlâ sağlanıyor. | Personel ayarlarını ve canlıya alma listesini tamamlayın. |
-| `TENANT_SUSPENDED` | Operatör askıya alınmıştır. | Platform Sahibi ile durumu `active` yapın. |
-| `TENANT_CLOSED` | Operatör kapatılmıştır. | Yeni operatör sağlayın; kapalı durum geri açılamaz. |
-| `PLATFORM_READ_ONLY` | Platform personeli operatör rotasında yazmaya çalıştı. | Salt okunur işlemi kullanın veya Platform Sahibinden süreli grant isteyin. |
-| `PARTNER_NOT_ACTIVE` | Partner askıda ya da kapalıdır. | Partner durumunu etkinleştirin. |
-| `MAX_TENANTS_EXCEEDED` | Partner operatör kotasına ulaştı. | Partner limitini güncelleyin veya etkin bağlantıyı sonlandırın. |
-| `MODULE_NOT_ALLOWED` | İstenen modül partnerin izinli modüllerinde yoktur. | Partnerin modül tavanını ve istenen entitlement'i eşleştirin. |
-| `TENANT_KEY_TAKEN` | Operatör anahtarı başka bir operatöre aittir. | Benzersiz bir anahtar seçin. |
-| `ERR_TERMS_NGR_DEFINITION` | NGR ticari koşulunda geçerli tanım/sürüm yoktur. | Tanımı ve sürümünü oluşturup koşula bağlayın. |
-| `ERR_NGR_DUPLICATE_CATEGORY` / `ERR_NGR_DUPLICATE_SOURCE` / `ERR_NGR_ALREADY_NET_OF` | NGR tanımı aynı maliyeti iki kez düşebilir. | Çakışan kesintiyi kaldırın; GGR'nin zaten net olduğu maliyeti yeniden eklemeyin. |
-| `ERR_NGR_DEFINITION_IN_USE` | Kesilmiş ekstre bir NGR sürümünü kullanıyor. | Mevcut sürümü değiştirmeyin; yeni sürüm oluşturun. |
-| `ERR_STATEMENT_ALREADY_ISSUED` | Aynı dönem için kesilmiş ekstre vardır. | Yeni dönem kullanın; gerekirse taslak/ekstre akışını gözden geçirin. |
-| `ERR_INVALID_STATUS` / `ERR_STATEMENT_VOIDED` | Ekstre durumu istenen işleme uygun değildir. | Yalnız taslağı kesin; iptal edilmiş ekstreye düzeltme eklemeyin. |
-| `INVALID_WRITE_GRANT_DURATION` / `REASON_REQUIRED` | Yazma istisnası için süre veya gerekçe geçersizdir. | Gerekçe verin ve bitişi şimdi ile 24 saat arasına koyun. |
-| `OWNER_ALREADY_ACTIVE` | Operatör sahibi daha önce giriş yapmıştır. | Daveti yeniden üretmeyin; sahibin kendi parola sıfırlama akışını kullanın. |
-| `ERR_NGR_DOUBLE_DEDUCTION` | Hesaplama anında NGR kesintisi çakıştı. | Tanımı yukarıdaki çift kesinti kurallarına göre düzeltip yeni sürüm kullanın. |
+| `TENANT_NOT_FOUND` | The host is not linked to a verified Domain. | Complete DNS TXT verification and use the correct domain. |
+| `TENANT_NOT_READY` | The operator is still being provisioned. | Complete staff settings and the go-live checklist. |
+| `TENANT_SUSPENDED` | The operator is suspended. | Set its status to `active` through the Platform Owner. |
+| `TENANT_CLOSED` | The operator is closed. | Provision a new operator; a closed status cannot be reopened. |
+| `PLATFORM_READ_ONLY` | Platform staff attempted a write on an operator route. | Use a read-only operation or request a time-limited grant from the Platform Owner. |
+| `PARTNER_NOT_ACTIVE` | The partner is suspended or closed. | Activate the partner status. |
+| `MAX_TENANTS_EXCEEDED` | The partner has reached its operator quota. | Update the partner limit or end an active link. |
+| `MODULE_NOT_ALLOWED` | The requested module is not in the partner's permitted modules. | Match the partner's module ceiling and requested entitlement. |
+| `TENANT_KEY_TAKEN` | The operator key belongs to another operator. | Select a unique key. |
+| `ERR_TERMS_NGR_DEFINITION` | The NGR commercial term has no valid definition/version. | Create the definition and version, then attach it to the term. |
+| `ERR_NGR_DUPLICATE_CATEGORY` / `ERR_NGR_DUPLICATE_SOURCE` / `ERR_NGR_ALREADY_NET_OF` | The NGR definition could deduct the same cost twice. | Remove the conflicting deduction; do not add a cost already netted from GGR. |
+| `ERR_NGR_DEFINITION_IN_USE` | An issued statement uses an NGR version. | Do not modify the current version; create a new one. |
+| `ERR_STATEMENT_ALREADY_ISSUED` | An issued statement already exists for the period. | Use a new period or review the draft/statement flow. |
+| `ERR_INVALID_STATUS` / `ERR_STATEMENT_VOIDED` | The statement status does not allow the requested operation. | Issue only drafts; do not add adjustments to a voided statement. |
+| `INVALID_WRITE_GRANT_DURATION` / `REASON_REQUIRED` | The write exception has an invalid duration or reason. | Give a reason and set expiry between now and 24 hours. |
+| `OWNER_ALREADY_ACTIVE` | The operator owner has already signed in. | Do not regenerate the invitation; use the owner's password-reset flow. |
+| `ERR_NGR_DOUBLE_DEDUCTION` | An NGR deduction conflicted during calculation. | Correct the definition using the double-deduction rules above and use a new version. |
 
-### Boş veritabanından yeni merkezi kurulum
+### New Central Installation from an Empty Database
 
-1. Yeni, boş bir MongoDB replica set kullanın; mevcut tek-operatör demo verisini çok moda taşımayın.
-2. `TENANCY_MODE=multi`, `TENANCY_ENFORCEMENT=enforce`, `JWT_STAFF_SECRET`, `OPERATOR_SECRET_ENCRYPTION_KEY`, `PLATFORM_HOST` ve aşağıdaki tabloyu hazırlayın; uygulamayı başlatıp migration/bootstrap işlemlerini tamamlayın.
-3. `node scripts/platform-bootstrap.mjs --owner-email owner@example.com --password-stdin` çalıştırın. Parolayı komut satırı yerine standart girdiden verin.
-4. `https://platform.example.com/console` üzerinden giriş yapıp zorunlu 2FA kaydını tamamlayın.
-5. Benzersiz anahtar, tüzel kişi, alan adı, para birimi/zaman dilimi ve entitlement'larla operatörü sağlayın; tek kullanımlık sahip davetini güvenli yoldan iletin.
-6. DNS TXT, TLS, PSP/KYC/e-posta testlerini ve gerekiyorsa yazılı sağlayıcı onayını tamamlayın. Kontrol listesi tamamlanınca operatörü `active` yapın.
+1. Use a new, empty MongoDB replica set; do not move existing single-operator demo data into multi mode.
+2. Set `TENANCY_MODE=multi`, `TENANCY_ENFORCEMENT=enforce`, `JWT_STAFF_SECRET`, `OPERATOR_SECRET_ENCRYPTION_KEY`, and `PLATFORM_HOST`, then apply the values in the following table; start the application and complete migration/bootstrap work.
+3. Run `node scripts/platform-bootstrap.mjs --owner-email owner@example.com --password-stdin`. Supply the password through standard input rather than the command line.
+4. Sign in at `https://platform.example.com/console` and complete mandatory 2FA enrolment.
+5. Provision the operator with a unique key, legal entity, domain, currency/timezone, and entitlements; deliver the single-use owner invitation securely.
+6. Complete DNS TXT, TLS, PSP/KYC/email tests and, where required, written provider approval. Set the operator to `active` when the checklist is complete.
 
-### Çok mod ortam değişkenleri
+### Multi-Mode Environment Variables
 
-| Değişken | Gereklilik / varsayılan | Etki |
+| Variable | Requirement/default | Effect |
 |---|---|---|
-| `TENANCY_MODE` | `multi` | Merkezi operatör yalıtımını açar. |
-| `TENANCY_ENFORCEMENT` | `enforce`; multi modda zorunlu | Kapsamsız operatör sorgularını reddeder. |
-| `JWT_SECRET`, `JWT_REFRESH_SECRET` | Zorunlu | Oyuncu erişim/yenileme tokenları. |
-| `JWT_STAFF_SECRET` | Multi modda zorunlu | Ayrı personel token ailesi. |
-| `OPERATOR_SECRET_ENCRYPTION_KEY` | Multi modda zorunlu, 64 hex | Panelde kaydedilen operatör sırlarını şifreler. |
-| `PLATFORM_HOST` | Üretimde şiddetle önerilir (açılışta zorunlu değil) | Platform konsolu ve platform/partner API'si yalnız bu ana makinede sunulur; boşsa yalnız yol (`/api/platform`, `/api/partner`, `/console`) belirleyicidir. |
-| `MONGODB_URI` | Zorunlu | Replica set bağlantısı. |
-| `AUDIT_RETENTION_DAYS` | En az `1825` | Denetim saklama alt sınırı. |
-| `SCOPE_GATE_ENV` | Boş, `staging` veya `production` | Kapsam kapısı temiz-gün ölçümünü açar. |
-| `CAPACITY_SOCKETS_P95` | `2000` | Soket p95 eşiği. |
-| `CAPACITY_EVENT_LOOP_P99_MS` | `100` | Event-loop p99 milisaniye eşiği. |
-| `CAPACITY_CPU_PCT` | `70` | Süreç CPU ortalaması yüzde eşiği. |
-| `DEMO_BOTS`, `DEMO_FAKE_WINNERS`, `DEMO_INSTANT_DEPOSIT`, `DEMO_DATA` | Etkin olarak `false` | Çok modda demo işlevleri kapalıdır. |
-| Sağlayıcı değişkenleri (`SUMSUB_*`, `SLIKAIR_*` vb.) | Entegrasyona göre | Çok modda kimlik bilgileri operatör kapsamlı ayarlardan gelir; boş değer başka operatöre düşmez. |
+| `TENANCY_MODE` | `multi` | Enables central operator isolation. |
+| `TENANCY_ENFORCEMENT` | `enforce`; mandatory in multi mode | Rejects unscoped operator queries. |
+| `JWT_SECRET`, `JWT_REFRESH_SECRET` | Required | Player access/refresh tokens. |
+| `JWT_STAFF_SECRET` | Required in multi mode | Separate staff-token family. |
+| `OPERATOR_SECRET_ENCRYPTION_KEY` | Required in multi mode, 64 hexadecimal characters | Encrypts operator secrets saved in the panel. |
+| `PLATFORM_HOST` | Strongly recommended in production (not required at startup) | The platform console and platform/partner API are served only on this host; when empty, the path (`/api/platform`, `/api/partner`, `/console`) decides. |
+| `MONGODB_URI` | Required | Replica-set connection. |
+| `AUDIT_RETENTION_DAYS` | At least `1825` | Minimum audit retention. |
+| `SCOPE_GATE_ENV` | Empty, `staging`, or `production` | Enables clean-day measurement for scope gates. |
+| `CAPACITY_SOCKETS_P95` | `2000` | Socket-p95 threshold. |
+| `CAPACITY_EVENT_LOOP_P99_MS` | `100` | Event-loop-p99 threshold in milliseconds. |
+| `CAPACITY_CPU_PCT` | `70` | Process-CPU-average percentage threshold. |
+| `DEMO_BOTS`, `DEMO_FAKE_WINNERS`, `DEMO_INSTANT_DEPOSIT`, `DEMO_DATA` | Effectively `false` | Demo functionality is disabled in multi mode. |
+| Provider variables (`SUMSUB_*`, `SLIKAIR_*`, etc.) | Depends on integration | In multi mode, credentials come from operator-scoped settings; a missing value never falls back to another operator. |
 
-### Partner onboarding
+### Partner Onboarding
 
-1. Partnerin anahtarını, tüzel kişi/iletişim bilgisini, yeteneklerini, kotasını, izinli modüllerini ve entitlement tavanını Platform Sahibi oluşturur.
-2. Partner kendi personelini davet eder. Etkin yetki, rol izni ile partner/operatör bağlantısı yeteneklerinin kesişimidir.
-3. Partner kota içindeyse operatör sağlar; etkin `PartnerOperatorLink` ve başlangıç ticari koşulları kaydedilir.
-4. Operatöre özgü ticari koşullar bağlantı üzerinde tanımlanabilir. Partner metrikleri oyuncu kimliği içermez ve beşten az aktif oyuncuyu `"<5"` gösterir.
-5. Operatör sahibi erişim gerektiğinde gerekçeli, kapsamlı ve en fazla 90 günlük grant verir; iş bitince iptal eder. Partner kendi adına grant veremez.
+1. The Platform Owner creates the partner's key, legal entity/contact details, capabilities, quota, permitted modules, and entitlement ceiling.
+2. The partner invites its own staff. Effective access is the intersection of role permission and partner/operator-link capabilities.
+3. When within quota, the partner provisions an operator; an active `PartnerOperatorLink` and initial commercial terms are recorded.
+4. Operator-specific commercial terms can be defined on the link. Partner metrics contain no player identities and show `"<5"` for fewer than five active players.
+5. When access is needed, the operator owner gives a justified, scoped grant for at most 90 days and revokes it after use. A partner cannot grant access to itself.
 
-### Aylık ekstre döngüsü ve NGR örneği
+### Monthly Statement Cycle and NGR Example
 
-1. Operatör ücret planını (spor için `fixed`/`turnover_percentage`/`both`; platform için `fixed`/`ggr_percentage`/`both`) oluşturun.
-2. Sağlayıcı için platform varsayılanı ya da operatöre özel takvim oluşturun. Aynı kapsam ve sağlayıcıda yeni açık takvim, eskisini etkinlik tarihinde kapatır.
-3. NGR gereken ticari koşula tanım kimliği ve sürümü bağlayın. Günlük istatistikte zaten net olan bir maliyeti yeniden düşmeyin.
-4. Partner ve dönemle taslak ekstre üretin, satırları/para birimini/hesaplanan NGR'yi gözden geçirin.
-5. Taslağa gerekçeli düzeltme ekleyin veya taslağı kesin. Kesilmiş/uzlaştırılmış ekstre ile kullandığı NGR sürümü değiştirilemez; gerekirse ekstreyi iptal edin. CSV hem platform hem partner görünümünden alınır.
+1. Create the operator fee plan (`fixed`/`turnover_percentage`/`both` for sports; `fixed`/`ggr_percentage`/`both` for the platform).
+2. Create a platform-default or operator-specific schedule for the provider. A new open schedule at the same scope and provider closes the previous one on its effective date.
+3. Attach a definition ID and version to the commercial term that requires NGR. Do not deduct a cost already netted in daily statistics again.
+4. Generate a draft statement for the partner and period, then review its lines, currency, and calculated NGR.
+5. Add a justified adjustment to the draft or issue it. An issued/settled statement and its NGR version cannot change; void the statement if necessary. CSV is available in both platform and partner views.
 
-| NGR kalemi (örnek) | Kaynak | Tutar | Ara toplam |
+| NGR item (example) | Source | Amount | Subtotal |
 |---|---|---:|---:|
-| Casino GGR + spor gerçekleşmiş GGR | Bileşenler | 1.500 | 1.500 |
-| Bonus | `stat_field: bonusCost` | -120 | 1.380 |
-| Sağlayıcı ücreti | `stat_field: providerFees` | -90 | 1.290 |
-| Vergi | `rate`, GGR'nin %10'u | -150 | 1.140 |
-| Chargeback | `stat_field: chargebacks` | -60 | 1.080 |
-| Diğer: olay başı PSP masrafı | `fixed` + `per_chargeback`, 2 × 10 | -20 | 1.060 |
+| Casino GGR + realised sports GGR | Components | 1,500 | 1,500 |
+| Bonus | `stat_field: bonusCost` | -120 | 1,380 |
+| Provider fee | `stat_field: providerFees` | -90 | 1,290 |
+| Tax | `rate`, 10% of GGR | -150 | 1,140 |
+| Chargeback | `stat_field: chargebacks` | -60 | 1,080 |
+| Other: per-event PSP cost | `fixed` + `per_chargeback`, 2 × 10 | -20 | 1,060 |
 
-Örneğin NGR `1.060` olur. `other` dışındaki her kategori en çok bir kez kullanılabilir. GGR zaten bonus/vergi gibi bir maliyetten netse o kategori `ggrAlreadyNetOf` içindedir ve tekrar kalem olamaz. Sağlayıcı takvimindeki `minimumMonthlyFee` sözleşme bilgisidir; günlük `providerFees` hesaplamasına uygulanmaz.
+For this example, NGR is `1,060`. Each category other than `other` can be used at most once. If GGR is already net of a cost such as a bonus or tax, that category belongs in `ggrAlreadyNetOf` and cannot be another item. `minimumMonthlyFee` in a provider schedule is contract information and is not applied to daily `providerFees` calculation.
 
-### Chargeback geldiğinde
+### When a Chargeback Arrives
 
-1. Slikair, kredilenmiş bir yatırım için `status: "chargeback"` bildirimi gönderir. Bildirim imzasız olduğundan çekirdek `get-status` ile aynı durum, tutar ve para birimini doğrular; doğrulanamazsa para hareket etmez, bildirim ödeme kaydında doğrulanmamış olarak saklanır ve kritik log düşülür.
-2. Doğrulanınca yatırım tutarı oyuncunun bakiyesinden **bir kez** düşülür (bakiye eksiye inebilir), `chargeback` defter satırı asıl yatırıma bağlanır, ödeme `chargeback` durumuna geçer.
-3. Hesaba yüksek önemde `PSP_CHARGEBACK` risk bulgusu yazılır ve risk durumu en az `REVIEW` olur; sonraki kural değerlendirmeleri bunu kaldırmaz. Yönetim akışına `deposit_chargeback` olayı düşer.
-4. Eksi bakiyede oyuncu çekim ve bahis yapamaz. Personel durumu inceler (oyuncuyla iletişim, belge, PSP itiraz süreci), sonra bulguyu `resolved` ya da `dismissed` yapar; bir sonraki değerlendirmede hesap normal akışa döner.
-5. Doğrulanmış chargeback'ler o günün `TenantDailyStat.chargebacks` ve `chargebackCount` alanlarına girer; NGR'de `chargeback` kalemi (`stat_field: chargebacks`) ve PSP ücreti için ayrı etiketli `other` + `fixed` + `per_chargeback` kalemi bunları kullanır. Ayrıntı: [Slikair](../providers/slikair.md).
+1. Slikair sends `status: "chargeback"` for a credited deposit. Because the notification is unsigned, core verifies the identical status, amount, and currency through `get-status`; if it cannot verify them, money does not move, the notification is retained as unverified on the payment record, and a critical log is written.
+2. Once verified, the deposit amount is deducted from the player balance **once** (the balance can become negative), a `chargeback` ledger row is linked to the original deposit, and the payment becomes `chargeback`.
+3. The account receives a high-severity `PSP_CHARGEBACK` risk finding and reaches at least `REVIEW`; later rule evaluations do not clear it. A `deposit_chargeback` event appears in the administration feed.
+4. A player with a negative balance cannot withdraw or bet. Staff review the situation (player contact, documents, PSP dispute process), then mark the finding `resolved` or `dismissed`; the next evaluation returns the account to its normal flow.
+5. Verified chargebacks enter that day's `TenantDailyStat.chargebacks` and `chargebackCount`; the NGR `chargeback` item (`stat_field: chargebacks`) and separately labelled PSP fee `other` + `fixed` + `per_chargeback` item use those values. Details: [Slikair](../providers/slikair.md).
 
-### Kapasite durumuna göre işlem
+### Action by Capacity State
 
-| Durum | Anlamı | İşletim adımı |
+| State | Meaning | Operating action |
 |---|---|---|
-| `ok` | Son pencere eşiklerin %70'inin altında. | Trendi izleyin. |
-| `approaching` | Bir metrik eşiğin en az %70'inde; sınırlı sıcak CPU penceresi de buradadır. | Trafik, sorgu ve socket kullanımını inceleyin; kapasite artışı/yatay dağıtım planını hazırlayın. |
-| `exceeded` | Soket veya event-loop eşiği aşıldı ya da son 7 günde en az üç CPU penceresi eşiği aştı. | Hizmet sağlığını inceleyin ve kapasiteyi artırın veya trafiği güvenli dağıtın; 1.2.0 otomatik ölçeklemez. |
+| `ok` | The latest window is below 70% of every threshold. | Monitor the trend. |
+| `approaching` | A metric is at least 70% of its threshold; a limited number of hot CPU windows also appears here. | Review traffic, queries, and socket usage; prepare capacity expansion or horizontal-distribution work. |
+| `exceeded` | The socket or event-loop threshold is exceeded, or at least three CPU windows in the last seven days exceeded the threshold. | Review service health, increase capacity, or distribute traffic safely; version 1.2.0 does not auto-scale. |
 
-### Ek hata kodları
+### Additional Error Codes
 
-| Kod | Anlamı ve işlem |
+| Code | Meaning and action |
 |---|---|
-| `PROVIDER_RATEOFGGR_AND_CURRENCY_ARE_REQUIRED` | Sağlayıcı, GGR oranı veya para birimi eksik; üç alanı da girin. |
-| `INVALID_PROVIDER_FEE_SCHEDULE` | Oran/tarih geçersiz; oranı `0`–`1` aralığında ve tarihleri sırayla verin. |
-| `PARTNERID_PERIODSTART_AND_PERIODEND_ARE_REQUIRED` | Ekstre dönemi eksik; partner ve iki tarihi gönderin. |
-| `AMOUNT_AND_DESCRIPTION_ARE_REQUIRED` | Düzeltme tutarı/açıklaması eksik; ikisini de verin. |
-| `NOT_FOUND` | Platform, partner veya faturalama kaydı bulunamadı; kimlik ve erişim kapsamını doğrulayın. |
-| `PARTNER_GRANT_REQUIRED` | İlgili operatör için etkin partner grant'i yok; operatör sahibi gerekli kapsamla grant vermeli. |
-| `INVITE_INVALID` | Davet bağlantısı geçersiz, süresi dolmuş (72 saat) ya da kullanılmış; sahip henüz hiç giriş yapmadıysa yeni davet oluşturun. |
-| `PASSWORD_TOO_SHORT` | Davet kabulünde parola 12 karakterden kısa. |
+| `PROVIDER_RATEOFGGR_AND_CURRENCY_ARE_REQUIRED` | Provider, GGR rate, or currency is missing; enter all three. |
+| `INVALID_PROVIDER_FEE_SCHEDULE` | Rate/date is invalid; provide a rate from `0` to `1` and dates in order. |
+| `PARTNERID_PERIODSTART_AND_PERIODEND_ARE_REQUIRED` | The statement period is missing; provide the partner and both dates. |
+| `AMOUNT_AND_DESCRIPTION_ARE_REQUIRED` | Adjustment amount/description is missing; provide both. |
+| `NOT_FOUND` | The platform, partner, or billing record was not found; verify its identity and access scope. |
+| `PARTNER_GRANT_REQUIRED` | No active partner grant exists for the operator; its owner must issue one with the required scope. |
+| `INVITE_INVALID` | The invitation link is invalid, expired (72 hours), or used; create a new invitation only if the owner has never signed in. |
+| `PASSWORD_TOO_SHORT` | The invitation-acceptance password is shorter than 12 characters. |
 
-İlgili rotalar için [API Referansı](05-api-referansi.md), tüm ortam değişkenleri için [Yapılandırma](02-yapilandirma.md) ve kurulum ayrıntıları için [Kurulum](01-kurulum.md) belgesine bakın.
-
+See [API Reference](05-api-referansi.md) for related routes, [Configuration](02-yapilandirma.md) for every environment variable, and [Installation](01-kurulum.md) for installation detail.

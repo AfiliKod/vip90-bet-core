@@ -1,8 +1,8 @@
 # Sumsub KYC Provider Integration
 
-## Çok operatörlü webhook adresi
+## Multi-Operator Webhook URL
 
-Multi modda her operatörün webhook adresi `POST https://operator.example.com/api/webhook/sumsub/:tenantId` biçimindedir; `tenantId` ilgili Tenant kimliğidir. Genel `POST /api/webhook/sumsub` rotası da vardır, ancak merkezi kurulumda bildirimin doğru operatöre atanması için operatör URL'si ve tenant kimliği kullanılmalıdır. Her operatörün Sumsub kimlik bilgileri kendi kapsamlı ayarlarında tutulur; bir operatörde eksik ayar diğer operatörün bilgilerine geri düşmez.
+In multi mode, every operator's webhook URL is `POST https://operator.example.com/api/webhook/sumsub/:tenantId`; `tenantId` is the relevant Tenant identifier. The general `POST /api/webhook/sumsub` route also exists, but a central installation must use the operator URL and tenant identity to attribute the notification correctly. Each operator's Sumsub credentials are stored in its own scoped settings; a missing setting for one operator never falls back to another operator's credentials.
 
 ## Overview
 

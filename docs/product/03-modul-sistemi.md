@@ -1,8 +1,10 @@
 # Module System
 
-## Çok operatörlü eklenti kancaları
+## Multi-Operator Add-on Hooks
 
-Özel eklentiler çekirdeğin zorunlu bağımlılığı değildir. Operatör sağlama sırasında `registerTenantProvisioningHook`, operatöre ait kimlik bilgisi şeması için `registerTenantCredentialSchema` ve tenant kapsamındaki iş için `runWithTenant` kullanılır. Çekirdek, ücretli eklentiler yokken de başlar/test edilir. Eklentiler platform içlerini doğrudan içe aktarmak yerine `server/src/tenancy/index.js` dışa aktarımlarını kullanır.
+Private add-ons are not mandatory core dependencies. Use `registerTenantProvisioningHook` during operator provisioning, `registerTenantCredentialSchema` for an operator's credential schema, and `runWithTenant` for tenant-scoped work. Core starts and is tested without paid add-ons. Add-ons use exports from `server/src/tenancy/index.js` rather than importing platform internals directly.
+
+See [Adding a New Provider](../providers/adding-a-provider.md) for provider-specific implementation patterns.
 
 VIP90.bet's core platform (accounts, wallet, bonus/wagering engine, KYC, risk and compliance tools, basic admin panel) is always enabled — it is fully functional after purchase, no additional steps needed, and it starts even when none of the add-ons below are present.
 
@@ -46,7 +48,7 @@ This is no longer just an architectural intent — it's a real system that can a
 
 ```js
 res.status(503).json({
-  error: { code: 'MODULE_DISABLED', module: moduleId, message: 'Bu bölüm şu anda kullanılamıyor.' }
+  error: { code: 'MODULE_DISABLED', module: moduleId, message: 'This section is currently unavailable.' }
 });
 ```
 
@@ -97,8 +99,8 @@ The three paid add-ons are separate commercial products from the core platform. 
 
 For known product limitations not covered by the module system (KYC flow, agent system, multi-tier affiliate, VIP cashback, etc.), see [09 — Known Limitations](09-bilinen-kisitlar.md).
 
-## Çok operatörlü eklenti bağlantısı
+## Multi-Operator Add-on Integration
 
-Çekirdek, ücretli eklentileri doğrudan içe aktarmak zorunda değildir. Eklenti, operatör sağlanırken çalışacak idempotent işlemlerini `registerTenantProvisioningHook` ile kaydeder; hook'lar operatör bağlamında sıralı çalışır ve hata sağlama isteğine geri döner. Eklentinin operatör bazlı gizli ayar formu `registerTenantCredentialSchema` ile kayıt edilir; alanlar anahtar, etiket, `secret` ve `required` bilgisi taşıyabilir ve isteğe bağlı doğrulama çalıştırabilir.
+Core does not need to import paid add-ons directly. An add-on registers idempotent work to run when an operator is provisioned with `registerTenantProvisioningHook`; hooks run sequentially in the operator context and an error returns to the provisioning request. Register the add-on's operator-specific secret-settings form with `registerTenantCredentialSchema`; fields can carry a key, label, `secret`, and `required` information and can run optional validation.
 
-Sağlayıcı callback'i isteğin kendisinde operatör taşımıyorsa çekirdek önce kayıtlı ödeme veya payout kaydını platform kapsamında bulur, sonra içindeki `tenantId` ile callback'i doğru operatöre atfeder. Böylece bir callback ortak ortam değişkeniyle başka operatörün hesabına yönlenmez. Eklenti kendi callback protokolünü bu atfa uyacak şekilde tasarlamalı; çekirdek kurulu olmayan eklentiyi yine başlatabilir.
+When a provider callback does not carry an operator in the request itself, core first locates the stored payment or payout record in platform scope, then attributes the callback to the correct operator from its `tenantId`. This prevents a callback from being directed to another operator's account through a shared environment variable. An add-on must design its callback protocol around this attribution; core can still start when the add-on is not installed.

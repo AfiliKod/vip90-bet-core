@@ -44,90 +44,90 @@ All endpoints are grouped under `/api` (except the setup wizard, which is under 
 | Sumsub webhook | `POST /api/webhook/sumsub` | Sumsub verification result callback (outside the module gate) |
 | Setup | `/install` | Single-page setup wizard (first deploy, no terminal needed) |
 
-## Platform, partner ve personel daveti API'leri
+## Platform, Partner, and Staff-Invitation APIs
 
-Bu iki grup yalnız TENANCY_MODE=multi altında sunulur; tek modda 404 döner. Platform rotalarının tamamı platform kapsamlı staff tokenı, partner rotalarının tamamı partner kapsamlı staff tokenı ister. Aşağıdaki izinler ek rota iznidir.
+These two groups are available only under `TENANCY_MODE=multi`; they return 404 in single mode. Every platform route requires a platform-scoped staff token and every partner route requires a partner-scoped staff token. The permissions below are additional route permissions.
 
-### Personel daveti
+### Staff Invitation
 
-| Yöntem | Yol | İzin | Kısa amaç |
+| Method | Path | Permission | Short purpose |
 |---|---|---|---|
-| POST | /api/staff/auth/accept-invite | Genel; e-posta akış limiti | Tek kullanımlı personel davet tokenı ile parolayı belirler. |
+| POST | /api/staff/auth/accept-invite | Public; email-flow rate limit | Sets a password with a single-use staff invitation token. |
 
 ### /api/platform/*
 
-| Yöntem | Yol | İzin | Kısa amaç |
+| Method | Path | Permission | Short purpose |
 |---|---|---|---|
-| GET | /api/platform/system/scope-gates | platform:tenants:manage | N6 kapsam kapılarını okur. |
-| GET | /api/platform/system/capacity | platform:tenants:manage | İP-10a kapasite değerlendirmesini okur (son 15 dakikalık pencere; soket p95, event loop p99, CPU). |
-| GET, POST | /api/platform/tenants | platform:tenants:manage | Operatörleri listeler veya sağlar. |
-| GET | /api/platform/tenants/:id | platform:tenants:manage | Operatör ve canlıya alma listesini gösterir. |
-| PATCH | /api/platform/tenants/:id/status | platform:tenants:manage | Operatör durumunu değiştirir. |
-| POST | /api/platform/tenants/:id/write-grants | platform:tenants:manage + Platform Sahibi | En fazla 24 saatlik yazma istisnası verir. |
-| DELETE | /api/platform/tenants/:id/write-grants/:grantId | platform:tenants:manage + Platform Sahibi | Yazma istisnasını iptal eder. |
-| POST | /api/platform/tenants/:id/owner-invite | platform:tenants:manage | Uygun sahip için daveti yeniden üretir. |
-| GET | /api/platform/tenants/:id/domains, /api/platform/domains | platform:tenants:manage | Operatör veya tüm alan adlarını listeler. |
-| POST | /api/platform/tenants/:id/domains/:domainId/verify-dns | platform:tenants:manage | TXT sahipliğini doğrular. |
-| POST | /api/platform/tenants/:id/domains/:domainId/sync-tls | platform:tenants:manage | TLS durumunu yeniler. |
-| GET | /api/platform/staff | platform:roles:manage | Platform personelini listeler. |
-| GET, POST | /api/platform/partners | platform:partners:manage | Partnerleri listeler veya oluşturur. |
-| GET, PATCH | /api/platform/partners/:id | platform:partners:manage | Partneri okur veya günceller. |
-| GET, POST | /api/platform/billing/plans | platform:billing:read / platform:billing:manage | Operatör ücret planlarını listeler veya yazar. |
-| GET, POST | /api/platform/billing/provider-fee-schedules | platform:billing:read / platform:billing:manage | Sağlayıcı ücret takvimlerini listeler veya oluşturur. |
-| POST | /api/platform/billing/provider-fee-schedules/:id/close | platform:billing:manage | Açık takvimi verilen tarihte kapatır. |
-| GET, POST | /api/platform/billing/ngr-definitions | platform:billing:read / platform:billing:manage | NGR tanımlarını listeler veya oluşturur. |
-| GET, PUT | /api/platform/billing/ngr-definitions/:id | platform:billing:read / platform:billing:manage | NGR tanımını okur veya günceller. |
-| POST | /api/platform/billing/ngr-definitions/:id/versions | platform:billing:manage | NGR tanımının yeni sürümünü oluşturur. |
-| GET | /api/platform/billing/statements, /api/platform/billing/statements/:id | platform:billing:read | Ekstreleri listeler veya gösterir. |
-| POST | /api/platform/billing/statements/generate | platform:billing:manage | Dönem taslak ekstrelerini üretir. |
-| POST | /api/platform/billing/statements/:id/issue | platform:billing:manage | Taslak ekstreyi keser. |
-| POST | /api/platform/billing/statements/:id/adjustments | platform:billing:manage | Denetimli düzeltme ekler. |
-| POST | /api/platform/billing/statements/:id/void | platform:billing:manage | Ekstreyi iptal eder. |
-| GET | /api/platform/billing/statements/:id/export | platform:billing:read | Ekstre CSV'sini verir. |
-| GET | /api/platform/reports/cross-tenant, /api/platform/reports/sportsbook-odds, /api/platform/reports/partner-balances, /api/platform/reports/commercial-balances | platform:reports:read | Platform çapraz raporlarını verir. |
-| GET | /api/platform/reports/cross-tenant/export, /api/platform/reports/sportsbook-odds/export | platform:reports:read | İlgili platform raporunu CSV olarak verir. |
+| GET | /api/platform/system/scope-gates | platform:tenants:manage | Reads the N6 scope gates. |
+| GET | /api/platform/system/capacity | platform:tenants:manage | Reads the İP-10a capacity evaluation (most recent 15-minute window; socket p95, event-loop p99, CPU). |
+| GET, POST | /api/platform/tenants | platform:tenants:manage | Lists or provisions operators. |
+| GET | /api/platform/tenants/:id | platform:tenants:manage | Shows an operator and its go-live checklist. |
+| PATCH | /api/platform/tenants/:id/status | platform:tenants:manage | Changes operator status. |
+| POST | /api/platform/tenants/:id/write-grants | platform:tenants:manage + Platform Owner | Grants a write exception of up to 24 hours. |
+| DELETE | /api/platform/tenants/:id/write-grants/:grantId | platform:tenants:manage + Platform Owner | Revokes a write exception. |
+| POST | /api/platform/tenants/:id/owner-invite | platform:tenants:manage | Regenerates an invitation for an eligible owner. |
+| GET | /api/platform/tenants/:id/domains, /api/platform/domains | platform:tenants:manage | Lists an operator's or all domains. |
+| POST | /api/platform/tenants/:id/domains/:domainId/verify-dns | platform:tenants:manage | Verifies TXT ownership. |
+| POST | /api/platform/tenants/:id/domains/:domainId/sync-tls | platform:tenants:manage | Refreshes TLS status. |
+| GET | /api/platform/staff | platform:roles:manage | Lists platform staff. |
+| GET, POST | /api/platform/partners | platform:partners:manage | Lists or creates partners. |
+| GET, PATCH | /api/platform/partners/:id | platform:partners:manage | Reads or updates a partner. |
+| GET, POST | /api/platform/billing/plans | platform:billing:read / platform:billing:manage | Lists or writes operator fee plans. |
+| GET, POST | /api/platform/billing/provider-fee-schedules | platform:billing:read / platform:billing:manage | Lists or creates provider fee schedules. |
+| POST | /api/platform/billing/provider-fee-schedules/:id/close | platform:billing:manage | Closes an open schedule on the specified date. |
+| GET, POST | /api/platform/billing/ngr-definitions | platform:billing:read / platform:billing:manage | Lists or creates NGR definitions. |
+| GET, PUT | /api/platform/billing/ngr-definitions/:id | platform:billing:read / platform:billing:manage | Reads or updates an NGR definition. |
+| POST | /api/platform/billing/ngr-definitions/:id/versions | platform:billing:manage | Creates a new version of an NGR definition. |
+| GET | /api/platform/billing/statements, /api/platform/billing/statements/:id | platform:billing:read | Lists or shows statements. |
+| POST | /api/platform/billing/statements/generate | platform:billing:manage | Generates draft statements for a period. |
+| POST | /api/platform/billing/statements/:id/issue | platform:billing:manage | Issues a draft statement. |
+| POST | /api/platform/billing/statements/:id/adjustments | platform:billing:manage | Adds an audited adjustment. |
+| POST | /api/platform/billing/statements/:id/void | platform:billing:manage | Voids a statement. |
+| GET | /api/platform/billing/statements/:id/export | platform:billing:read | Returns the statement CSV. |
+| GET | /api/platform/reports/cross-tenant, /api/platform/reports/sportsbook-odds, /api/platform/reports/partner-balances, /api/platform/reports/commercial-balances | platform:reports:read | Returns cross-platform reports. |
+| GET | /api/platform/reports/cross-tenant/export, /api/platform/reports/sportsbook-odds/export | platform:reports:read | Returns the corresponding platform report as CSV. |
 
 ### /api/partner/*
 
-| Yöntem | Yol | İzin | Kısa amaç |
+| Method | Path | Permission | Short purpose |
 |---|---|---|---|
-| GET | /api/partner/me | Partner staff | Partner profilini verir. |
-| GET | /api/partner/metrics | partner:metrics:read | Portföy günlük toplam metriklerini verir. |
-| GET, POST | /api/partner/tenants | partner:metrics:read / partner:tenants:create | Partner operatörlerini listeler veya kota içinde sağlar. |
-| GET | /api/partner/tenants/:id, /api/partner/tenants/:id/metrics | partner:metrics:read | Operatör veya metriklerini verir. |
-| PATCH | /api/partner/tenants/:id/status | partner:tenants:status:write | İzinli operatör durumunu değiştirir. |
-| POST | /api/partner/tenants/:id/owner-invite | partner:tenants:staff:write | Sahip davetini yeniden üretir. |
-| PUT | /api/partner/tenants/:id/integrations | partner:tenants:integrations:write | İzinli operatör entegrasyonlarını günceller. |
-| GET, POST | /api/partner/staff | partner:staff:write | Partner personelini listeler veya davet eder. |
-| PATCH | /api/partner/staff/:id/suspend | partner:staff:write | Partner personelini askıya alır. |
-| GET | /api/partner/statements, /api/partner/statements/:id | partner:metrics:read | Partner ekstrelerini listeler veya gösterir. |
-| GET | /api/partner/statements/:id/export | partner:metrics:read | Partner ekstre CSV'sini verir. |
+| GET | /api/partner/me | Partner staff | Returns the partner profile. |
+| GET | /api/partner/metrics | partner:metrics:read | Returns portfolio daily aggregate metrics. |
+| GET, POST | /api/partner/tenants | partner:metrics:read / partner:tenants:create | Lists or provisions partner operators within quota. |
+| GET | /api/partner/tenants/:id, /api/partner/tenants/:id/metrics | partner:metrics:read | Returns an operator or its metrics. |
+| PATCH | /api/partner/tenants/:id/status | partner:tenants:status:write | Changes an eligible operator's status. |
+| POST | /api/partner/tenants/:id/owner-invite | partner:tenants:staff:write | Regenerates an owner invitation. |
+| PUT | /api/partner/tenants/:id/integrations | partner:tenants:integrations:write | Updates eligible operator integrations. |
+| GET, POST | /api/partner/staff | partner:staff:write | Lists or invites partner staff. |
+| PATCH | /api/partner/staff/:id/suspend | partner:staff:write | Suspends partner staff. |
+| GET | /api/partner/statements, /api/partner/statements/:id | partner:metrics:read | Lists or shows partner statements. |
+| GET | /api/partner/statements/:id/export | partner:metrics:read | Returns the partner statement CSV. |
 
-### Platform/partner alanları ve hata sözleşmesi
+### Platform/partner fields and error contract
 
-`POST /api/staff/auth/accept-invite`, `{ token, password }` alır ve `{ ok, email }` döner; geçersiz, süresi dolmuş (72 saat) ya da kullanılmış davet `400 INVITE_INVALID`, 12 karakterden kısa parola `400 PASSWORD_TOO_SHORT` döner. Platform ve partner çağrılarında kimlik görünmüyorsa veya bağlantı kapsam dışındaysa `NOT_FOUND` dönebilir.
+`POST /api/staff/auth/accept-invite` accepts `{ token, password }` and returns `{ ok, email }`; an invalid, expired (72-hour), or used invitation returns `400 INVITE_INVALID`, and a password shorter than 12 characters returns `400 PASSWORD_TOO_SHORT`. Platform and partner calls can return `NOT_FOUND` when the identity is not visible or the relationship is out of scope.
 
-| Yol | Önemli istek alanları | Önemli yanıtlar/hatalar |
+| Path | Important request fields | Important responses/errors |
 |---|---|---|
-| `POST /api/platform/tenants` | Operatör `key`, `name`, alan adı/marka, tüzel kişi, entitlement ve isteğe bağlı sahip | `201` tenant ve ilk yanıtta `ownerInviteUrl`; `TENANT_KEY_TAKEN`. |
-| `PATCH /api/platform/tenants/:id/status` | `status`, `reason`, `force?` | Durum sonucu; `TENANT_CLOSED` terminaldir. |
-| `POST .../:id/write-grants` | `staffId`, `reason`, bitiş zamanı | `{ grant }`; Platform Sahibi gerekir; `REASON_REQUIRED`, `INVALID_WRITE_GRANT_DURATION`. |
+| `POST /api/platform/tenants` | Operator `key`, `name`, domain/brand, legal entity, entitlement, and optional owner | `201` tenant and `ownerInviteUrl` in the initial response; `TENANT_KEY_TAKEN`. |
+| `PATCH /api/platform/tenants/:id/status` | `status`, `reason`, `force?` | Status result; `TENANT_CLOSED` is terminal. |
+| `POST .../:id/write-grants` | `staffId`, `reason`, end time | `{ grant }`; requires Platform Owner; `REASON_REQUIRED`, `INVALID_WRITE_GRANT_DURATION`. |
 | `POST /api/platform/partners` / `PATCH .../:id` | `key`, `name`, `legalEntity`, `contact`, `capabilities`, `provisioningLimits`, `defaultCommercialTerms` | `{ partner }`; `active`/`suspended`/`closed`. |
-| `POST /api/platform/billing/plans` | `tenantId`, `sportsbookFee`, `platformFee`, `notes` | `201` plan; `TENANTID_IS_REQUIRED`. Yeni plan açık eskisini kapatır. |
-| `POST /api/platform/billing/provider-fee-schedules` | `tenantId?`, `provider`, `rateOfGgr`, `minimumMonthlyFee`, `currency`, `validFrom`, `note?` | `201` takvim; `PROVIDER_RATEOFGGR_AND_CURRENCY_ARE_REQUIRED`, `INVALID_PROVIDER_FEE_SCHEDULE`. |
-| `POST .../provider-fee-schedules/:id/close` | `validTo` | `{ schedule }`; yoksa `NOT_FOUND`. |
-| `POST /api/platform/billing/ngr-definitions` | `name`, `description?`, `ggrComponents`, `ggrAlreadyNetOf`, `items` | `201` sürüm 1; `NAME_IS_REQUIRED`, `ERR_NGR_*`. |
-| `PUT .../ngr-definitions/:id` / `POST .../:id/versions` | NGR alanları | `{ definition }`; kesilmiş ekstrede kullanılan sürüm için `ERR_NGR_DEFINITION_IN_USE`. |
+| `POST /api/platform/billing/plans` | `tenantId`, `sportsbookFee`, `platformFee`, `notes` | `201` plan; `TENANTID_IS_REQUIRED`. A new plan closes the previous open plan. |
+| `POST /api/platform/billing/provider-fee-schedules` | `tenantId?`, `provider`, `rateOfGgr`, `minimumMonthlyFee`, `currency`, `validFrom`, `note?` | `201` schedule; `PROVIDER_RATEOFGGR_AND_CURRENCY_ARE_REQUIRED`, `INVALID_PROVIDER_FEE_SCHEDULE`. |
+| `POST .../provider-fee-schedules/:id/close` | `validTo` | `{ schedule }`; `NOT_FOUND` if absent. |
+| `POST /api/platform/billing/ngr-definitions` | `name`, `description?`, `ggrComponents`, `ggrAlreadyNetOf`, `items` | `201` version 1; `NAME_IS_REQUIRED`, `ERR_NGR_*`. |
+| `PUT .../ngr-definitions/:id` / `POST .../:id/versions` | NGR fields | `{ definition }`; `ERR_NGR_DEFINITION_IN_USE` for a version used in an issued statement. |
 | `POST .../statements/generate` | `partnerId`, `periodStart`, `periodEnd` | `{ statements }`; `PARTNERID_PERIODSTART_AND_PERIODEND_ARE_REQUIRED`, `ERR_STATEMENT_ALREADY_ISSUED`, `ERR_COMMERCIAL_TERMS_MISSING`. |
-| `POST .../statements/:id/issue` | — | `{ statement }`; yalnız `draft`, aksi `ERR_INVALID_STATUS`. |
+| `POST .../statements/:id/issue` | — | `{ statement }`; only `draft`, otherwise `ERR_INVALID_STATUS`. |
 | `POST .../statements/:id/adjustments` | `amount`, `description`, `reason` | `{ statement }`; `AMOUNT_AND_DESCRIPTION_ARE_REQUIRED`. |
-| `POST .../statements/:id/void` | `reason` | `{ statement }`; iptal edilmiş ekstreye yeni işlem yapılamaz. |
-| `GET /api/platform/reports/*` | `from`, `to`, isteğe bağlı `currency`, `groupBy`, `partnerId` | Tarih isteyen raporlarda eksik tarih `400`; export rotaları CSV döner. |
-| `POST /api/partner/tenants` | Tenant sağlama gövdesi | `201`; `PARTNER_NOT_ACTIVE`, `MAX_TENANTS_EXCEEDED`, `MODULE_NOT_ALLOWED`. |
-| `PUT /api/partner/tenants/:id/integrations` | `provider`, `credentials` | `{ ok, provider, configured }`; bağlantı/yetenek gerekir. |
-| `POST /api/partner/staff` / `PATCH .../:id/suspend` | `email`, `username`, `roleName?` / yol kimliği | `201` personel+davet veya güncel personel. |
+| `POST .../statements/:id/void` | `reason` | `{ statement }`; no new operation can be performed on a voided statement. |
+| `GET /api/platform/reports/*` | `from`, `to`, optional `currency`, `groupBy`, `partnerId` | Missing date is `400` for reports that require one; export routes return CSV. |
+| `POST /api/partner/tenants` | Tenant provisioning body | `201`; `PARTNER_NOT_ACTIVE`, `MAX_TENANTS_EXCEEDED`, `MODULE_NOT_ALLOWED`. |
+| `PUT /api/partner/tenants/:id/integrations` | `provider`, `credentials` | `{ ok, provider, configured }`; requires relationship/capability. |
+| `POST /api/partner/staff` / `PATCH .../:id/suspend` | `email`, `username`, `roleName?` / path identity | `201` staff+invitation or updated staff. |
 
-`GET /api/platform/system/capacity`, `{ state, evaluatedAt, windowStart, sockets, eventLoop, cpu }` verir. Her metrikte `value`, `threshold`, `state`; CPU'da `windowsOverThreshold`, `requiredWindows` bulunur. Genel `GET /api/health/status` aynı değerlendirmeyi `capacity` alanında verir; değerlendirme başarısızsa `state: 'unknown'` döner.
+`GET /api/platform/system/capacity` returns `{ state, evaluatedAt, windowStart, sockets, eventLoop, cpu }`. Each metric contains `value`, `threshold`, and `state`; CPU includes `windowsOverThreshold` and `requiredWindows`. The general `GET /api/health/status` exposes the same evaluation in its `capacity` field; if evaluation fails, it returns `state: 'unknown'`.
 
 
 ## Authentication model
@@ -345,7 +345,7 @@ Since a 2026 security fix the endpoint no longer accepts client-submitted payout
 
 ### Igames (casino aggregator) — `/api/igames` (`server/src/premium/igames/igames.js`, Casino Content add-on) — **no module gate**
 
-If the add-on is absent, every path answers `503 { error: 'MODULE_NOT_INSTALLED' }`. If no casino content provider API token is configured (neither `PALACE_API_TOKEN` nor the panel), all endpoints return `503 { error: 'Igames Casino API henüz yapılandırılmadı' }` — the check accepts a token saved from the admin panel as well as the environment variable (fixed 2026-10-03). Note: This route group is **outside** the `requireCasinoContent` gate — even if the casino-content module is disabled, Igames endpoints continue to work (only the generalized `/api/casino/spin` endpoint and casino catalog page are disabled).
+If the add-on is absent, every path answers `503 { error: 'MODULE_NOT_INSTALLED' }`. If no casino content provider API token is configured (neither `PALACE_API_TOKEN` nor the panel), all endpoints return `503 { error: 'Igames Casino API is not yet configured' }` — the check accepts a token saved from the admin panel as well as the environment variable (fixed 2026-10-03). Note: This route group is **outside** the `requireCasinoContent` gate — even if the casino-content module is disabled, Igames endpoints continue to work (only the generalized `/api/casino/spin` endpoint and casino catalog page are disabled).
 
 | Method + Path | Auth | Notes |
 |---|---|---|
@@ -511,9 +511,9 @@ Socket events `chat:tip` and `chat:rain` require a client `requestId` (≤ 128 c
 | `GET /robots.txt`, `GET /sitemap.xml` | `seo/http.js` | Generated from Settings → SEO; sitemap is 404 while `noindex` is on |
 | `GET /api/demo/showcase` | `demo/showcase.js` | "Requires module" badge data |
 
-### SPA rotaları (API dışı) — gerçek 404
+### SPA routes (outside the API) — real 404
 
-Non-API `GET` istekleri `app.get('*')` içinde ele alınır (`server/src/seo/http.js`).
+Non-API `GET` requests are handled in `app.get('*')` (`server/src/seo/http.js`).
 
 | Request | Response |
 |---|---|
@@ -664,7 +664,7 @@ Destructive/financial endpoints additionally apply `blockDemoAdmin` (marked belo
 
 | Method + Path | Notes |
 |---|---|
-| `GET /install` | Build-free single-page setup form; `404` `{"error":"Kurulum zaten tamamlanmış"}` once an admin exists |
+| `GET /install` | Build-free single-page setup form; `404` `{"error":"Setup is already complete"}` once an admin exists |
 | `GET /install/api/status` | DB connection + setup status (`{ dbConnected, adminExists, needsInstall }`), always answers |
 | `POST /install/api/run` | Creates first admin + site settings, generates `.env` content; `409 ALREADY_INSTALLED` once an admin exists (the `GET /install` page answers `404`), `400` on validation error |
 

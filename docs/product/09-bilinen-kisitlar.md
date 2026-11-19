@@ -1,11 +1,11 @@
 # Known Limitations
 
-## 1.2.0 güncel sınırlar
+## 1.2.0 Current Limitations
 
-- Kapasite ölçümü vardır; yatay ölçekleme, trafik dağıtma veya eşik aşılınca otomatik müdahale yoktur.
-- `ProviderFeeSchedule` günlük ücretleri yalnız casino round sağlayıcılarının pozitif GGR'sinden hesaplar. Spor veya başka sağlayıcı türleri için `providerFees` kaynağı yoktur.
-- Doğrulanmış chargeback alma Slikair bildiriminden gelir; başka ödeme sağlayıcısının eşdeğer kaynağı yoktur.
-- Sağlayıcı takvimindeki aylık asgari ücret günlük NGR toplamına uygulanmaz; sözleşme bilgisidir.
+- Capacity measurement exists; there is no horizontal scaling, traffic distribution, or automatic intervention when a threshold is exceeded.
+- `ProviderFeeSchedule` calculates daily fees only from positive GGR of casino-round providers. There is no `providerFees` source for sports or other provider types.
+- Verified chargeback intake comes from Slikair notifications; no equivalent source exists for another payment provider.
+- A provider schedule's monthly minimum fee is not applied to the daily NGR total; it is contract information.
 
 _Last verified: 2026-10-08 (i18n coverage and deploy notes re-measured; SMS sender screen, referral settings and add-on `sourceId` resolved); before that 2026-10-03 (documentation audit, then updated after the code fixes of internal PR #132; earlier verification 2026-09-17 after the PAM/Risk-Fraud Completion plan). Items below marked RESOLVED 2026-10-03 were checked in the core code; where a fix lives in an add-on submodule (`server/src/premium/*`, not checked out in the documentation worktree) it is stated from the fix reports and was not re-read here._
 
@@ -204,121 +204,127 @@ Two related production incidents were fixed the same day this was merged: `getWe
 `client/src/pages/admin/Reconciliation.jsx` (added 2026-09-17) provides job creation, starting a job, reviewing/resolving items. The backend (model/service/controller/routes) already existed and is fully wired. What an operator should know before relying on this:
 
 - **`cryptoDeposit` job type — RESOLVED 2026-09-18, real external source.** TRC20/USDT deposits are already public on-chain, so no third-party integrator was needed — `controllers/reconciliation.js`'s `fetchCryptoExternalRecords()` derives every crypto-depositing user's TRON address (`User.cryptoDepositIndex` → `deriveDepositAddress()`) and queries TronGrid's own `fetchIncomingUSDT()` (the same function `POST /api/crypto/check-deposit` already uses) for each one, filtered to the job's `dateRange`. Internal side compares against `CryptoDeposit` (not `Transaction` — its `usdtAmount` is in USDT, matching TronGrid's units directly, so no TRY-conversion-rate drift can cause a false mismatch), keyed by `txHash`. Because TronGrid has no per-address batch endpoint, one request is made per address; `CRYPTO_ADDRESS_FETCH_CAP = 300` fails the job loudly (not a silent truncation) if the crypto user base exceeds that in one job, matching the existing `INTERNAL_FETCH_CAP` safety pattern. A per-address TronGrid failure is skipped and logged via `errorLogger.critical('reconciliation_crypto_fetch_partial', ...)` rather than failing the whole job — but that means the job's `missing_internally` count can undercount if any address failed; check the critical-error log before treating a `cryptoDeposit` job's summary as complete. This is also the first channel where "missing internally" is a real, actionable signal: an on-chain deposit for which `check-deposit` was never triggered by the user (money arrived, nobody claimed it) now surfaces as `missing_internally` instead of being invisible. Tests: `server/test/reconciliation.test.js` (new, 6 tests — normalization, date-range filtering, partial-failure resilience, the 300-address cap, and full matched/amount-mismatch/missing-internally/status-mismatch classification via `reconciliationService.startReconciliationJob`).
-- **Bank and Slikair channels — still a stub, no integrator yet.** `startJob`'s fetcher falls back to `mockFetchExternal = async () => []` for every job type other than `cryptoDeposit`. Every non-crypto job you start today will still report 100% of internal records as "dışarıda eksik" (missing externally). A 2026-09-17 research pass into real sources for these two channels found:
+- **Bank and Slikair channels — still a stub, no integrator yet.** `startJob`'s fetcher falls back to `mockFetchExternal = async () => []` for every job type other than `cryptoDeposit`. Every non-crypto job you start today will still report 100% of internal records as "missing externally." A 2026-09-17 research pass into real sources for these two channels found:
   - **Bank (manual Ziraat Bankası transfers, see below)**: Turkey's regulated Open Banking standard (ÖHVPS, run by TCMB) offers account-information APIs that could supply a real transaction feed. Two commercial providers package this as a ready integration rather than building ÖHVPS access from scratch: **Payfoni** (supports Ziraat Bankası, read-only PSD2-style API, ~3-5 min data latency, webhook on their Premium tier) and **Finrota** (also ÖHVPS-based, plus its own description-parsing/reference-matching reconciliation layer — more than needed here, since `compareRecords` already does our matching). Neither is wired in; this is a vendor-selection decision, not a code task.
   - **Slikair does not fill this gap either.** Slikair (see below) is a payment gateway providing one deposit channel (card/crypto/open-banking); it is not a reconciliation/settlement-feed source, and needs its own gap closed separately: its public OpenAPI spec documents only `payment/create`, `payment/get-status`, `payouts/create`, `payouts/get-status` — no bulk transaction list or settlement-report endpoint. Their dashboard ("Pulse"/"Insights") appears to offer this only as a UI export, not an API. Closing this channel means asking Slikair's account team for a settlement-report API or SFTP feed (a normal ask for PSPs), not something discoverable from their published docs.
 - **Date range is now required when creating a job** (added 2026-09-17, after a job created without one was found to trigger an unconstrained fetch of an entire collection) — plus a 5,000-record hard cap as a second safety layer. A job whose match exceeds the cap fails loudly with an explanatory error rather than silently reconciling a truncated set.
 - A resolve action's outcome (`resolved`/`dismissed`/`escalated`) is stored in a separate `resolutionStatus` field, not the item's diagnostic `status` field (which classifies *what kind* of discrepancy it is — `matched`/`missing_internally`/`amount_mismatch`/etc). This split was added 2026-09-17 after the two were found merged into one field, which made every resolve action fail with a validation error.
 
 
-## In-house oyun uyum denetimi (2026-10-08)
+## In-house game compliance audit (2026-10-08)
 
-13 in-house oyunun (`server/src/premium/inhouse-provider`) para ve uyum zinciri
-2026-10-08'de uçtan uca tarandı. Aşağıdakiler **düzeltildi**; kapanmayanlar
-"hâlâ açık" olarak duruyor ve operatör kararı gerektiriyor.
+The money and compliance chain for 13 in-house games (`server/src/premium/inhouse-provider`)
+was audited end to end on 2026-10-08. The items below were **fixed**; unresolved
+items remain "still open" and require an operator decision.
 
-### Düzeltilenler
+### Resolved
 
-- **18+ kapısı hiç uygulanmıyordu — RESOLVED.** `User.ageConfirmedAt` ve
-  `ageVerifiedAt` alanları şemada vardı ama **hiçbir yere yazılmıyordu**
-  (kayıt yalnız `acceptedTermsAt`/`acceptedKvkkAt` yazıyordu) ve hiçbir uç
-  denetlemiyordu; 18+ beyanı yalnız istemcide bir kutu idi.
-  `server/src/middleware/ageGate.js` artık `enforceAgeGate()` olarak
-  `/api/inhouse-provider` (`/launch`) ve `/api/igames` mount'larında çalışır:
-  kaydı olmayan hesap `403 AGE_CONFIRMATION_REQUIRED` alır, istemci tek tıkla
-  `client/src/components/games/AgeGateScreen.jsx` ekranını gösterir ve
-  `POST /api/auth/age-confirm` (`requireAuth`) kaydı yazar. Doğum tarihi
-  18 yaş üstünü kanıtlıyorsa `ageVerifiedAt` de yazılır; 18 yaş altını
-  kanıtlıyorsa kayıt **yazılmaz** (`422 AGE_NOT_ELIGILE`). Kayıtta
-  `ageConfirmed: true` gönderen istemciler için `ageConfirmedAt` doğrudan
-  `User.create` sırasında yazılır (daha önce hiç yazılmıyordu).
-  **Migration yok:** alanlar zaten şemada vardı, sadece doldurulmuyordu; eski
-  hesaplar bir kez onayladığında açılır. Kullanıcı sayısını görmek için
-  `node server/scripts/inhouse-audit-report.mjs` (R7).
-- **Sorumlu oyuncu limitleri her turda ölçülmüyordu — RESOLVED.**
-  `enforceResponsibleGaming` yalnız `/launch` ucunda (`action: 'play'`)
-  çalışıyordu; bir oyuncu günlük kayıp limitini **doldurduktan sonra da**
-  aynı oturumda in-house oyunlarına bahis koyabiliyordu.
-  `server/src/middleware/inhouseRoundLimits.js` artık `/callback` **debit**
-  gövdesinde her tur `checkPlayerEligibility(userId, 'bet', { amount })`
-  çağırır; `RESTRICT`/`BLOCK` → `403 { approved:false, reason }`
-  (engine `BET_REJECTED` üretir, retry yok, para zaten hareket etmemiştir).
-  `settle`/`balance` gövdeleri denetlenmez — kabul/ödeme yolu kapanmaz.
-  `updateDailyStats` zaten her debit'te `wager` yazdığı için limit verisi
-  tur tur birikiyor.
-- **`sessionTimeoutMin` hiç okunmuyordu — RESOLVED.** `setSessionLimit()` /
-  `PUT /api/users/limits` alanı yazıyor, **hiçbir kod okumuyordu**: oyuncunun
-  kendi koyduğu oturum limiti sessizce uygulanmıyordu. Artık
+- **The 18+ gate was never enforced — RESOLVED.** The `User.ageConfirmedAt` and
+  `ageVerifiedAt` fields existed in the schema, but were **never written**
+  (registration wrote only `acceptedTermsAt`/`acceptedKvkkAt`), and no endpoint
+  checked them; the 18+ declaration was only a client-side checkbox.
+  `server/src/middleware/ageGate.js` now runs as `enforceAgeGate()` on the
+  `/api/inhouse-provider` (`/launch`) and `/api/igames` mounts: an account
+  without a record receives `403 AGE_CONFIRMATION_REQUIRED`, the client shows
+  `client/src/components/games/AgeGateScreen.jsx` with one click, and
+  `POST /api/auth/age-confirm` (`requireAuth`) writes the record. If the date
+  of birth proves the user is over 18, `ageVerifiedAt` is also written; if it
+  proves the user is under 18, no record is written (`422 AGE_NOT_ELIGILE`).
+  For clients that send `ageConfirmed: true` during registration,
+  `ageConfirmedAt` is written directly during `User.create` (it was never
+  written before). **No migration:** the fields already existed in the schema
+  but were not populated; older accounts can proceed after confirming once.
+  To see the user count, run `node server/scripts/inhouse-audit-report.mjs` (R7).
+- **Responsible-gaming limits were not measured on every round — RESOLVED.**
+  `enforceResponsibleGaming` ran only at the `/launch` endpoint
+  (`action: 'play'`), so a player could continue betting on in-house games in
+  the same session even after **reaching** their daily loss limit.
+  `server/src/middleware/inhouseRoundLimits.js` now calls
+  `checkPlayerEligibility(userId, 'bet', { amount })` on every round in the
+  `/callback` **debit** body; `RESTRICT`/`BLOCK` → `403 { approved:false, reason }`
+  (the engine produces `BET_REJECTED`, with no retry, and no money has moved).
+  `settle`/`balance` bodies are not checked, so the acceptance/payout path
+  remains open. Because `updateDailyStats` already writes `wager` on every
+  debit, the limit data accumulates round by round.
+- **`sessionTimeoutMin` was never read — RESOLVED.** `setSessionLimit()` /
+  `PUT /api/users/limits` wrote the field, but **no code read it**: the
+  player's self-imposed session limit was silently not enforced.
   `server/src/models/InhousePlaySession.js` + `server/src/services/inhouseSession.js`
-  oturum tavanını sunucu tarafında uygular: `enforceInhouseSessionLimit()`
-  `/launch`'da oturumu açar/devam ettirir, `/callback` debit'inde her tur tavanı
-  denetler. **Tavan: oyuncunun kendi limiti varsa o kazanır, yoksa
-  `INHOUSE_SESSION_MAX_MINUTES` (default 120 dk)**; 5–1440 dk arasına kırpılır.
-  Tavan aşılınca oturum `closeReason: 'max_duration'` ile kapanır ve yeni
-  launch yeni oturum açar. Oturum kaydı fail-open'dur (Mongo düşerse oyun akışı
-  durmaz); limit çözümü DB hatasında platform varsayılanına düşer.
-  **Sadece launch'a bakmak yetmezdi:** crash/roulette gibi uzun ömürlü soket
-  oyunları oyuncu ekrandan çıkmadan açık kalabiliyor; tavan ancak her turda
-  denetlenince gerçekten sınırlar. Turn sayacı (`rounds`, `totalBet`)
-  denetim raporunun girdisidir.
-- **Bağımsız denetim raporu yoktu — RESOLVED.** Para hareketi dört koleksiyona
-  dağılmıştı (`ProviderRound`, `Transaction`, `CasinoRound`,
-  `InhouseCallbackReceipt`) ve karşılaştıran tek bir çıktı yoktu.
-  `node server/scripts/inhouse-audit-report.mjs` (salt-okunur, `--days`,
-  `--out`, `--strict`) R1–R7'ı raporlar: sonuçlanmış turda ledger `bet`
-  Transaction'ı yok, ledger'da bilinmeyen tur, `payout>0` turda `win`
-  Transaction'ı yok (ödeme kaybı), oyun başına tur sayısı farkı, askıda outbox,
-  tavanı aşmış oturum, 18+ kaydı olmayan hesap.
-  **Kısıt (bilinçli):** `CasinoRound` `roundId` tutmadığı için R4 tur sayısı ve
-  toplam bazlıdır; dayanıklı birleştirme anahtarı
-  `Transaction.note = inhouse:<gameId>:<roundId>`'dir. Satır bazında tam denetim
-  için `CasinoRound`'a `roundId` eklenmesi gerekir — şema değişikliği, ayrı iş
-  kalemi olarak bırakıldı.
-- **In-house oyunların e2e kapsamı yoktu — RESOLVED.** `tests/e2e/specs/inhouse-game.spec.js`
-  18+ kapısının istemciye taşınmasını uçtan uca doğrular (launch 403 → onay
-  ekranı → `POST /auth/age-confirm` → launch tekrar → iframe), yetersiz bakiye
-  ekranının bozulmadığını ve bilinmeyen oyun yolunun gerçek 404 döndürdüğünü
-  kontrol eder. Sağlayıcı yanıtı `page.route` ile taklit edilir; **gerçek para
-  hareketi çalıştırılmaz** (test DB'de bilinçli olarak).
-- **Lobide 13. oyun (videopoker) görünmüyordu — RESOLVED.** `HomePage.jsx`'in
-  `INHOUSE_GAMES` listesinde 12 oyun vardı; `videopoker` yalnız doğrudan
-  `/games/videopoker` rotasından erişilebiliyordu (rota `App.jsx`'te mevcuttu).
+  now enforce the session cap server-side: `enforceInhouseSessionLimit()`
+  starts/continues a session at `/launch` and checks the cap on every round at
+  `/callback` debit. **Cap: the player's own limit wins if set; otherwise
+  `INHOUSE_SESSION_MAX_MINUTES` (default 120 minutes) applies**; it is clamped
+  to 5–1440 minutes. When the cap is exceeded, the session closes with
+  `closeReason: 'max_duration'`, and a new launch starts a new session. Session
+  recording is fail-open (game flow does not stop if Mongo is down); limit
+  resolution falls back to the platform default on a DB error.
+  **Checking only launch was insufficient:** long-lived socket games such as
+  crash/roulette can remain open without the player leaving the screen; only
+  checking every round imposes a real limit. The round counter (`rounds`,
+  `totalBet`) is input to the audit report.
+- **There was no independent audit report — RESOLVED.** Money movements were
+  spread across four collections (`ProviderRound`, `Transaction`, `CasinoRound`,
+  `InhouseCallbackReceipt`) with no single comparative output.
+  `node server/scripts/inhouse-audit-report.mjs` (read-only, `--days`, `--out`,
+  `--strict`) reports R1–R7: no ledger `bet` `Transaction` for a settled round,
+  an unknown round in the ledger, no `win` `Transaction` for a `payout>0` round
+  (lost payout), round-count difference by game, pending outbox, a session over
+  the cap, and an account with no 18+ record.
+  **Deliberate limitation:** because `CasinoRound` does not retain `roundId`,
+  R4 is round-count and aggregate based; the durable join key is
+  `Transaction.note = inhouse:<gameId>:<roundId>`. Full row-level auditing
+  requires adding `roundId` to `CasinoRound` — a schema change left as a
+  separate work item.
+- **In-house games had no e2e coverage — RESOLVED.**
+  `tests/e2e/specs/inhouse-game.spec.js` verifies end to end that the 18+ gate
+  reaches the client (launch 403 → confirmation screen →
+  `POST /auth/age-confirm` → retry launch → iframe), that the insufficient-
+  balance screen is not broken, and that an unknown game path returns a real
+  404. The provider response is simulated with `page.route`; **no real money
+  movement is run** (deliberately, in the test DB).
+- **The 13th game (videopoker) was not shown in the lobby — RESOLVED.**
+  `HomePage.jsx`'s `INHOUSE_GAMES` list had 12 games; `videopoker` was
+  accessible only directly at the `/games/videopoker` route (the route already
+  existed in `App.jsx`).
 
-### Hâlâ açık (operatör/hukuk kararı veya submodule işi)
+### Still open (operator/legal decision or submodule work)
 
-- **Casino launch/bet KYC kapısı yok.** `server/src/middleware/kycGate.js`
-  yalnız **withdrawal**'ı kapatıyor ve açıkça "deposit ve oyunlar bu kapıdan
-  geçmez" diyor; `enforceRiskCheck` yalnız `/launch`'a bağlı. KYC'yi casino
-  açılışına zorunlu yapmak **ürün politikası değişikliğidir** (lisans/jurisdiksiyon
-  ve KYC sağlayıcısı maliyeti). Karar verilirse: `kycGate.js`'e
-  `requireKycForPlay` + mount'a ekleme (mekanizma hazır değil, bilinçli olarak
-  yazılmadı — kullanılmayan/bir daha çalıştırılmayacak kod bırakmamak için).
-- **Jurisdiksiyon/geo kısıtı yok.** Oyun açılışında ülke/IP kısıtı uygulanmıyor
-  (`Jurisdiction` modeli var, `isBlocked`-benzeri bir oyun kapısı yok).
-  İzinli ülke listesi hukuki karardır; uydurulmamalı.
-- **RNG'de modulo bias (submodule).** `engine/provablyFair.js`, HMAC çıktısını
-  `hash % n` ile örnekliyor → modülasyon yanlılığı. Doğru yöntem
-  **rejection sampling** (kalan aralık dışıysa tekrar çekim). Aynı düzeltme
-  istemci tarafında `game-host/src/utils/verifyRound.js` içinde de yapılmalı,
-  yoksa oyuncu "adil oyun" doğrulamasını kendi istemcisiyle tekrar reddeder.
-  Bu para yolunda olduğu için `vip90-bet-inhouse` submodule'unda, ayrı PR ile.
-- **Engine'de oturum tavanı yok (submodule).** `instantGameEngine`/`crash`/
-  `roulette` sunucu belleğinde (`Map`) oturum tutuyor; process-local, limit
-  yok. Platform tarafındaki tavan her turda reddediyor, ama motorun kendi
-  oturumu kapanmıyor (soket açık kalıyor, yeni bahis reddediliyor).
-  Kalıcı/hard limit submodule işidir.
-- **Bağımsız RTP/RNG denetim raporu yok (submodule).** `math/` altında yalnız
-  blackjack ve videopoker için simülatör var; 13 oyunun tamamı için
-  yayınlanabilir RTP tablosu + RNG denetimi üretilmiyor. `math/` submodule'da.
-- **`Bet` modeli round başına tutmuyor (submodule).** In-house turları
-  `CasinoRound`'a yazılıyor, `Bet`'e değil; oyuncu "bahis geçmişi" ekranı
-  in-house için ayrı bir yol kullanıyor.
+- **There is no KYC gate for casino launch/bet.**
+  `server/src/middleware/kycGate.js` blocks only **withdrawal** and explicitly
+  says "deposits and games do not pass through this gate"; `enforceRiskCheck`
+  is attached only to `/launch`. Making KYC mandatory for casino launch is a
+  **product-policy change** (licensing/jurisdiction and KYC-provider cost). If
+  decided: add `requireKycForPlay` to `kycGate.js` and mount it (the mechanism
+  is not ready and was deliberately not written, to avoid leaving unused code
+  that will never be run).
+- **There is no jurisdiction/geo restriction.** No country/IP restriction is
+  applied at game launch (`Jurisdiction` model exists, but no `isBlocked`-like
+  game gate). The permitted-country list is a legal decision and must not be
+  invented.
+- **Modulo bias in the RNG (submodule).** `engine/provablyFair.js` samples its
+  HMAC output with `hash % n` → modulo bias. The correct method is **rejection
+  sampling** (draw again if outside the remaining range). The same fix must be
+  made client-side in `game-host/src/utils/verifyRound.js`, otherwise the
+  player's own client will reject the "fair game" verification again. Because
+  this is in the money path, make the change in the `vip90-bet-inhouse`
+  submodule in a separate PR.
+- **There is no session cap in the engine (submodule).** `instantGameEngine`/
+  `crash`/`roulette` retain sessions in server memory (`Map`); it is process-
+  local and unlimited. The platform-side cap rejects every round, but the
+  engine's own session does not close (the socket remains open and new bets
+  are rejected). A persistent/hard limit is submodule work.
+- **There is no independent RTP/RNG audit report (submodule).** Under `math/`
+  there is a simulator only for blackjack and videopoker; no publishable RTP
+  table + RNG audit is produced for all 13 games. `math/` is in the submodule.
+- **The `Bet` model does not retain one record per round (submodule).**
+  In-house rounds are written to `CasinoRound`, not `Bet`; the player "bet
+  history" screen uses a separate path for in-house games.
 
-## Çok operatörlü işletim sınırları
+## Multi-operator operating limits
 
-- Merkezi çok operatörlü kurulum, İP-10 ölçek eşiklerine kadar tek Node süreci varsayımıyla çalışır; süreçler arası önbellek/iş koordinasyonu bu sürümün kapsamı değildir.
-- Kapasite ölçümü (İP-10a) her iki modda çalışır: sunucu 10 saniyede bir örnek alır ve 15 dakikalık pencereler hâlinde saklar (90 gün). Eşikler: soket p95 > 2000, event loop p99 > 100 ms, CPU ort. > %70; CPU'da "aşıldı" durumu son 7 günde en az 3 pencere eşiği aşınca oluşur. Eşiğin %70'i "eşiğe yaklaşıyor" sayılır. Sonuç `GET /api/health/status` yanıtındaki `capacity` alanında görünür; çok modda platform konsolundaki "Kapasite Ölçümü" kartı ve `GET /api/platform/system/capacity` aynı değerlendirmeyi gösterir. Ölçüm penceresi başına süreç kimliği (`host`, `pid`) tutulur; birden çok süreç çalıştırılırsa pencereler süreç başına ayrı değerlendirilir. Eşikler `CAPACITY_SOCKETS_P95`, `CAPACITY_EVENT_LOOP_P99_MS`, `CAPACITY_CPU_PCT` ile değiştirilebilir.
-- `TenantDailyStat` partner görünümünde günlük toplamdır; ham oyuncu olayları veya anlık akış değildir ve `activePlayers < 5` küçük hücreleri gizlenir.
-- `chargebacks` / `chargebackCount`, Slikair'in doğrulanmış `chargeback` bildirimlerinden dolar; başka bir ödeme sağlayıcısının chargeback'i henüz okunmaz. `providerFees`, sağlayıcı sözleşme takvimlerindeki GGR oranından gelir; negatif sağlayıcı GGR'sinde günlük ücret sıfırdır ve aylık asgari ücret yalnız bilgi amaçlı saklanır. Slikair chargeback ücreti bildirmez; ücret `per_chargeback` sabit kesintisiyle girilir. İadeler (`deposit_refund`, `refund`) ve defter ters kayıtları (`reversal`) chargeback değildir.
-- NGR sabit kesintileri yalnız günlük periyodu destekler; kesilmiş/uzlaştırılmış ekstrelerin kullandığı NGR sürümü değiştirilemez, yeni sürüm oluşturulmalıdır.
-- Partner Grant en fazla 90 gündür. Platform yazma istisnası yalnız Platform Sahibi tarafından verilir ve en fazla 24 saattir.
+- The central multi-operator installation assumes a single Node process up to the İP-10 scaling thresholds; cross-process cache/job coordination is outside this release's scope.
+- Capacity measurement (İP-10a) runs in both modes: the server samples every 10 seconds and retains 15-minute windows (90 days). Thresholds: socket p95 > 2000, event-loop p99 > 100 ms, CPU avg. > 70%; CPU is "exceeded" after at least three windows exceed the threshold in the last seven days. 70% of a threshold is considered "approaching." The result appears in the `capacity` field of `GET /api/health/status`; in multi mode, the "Capacity Measurement" card in the platform console and `GET /api/platform/system/capacity` show the same evaluation. A process identity (`host`, `pid`) is retained per measurement window; if multiple processes run, their windows are evaluated separately. Thresholds can be changed with `CAPACITY_SOCKETS_P95`, `CAPACITY_EVENT_LOOP_P99_MS`, and `CAPACITY_CPU_PCT`.
+- In the partner view, `TenantDailyStat` is a daily aggregate, not raw player events or a real-time stream; cells with `activePlayers < 5` are hidden.
+- `chargebacks` / `chargebackCount` are populated from Slikair's verified `chargeback` notifications; another payment provider's chargebacks are not yet read. `providerFees` comes from the GGR rate in provider contract schedules; the daily fee is zero for negative provider GGR, and the monthly minimum fee is retained only for information. Slikair does not report a chargeback fee; the fee is entered as a fixed `per_chargeback` deduction. Refunds (`deposit_refund`, `refund`) and ledger reversal records (`reversal`) are not chargebacks.
+- NGR fixed deductions support only a daily period; the NGR version used by issued/settled statements cannot be changed, and a new version must be created.
+- A Partner Grant lasts at most 90 days. A platform write exception can be granted only by the Platform Owner and lasts at most 24 hours.
