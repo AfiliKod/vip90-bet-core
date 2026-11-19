@@ -18,6 +18,14 @@ Madde formatı ve kategoriler için `docs/CHANGELOG_GUIDE.md`'ye bakın —
 
 ## [Yayınlanmadı]
 
+### Site adı boşken "Default" görünmüyor
+
+**Düzeltildi**
+- Site adı (**Kişiselleştirme → Marka → Site adı**) ayarlanmamış tek operatörlü kurulumlarda sekme başlığı, PWA kurulum adı, `/api/branding` ve e-postalar, kurulumda otomatik açılan varsayılan kiracının yer tutucu adını (`Default`) gösteriyordu. Bu yer tutucu artık marka adı sayılmaz: geri dönüş kurulum adresinin host'udur (`CLIENT_URL`'deki ilk adres). Gerçek bir kiracı adı (çok operatörlü kurulumda operatörün adı ya da yeniden adlandırılmış varsayılan kiracı) eskisi gibi kullanılır. `/api/branding` yanıtındaki `tenantName` yer tutucu için `null` döner.
+- PWA manifesti site adını sunucunun diğer etiketleriyle aynı kuraldan (`getSiteName`) alır; çok operatörlü kurulumda bağlamsız istek için `Casino` yerine kurulum host'u gelir.
+
+**Operatör için:** ayar gerekmez; markanızın görünmesi için site adını panelden doldurmanız önerilir.
+
 ## [1.2.0] — 2026-11-18
 
 **Öne çıkanlar:** sağlayıcı sözleşme ücretleri NGR'nin `providerFees` kalemini gerçek veriyle besliyor (İP-9f), İP-10 ölçek eşikleri için kapasite ölçümü (İP-10a), PWA manifesti artık önbellekteki derleme manifesti yerine kurulumun/operatörün markasıyla sunuluyor; README'ler ve operatör belgeleri genişletildi ve güncellendi (adım adım çok operatörlü kılavuz, tam API referansı). Tek operatörlü kurulumlar için ayar gerekmez.

@@ -2,6 +2,7 @@ import { Router } from 'express';
 import { getBrandingValues, getSiteName } from '../branding/index.js';
 import Tenant from '../models/Tenant.js';
 import { getCurrentTenantId } from '../tenancy/context.js';
+import { brandableTenantName } from '../tenancy/tenantDisplayName.js';
 
 const r = Router();
 
@@ -17,9 +18,9 @@ r.get('/', async (req, res, next) => {
 
     const tenantId = getCurrentTenantId();
     if (tenantId) {
-      const tenant = await Tenant.findById(tenantId).select('name legalEntity').lean();
+      const tenant = await Tenant.findById(tenantId).select('name isDefault legalEntity').lean();
       if (tenant) {
-        tenantName = tenant.name;
+        tenantName = brandableTenantName(tenant);
         legalEntity = tenant.legalEntity || null;
       }
     }

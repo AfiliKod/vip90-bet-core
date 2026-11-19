@@ -1,6 +1,4 @@
-import { getBrandingValues } from '../branding/index.js';
-import Tenant from '../models/Tenant.js';
-import { getCurrentTenantId } from '../tenancy/context.js';
+import { getBrandingValues, getSiteName } from '../branding/index.js';
 
 export const DEFAULT_ICONS = [
   { src: '/icons/icon-72x72.png', sizes: '72x72', type: 'image/png' },
@@ -14,19 +12,14 @@ export const DEFAULT_ICONS = [
 ];
 
 /**
- * Per-tenant PWA manifest. The install's own settings win; the tenant name is
- * the neutral fallback so core never carries a product brand.
+ * Per-tenant PWA manifest. The install's own settings win; otherwise the same
+ * neutral fallback as every server-side label (getSiteName: tenant name unless
+ * it is the default tenant's placeholder, then the install host), so core
+ * never carries a product brand.
  */
 export async function buildManifestPayload(overrides = {}) {
-  const tenantId = getCurrentTenantId();
-  let tenantName = null;
-  if (tenantId) {
-    const tenant = await Tenant.findById(tenantId).select('name').lean();
-    tenantName = tenant?.name || null;
-  }
-
   const values = await getBrandingValues();
-  const name = overrides.siteName || values.siteName || tenantName || 'Casino';
+  const name = overrides.siteName || values.siteName || (await getSiteName()) || 'Casino';
   const themeColor = overrides.primaryColor || values.primaryColor || '#7c3aed';
 
   return {
