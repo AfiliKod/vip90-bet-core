@@ -1,13 +1,13 @@
 # Admin Operations Tools — Activity Feed, Demo Data, Casino Rewards
 
-## 1.2.0 tenant-admin işlemleri
+## 1.2.0 Tenant-Admin Operations
 
-- **Partner grant:** Tenant yöneticisi partner grant'lerini görür (`admin:partner-grants:read`), gerekçe, kapsam ve en fazla 90 günle verir veya iptal eder (`admin:partner-grants:write`). Kapsamlar `players:read`, `players:pii`, `finance:read`, `reports:raw`, `support:write`, `players:status:write`, `promotions:assign` şeklindedir. Oluşturma, iptal ve kullanım AuditLog'a yazılır; partner kendi grant'ini veremez.
-- **Slikair iade/chargeback:** Ödeme görünümü doğrulanmış `refunded`/`chargeback` olaylarını gösterir. Çekirdek bildirimi sağlayıcının durum, tutar ve para birimi yanıtıyla eşleştirir; iade `deposit_refund`, chargeback `chargeback` defter satırı oluşturur. Chargeback `PSP_CHARGEBACK` risk bulgusunu açar; yetkili risk personeli bunu risk ekranında review, resolve veya dismiss eder. Aynı ödeme ikinci kez borçlanmaz.
-- **Negatif bakiye:** Chargeback bakiyeyi eksiye indirebilir; bakiye yeterliliği kontrolleri yeni bahis/çekimi reddeder, borç kapatılmadan finans hareketi gözden geçirilmelidir.
-- **2FA ve yazma sınırı:** Multi modda personel 2FA zorunludur. Platform personeli tenant rotasında varsayılan salt okunurdur; yalnız Platform Sahibi gerekçeli, en fazla 24 saatlik denetimli write grant verebilir.
-- **Marka, tüzel kişi ve PWA:** Site adı/renkleri tenant ayarlarından, tüzel kişi Tenant kaydından gelir. `/manifest.webmanifest` istek operatörünün kurulum adını ve ana rengini üretir. Site adı boşsa sunucu kiracı adını, o da otomatik varsayılan kiracının yer tutucu adı (`Default`) ise kurulum host'unu kullanır; sekme başlığı, PWA adı ve e-posta gönderen adı aynı kuraldan gelir.
-- **Kapasite:** Status sayfasının `capacity` alanı ve konsol kartı son 15 dakikalık soket p95, event-loop p99, CPU ortalamasını gösterir. `approaching` gözlem/plan, `exceeded` altyapı müdahalesi demektir; otomatik ölçekleme yoktur.
+- **Partner grant:** A tenant administrator can view (`admin:partner-grants:read`), grant, or revoke (`admin:partner-grants:write`) partner grants with a reason, scope, and maximum duration of 90 days. Scopes are `players:read`, `players:pii`, `finance:read`, `reports:raw`, `support:write`, `players:status:write`, and `promotions:assign`. Creation, revocation, and use are written to AuditLog; a partner cannot grant access to itself.
+- **Slikair refund/chargeback:** The payment view shows verified `refunded`/`chargeback` events. Core matches the notification to the provider's status, amount, and currency response; a refund creates a `deposit_refund` ledger row and a chargeback creates a `chargeback` row. A chargeback opens a `PSP_CHARGEBACK` risk finding; authorised risk staff review, resolve, or dismiss it in the Risk screen. The same payment is never debited twice.
+- **Negative balance:** A chargeback can make a balance negative; balance-sufficiency checks reject new bets and withdrawals, and finance activity must be reviewed until the debt is settled.
+- **2FA and write restriction:** Staff 2FA is mandatory in multi mode. Platform staff are read-only on tenant routes by default; only the Platform Owner can grant a justified, audited write grant for at most 24 hours.
+- **Brand, legal entity, and PWA:** Site name/colours come from tenant settings and the legal entity comes from the Tenant record. `/manifest.webmanifest` produces the requesting operator's installed-app name and main colour. When the site name is empty, the server uses the tenant name, and when that is the placeholder name (`Default`) of the automatically created default tenant, it uses the installation host; the tab title, PWA name, and email sender name use the same rule.
+- **Capacity:** The status page's `capacity` field and console card show the latest 15-minute socket p95, event-loop p99, and CPU average. `approaching` means observe/plan and `exceeded` means infrastructure intervention; there is no auto-scaling.
 
 _Last verified: 2026-10-02 against `server/src/routes/admin.js`, `server/src/controllers/admin.js`, `server/src/services/activityFeed.js`, `server/src/services/demoData/`, `server/src/services/casinoPromo/`._
 
@@ -235,10 +235,10 @@ node scripts/staff-recover.mjs --create-owner --email owner@example.com --userna
 
 **After a reset.** Password and 2FA resets invalidate existing sessions; in multi mode the staff member still has to set up 2FA again before their next staff login completes (2FA is mandatory there). Change the temporary password from the panel once access is restored.
 
-## Çok operatörlü yönetim
+## Multi-Operator Administration
 
-Çok modda Tenant yöneticisi kendi operatörü için marka/site adı, tüzel kişi ve entegrasyon ayarlarını yönetir. Marka/site adı yoksa istemci Tenant adını geri dönüş olarak kullanır; yasal sayfalar Tenant'ın tüzel kişi adı, sicil numarası ve adresini kullanır.
+In multi mode, a Tenant administrator manages branding/site name, legal entity, and integration settings for their own operator. When branding/site name is absent, the client uses the Tenant name as its fallback; legal pages use the Tenant's legal-entity name, registration number, and address.
 
-Personel tokenları oyuncu tokenlarından ayrıdır. Çok modda personel ilk girişte 2FA kurulumunu tamamlamadan erişim tokenı alamaz. Platform kapsamlı personel operatör rotalarında salt okunurdur; geçici yazma yetkisi yalnız Platform Sahibinin gerekçeli, denetimli ve en fazla 24 saatlik grant'iyle mümkündür.
+Staff tokens are separate from player tokens. In multi mode, staff cannot receive an access token until they complete 2FA setup at first login. Platform-scoped staff are read-only on operator routes; temporary write access is possible only through a justified, audited Platform Owner grant of at most 24 hours.
 
-**Partner grants** bölümü, yalnız operatörün kendi personeline açıktır. `admin:partner-grants:read` ile grant'ler listelenir; `admin:partner-grants:write` ile gerekçe, kapsam ve en çok 90 günlük bitiş zamanı verilerek grant oluşturulur veya iptal edilir. Partner personeli kendi erişimi için grant yönetemez. Her verme, iptal ve grant üzerinden yapılan erişim denetim kaydına düşer.
+The **Partner grants** section is available only to the operator's own staff. `admin:partner-grants:read` lists grants; `admin:partner-grants:write` creates or revokes a grant with a reason, scope, and expiry of at most 90 days. Partner staff cannot manage grants for their own access. Every grant, revocation, and access through a grant is audited.

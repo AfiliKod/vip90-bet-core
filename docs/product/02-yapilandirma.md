@@ -1,21 +1,21 @@
 # Configuration
 
-## 1.2.0 çok-mod ve kapasite değişkenleri
+## 1.2.0 Multi-Mode and Capacity Variables
 
-| Değişken | Değer / davranış |
+| Variable | Value / behaviour |
 |---|---|
-| `TENANCY_MODE` | `single` varsayılandır; merkezi kurulum için `multi`. |
-| `TENANCY_ENFORCEMENT` | Multi modda `enforce` zorunludur; single modda açık değer önceliklidir. |
-| `JWT_STAFF_SECRET` | Multi modda zorunlu ayrı personel-token imza anahtarı. |
-| `OPERATOR_SECRET_ENCRYPTION_KEY` | Multi modda zorunlu 64 hex AES-256-GCM anahtarı. |
-| `PLATFORM_HOST` | Platform konsolu/API ana makinesi, ör. `platform.example.com`. |
+| `TENANCY_MODE` | `single` is the default; use `multi` for a central installation. |
+| `TENANCY_ENFORCEMENT` | `enforce` is mandatory in multi mode; an explicit value takes precedence in single mode. |
+| `JWT_STAFF_SECRET` | Separate staff-token signing key, required in multi mode. |
+| `OPERATOR_SECRET_ENCRYPTION_KEY` | Required 64-hex AES-256-GCM key in multi mode. |
+| `PLATFORM_HOST` | Platform console/API host, for example `platform.example.com`. |
 | `AUDIT_RETENTION_DAYS` | Multi modda en az `1825`. |
-| `SCOPE_GATE_ENV` | Boş, `staging` veya `production`; kapsam kapısı temiz gün hesabını açar. |
-| `CAPACITY_SOCKETS_P95` | Pozitif sayı; yoksa `2000`. |
-| `CAPACITY_EVENT_LOOP_P99_MS` | Pozitif sayı; yoksa `100`. |
-| `CAPACITY_CPU_PCT` | Pozitif sayı; yoksa `70`; CPU için `exceeded` son 7 günde üç pencere ister. |
+| `SCOPE_GATE_ENV` | Empty, `staging`, or `production`; enables scope-gate clean-day counting. |
+| `CAPACITY_SOCKETS_P95` | Positive number; defaults to `2000`. |
+| `CAPACITY_EVENT_LOOP_P99_MS` | Positive number; defaults to `100`. |
+| `CAPACITY_CPU_PCT` | Positive number; defaults to `70`; CPU requires three windows in the last seven days for `exceeded`. |
 
-Örnekleyici her 10 saniyede soket/CPU örneği alır, her 15 dakikada `CapacityWindow` kaydeder. Bu ayarlar yalnız değerlendirme eşiklerini değiştirir; yatay ölçekleme eklemez.
+The sampler takes socket/CPU samples every 10 seconds and records a `CapacityWindow` every 15 minutes. These settings change evaluation thresholds only; they do not add horizontal scaling.
 
 There are two layers: **`.env` file** (requires restart, server setup) and **panel-managed settings** (effective immediately, operator's daily work — stored in the database).
 
@@ -24,24 +24,24 @@ Some integration credentials exist in both layers: the value saved from the admi
 **The `.env` fallback is single-mode only.** Under `TENANCY_MODE=multi` a tenant that has not saved a credential in the panel gets the field's own default (empty for credentials), **never** the server's `SMTP_PASS`, `SLIKAIR_SECRET_KEY`, `TWILIO_AUTH_TOKEN`, `SUMSUB_SECRET_KEY` and so on — otherwise every tenant would silently share the first operator's accounts. Only platform-wide settings (Sentry, Turnstile, alert channels) keep reading their `.env` default. Existing single installs see no change; see [Multi-tenant settings resolution](#multi-tenant-settings-resolution).
 
 ## `.env` variables
-### Çok operatörlü tenancy, platform ve saklama
+### Multi-Operator Tenancy, Platform, and Retention
 
-Bu grupta partner veya faturalama için ayrı ortam değişkeni yoktur: partner yetkileri, ticari koşullar, ücret planları ve NGR tanımları platform veritabanında yönetilir. Kodun bu amaçla okuduğu tüm ortam değerleri şunlardır:
+This group has no separate environment variables for partners or billing: partner permissions, commercial terms, fee plans, and NGR definitions are managed in the platform database. These are all environment values the code reads for this purpose:
 
-| Değişken | Tek mod | Çok mod |
+| Variable | Single mode | Multi mode |
 |---|---|---|
-| `TENANCY_MODE` | Boş veya `single`; varsayılan budur. | `multi` ile merkezi kurulum açılır. |
-| `TENANCY_ENFORCEMENT` | Boşsa G3 backfill tamamlanana kadar `off`, sonra `log`; açıkça `off`/`log`/`enforce` seçilebilir. | Her zaman `enforce`; farklı açık değer başlangıç hatasıdır. |
-| `JWT_STAFF_SECRET` | İsteğe bağlıdır; boşsa staff tokenı yine ayrı audience ile ana JWT sırrını kullanır. | Zorunludur. |
-| `OPERATOR_SECRET_ENCRYPTION_KEY` | Panel sırlarını şifrelemek için gereklidir. | Zorunludur; 64 hex karakterdir. |
-| `PLATFORM_HOST` | Gerekmez. | Platform/partner API'leri ve `/console` için platform ana makinesi; ör. `platform.example.com`. |
-| `SCOPE_GATE_ENV` | İsteğe bağlı ölçüm etiketi. | `staging` veya `production` seçildiğinde N6 kapsam ihlallerini gün bazında kaydeder; boşsa ölçüm yoktur. |
-| `CAPACITY_SOCKETS_P95`, `CAPACITY_EVENT_LOOP_P99_MS`, `CAPACITY_CPU_PCT` | İsteğe bağlıdır; boşsa varsayılanlar 2000 / 100 / 70. | İP-10a kapasite eşikleri (15 dakikalık pencere): soket p95, event loop p99 (ms), CPU ort. (%). Ölçüm her iki modda çalışır; geçersiz değer varsayılana düşer. |
-| `AUDIT_RETENTION_DAYS` | İsteğe bağlıdır. | En az `1825`; daha düşük veya geçersiz değer sunucunun başlamasını engeller. |
-| `DEMO_BOTS`, `DEMO_FAKE_WINNERS`, `DEMO_INSTANT_DEPOSIT`, `DEMO_DATA` | `true` olduğunda ilgili demo özelliğini açar. | Hepsi `false` olmalıdır; `true` başlangıç hatasıdır. |
-| `LEGAL_ENTITY_NAME`, `LEGAL_ENTITY_REGISTRATION_NO`, `LEGAL_ENTITY_ADDRESS` | Varsayılan Tenant ilk oluşturulurken okunur; sonrası veritabanındadır. | Operatör bazında sağlama/konsol verisi kullanılır; ortak `.env` değeri operatör sırrı veya ayarı olarak kullanılmaz. |
+| `TENANCY_MODE` | Empty or `single`; this is the default. | `multi` enables the central installation. |
+| `TENANCY_ENFORCEMENT` | When empty, `off` until G3 backfill is complete, then `log`; `off`/`log`/`enforce` can be explicitly selected. | Always `enforce`; another explicit value is a startup error. |
+| `JWT_STAFF_SECRET` | Optional; when empty, the staff token still uses the primary JWT secret with a separate audience. | Required. |
+| `OPERATOR_SECRET_ENCRYPTION_KEY` | Required to encrypt panel secrets. | Required; 64 hexadecimal characters. |
+| `PLATFORM_HOST` | Not required. | Platform host for platform/partner APIs and `/console`, for example `platform.example.com`. |
+| `SCOPE_GATE_ENV` | Optional measurement label. | When `staging` or `production` is selected, records N6 scope violations by day; no measurement when empty. |
+| `CAPACITY_SOCKETS_P95`, `CAPACITY_EVENT_LOOP_P99_MS`, `CAPACITY_CPU_PCT` | Optional; defaults are 2000 / 100 / 70 when empty. | Capacity thresholds (15-minute window): socket p95, event-loop p99 (ms), CPU average (%). Measurement runs in both modes; invalid values use defaults. |
+| `AUDIT_RETENTION_DAYS` | Optional. | At least `1825`; a lower or invalid value prevents startup. |
+| `DEMO_BOTS`, `DEMO_FAKE_WINNERS`, `DEMO_INSTANT_DEPOSIT`, `DEMO_DATA` | `true` enables the relevant demo feature. | All must be `false`; `true` is a startup error. |
+| `LEGAL_ENTITY_NAME`, `LEGAL_ENTITY_REGISTRATION_NO`, `LEGAL_ENTITY_ADDRESS` | Read when the default Tenant is first created; stored in the database thereafter. | Per-operator provisioning/console data is used; a shared `.env` value is not used as an operator secret or setting. |
 
-`PLATFORM_HOST` yalnız ana makine adını ya da şemalı bir kökeni kabul eden kurulum akışlarında kullanılır; örnek `platform.example.com` yeterlidir. Ayrıntılı işletim akışı için [12 — Çok Operatörlü Kurulum](12-cok-operator.md) belgesine bakın.
+`PLATFORM_HOST` is used only in setup flows that accept a host name or an origin with a scheme; `platform.example.com` is sufficient. See [12 — Multi-Operator Installation](12-cok-operator.md) for the detailed operating flow.
 
 
 Description of the keys in `server/.env.example`, checked against the code that reads them. Example files contain a few variables the code does **not** read; those are marked below (and the root `.env.example` is an older file that additionally lists variables that no longer exist, such as the rate-limit tunables). In the Docker path the file is the root `.env` (see `.env.docker.example`), not `server/.env`.
@@ -62,7 +62,7 @@ Description of the keys in `server/.env.example`, checked against the code that 
 | `CLIENT_URL` | Yes in `TENANCY_MODE=single` (`multi`: no) | Your own domain. In **single** mode it is the canonical origin for email links, OAuth returns, the Slikair webhook/redirect URLs and the support-assistant `HTTP-Referer` (the **first** entry of a comma-separated list), and the whole list is added to CORS — put the address players use first. In **multi** mode the site URL and CORS list come from the `Domain` collection instead (see [Multi-tenant settings resolution](#multi-tenant-settings-resolution)); the variable is not required and not used there. `server/scripts/healthcheck.js` only requires it in single mode |
 | `JWT_SECRET` / `JWT_REFRESH_SECRET` | Yes | Session token signing keys — must be changed before going to production (`openssl rand -base64 64`; `healthcheck.js` requires at least 32 characters) |
 | `E2E_TEST` | No | `true` relaxes rate limits and login throttling the same way `NODE_ENV=test` does; only for end-to-end test runs, never in production |
-| `ROUTE_404_REPORT_ONLY` | No (default: unset = enforcement on) | Set to `1` to make the SPA route 404 a **report-only** mode: unknown URLs are logged instead of answered with `404`, and everything keeps returning `200` (previous behavior). Used for the first deployment phase; see [SEO settings — Gerçek 404](../seo-settings.md). Unknown routes are only logged when the client build wrote `client/dist/routes.json` |
+| `ROUTE_404_REPORT_ONLY` | No (default: unset = enforcement on) | Set to `1` to make the SPA route 404 a **report-only** mode: unknown URLs are logged instead of answered with `404`, and everything keeps returning `200` (previous behavior). Used for the first deployment phase; see [SEO settings — Real 404](../seo-settings.md). Unknown routes are only logged when the client build wrote `client/dist/routes.json` |
 | `RAILWAY_PUBLIC_DOMAIN` | No | Set automatically by Railway; when present, `https://<value>` is added to the allowed origins in both modes |
 | `EMAIL_VERIFICATION_CUTOFF` | No (not in `server/.env.example`, only in the root `.env.example`) | ISO 8601 date — users who registered before this date are exempt from email verification (grandfathering). If empty, the code default `2026-07-14T00:00:00Z` applies. Demo-data (`isSeed`) accounts can never log in regardless of this date |
 
@@ -93,7 +93,7 @@ The code lives in the paid add-on `server/src/premium/igames`; without it the va
 | `INHOUSE_IDLE_SETTLE_MINUTES` | No | How long a custodial round (Mines, Hilo, Blackjack, Video Poker) may sit untouched before the engine closes it, in minutes (default `20`). The round is closed in the player's favour: the revealed tiles are collected at the current multiplier, Blackjack stands, Video Poker holds all five cards, and a round with nothing revealed is refunded. A round that is debited but never settled — a crash, or an older version — is refunded the same way. The sweep runs every 60 seconds inside the provider process; it needs no separate job |
 | `OPERATOR_ONE_WALLET_CALLBACK_URL` / `OPERATOR_ONE_ALLOWED_IPS` / `OPERATOR_ONE_API_BASE` | No | Override the defaults that `create-operator-one.mjs` writes (single-machine `localhost` callback and `127.0.0.1,::1`); needed for Docker or a remote game-host. Same as the script's `--callback-url`, `--allowed-ips`, `--api-base` flags |
 
-If the add-on is installed and one of `GAME_HOST_URL`, `GAME_HOST_SECRET`, `PROVIDER_SESSION_SECRET` is missing, the server logs `[config] Eksik ortam değişkeni: ...` at start and the games may fail at runtime.
+If the add-on is installed and one of `GAME_HOST_URL`, `GAME_HOST_SECRET`, `PROVIDER_SESSION_SECRET` is missing, the server logs a missing-environment-variable message at startup and the games may fail at runtime.
 
 ### Payment / crypto
 

@@ -352,6 +352,7 @@ altında (İngilizce):
 - [Bilinen Kısıtlar](docs/product/09-bilinen-kisitlar.md) · [Bonus ve Çevrim](docs/product/10-bonus-ve-cevrim.md)
 - [Admin Araçları — Aktivite Akışı, Demo Veri, Casino Ödülleri](docs/product/11-admin-araclari.md)
 - [Çok Operatörlü Kurulum](docs/product/12-cok-operator.md)
+- [Yeni Sağlayıcı Ekleme](docs/providers/adding-a-provider.md)
 
 Çekirdekle gelen ödeme ve KYC entegrasyonları:
 [Kripto Ödeme — TRC20 USDT](docs/providers/crypto-trc20.md) ·

@@ -356,6 +356,7 @@ Operator documentation lives in [`docs/product/`](docs/product/README.md):
 - [Known Limitations](docs/product/09-bilinen-kisitlar.md) · [Bonus and Wagering](docs/product/10-bonus-ve-cevrim.md)
 - [Admin Tools — Activity Feed, Demo Data, Casino Rewards](docs/product/11-admin-araclari.md)
 - [Multi-operator Installation](docs/product/12-cok-operator.md)
+- [Adding a New Provider](docs/providers/adding-a-provider.md)
 
 Payment and KYC integrations included with the core:
 [Crypto Payments — TRC20 USDT](docs/providers/crypto-trc20.md) ·

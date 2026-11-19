@@ -18,6 +18,11 @@ Madde formatı ve kategoriler için `docs/CHANGELOG_GUIDE.md`'ye bakın —
 
 ## [Yayınlanmadı]
 
+### Belgeler: yeni sağlayıcı ekleme rehberi ve İngilizce belgeler
+
+- `docs/providers/adding-a-provider.md` ve `docs/providers/README.md` eklendi; ödeme, KYC, SMS, e-posta ve casino içerik sağlayıcısı ekleme kalıpları belgelenmiştir.
+- `README.md`, `README.tr.md`, `docs/README.md`, `docs/product/README.md`, `01-kurulum.md`, `02-yapilandirma.md`, `03-modul-sistemi.md`, `05-api-referansi.md`, `06-sss.md`, `09-bilinen-kisitlar.md`, `11-admin-araclari.md`, `12-cok-operator.md`, `docs/providers/slikair.md` ve `docs/providers/sumsub-kyc.md` İngilizceye çevrilmiştir.
+
 ## [1.2.1] — 2026-11-19
 
 ### Site adı boşken "Default" görünmüyor

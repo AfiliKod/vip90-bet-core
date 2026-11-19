@@ -1,43 +1,24 @@
-# Slikair ödeme sağlayıcısı
+# Slikair Payment Provider
 
-## Doğrulama, durumlar ve risk incelemesi
+## Verification, States, and Risk Review
 
-Slikair bildirimi tek başına para hareketi oluşturmaz. Çekirdek operatörün kendi kimlik bilgileriyle `get-status` çağrısı yapar; olayın kayıtlı yatırımla durum, tutar ve para biriminde eşleşmesini bekler. `processing`, `succeeded` ve `failed` sağlayıcı yaşam döngüsü durumlarıdır. Doğrulanmış `refunded` önceki yatırmayı `deposit_refund` ile, doğrulanmış `chargeback` ise `chargeback` ile geri alır; ikincisi `PSP_CHARGEBACK` risk bulgusu açar. Yetkili risk personeli bulguyu Risk ekranında review, resolve veya dismiss eder.
+A Slikair notification alone never moves money. Core calls `get-status` with the operator's own credentials and requires the event to match the stored deposit by status, amount, and currency. `processing`, `succeeded`, and `failed` are provider lifecycle states. A verified `refunded` reverses the prior deposit with `deposit_refund`; a verified `chargeback` reverses it with `chargeback` and opens a `PSP_CHARGEBACK` risk finding. Authorised risk staff can review, resolve, or dismiss that finding in the Risk screen.
 
-Ters kayıt idempotenttir: iade sonrasında gelen chargeback ödeme durumunu güncelleyebilir ama ikinci borç yazmaz. Chargeback negatif bakiye oluşturabilir; bakiye yeterliliği kontrolleri yeni bahis/çekimi engeller.
+The reversal is idempotent: a chargeback received after a refund can update the payment status but never posts a second debit. A chargeback can create a negative balance; balance-sufficiency checks block new bets and withdrawals.
 
-## Ücret ve NGR yapılandırması
+## Fees and NGR Configuration
 
-Slikair webhook'u PSP ücret tutarı vermez. Doğrulanmış chargeback tutarı günlük istatistikte `chargebacks`, olay sayısı `chargebackCount` olur. Olay başı PSP masrafı sözleşmesi varsa NGR'de ayrı etiketli `other`, `fixed` kaynak ve `per_chargeback` dönemiyle tanımlanır. Casino sağlayıcı GGR ücreti ayrıdır: `ProviderFeeSchedule` sağlayıcı, `rateOfGgr`, para birimi, tarih ve isteğe bağlı aylık asgari ücreti taşır. Operatöre özel takvim platform varsayılanını ezer; negatif sağlayıcı gününde günlük ücret sıfırdır; aylık asgari ücret günlük hesapta uygulanmaz.
+The Slikair webhook does not provide a PSP fee amount. A verified chargeback amount becomes `chargebacks` in daily statistics and the event count becomes `chargebackCount`. If the contract has a per-case PSP charge, define it in NGR as a separately labelled `other` item with `fixed` source and `per_chargeback` period. Casino-provider GGR fees are separate: `ProviderFeeSchedule` stores the provider, `rateOfGgr`, currency, date, and optional monthly minimum. An operator-specific schedule overrides the platform default; a provider with negative GGR has no daily fee; the monthly minimum is not applied during daily calculation.
 
-Slikair yatırma bildirimi imzasızdır. Bu nedenle `succeeded`, `refunded` ve
-`chargeback` bildirimleri tek başına bakiyeyi değiştirmez: çekirdek, kiracının
-kendi Slikair kimlik bilgileriyle `get-status` çağrısı yapar; durumun, tutarın
-ve para biriminin kayıtlı yatırmayla eşleşmesini ister.
+Slikair deposit notifications are unsigned. Therefore `succeeded`, `refunded`, and `chargeback` notifications cannot change a balance by themselves: core calls `get-status` using that tenant's Slikair credentials and requires status, amount, and currency to match the stored deposit.
 
-## Durumlar ve ters kayıtlar
+## States and Reversals
 
-- `processing`, `succeeded` ve `failed` yalnız sağlayıcının yaşam döngüsü
-  durumlarıdır; `status_code` bilgi için saklanır ve yaşam döngüsüne karar
-  vermez. Özellikle `320` bir BIN engeli/ret kodudur, iade değildir.
-- Doğrulanmış bir `refunded` bildirimi, önceden kredilenen yatırmayı
-  `deposit_refund` defter satırıyla geri alır.
-- Doğrulanmış bir `chargeback` bildirimi aynı işlemi `chargeback` defter
-  satırıyla geri alır, hesabı risk değerlendirmesine gönderir ve yönetici
-  etkinlik akışına bildirir.
-- Ters kayıt, asıl yatırma ve ödeme kaydıyla aynı veritabanı işleminde,
-  payin başına tek bir idempotency anahtarıyla yazılır. İadeden sonra gelen
-  chargeback yalnız ödeme durumunu günceller; ikinci kez borç yazmaz.
+- `processing`, `succeeded`, and `failed` are provider lifecycle states only; `status_code` is retained for information and does not decide the lifecycle. In particular, `320` is a BIN-block/decline code, not a refund.
+- A verified `refunded` notification reverses an already credited deposit with a `deposit_refund` ledger row.
+- A verified `chargeback` notification reverses the same transaction with a `chargeback` ledger row, sends the account to risk review, and notifies the administrator activity feed.
+- The reversal, original deposit, and payment record are written in the same database transaction with one idempotency key per payin. A chargeback after a refund changes only the payment status; it does not debit again.
 
-Ters ibraz oyuncu bakiyesini eksiye indirebilir. Negatif bakiye mevcut bakiye
-yeterliliği kontrolleri nedeniyle yeni çekim ve bahis isteklerini engeller;
-borç kapatılana kadar operatör incelemesi gerekir.
+If a chargeback puts the balance below zero, balance-sufficiency checks block new withdrawal and bet requests; the operator must review the account until the debt is settled.
 
-## NGR verisi
-
-`TenantDailyStat.chargebacks`, yalnız tamamlanmış doğrulanmış `chargeback`
-defter satırlarının mutlak tutarını; `chargebackCount` ise olay sayısını
-toplar. `deposit_refund`, genel `refund` ve `reversal` satırları chargeback
-değildir. Slikair bildiriminde ücret kaynağı olmadığı için `providerFees` sıfır
-kalır. Sözleşmeyle belirlenen vaka başı PSP masrafı gerekiyorsa NGR tanımında
-ayrı etiketli `other` kalemiyle `fixed` + `per_chargeback` yapılandırın.
+`TenantDailyStat.chargebacks` aggregates only the absolute amount of completed, verified `chargeback` ledger rows; `chargebackCount` aggregates the event count. `deposit_refund`, general `refund`, and `reversal` rows are not chargebacks. Because the Slikair notification has no fee source, `providerFees` remains zero. If the contract requires a per-case PSP charge, configure a separately labelled `other` NGR item with `fixed` + `per_chargeback`.

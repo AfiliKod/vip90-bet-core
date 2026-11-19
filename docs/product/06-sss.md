@@ -1,14 +1,14 @@
 # Frequently Asked Questions
 
-## 1.2.0: sağlayıcı ücretleri, kapasite ve PWA
+## 1.2.0: Provider Fees, Capacity, and PWA
 
-**Sağlayıcı ücreti NGR'ye nasıl girer?** Platform Sahibi bir `ProviderFeeSchedule` tanımlar. Operatöre özel takvim platform varsayılanını ezer. Pozitif casino sağlayıcı GGR'si `rateOfGgr` ile günlük `providerFees` olur; negatif GGR'de oranlı ücret sıfırdır. NGR bunu `provider_fee` + `stat_field: providerFees` olarak bir kez düşer. `minimumMonthlyFee` günlük hesapta uygulanmaz.
+**How does a provider fee enter NGR?** The Platform Owner defines a `ProviderFeeSchedule`. An operator-specific schedule overrides the platform default. Positive casino-provider GGR becomes daily `providerFees` through `rateOfGgr`; a negative GGR has no percentage fee. NGR deducts it once as `provider_fee` + `stat_field: providerFees`. `minimumMonthlyFee` is not applied in daily calculation.
 
-**Kapasite durumu ne anlatır?** Örnekleyici 10 saniyede ölçer, 15 dakikalık pencerede soket p95/event-loop p99/CPU ortalamasını değerlendirir. `approaching` (%70) planlama, `exceeded` müdahale sinyalidir; sistem otomatik ölçeklemez.
+**What does capacity state mean?** The sampler measures every 10 seconds and evaluates socket p95, event-loop p99, and CPU average in a 15-minute window. `approaching` (70%) signals planning, while `exceeded` signals intervention; the system does not auto-scale.
 
-**PWA kurulum adı neden operatöre göre değişir?** `/manifest.webmanifest` sunucudan gelir ve istek ana makinesinin site adı/ana rengini kullanır; ayar yoksa tenant adı geri dönüş değeridir. Kurulumda otomatik açılan varsayılan kiracının yer tutucu adı (`Default`) marka sayılmaz; site adı ayarlanmamış tek operatörlü kurulumda başlık, PWA adı ve e-postalar kurulum adresinin host'unu (`CLIENT_URL`'deki ilk adres) gösterir. Doğru ad için **Kişiselleştirme → Marka → Site adı** alanını doldurun.
+**Why does the installed PWA name vary by operator?** `/manifest.webmanifest` comes from the server and uses the request host's site name/main colour; the tenant name is the fallback. The placeholder name (`Default`) of the automatically created default tenant is not a brand; in a single-operator installation without a site name, the title, PWA name, and email use the installation host (the first `CLIENT_URL` address). Set **Personalization → Branding → Site name** for the correct name.
 
-**Chargeback sonrası bakiye neden negatif olabilir?** Doğrulanmış Slikair chargeback'i önceki yatırımı geri alır. Oyuncu bakiyeyi kullandıysa sonuç negatif olur; bakiye kuralları yeni bahis ve çekimi engeller, olay `PSP_CHARGEBACK` risk incelemesine gider.
+**Why can a balance become negative after a chargeback?** A verified Slikair chargeback reverses an earlier deposit. If the player spent the balance, the result is negative; balance rules block new bets and withdrawals, and the event enters `PSP_CHARGEBACK` risk review.
 
 This list was compiled from real buyer questions on similar products — the goal is to leave no ambiguity before purchase.
 
@@ -34,7 +34,7 @@ Eight languages (TR, EN, KO, TH, ES, JA, PT, DE; `client/src/i18n/dictionaries/`
 There is a single active display currency across the site (not a per-user separate wallet) — it can be selected from TRY/USD/EUR under **Settings → General → Region & Currency** and the selection changes the symbol/locale formatting without converting amounts (see `server/src/currency/registry.js`). Users holding balances in multiple currencies simultaneously is not supported; the **Currencies** tab under Settings manages exchange-rate records only.
 
 **Can I adjust RTP / house edge from the panel?**
-Yes (with the In-house Games add-on). For 14 of the 15 in-house games, the variables that actually determine RTP — house edge/payout factor, min-max bet, and timing — can be changed from **Products → In-house Games** in the admin panel (`client/src/pages/admin/GameSettings.jsx` → `PATCH /admin/game-settings/:gameId`); each change is logged with who/when/old-new value (`GameSettings.changeLog`). The mathematics itself (which variable determines what) is documented with the In-house Games add-on; for the panel side, see [02 — Configuration](02-yapilandirma.md). The King of Money slot is the exception: its math is sealed and only the bet range and the on/off switch are adjustable ([04 — Game Mathematics](04-oyun-matematigi.md)).
+Yes (with the In-house Games add-on). For 14 of the 15 in-house games, the variables that actually determine RTP — house edge/payout factor, min-max bet, and timing — can be changed from **Products → In-house Games** in the admin panel (`client/src/pages/admin/GameSettings.jsx` → `PATCH /admin/game-settings/:gameId`); each change is logged with who/when/old-new value (`GameSettings.changeLog`). The mathematics itself (which variable determines what) is documented with the In-house Games add-on; for the panel side, see [02 — Configuration](02-yapilandirma.md). The King of Money slot is the exception: its math is sealed and only the bet range and the on/off switch are adjustable (04 — Game Mathematics (shipped with the In-house Games add-on)).
 
 **How do I enable/disable modules (betting/casino content/in-house games/payments/KYC/SMS)?**
 From **Settings → Modules** in the admin panel with a single click (`client/src/pages/admin/Modules.jsx` → `PATCH /admin/modules/:id`), without restarting the server. A disabled module's pages are gracefully hidden from visitors with a "This section is currently unavailable" message, the core platform is unaffected (`ModuleGate` component). New installations start with every module off except Slikair and KYC Identity Verification (KYC can be unticked in the wizard), so switch on what you use after installing. If you haven't defined a `LICENSE_SERVER_URL`/`LICENSE_KEY` (most operators don't), all modules are automatically considered "licensed" — the product works out of the box. See [03 — Module System](03-modul-sistemi.md).
@@ -54,28 +54,28 @@ PWA (addable to home screen, offline shell) support exists. The PWA manifest is 
 **Does it work on shared hosting?**
 No. Because Node.js + MongoDB + WebSocket work together, a real VPS is needed, minimum 4 vCPU / 8 GB RAM recommended. See [01 — Installation](01-kurulum.md).
 
-## Çok operatörlü kullanım
+## Multi-Operator Use
 
-### Tek operatör olarak bir şey değiştirmem gerekir mi?
+### Do I need to change anything as a single operator?
 
-Hayır. `TENANCY_MODE` tanımlı değilse `single` varsayılandır; mevcut kurulum, personel ve oyuncu akışları değişmeden çalışır.
+No. When `TENANCY_MODE` is not defined, `single` is the default; the existing installation, staff, and player flows continue unchanged.
 
-### Yeni bir operatörü nasıl eklerim?
+### How do I add a new operator?
 
-Yeni merkezi kurulumda Platform Sahibi konsolundan operatör sağlayın, sahip davet bağlantısını güvenli biçimde iletin ve alan adı için `_domain-verify.<host>` TXT doğrulaması ile TLS durumunu tamamlayın. Canlıya alma listesi geçmeden operatör oyuncu trafiğine açılmaz. Bkz. [12 — Çok Operatörlü Kurulum](12-cok-operator.md).
+In a new central installation, provision the operator in the Platform Owner console, deliver the owner invitation securely, and complete `_domain-verify.<host>` TXT verification and TLS status for its domain. The operator cannot receive player traffic before the go-live checklist passes. See [12 — Multi-Operator Installation](12-cok-operator.md).
 
-### Partner neyi görebilir, neyi göremez?
+### What can and cannot a partner see?
 
-Partner, yalnız etkin bağlantısı olan operatörlerin günlük toplam metriklerini, kendi personelini, izinli operatör yapılandırmasını ve ekstrelerini görür. Oyuncu kimlikleri gösterilmez; küçük aktif oyuncu hücreleri `"<5"` olur. Ham oyuncu veya finans verisi ancak operatörün süreli, gerekçeli PartnerGrant'i ve uygun kapsamı varsa erişilebilir. Partner kendi adına bu grant'i veremez.
+A partner sees daily aggregate metrics for operators with active links, its own staff, permitted operator configuration, and statements. Player identities are not shown; small active-player cells show `"<5"`. Raw player or finance data is available only with the operator's time-limited, justified PartnerGrant and appropriate scope. A partner cannot grant this access to itself.
 
-### Komisyon ve NGR nasıl hesaplanır?
+### How are commission and NGR calculated?
 
-Ticari koşul GGR, NGR, ciro veya sabit tabanı seçer. NGR, seçilen GGR bileşeninden tanımlı bonus/sağlayıcı ücreti/vergi/chargeback/diğer kesintilerini çıkarır; aynı kaynak, kategori veya GGR'de zaten net olan maliyet iki kez düşülemez. Casino sağlayıcı ücreti, sözleşme takvimindeki günlük GGR oranından `providerFees` alanına gelir; operatöre özel oran varsayılan oranı geçersiz kılar, negatif sağlayıcı GGR'sinde ücret sıfırdır ve aylık asgari ücret günlük hesaplanmaz. Ekstre gün bazlı toplamlarla üretilir, kesilir ve CSV olarak dışa aktarılabilir.
+Commercial terms select a GGR, NGR, turnover, or fixed basis. NGR deducts configured bonus/provider-fee/tax/chargeback/other items from the selected GGR components; the same source, category, or a cost already netted from GGR cannot be deducted twice. The casino-provider fee enters `providerFees` from the contract schedule's daily GGR rate; an operator-specific rate overrides the default, a provider with negative GGR has no fee, and the monthly minimum is not calculated daily. Statements are produced from daily aggregates, issued, and available as CSV.
 
-### Chargeback nedir, kim öder ve nasıl işlenir?
+### What is a chargeback, who pays it, and how is it handled?
 
-Chargeback, oyuncunun kart yatırımını bankası üzerinden geri almasıdır. Banka parayı ödeme sağlayıcısından, sağlayıcı da operatörden geri alır; yani bedeli operatör (kiracı) öder. Slikair bunu yatırım bildiriminde `status: "chargeback"` olarak bildirir.
+A chargeback is a player recovering a card deposit through their bank. The bank recovers the money from the payment provider, which recovers it from the operator; the operator (tenant) therefore bears the cost. Slikair reports it in the deposit notification as `status: "chargeback"`.
 
-Bildirim imzasız olduğu için çekirdek önce Slikair'in durum sorgusuyla doğrular (aynı durum, tutar ve para birimi). Doğrulanınca: yatırım tutarı oyuncunun bakiyesinden bir kez düşülür (bakiye eksiye inebilir; eksi bakiyede çekim ve bahis yapılamaz), `chargeback` defter satırı asıl yatırıma bağlanır, hesap yüksek önemde `PSP_CHARGEBACK` bulgusuyla risk incelemesine alınır ve personel bulguyu kapatana kadar incelemede kalır, yönetim akışına bildirim düşer. Doğrulanamayan bildirim parayı hareket ettirmez, yalnız kaydedilir.
+Because the notification is unsigned, core first verifies it through Slikair's status query (same status, amount, and currency). Once verified, the deposit amount is deducted from the player balance once (it can become negative; negative balances cannot withdraw or bet), a `chargeback` ledger row is linked to the original deposit, the account enters risk review with a high-severity `PSP_CHARGEBACK` finding until staff close it, and the administration feed receives a notification. An unverified notification moves no money and is only recorded.
 
-Doğrulanmış chargeback'ler günlük istatistikte `chargebacks` (tutar) ve `chargebackCount` (adet) olarak toplanır ve NGR'deki chargeback kalemi bu gerçek veriyle çalışır. Slikair chargeback ücreti bildirmez; sözleşmenizdeki ücreti NGR tanımında `per_chargeback` sabit kesintisiyle girin. PSP iadesi (`refunded`) de bakiyeden düşülür ama chargeback sayılmaz ve hesabı işaretlemez.
+Verified chargebacks aggregate in daily statistics as `chargebacks` (amount) and `chargebackCount` (count), and the NGR chargeback item uses this actual data. Slikair does not report a chargeback fee; enter the contractual charge in the NGR definition as a `per_chargeback` fixed deduction. A PSP refund (`refunded`) also debits the balance but is not a chargeback and does not flag the account.
