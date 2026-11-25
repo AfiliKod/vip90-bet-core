@@ -11,8 +11,11 @@
  * düşülür, sayfa hiçbir zaman bozuk/boş görünmez.
  */
 
+// The landing page (`/`, landingSections.js) renders hero, liveBets,
+// casinoGames, sportsBets and inhouseGames in this order unless the admin
+// saved another one; the casino page (`/casino`) uses hero and inhouseGames.
 export const DEFAULT_SECTION_ORDER = [
-  'hero', 'quickNav', 'inhouseGames', 'sportsBets', 'liveBets', 'features', 'bottomCta',
+  'hero', 'liveBets', 'casinoGames', 'sportsBets', 'inhouseGames', 'quickNav', 'features', 'bottomCta',
 ];
 
 // Admin panelindeki (Slider Düzenleme Aracı) bölüm etiketleri — i18n'e
@@ -25,6 +28,7 @@ export function getSectionLabel(t, id) {
     inhouseGames: 'admin.pages.sections.inhouseGames',
     sportsBets: 'admin.pages.sections.sportsBets',
     liveBets: 'admin.pages.sections.liveBets',
+    casinoGames: 'admin.pages.sections.casinoGames',
     features: 'admin.pages.sections.features',
     bottomCta: 'admin.pages.sections.bottomCta',
   }[id];

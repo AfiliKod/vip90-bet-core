@@ -562,6 +562,14 @@ export default {
   'home.sidebar.newGames': 'Novos Jogos',
   'home.sidebar.allGames': 'Todos os Jogos',
   'home.games.viewAll': 'Ver Todos ›',
+  'home.landing.liveNow': 'Ao vivo agora',
+  'home.landing.liveNowDesc': 'Aposte em partidas em andamento com odds ao vivo',
+  'home.landing.featuredMatches': 'Partidas em destaque',
+  'home.landing.featuredMatchesDesc': 'Próximas partidas e suas odds',
+  'home.landing.goLive': 'Ir para ao vivo ›',
+  'home.landing.allMatches': 'Todas as partidas ›',
+  'home.landing.popularCasino': 'Jogos de cassino populares',
+  'home.landing.toCasino': 'Ir para o cassino ›',
   'home.games.allGamesDesc': 'Explore todos os slots e jogos de mesa',
   'home.games.loadMore': 'Carregar Mais',
   'home.rail.winners': 'Últimos Ganhadores',
@@ -1745,6 +1753,7 @@ export default {
   'admin.pages.sections.inhouseGames': 'Jogos Exclusivos',
   'admin.pages.sections.sportsBets': 'Apostas Esportivas',
   'admin.pages.sections.liveBets': 'Apostas ao Vivo',
+  'admin.pages.sections.casinoGames': 'Jogos de Cassino',
   'admin.pages.sections.features': 'Por Que Nós?',
   'admin.pages.sections.bottomCta': 'Banner CTA Inferior',  // Portão do Módulo
 

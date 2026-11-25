@@ -562,6 +562,14 @@ export default {
   'home.sidebar.newGames': '新しいゲーム',
   'home.sidebar.allGames': 'すべてのゲーム',
   'home.games.viewAll': 'すべて見る ›',
+  'home.landing.liveNow': 'ライブ中',
+  'home.landing.liveNowDesc': '進行中の試合にライブオッズでベット',
+  'home.landing.featuredMatches': '注目の試合',
+  'home.landing.featuredMatchesDesc': '今後の試合とオッズ',
+  'home.landing.goLive': 'ライブへ ›',
+  'home.landing.allMatches': 'すべての試合 ›',
+  'home.landing.popularCasino': '人気のカジノゲーム',
+  'home.landing.toCasino': 'カジノへ ›',
   'home.games.allGamesDesc': 'すべてのスロットとテーブルゲームを探す',
   'home.games.loadMore': 'さらに表示',
   'home.rail.winners': '最新の当選者',
@@ -1743,6 +1751,7 @@ export default {
   'admin.pages.sections.inhouseGames': '限定ゲーム',
   'admin.pages.sections.sportsBets': 'スポーツベッティング',
   'admin.pages.sections.liveBets': 'ライブベッティング',
+  'admin.pages.sections.casinoGames': 'カジノゲーム',
   'admin.pages.sections.features': '選ばれる理由',
   'admin.pages.sections.bottomCta': '下部CTAバナー',  // Module gate
 

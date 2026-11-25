@@ -18,6 +18,20 @@ Madde formatı ve kategoriler için `docs/CHANGELOG_GUIDE.md`'ye bakın —
 
 ## [Yayınlanmadı]
 
+### Ana sayfa: spor ve casino tek akışta
+
+**Eklendi**
+- `/` artık spor ve casinoyu birlikte sunan bir karşılama sayfasıdır: promosyon slaytı, **Şimdi canlı** (canlı maçlar ve oranları), **Popüler casino oyunları**, **Öne çıkan maçlar** (yaklaşan maçlar), **Kendi oyunlarımız** ve **Yeni oyunlar**. Maç kartlarındaki oranlar doğrudan kupona eklenir; masaüstünde kupon sağ sütunda her zaman görünür.
+- Bölümlerin sırası ve görünürlüğü mevcut **Kişiselleştirme → Ana Sayfa Slideri** ayarından (`page.home`) yönetilir; listeye **Casino oyunları** (`casinoGames`) eklendi. Kayıtlı bir sıra yoksa varsayılan sıra yukarıdaki gibidir.
+- Bahis modülü kapalıysa spor bölümleri, Casino İçeriği modülü kapalıysa sağlayıcı oyunu bölümleri hiç gösterilmez; gösterilecek maç ya da oyun yoksa bölüm boş kalmak yerine gizlenir.
+- Mobil alt menüye **Ana sayfa** sekmesi eklendi.
+
+**Değişti**
+- Casino sayfası yalnızca `/casino` adresindedir. Üst menüde, mobil alt menüde ve mobil aramadaki **Casino** bağlantıları `/casino`'yu açar; üst menüde `/` artık Casino olarak işaretlenmez.
+
+### Kırılan Değişiklikler
+- `/` adresi casino sayfası yerine yeni karşılama sayfasını açar. Casino sayfasına doğrudan bağlantı verdiyseniz (reklam, e-posta, sosyal medya) adresi `/casino` olarak güncelleyin. API, veritabanı şeması ve kayıtlı ayarlar değişmedi; migration gerekmez.
+
 ### Belgeler: yeni sağlayıcı ekleme rehberi ve İngilizce belgeler
 
 - `docs/providers/adding-a-provider.md` ve `docs/providers/README.md` eklendi; ödeme, KYC, SMS, e-posta ve casino içerik sağlayıcısı ekleme kalıpları belgelenmiştir.

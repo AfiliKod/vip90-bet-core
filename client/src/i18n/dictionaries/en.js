@@ -523,6 +523,14 @@ export default {
   'home.sidebar.newGames': 'New Games',
   'home.sidebar.allGames': 'All Games',
   'home.games.viewAll': 'View all ›',
+  'home.landing.liveNow': 'Live Now',
+  'home.landing.liveNowDesc': 'Bet on matches in play with live odds',
+  'home.landing.featuredMatches': 'Featured Matches',
+  'home.landing.featuredMatchesDesc': 'Upcoming matches and their odds',
+  'home.landing.goLive': 'Go to live ›',
+  'home.landing.allMatches': 'All matches ›',
+  'home.landing.popularCasino': 'Popular Casino Games',
+  'home.landing.toCasino': 'Go to casino ›',
   'home.games.allGamesDesc': 'Explore all slots and table games',
   'home.games.loadMore': 'Show More',
   'home.rail.winners': 'Recent Winners',
@@ -1784,6 +1792,7 @@ export default {
   'admin.pages.sections.inhouseGames': 'Exclusive Games',
   'admin.pages.sections.sportsBets': 'Sports Betting',
   'admin.pages.sections.liveBets': 'Live Betting',
+  'admin.pages.sections.casinoGames': 'Casino Games',
   'admin.pages.sections.features': 'Why Us?',
   'admin.pages.sections.bottomCta': 'Bottom CTA Banner',  // Module gate
 

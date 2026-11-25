@@ -522,6 +522,14 @@ export default {
   'home.sidebar.newGames': 'Yeni Oyunlar',
   'home.sidebar.allGames': 'Tüm Oyunlar',
   'home.games.viewAll': 'Tümünü Gör ›',
+  'home.landing.liveNow': 'Şimdi Canlı',
+  'home.landing.liveNowDesc': 'Oynanan maçlara anlık oranlarla bahis yap',
+  'home.landing.featuredMatches': 'Öne Çıkan Maçlar',
+  'home.landing.featuredMatchesDesc': 'Yaklaşan maçlar ve oranları',
+  'home.landing.goLive': 'Canlıya git ›',
+  'home.landing.allMatches': 'Tüm maçlar ›',
+  'home.landing.popularCasino': 'Popüler Casino Oyunları',
+  'home.landing.toCasino': 'Casinoya git ›',
   'home.games.allGamesDesc': 'Tüm slot ve masa oyunlarını keşfet',
   'home.games.loadMore': 'Daha Fazla Göster',
   'home.rail.winners': 'Son Kazananlar',
@@ -1783,6 +1791,7 @@ export default {
   'admin.pages.sections.inhouseGames': 'Özel Oyunlar',
   'admin.pages.sections.sportsBets': 'Spor Bahisleri',
   'admin.pages.sections.liveBets': 'Canlı Bahis',
+  'admin.pages.sections.casinoGames': 'Casino Oyunları',
   'admin.pages.sections.features': 'Neden Biz?',
   'admin.pages.sections.bottomCta': 'Alt Çağrı Bandı',  // Modül kapısı
 
