@@ -18,6 +18,8 @@ Madde formatı ve kategoriler için `docs/CHANGELOG_GUIDE.md`'ye bakın —
 
 ## [Yayınlanmadı]
 
+## [1.4.0] — 2026-11-26
+
 ### Performans: daha hafif ilk yükleme, geri dön düğmesi sağda
 
 **Değişti**
