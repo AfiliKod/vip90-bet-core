@@ -187,7 +187,7 @@ export default function Login() {
         background: '#05080f',
       }}>
       <div className="absolute inset-0 bg-cover bg-center opacity-20 pointer-events-none"
-        style={{ backgroundImage: 'url(/images/login-bg-v2.png)' }} />
+        style={{ backgroundImage: 'url(/images/login-bg-v2.webp)' }} />
       <div className="w-full max-w-sm bg-bg-card border border-white/10 rounded-2xl p-8 shadow-2xl">
         <div className="flex justify-end mb-2">
           <LanguageSwitcher />

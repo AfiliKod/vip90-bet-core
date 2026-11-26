@@ -14,23 +14,23 @@ const IGAMES_PROVIDER_IDS = [1, 15]; // Pragmatic Play, Spribe
 
 export function getInhouseGames(t) {
   return [
-    { name: t('games.crash.title'), path: '/games/crash', accent: '#f97316', image: '/images/games/crash.png' },
-    { name: t('games.mines.title'),     path: '/games/mines', accent: '#34d399', image: '/images/games/mines.png' },
-    { name: t('games.plinko.title'),    path: '/games/plinko', accent: '#a78bfa', image: '/images/games/plinko.png' },
-    { name: t('games.dice.title'),      path: '/games/dice', accent: '#22d3ee', image: '/images/games/dice.png' },
-    { name: t('games.limbo.title'),     path: '/games/limbo', accent: '#f472b6', image: '/images/games/limbo.png' },
-    { name: t('games.crazywheel.title'),     path: '/games/crazywheel', accent: '#fbbf24', image: '/images/games/crazywheel.png' },
-    { name: t('games.roulette.title'),  path: '/games/roulette', accent: '#f87171', image: '/images/games/roulette.png' },
-    { name: t('games.blackjack.title'), path: '/games/blackjack', accent: '#4ade80', image: '/images/games/blackjack.png' },
-    { name: t('games.baccarat.title'),  path: '/games/baccarat', accent: '#eab308', image: '/images/games/baccarat.png' },
-    { name: t('games.keno.title'),      path: '/games/keno', accent: '#2dd4bf', image: '/images/games/keno.png' },
-    { name: t('games.hilo.title'),      path: '/games/hilo', accent: '#818cf8', image: '/images/games/hilo.png' },
+    { name: t('games.crash.title'), path: '/games/crash', accent: '#f97316', image: '/images/games/crash.webp' },
+    { name: t('games.mines.title'),     path: '/games/mines', accent: '#34d399', image: '/images/games/mines.webp' },
+    { name: t('games.plinko.title'),    path: '/games/plinko', accent: '#a78bfa', image: '/images/games/plinko.webp' },
+    { name: t('games.dice.title'),      path: '/games/dice', accent: '#22d3ee', image: '/images/games/dice.webp' },
+    { name: t('games.limbo.title'),     path: '/games/limbo', accent: '#f472b6', image: '/images/games/limbo.webp' },
+    { name: t('games.crazywheel.title'),     path: '/games/crazywheel', accent: '#fbbf24', image: '/images/games/crazywheel.webp' },
+    { name: t('games.roulette.title'),  path: '/games/roulette', accent: '#f87171', image: '/images/games/roulette.webp' },
+    { name: t('games.blackjack.title'), path: '/games/blackjack', accent: '#4ade80', image: '/images/games/blackjack.webp' },
+    { name: t('games.baccarat.title'),  path: '/games/baccarat', accent: '#eab308', image: '/images/games/baccarat.webp' },
+    { name: t('games.keno.title'),      path: '/games/keno', accent: '#2dd4bf', image: '/images/games/keno.webp' },
+    { name: t('games.hilo.title'),      path: '/games/hilo', accent: '#818cf8', image: '/images/games/hilo.webp' },
     // 13. oyun: kayıtli in-house oyunlari arasinda vardi, lobide gorunmuyordu (2026-10-08).
-    { name: t('games.videopoker.title'), path: '/games/videopoker', accent: '#c084fc', image: '/images/games/videopoker.png' },
-    { name: t('games.dragontiger.title'), path: '/games/dragontiger', accent: '#fb923c', image: '/images/games/dragontiger.png' },
-    { name: t('games.coinflip.title'), path: '/games/coinflip', accent: '#facc15', image: '/images/games/coinflip.png' },
+    { name: t('games.videopoker.title'), path: '/games/videopoker', accent: '#c084fc', image: '/images/games/videopoker.webp' },
+    { name: t('games.dragontiger.title'), path: '/games/dragontiger', accent: '#fb923c', image: '/images/games/dragontiger.webp' },
+    { name: t('games.coinflip.title'), path: '/games/coinflip', accent: '#facc15', image: '/images/games/coinflip.webp' },
     // 15. oyun: KING OF MONEY — kart görseli oyunun onaylı kapak görselinin kırpımı.
-    { name: t('games.kingofmoney.title'), path: '/games/kingofmoney', accent: '#f3c04b', image: '/images/games/kingofmoney.png' },
+    { name: t('games.kingofmoney.title'), path: '/games/kingofmoney', accent: '#f3c04b', image: '/images/games/kingofmoney.webp' },
   ];
 }
 
@@ -40,6 +40,9 @@ export function getInhouseGames(t) {
  */
 export function useIgamesCatalog({ enabled = true } = {}) {
   const [igamesGames, setIgamesGames] = useState([]);
+  // False until the provider lists answer (or fail); lets a page hold the
+  // rows' space instead of shifting content when they arrive.
+  const [loaded, setLoaded] = useState(false);
   // Admin'in Modül Ayarları'ndan seçtiği "Popüler Oyunlar" listesi (game_code
   // dizisi) — boşsa aşağıda eski davranışa (ilk 10 oyun) düşülür.
   const [popularGameCodes, setPopularGameCodes] = useState([]);
@@ -56,6 +59,7 @@ export function useIgamesCatalog({ enabled = true } = {}) {
     ).then(lists => {
       if (cancelled) return;
       setIgamesGames(lists.flat().filter(g => g.launch_enable !== false));
+      setLoaded(true);
     });
     return () => { cancelled = true; };
   }, [enabled]);
@@ -84,5 +88,5 @@ export function useIgamesCatalog({ enabled = true } = {}) {
     };
   }, [igamesGames, popularGameCodes]);
 
-  return { igamesGames, popularGames, slotGames, newGames };
+  return { igamesGames, popularGames, slotGames, newGames, loaded };
 }

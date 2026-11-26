@@ -70,7 +70,12 @@ Description of the keys in `server/.env.example`, checked against the code that 
 
 There are **no environment variables** for rate limiting. The limits are constants in `server/src/middleware/rateLimit.js` (global 1200 requests / 15 min per IP, stricter limits for registration, login, e-mail flows, financial endpoints, spin, admin 2FA). `RATE_LIMIT_WINDOW_MS`, `RATE_LIMIT_MAX`, `AUTH_RATE_LIMIT_MAX` and `FINANCIAL_RATE_LIMIT_MAX` that appear in the root `.env.example` are not read by any code. The full table is in [05 — API Reference § Rate limiting](05-api-referansi.md). Changing a limit means editing the file.
 
-### Casino provider (Igames) — Casino Content add-on
+### Icons and images (front-end weight)
+
+- **Icon font.** Player pages load a subset of the Material Symbols font (`client/public/fonts/material-symbols-outlined-subset.woff2`, ~80 KB) instead of the full set (~3.9 MB). It holds the glyphs listed in `material-symbols-outlined-subset.json` next to it. The admin panel switches to the full set, because admins can type any glyph name (chat room icons, for example). If you use a new icon on a player page, add it with `node client/scripts/icon-subset.mjs add <name>`; the script rebuilds the font from the Google Fonts API. `client/test/iconSubset.test.js` fails when the code uses an icon that is not on the list. Without that step, the icon shows as its name in plain text.
+- **Images.** Game cards, banners and login backgrounds are WebP (`client/public/images/**/*.webp`). The PNG originals stay in place for links and saved banner settings that still point at them. The service worker no longer precaches `public/images`; images come from the normal HTTP cache.
+
+## Casino provider (Igames) — Casino Content add-on
 
 | Variable | Required | What it does |
 |---|---|---|
@@ -339,7 +344,7 @@ There is a **single active display currency** across the site (not a per-user mu
 
 ## Multi-language support (i18n)
 
-Eight dictionary files under `client/src/i18n/dictionaries/`: `tr` (default language, `DEFAULT_LOCALE = 'tr'`, also the fallback — a key not in `tr` can't be found in any language), `en`, `ko`, `th`, `es`, `ja`, `pt`, `de`. Each has the same ~2,790 keys (as of 2026-10-08; only the SMS and Communication keys have a dedicated parity test). To add a new language: add a file under `dictionaries/` + register in the `dictionaries` object in `client/src/i18n/index.js`.
+Eight dictionary files under `client/src/i18n/dictionaries/`: `tr` (default language, `DEFAULT_LOCALE = 'tr'`, also the fallback — a key not in `tr` can't be found in any language), `en`, `ko`, `th`, `es`, `ja`, `pt`, `de`. Each has the same ~2,790 keys (as of 2026-10-08; only the SMS and Communication keys have a dedicated parity test). Only `tr` ships in the main bundle; each other language is a separate chunk (~50 KB compressed) that loads when it is first used. A returning visitor's stored language loads before the first render, so the page never flashes Turkish. To add a new language: add a file under `dictionaries/`, then add it to `LOCALES` and `LOADERS` in `client/src/i18n/index.js`.
 
 The language switcher (`LanguageSwitcher`) is in the global navigation bar, so it is accessible from everywhere on the site; the default language for new visitors is set in **Settings → General → Region & Currency**. `tr` and `en` are complete. In the other six languages the player-facing screens are translated; in the admin panel roughly 470–560 strings per language (largest groups: Reconciliation, Demo Data, KYC review, Agents) are still English (as of 2026-10-08). Pages that do not use the dictionary: the static company/legal pages (`pages/company/*`, `pages/legal/*`), whose content comes from the static-page editor.
 

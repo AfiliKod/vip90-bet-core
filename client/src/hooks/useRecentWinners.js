@@ -32,7 +32,7 @@ export function useRecentWinners() {
 }
 
 /**
- * 'inhouse-crash' -> '/images/games/crash.png'. `igames-...` (casino) zaten
+ * 'inhouse-crash' -> '/images/games/crash.webp'. `igames-...` (casino) zaten
  * backend'den gerçek `image` alanıyla geliyor, bu fonksiyona hiç düşmüyor.
  * `bet-...` (canlı bahis kazananı) için kapak görseli YOK — null döner,
  * WinnersPanel/RecentWinnersTicker bunu jenerik bir ikonla gösterir.
@@ -40,7 +40,7 @@ export function useRecentWinners() {
 export function winnerImage(gameId) {
   if (!gameId?.startsWith('inhouse-')) return null;
   const slug = gameId.replace(/^inhouse-/, '');
-  return slug ? `/images/games/${slug}.png` : null;
+  return slug ? `/images/games/${slug}.webp` : null;
 }
 
 /** "ID 17****96" tarzı maskeleme — yalnızca görüntü amaçlı, backend hâlâ

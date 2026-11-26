@@ -49,7 +49,7 @@ export default function Layout({ children, noSidebar = false }) {
 
       <LiveHelp open={helpOpen} onClose={() => setHelpOpen(false)} />
       <ChatWidgetContainer />
-      <ScrollToTop />
+      <ScrollToTop hidden={helpOpen} />
       <CookieConsent />
     </div>
   );
