@@ -18,6 +18,13 @@ Madde formatı ve kategoriler için `docs/CHANGELOG_GUIDE.md`'ye bakın —
 
 ## [Yayınlanmadı]
 
+### E-posta doğrulaması yalnız üretimde zorunlu
+
+**Eklendi**
+- `EMAIL_VERIFICATION_REQUIRED` ayarı. Boşsa e-posta doğrulaması yalnız `NODE_ENV=production`'da zorunludur. Diğer ortamlarda kayıt doğrulanmış hesap açar, doğrulama maili göndermez ve oyuncunun oturumunu hemen açar (`POST /auth/register` yanıtında `accessToken` döner); giriş doğrulama kontrolü yapmaz. `true`/`false` varsayılanı iki yönde de ezer (ör. `NODE_ENV=production` ile çalışan bir test sunucusunda `false`).
+
+**Operatör için:** üretimde (`NODE_ENV=production`) davranış değişmez; ayar gerekmez.
+
 ## [1.4.0] — 2026-11-26
 
 ### Performans: daha hafif ilk yükleme, geri dön düğmesi sağda

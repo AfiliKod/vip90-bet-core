@@ -56,6 +56,17 @@ const LOGIN_LOCKOUT_THRESHOLD = 5;
 const LOGIN_LOCKOUT_MINUTES = 15;
 const EMAIL_VERIFICATION_CUTOFF = new Date(process.env.EMAIL_VERIFICATION_CUTOFF || '2026-07-14T00:00:00Z');
 
+// Email verification is required in production (NODE_ENV=production) only. On dev and test
+// servers registration counts as verified and signs the player in. EMAIL_VERIFICATION_REQUIRED
+// =true|false overrides the default either way (e.g. false on a test server that runs with
+// NODE_ENV=production).
+export function isEmailVerificationRequired(env = process.env) {
+  const v = String(env.EMAIL_VERIFICATION_REQUIRED ?? '').trim().toLowerCase();
+  if (v === 'true' || v === '1') return true;
+  if (v === 'false' || v === '0') return false;
+  return env.NODE_ENV === 'production';
+}
+
 export async function register(req, res, next) {
   try {
     const {
@@ -88,6 +99,7 @@ export async function register(req, res, next) {
     if (dobAdult === false) {
       throw createError(422, 'AGE_NOT_ELIGIBLE', '18 yaşından küçük oyuncular kaydolamaz');
     }
+    const verificationRequired = isEmailVerificationRequired();
     const user = await User.create({
       username, email, password, referredBy: referredById,
       // Slikair payment için opsiyonel alanlar
@@ -100,10 +112,24 @@ export async function register(req, res, next) {
       ageVerifiedAt:    dobAdult === true ? now : null,
       consentVersion:   consentVersion || '1.0.0',
       // Email verification (Phase D1)
-      emailVerified: false,
-      emailVerificationToken,
-      emailVerificationExpires,
+      emailVerified: !verificationRequired,
+      emailVerificationToken:   verificationRequired ? emailVerificationToken : null,
+      emailVerificationExpires: verificationRequired ? emailVerificationExpires : null,
     });
+
+    if (!verificationRequired) {
+      // Verification not required: no verification mail; sign in with the same session as login.
+      sendActionMail('user.welcome', { user }).catch(() => {});
+      import('../services/smsTemplate.js')
+        .then(({ dispatchSmsEvent }) => dispatchSmsEvent('userRegistered', user, { balance: user.balance }))
+        .catch(() => {});
+      const session = await issueSession(user, { method: 'pwd' });
+      user.lastLoginAt = now;
+      user.lastLoginIp = req.ip;
+      await user.save();
+      setRefreshCookie(res, session.refreshToken);
+      return res.status(201).json({ accessToken: session.accessToken, user: user.toSafeObject(), amr: session.amr, message: 'Kayıt başarılı.' });
+    }
 
     // Email doğrulama maili gönder (best-effort). İçerik admin panelindeki
     // "Sistem E-postaları" sayfasından düzenlenir; şablon pasif/yoksa gömülü
@@ -209,7 +235,7 @@ export async function login(req, res, next) {
       try { const { onFailedLogin } = await import('../services/riskDetector.js'); await onFailedLogin(user._id, { ip }); } catch {}
       return next(createError(401, 'INVALID_CREDENTIALS', 'Kullanıcı adı veya şifre hatalı'));
     }
-    if (!user.emailVerified && user.createdAt >= EMAIL_VERIFICATION_CUTOFF) {
+    if (isEmailVerificationRequired() && !user.emailVerified && user.createdAt >= EMAIL_VERIFICATION_CUTOFF) {
       return next(createError(403, 'EMAIL_NOT_VERIFIED', 'Email adresinizi doğrulamanız gerekiyor. Gelen kutunuzu kontrol edin.', { email: user.email }));
     }
 

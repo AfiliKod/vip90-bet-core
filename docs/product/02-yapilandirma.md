@@ -64,7 +64,8 @@ Description of the keys in `server/.env.example`, checked against the code that 
 | `E2E_TEST` | No | `true` relaxes rate limits and login throttling the same way `NODE_ENV=test` does; only for end-to-end test runs, never in production |
 | `ROUTE_404_REPORT_ONLY` | No (default: unset = enforcement on) | Set to `1` to make the SPA route 404 a **report-only** mode: unknown URLs are logged instead of answered with `404`, and everything keeps returning `200` (previous behavior). Used for the first deployment phase; see [SEO settings — Real 404](../seo-settings.md). Unknown routes are only logged when the client build wrote `client/dist/routes.json` |
 | `RAILWAY_PUBLIC_DOMAIN` | No | Set automatically by Railway; when present, `https://<value>` is added to the allowed origins in both modes |
-| `EMAIL_VERIFICATION_CUTOFF` | No (not in `server/.env.example`, only in the root `.env.example`) | ISO 8601 date — users who registered before this date are exempt from email verification (grandfathering). If empty, the code default `2026-07-14T00:00:00Z` applies. Demo-data (`isSeed`) accounts can never log in regardless of this date |
+| `EMAIL_VERIFICATION_REQUIRED` | No (default: required only when `NODE_ENV=production`) | `true`/`false` overrides the default. When not required, `POST /auth/register` creates the account with `emailVerified: true`, sends no verification mail and returns an access token (the player is signed in at once), and login does not check verification. Set `false` on a test server that runs with `NODE_ENV=production`. Admins can always mark an email verified from the user panel |
+| `EMAIL_VERIFICATION_CUTOFF` | No | ISO 8601 date — users who registered before this date are exempt from email verification (grandfathering). If empty, the code default `2026-07-14T00:00:00Z` applies. Demo-data (`isSeed`) accounts can never log in regardless of this date |
 
 ### Rate limiting
 
