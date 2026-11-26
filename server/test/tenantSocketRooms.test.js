@@ -78,6 +78,25 @@ function receives(client, event, timeoutMs = 400) {
   });
 }
 
+/**
+ * Waits for `event` on `allowed` (up to `timeoutMs`; the deposit path writes to the database
+ * before it emits, which took over 400 ms on a loaded runner) and then gives `denied` a further
+ * `graceMs` to receive a leak. A fixed short timeout on both sides failed under load and could
+ * also pass a leak check before the event had even been emitted.
+ */
+async function deliveredOnlyTo(allowed, denied, event, { timeoutMs = 5000, graceMs = 300 } = {}) {
+  let leaked = false;
+  const onLeak = () => { leaked = true; };
+  denied.on(event, onLeak);
+  try {
+    const got = await receives(allowed, event, timeoutMs);
+    if (got) await new Promise((r) => setTimeout(r, graceMs));
+    return { got, leaked };
+  } finally {
+    denied.off(event, onLeak);
+  }
+}
+
 async function waitForJoin(client, room, event = 'probe', ns = '/') {
   const target = ns === '/' ? io : io.of(ns);
   for (let i = 0; i < 120; i += 1) {
@@ -136,13 +155,13 @@ describe('§8.5 tenant socket rooms', () => {
     assert.equal(await waitForJoin(c1, adminRoom(T1._id)), true);
     assert.equal(await waitForJoin(c2, adminRoom(T2._id)), true);
 
-    const denied = receives(c2, 'activity:new');
-    const allowed = receives(c1, 'activity:new');
+    const delivery = deliveredOnlyTo(c1, c2, 'activity:new');
     await runWithTenant(T1._id, () => logActivity({
       type: 'deposit', userId: player1._id, status: 'completed', summary: 'T1 deposit', amount: 10,
     }));
-    assert.equal(await allowed, true);
-    assert.equal(await denied, false);
+    const { got, leaked } = await delivery;
+    assert.equal(got, true, 'the T1 admin room receives the T1 deposit');
+    assert.equal(leaked, false, 'the T2 admin room does not');
   });
 
   it('winners, online count and bot actions stay inside the tenant client room', async () => {
