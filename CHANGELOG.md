@@ -18,6 +18,17 @@ Madde formatı ve kategoriler için `docs/CHANGELOG_GUIDE.md`'ye bakın —
 
 ## [Yayınlanmadı]
 
+### Tek modlu kurulumu kiracı migration'larıyla yükseltmek
+
+**Düzeltildi**
+- `0007` (personel hesapları): eski bir kurulumda süper admin taşınırken kiracı rol şablonları (`admin`, `finance`, `support`, `casino_manager`, `content_manager`) aynı adlı eski rollerle genel `name_1` benzersiz indeksinde çakışıyor ve migration `E11000` ile yarıda kalıyordu. Aynı adlı eski rol artık kiracı şablonunun yerini tutar (taşıma kodunun zaten izlediği kural); eksik şablonlar eklenir.
+- `0009` (platform kurulumu) tek modda hiçbir şey yapmadığı hâlde uygulandı olarak kaydediliyordu; sonradan çok moda geçen bir kurulumda platform kurulumu bu yüzden atlanırdı. Artık tek modda ertelenir: kaydedilmez, çok moda geçildiğinde uygulanır.
+
+**Eklendi**
+- Migration çalıştırıcısı: `up()` `{ deferred: true }` dönerse migration kaydedilmez ve bekleyen kalır; `node scripts/migrate.js` bunları "bekliyor" olarak listeler.
+
+**Operatör için:** tek modlu bir kurulumu yükseltirken `node scripts/migrate.js` artık `0007`'de durmaz ve `0009`'u kaydetmez.
+
 ## [1.5.1] — 2026-11-26
 
 ### Test: kiracı soket odaları testi yük altında düşmüyor
