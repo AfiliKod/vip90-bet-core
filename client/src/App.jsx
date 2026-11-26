@@ -60,7 +60,9 @@ const AdminPersonalization = lazy(() => import('./pages/admin/Personalization'))
 const IgamesGame = lazy(() => import('./pages/IgamesGame'));
 const InhouseGameLauncher = lazy(() => import('./pages/games/InhouseGameLauncher'));
 const HomePage = lazy(() => import('./pages/HomePage'));
-const LandingPage = lazy(() => import('./pages/LandingPage'));
+// Not lazy: `/` is the usual entry page, and a separate chunk added a
+// request round trip before the first slide (the LCP image) could start.
+import LandingPage from './pages/LandingPage';
 const Favorites = lazy(() => import('./pages/Favorites'));
 const RecentlyPlayed = lazy(() => import('./pages/RecentlyPlayed'));
 const Terms = lazy(() => import('./pages/legal/Terms'));

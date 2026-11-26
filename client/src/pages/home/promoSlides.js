@@ -23,10 +23,10 @@ import { formatMoney } from '../../utils/money.js';
  */
 export function getHeroNavSlides(t, siteName) {
   return [
-    { id: 'welcome', title: t('home.hero.welcome', { siteName }), path: '/bahis', cta: t('home.hero.getStarted'), desc: t('home.hero.welcomeDesc'), image: '/images/welcome-banner.png' },
-    { id: 'sports', title: t('home.hero.sports'), path: '/bahis', cta: t('home.hero.betNow'), desc: t('home.hero.sportsDesc'), image: '/images/hero-sports.png' },
-    { id: 'live', title: t('home.hero.live'), path: '/canli', cta: t('home.hero.watchLive'), desc: t('home.hero.liveDesc'), image: '/images/hero-live.png' },
-    { id: 'casino', title: t('home.hero.casino'), path: '/casino', cta: t('home.hero.exploreGames'), desc: t('home.hero.casinoDesc'), image: '/images/hero-casino.png' },
+    { id: 'welcome', title: t('home.hero.welcome', { siteName }), path: '/bahis', cta: t('home.hero.getStarted'), desc: t('home.hero.welcomeDesc'), image: '/images/welcome-banner.webp' },
+    { id: 'sports', title: t('home.hero.sports'), path: '/bahis', cta: t('home.hero.betNow'), desc: t('home.hero.sportsDesc'), image: '/images/hero-sports.webp' },
+    { id: 'live', title: t('home.hero.live'), path: '/canli', cta: t('home.hero.watchLive'), desc: t('home.hero.liveDesc'), image: '/images/hero-live.webp' },
+    { id: 'casino', title: t('home.hero.casino'), path: '/casino', cta: t('home.hero.exploreGames'), desc: t('home.hero.casinoDesc'), image: '/images/hero-casino.webp' },
   ];
 }
 
@@ -35,21 +35,21 @@ export function getPromoSlides(t) {
     {
       id: 'deneme-bonusu', icon: '🎁', title: t('home.promo.trialBonus'), path: '/promotions', cta: t('home.promo.trialBonusCta'),
       desc: t('home.promo.trialBonusDesc', { amount: formatMoney(500) }),
-      image: '/images/promo-deneme-bonusu.png',
+      image: '/images/promo-deneme-bonusu.webp',
       gradient: 'from-amber-900/80 to-yellow-900/60',
       accent: '#fbbf24',
     },
     {
       id: 'hosgeldin-bonusu', icon: '💰', title: t('home.promo.welcomeBonus'), path: '/promotions', cta: t('home.promo.welcomeBonusCta'),
       desc: t('home.promo.welcomeBonusDesc', { amount: formatMoney(1000) }),
-      image: '/images/promo-hosgeldin-bonusu.png',
+      image: '/images/promo-hosgeldin-bonusu.webp',
       gradient: 'from-emerald-900/80 to-green-900/60',
       accent: '#34d399',
     },
     {
       id: 'arkadasini-getir', icon: '🤝', title: t('home.promo.referFriend'), path: '/promotions', cta: t('home.promo.referFriendCta'),
       desc: t('home.promo.referFriendDesc'),
-      image: '/images/promo-arkadasini-getir.png',
+      image: '/images/promo-arkadasini-getir.webp',
       gradient: 'from-pink-900/80 to-fuchsia-900/60',
       accent: '#f472b6',
     },

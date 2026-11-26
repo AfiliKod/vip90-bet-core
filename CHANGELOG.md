@@ -18,6 +18,22 @@ Madde formatı ve kategoriler için `docs/CHANGELOG_GUIDE.md`'ye bakın —
 
 ## [Yayınlanmadı]
 
+### Performans: daha hafif ilk yükleme, geri dön düğmesi sağda
+
+**Değişti**
+- Oyuncu sayfaları ikon fontunun tamamı (~3,9 MB) yerine yalnızca kodda kullanılan 252 ikonu içeren bir alt kümeyi (~80 KB) yükler. Admin paneli, panelde serbestçe yazılabilen ikon adları (ör. sohbet odası ikonları) için tam fontu kullanmaya devam eder.
+- Dil sözlüklerinden yalnızca Türkçe ana pakette gelir; diğer diller ilk kullanıldıklarında ayrı parça olarak yüklenir (ana paket sıkıştırılmış ~300 KB küçüldü). Kayıtlı dili olan ziyaretçinin sözlüğü ilk çizimden önce yüklenir.
+- Oyun kartları, banner'lar ve giriş arka planları WebP'ye çevrildi (bu görsellerde 6,8 MB → 0,8 MB). PNG asılları yerinde durur.
+- Ana sayfa slaytında yalnızca görünen ve sıradaki slaytın görseli yüklenir; ilk slayt görseli `index.html`'den önceden istenir (varsayılan banner sırasında ilk slayt). Ana sayfa kodu artık ayrı bir parça olarak sonradan yüklenmez.
+- Oyun kartı görselleri ekrana yaklaşınca istenir; yatay bir şeridin bütün sağlayıcı görselleri (tanesi 200–400 KB) artık ilk yüklemede birden inmez.
+- Service worker `public/images` klasörünü artık önceden indirmez (kurulumda her ziyaretçiye ~21 MB görsel indiriliyordu).
+- Ana sayfadaki canlı maç, casino ve öne çıkan maç şeritleri veri gelene kadar yerlerini iskelet kartlarla tutar; içerik gelince sayfa kaymaz.
+- Yukarı kaydırma düğmesi sol alttaki sohbet düğmesinin üstünden sağ alta taşındı; canlı yardım paneli açıkken gizlenir.
+
+Lighthouse (mobil, aynı yerel sunucu ve Brotli ile): performans 45 → ~70, ilk boyama 23,3 sn → 3,2 sn, sayfa ağırlığı 14,5 MB → 5,7 MB, CLS 0,20 → 0,01.
+
+**Operatör için:** ayar gerekmez. Oyuncu sayfalarına yeni bir ikon ekleyen özelleştirmeler `node client/scripts/icon-subset.mjs add <ikon>` çalıştırmalıdır; aksi halde ikon adı düz metin görünür (`docs/product/02-yapilandirma.md`).
+
 ## [1.3.0] — 2026-11-26
 
 ### Ana sayfa: spor ve casino tek akışta

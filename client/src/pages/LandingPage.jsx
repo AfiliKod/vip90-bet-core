@@ -34,6 +34,17 @@ const MATCHES_PER_ROW = 8;
 // for more than one row needs and keep the first ones with odds.
 const UPCOMING_FETCH_LIMIT = 60;
 
+// Placeholders with the real cards' size: rows whose data is still loading
+// keep their height, so later rows do not jump down when it arrives (CLS).
+function MatchSkeleton() {
+  return <div className="shrink-0 w-[260px] sm:w-[280px] h-[118px] rounded-xl animate-pulse" style={{ background: HOME_CARD, border: `1px solid ${HOME_BORDER}` }} />;
+}
+function GameSkeleton() {
+  return <div className="shrink-0 w-[140px] sm:w-[150px] aspect-[3/4] rounded-xl animate-pulse" style={{ background: HOME_CARD, border: `1px solid ${HOME_BORDER}` }} />;
+}
+const SKELETON_COUNT = 6;
+const skeletons = Comp => Array.from({ length: SKELETON_COUNT }, (_, i) => <Comp key={i} />);
+
 function MatchCard({ event, live }) {
   return (
     <div className="shrink-0 w-[260px] sm:w-[280px]">
@@ -51,9 +62,10 @@ export default function LandingPage() {
   const casinoOn = useModuleStore(s => s.available['casino-content'] !== false);
 
   const [pageContent, setPageContent] = useState(null);
-  const [upcoming, setUpcoming] = useState([]);
+  const [upcoming, setUpcoming] = useState(null); // null = loading
+  const [liveLoaded, setLiveLoaded] = useState(false);
   const { events, fetchEvents, initSocket, cleanup } = useEventsStore();
-  const { popularGames, newGames } = useIgamesCatalog({ enabled: casinoOn });
+  const { popularGames, newGames, loaded: casinoLoaded } = useIgamesCatalog({ enabled: casinoOn });
 
   useEffect(() => {
     api.get('/pages/home').then(({ data }) => setPageContent(data?.content || null)).catch(() => {});
@@ -67,7 +79,7 @@ export default function LandingPage() {
   useEffect(() => {
     if (!bettingOn) return undefined;
     initSocket();
-    fetchEvents('all', 'live');
+    fetchEvents('all', 'live').finally(() => setLiveLoaded(true));
     return cleanup;
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [bettingOn]);
@@ -83,27 +95,27 @@ export default function LandingPage() {
 
   const order = resolveLandingSections(pageContent?.sectionOrder, { betting: bettingOn, casino: casinoOn });
   const liveEvents = pickEventsWithOdds(events.filter(e => e.status === 'live'), hasDisplayableOdds, MATCHES_PER_ROW);
-  const upcomingEvents = pickEventsWithOdds(upcoming, hasDisplayableOdds, MATCHES_PER_ROW);
+  const upcomingEvents = pickEventsWithOdds(upcoming || [], hasDisplayableOdds, MATCHES_PER_ROW);
   const inhouseGames = getInhouseGames(t);
 
   const SECTIONS = {
     hero: <PromoHeroSlider />,
 
-    liveBets: liveEvents.length > 0 ? (
+    liveBets: liveEvents.length > 0 || !liveLoaded ? (
       <GameRowSection id="canli-maclar" icon="sensors" title={t('home.landing.liveNow')} subtitle={t('home.landing.liveNowDesc')} viewAllTo="/canli" viewAllLabel={t('home.landing.goLive')}>
-        {liveEvents.map(ev => <MatchCard key={ev._id} event={ev} live />)}
+        {liveEvents.length > 0 ? liveEvents.map(ev => <MatchCard key={ev._id} event={ev} live />) : skeletons(MatchSkeleton)}
       </GameRowSection>
     ) : null,
 
-    casinoGames: popularGames.length > 0 ? (
+    casinoGames: popularGames.length > 0 || !casinoLoaded ? (
       <GameRowSection id="populer-casino" icon="whatshot" title={t('home.landing.popularCasino')} viewAllTo="/casino" viewAllLabel={t('home.landing.toCasino')}>
-        {popularGames.map(g => <IgamesGameCard key={g.game_code} game={g} />)}
+        {popularGames.length > 0 ? popularGames.map(g => <IgamesGameCard key={g.game_code} game={g} />) : skeletons(GameSkeleton)}
       </GameRowSection>
     ) : null,
 
-    sportsBets: upcomingEvents.length > 0 ? (
+    sportsBets: upcomingEvents.length > 0 || upcoming === null ? (
       <GameRowSection id="one-cikan-maclar" icon="sports_soccer" title={t('home.landing.featuredMatches')} subtitle={t('home.landing.featuredMatchesDesc')} viewAllTo="/bahis" viewAllLabel={t('home.landing.allMatches')}>
-        {upcomingEvents.map(ev => <MatchCard key={ev._id} event={ev} />)}
+        {upcomingEvents.length > 0 ? upcomingEvents.map(ev => <MatchCard key={ev._id} event={ev} />) : skeletons(MatchSkeleton)}
       </GameRowSection>
     ) : null,
 

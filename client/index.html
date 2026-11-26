@@ -10,6 +10,9 @@
     <!-- Sunucu (SPA fallback) bu başlığı kiracının markasıyla değiştirir; buradaki
          değer yalnız Vite dev sunucusu / sunucusuz statik derleme için tarafsız varsayılandır. -->
     <title>Platform</title>
+    <!-- First slide of the home slider (default banner order): the LCP image of
+         `/` and `/casino`. Preloaded so it does not wait for the JS bundle. -->
+    <link rel="preload" as="image" type="image/webp" href="/images/promo-deneme-bonusu.webp" fetchpriority="high" />
   </head>
   <body>
     <div id="root"></div>

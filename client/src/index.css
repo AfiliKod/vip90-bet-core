@@ -18,8 +18,21 @@
    eklentileri (uBlock Origin vb.) fonts.googleapis.com'u üçüncü taraf istek
    olarak sık sık engelliyor, bu da ikonların ve başlık fontunun düz metin
    olarak görünmesine yol açıyordu (2026-09-07). Dosyalar client/public/fonts/. */
+/* Player pages load a subset of the icon font (~80 KB, the glyphs listed in
+   material-symbols-outlined-subset.json) instead of the full set (~3.9 MB),
+   which dominated the page weight. The admin panel switches to the full set
+   (html.admin-icons, set by AdminLayout) because admins can type any glyph
+   name, e.g. chat room icons. New icon in the code: add it to the JSON and
+   regenerate the file with `node client/scripts/icon-subset.mjs`. */
 @font-face {
   font-family: 'Material Symbols Outlined';
+  font-style: normal;
+  font-weight: 100 700;
+  font-display: block;
+  src: url('/fonts/material-symbols-outlined-subset.woff2') format('woff2');
+}
+@font-face {
+  font-family: 'Material Symbols Outlined Full';
   font-style: normal;
   font-weight: 100 700;
   font-display: block;
@@ -77,6 +90,9 @@
   font-feature-settings: 'liga';
   -webkit-font-smoothing: antialiased;
   font-variation-settings: 'FILL' 0, 'wght' 500, 'GRAD' 0, 'opsz' 24;
+}
+html.admin-icons .material-symbols-outlined {
+  font-family: 'Material Symbols Outlined Full';
 }
 
 * { box-sizing: border-box; }

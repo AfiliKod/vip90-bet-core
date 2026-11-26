@@ -32,7 +32,10 @@ export default defineConfig({
         // service-worker precache'ine dahil edilmiyor — normal HTTP cache
         // (uzun max-age) yeterli, precache manifest'i şişirmesin.
         globPatterns: ['**/*.{js,css,html,ico,png,svg,woff2}'],
-        globIgnores: ['fonts/material-symbols-outlined.woff2'],
+        // public/images (oyun kapakları, banner'lar, ~25 MB) da precache'e
+        // girmez: kurulumda her ziyaretçiye hepsini indirtiyordu. Görseller
+        // uzun max-age'li normal HTTP cache'ten gelir.
+        globIgnores: ['fonts/material-symbols-outlined.woff2', 'images/**'],
         // Service worker YALNIZCA gerçek uygulama rotalarını index.html'e
         // düşürür. Allowlist `App.jsx`'ten build sırasında türetilir
         // (`scripts/pwa-route-allowlist.mjs`); bilinmeyen yollar, `/api/*`,

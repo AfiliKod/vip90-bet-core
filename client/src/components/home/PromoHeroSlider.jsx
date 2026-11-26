@@ -61,6 +61,16 @@ export default function PromoHeroSlider() {
 
   function goTo(i) { setCurrent(i); startTimer(); }
 
+  // The slides are stacked in the viewport, so `loading="lazy"` deferred
+  // nothing and every banner downloaded at once, competing with the first
+  // one (the page's LCP image). Mount an image only once its slide is
+  // current or next, and keep it mounted afterwards for the fade.
+  const [mounted, setMounted] = useState(() => new Set([0, 1]));
+  const next = ALL_SLIDES.length ? (current + 1) % ALL_SLIDES.length : 0;
+  if (!mounted.has(current) || !mounted.has(next)) {
+    setMounted(prev => new Set(prev).add(current).add(next));
+  }
+
   if (!sectionOrder.includes('hero')) return null;
 
   const slide = ALL_SLIDES[current];
@@ -69,7 +79,9 @@ export default function PromoHeroSlider() {
   return (
     <section className="relative mx-4 lg:mx-0 h-[420px] sm:h-[380px] overflow-hidden rounded-xl" style={{ background: HOME_BG }}>
       {ALL_SLIDES.map((s, i) => (
-        <img key={s.id} src={s.image} className={`absolute inset-0 w-full h-full object-cover transition-opacity duration-700 ${i === current ? 'opacity-100' : 'opacity-0'}`} alt="" loading={i === 0 ? 'eager' : 'lazy'} />
+        mounted.has(i) ? (
+          <img key={s.id} src={s.image} className={`absolute inset-0 w-full h-full object-cover transition-opacity duration-700 ${i === current ? 'opacity-100' : 'opacity-0'}`} alt="" fetchPriority={i === 0 ? 'high' : 'low'} decoding="async" />
+        ) : null
       ))}
       <div className="absolute inset-0" style={{ background: `linear-gradient(90deg, ${HOME_BG} 0%, ${HOME_BG} 40%, ${HOME_BG}cc 55%, transparent 80%)` }} />
       <div className="absolute inset-0 bg-gradient-to-t from-black/50 via-transparent to-black/10" />

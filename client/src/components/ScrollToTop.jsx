@@ -1,7 +1,10 @@
 import { useState, useEffect } from 'react';
 import { useTranslation } from '../i18n';
 
-export default function ScrollToTop() {
+// Bottom-right, so it no longer sits on the chat launcher (bottom-left).
+// On phones it clears the bottom nav and the bet slip bar; it hides while
+// the live help panel (also bottom-right) is open.
+export default function ScrollToTop({ hidden = false }) {
   const { t } = useTranslation();
   const [visible, setVisible] = useState(false);
 
@@ -35,8 +38,8 @@ export default function ScrollToTop() {
     <button
       onClick={scrollUp}
       aria-label={t('scrollToTop.label')}
-      className={`fixed bottom-24 left-4 lg:left-6 z-[60] w-10 h-10 rounded-lg flex items-center justify-center shadow-lg transition-all duration-300 hover:scale-110 active:scale-95 border border-white/20 bg-bg-card ${
-        visible ? 'opacity-100 pointer-events-auto' : 'opacity-0 pointer-events-none'
+      className={`fixed bottom-36 right-4 lg:bottom-8 lg:right-6 z-[60] w-10 h-10 rounded-lg flex items-center justify-center shadow-lg transition-all duration-300 hover:scale-110 active:scale-95 border border-white/20 bg-bg-card ${
+        visible && !hidden ? 'opacity-100 pointer-events-auto' : 'opacity-0 pointer-events-none'
       }`}
       title={t('scrollToTop.label')}
     >

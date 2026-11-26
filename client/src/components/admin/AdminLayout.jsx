@@ -19,6 +19,13 @@ export default function AdminLayout() {
     setMobileOpen(false);
   }
 
+  // Admins may type any icon name (e.g. chat room icons), so the panel uses
+  // the full icon font; player pages keep the small subset (index.css).
+  useEffect(() => {
+    document.documentElement.classList.add('admin-icons');
+    return () => document.documentElement.classList.remove('admin-icons');
+  }, []);
+
   // Sayfa uzun scroll'daysa yeni sayfa eski pozisyonda açılmasın.
   useEffect(() => { window.scrollTo(0, 0); }, [pathname]);
 
