@@ -18,6 +18,11 @@ Madde formatı ve kategoriler için `docs/CHANGELOG_GUIDE.md`'ye bakın —
 
 ## [Yayınlanmadı]
 
+### Test: kiracı soket odaları testi yük altında düşmüyor
+
+**Düzeltildi**
+- `server/test/tenantSocketRooms.test.js`: yatırım etkinliği önce veritabanına yazılıp sonra yayınlandığı için yüklü bir makinede 400 ms'lik sabit bekleme aşılıyor ve test ara sıra düşüyordu (CI'da ve yerelde görüldü). Olayın beklendiği oda için 5 sn beklenir; öteki odada sızıntı, olay geldikten sonra ayrıca dinlenerek kontrol edilir. Ürün davranışı değişmedi.
+
 ## [1.5.0] — 2026-11-26
 
 ### E-posta doğrulaması yalnız üretimde zorunlu
