@@ -18,6 +18,8 @@ Madde formatı ve kategoriler için `docs/CHANGELOG_GUIDE.md`'ye bakın —
 
 ## [Yayınlanmadı]
 
+## [1.5.2] — 2026-11-26
+
 ### Tek modlu kurulumu kiracı migration'larıyla yükseltmek
 
 **Düzeltildi**
