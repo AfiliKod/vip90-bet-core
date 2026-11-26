@@ -307,11 +307,21 @@ export async function initDefaultScopedRoles() {
     { name: 'content_manager', displayName: 'İçerik Yöneticisi', description: 'Kiracı içerik yetkileri', permissions: permissionIds(permissionMap, ['admin:theme:read', 'admin:theme:write', 'admin:settings:read']), isSystem: true, priority: 40, scopeType: 'tenant', scopeId: null },
   ];
 
-  return Promise.all(roles.map((role) => Role.findOneAndUpdate(
-    { name: role.name, scopeType: role.scopeType, scopeId: role.scopeId },
-    { $setOnInsert: role },
-    { new: true, upsert: true, setDefaultsOnInsert: true }
-  )));
+  return Promise.all(roles.map(async (role) => {
+    // Installs from before scoped roles keep their roles without a scopeType under a global
+    // unique name index; such a role stands in for the tenant template of the same name (the
+    // rule resolveRole in tenancy/staffMigration.js already follows). Inserting the template
+    // next to it collided on that index (E11000).
+    if (role.scopeType === 'tenant') {
+      const legacy = await Role.findOne({ name: role.name, scopeType: null, scopeId: null }).lean();
+      if (legacy) return legacy;
+    }
+    return Role.findOneAndUpdate(
+      { name: role.name, scopeType: role.scopeType, scopeId: role.scopeId },
+      { $setOnInsert: role },
+      { new: true, upsert: true, setDefaultsOnInsert: true },
+    );
+  }));
 }
 
 async function getRoleAssignmentModel() {

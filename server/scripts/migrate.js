@@ -34,7 +34,8 @@ try {
 
   const result = await runner.applyAll({ targetVersion });
   for (const m of result.applied) console.log(`✔ ${m.name} (${m.version}) uygulandı`);
-  console.log(`Özet: ${result.applied.length} uygulandı, ${result.skipped} zaten uygundu`);
+  for (const m of result.deferred || []) console.log(`… ${m.name} (${m.version}) bu kurulumda henüz koşamaz, bekliyor`);
+  console.log(`Özet: ${result.applied.length} uygulandı, ${result.skipped} zaten uygundu, ${(result.deferred || []).length} bekliyor`);
   await mongoose.disconnect();
   process.exit(0);
 } catch (e) {

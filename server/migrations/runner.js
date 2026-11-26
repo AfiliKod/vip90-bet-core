@@ -56,13 +56,20 @@ export function createMigrationRunner({ migrations, getApplied, markApplied }) {
     ).length;
 
     const applied = [];
+    const deferred = [];
     for (const m of applicable) {
-      await m.up(); // patlarsa aşağıdaki markApplied çalışmaz → retry buradan devam eder
+      const result = await m.up(); // patlarsa aşağıdaki markApplied çalışmaz → retry buradan devam eder
+      // A migration that cannot run on this install yet (e.g. multi-mode only) returns
+      // { deferred: true }: it is not recorded, so a later run applies it once it can.
+      if (result?.deferred) {
+        deferred.push({ name: m.name, version: m.version });
+        continue;
+      }
       await markApplied({ name: m.name, version: m.version });
       applied.push({ name: m.name, version: m.version });
       if (onApply) onApply(m);
     }
-    return { applied, skipped };
+    return { applied, skipped, deferred };
   }
 
   return { pending, applyAll };
