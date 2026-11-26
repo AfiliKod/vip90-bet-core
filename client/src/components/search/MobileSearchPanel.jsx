@@ -17,7 +17,7 @@ export default function MobileSearchPanel({ onClose }) {
   const { query, setQuery, inputRef } = state;
 
   const QUICK = [
-    { to: '/', icon: '🎰', label: t('nav.casino') },
+    { to: '/casino', icon: '🎰', label: t('nav.casino') },
     { to: '/bahis', icon: '⚽', label: t('home.sports.title') },
     { to: '/canli', icon: '🔴', label: t('nav.liveBetting') },
     { to: '/promotions', icon: '🎁', label: t('nav.promotions') },

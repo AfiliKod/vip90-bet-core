@@ -562,6 +562,14 @@ export default {
   'home.sidebar.newGames': 'เกมใหม่',
   'home.sidebar.allGames': 'เกมทั้งหมด',
   'home.games.viewAll': 'ดูทั้งหมด ›',
+  'home.landing.liveNow': 'สดตอนนี้',
+  'home.landing.liveNowDesc': 'เดิมพันแมตช์ที่กำลังแข่งด้วยอัตราต่อรองสด',
+  'home.landing.featuredMatches': 'แมตช์เด่น',
+  'home.landing.featuredMatchesDesc': 'แมตช์ที่กำลังจะมาถึงและอัตราต่อรอง',
+  'home.landing.goLive': 'ไปที่สด ›',
+  'home.landing.allMatches': 'แมตช์ทั้งหมด ›',
+  'home.landing.popularCasino': 'เกมคาสิโนยอดนิยม',
+  'home.landing.toCasino': 'ไปที่คาสิโน ›',
   'home.games.allGamesDesc': 'สำรวจเกมสล็อตและเกมบนโต๊ะทั้งหมด',
   'home.games.loadMore': 'โหลดเพิ่ม',
   'home.rail.winners': 'ผู้ชนะล่าสุด',
@@ -1744,6 +1752,7 @@ export default {
   'admin.pages.sections.inhouseGames': 'เกมพิเศษ',
   'admin.pages.sections.sportsBets': 'พนันกีฬา',
   'admin.pages.sections.liveBets': 'พนันสด',
+  'admin.pages.sections.casinoGames': 'เกมคาสิโน',
   'admin.pages.sections.features': 'ทำไมต้องเรา?',
   'admin.pages.sections.bottomCta': 'แบนเนอร์ CTA ด้านล่าง',  // Module Gate
 

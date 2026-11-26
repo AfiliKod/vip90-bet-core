@@ -24,7 +24,7 @@ export default function Navbar() {
   const [searchOpen, setSearchOpen] = useState(false);
   const ref = useRef(null);
   const searchRef = useRef(null);
-  const casinoActive = pathname === '/casino' || pathname === '/';
+  const casinoActive = pathname === '/casino';
 
   const handleLogout = async () => { setOpen(false); await logout(); navigate('/login'); };
   const nav = (to) => { setOpen(false); navigate(to); };

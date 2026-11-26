@@ -562,6 +562,14 @@ export default {
   'home.sidebar.newGames': '신규 게임',
   'home.sidebar.allGames': '모든 게임',
   'home.games.viewAll': '전체 보기 ›',
+  'home.landing.liveNow': '지금 라이브',
+  'home.landing.liveNowDesc': '진행 중인 경기에 실시간 배당으로 베팅',
+  'home.landing.featuredMatches': '주요 경기',
+  'home.landing.featuredMatchesDesc': '예정된 경기와 배당',
+  'home.landing.goLive': '라이브로 ›',
+  'home.landing.allMatches': '전체 경기 ›',
+  'home.landing.popularCasino': '인기 카지노 게임',
+  'home.landing.toCasino': '카지노로 ›',
   'home.games.allGamesDesc': '모든 슬롯 및 테이블 게임 둘러보기',
   'home.games.loadMore': '더 보기',
   'home.rail.winners': '최근 당첨자',
@@ -1744,6 +1752,7 @@ export default {
   'admin.pages.sections.inhouseGames': '독점 게임',
   'admin.pages.sections.sportsBets': '스포츠 베팅',
   'admin.pages.sections.liveBets': '라이브 베팅',
+  'admin.pages.sections.casinoGames': '카지노 게임',
   'admin.pages.sections.features': '선택 이유',
   'admin.pages.sections.bottomCta': '하단 CTA 배너',  // 모듈 게이트
 

@@ -4,11 +4,11 @@ import { useTranslation } from '../i18n';
 import { isBottomNavHidden } from '../utils/bottomNav';
 
 const TABS = [
+  // `/` is the landing page with sports and casino together (LandingPage.jsx).
+  { to: '/',          icon: '🏠', label: 'nav.home',  end: true,  module: null },
   { to: '/bahis',     icon: '⚽', label: 'nav.sports', end: true,  module: 'betting' },
   { to: '/canli',     icon: '🔴', label: 'nav.live',  end: false, module: 'betting' },
-  // Anasayfa artık casino sayfası (bkz. Navbar.jsx) — end:true zorunlu,
-  // yoksa NavLink "/" her path'in başlangıcı olduğu için hep aktif görünür.
-  { to: '/',          icon: '🎰', label: 'nav.casino', end: true,  module: 'casino-content' },
+  { to: '/casino',    icon: '🎰', label: 'nav.casino', end: true,  module: 'casino-content' },
 ];
 
 export default function BottomNav() {
@@ -16,7 +16,7 @@ export default function BottomNav() {
   const available = useModuleStore(s => s.available);
   const { t } = useTranslation();
   // M4 — kapalı modülün sekmesi menüde görünmez (undefined = bilinmiyor → göster)
-  const visibleTabs = TABS.filter(tab => available[tab.module] !== false);
+  const visibleTabs = TABS.filter(tab => !tab.module || available[tab.module] !== false);
   if (isBottomNavHidden(location.pathname)) return null;
 
   return (

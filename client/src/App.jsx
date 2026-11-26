@@ -60,6 +60,7 @@ const AdminPersonalization = lazy(() => import('./pages/admin/Personalization'))
 const IgamesGame = lazy(() => import('./pages/IgamesGame'));
 const InhouseGameLauncher = lazy(() => import('./pages/games/InhouseGameLauncher'));
 const HomePage = lazy(() => import('./pages/HomePage'));
+const LandingPage = lazy(() => import('./pages/LandingPage'));
 const Favorites = lazy(() => import('./pages/Favorites'));
 const RecentlyPlayed = lazy(() => import('./pages/RecentlyPlayed'));
 const Terms = lazy(() => import('./pages/legal/Terms'));
@@ -158,7 +159,7 @@ export default function App() {
       <Routes>
         <Route path="/login" element={<GuestRoute><Suspense fallback={<PageLoader />}><Login /></Suspense></GuestRoute>} />
         <Route path="/auth/callback" element={<Suspense fallback={<PageLoader />}><AuthCallback /></Suspense>} />
-        <Route path="/" element={<Layout><Suspense fallback={<PageLoader />}><HomePage /></Suspense></Layout>} />
+        <Route path="/" element={<Layout><Suspense fallback={<PageLoader />}><LandingPage /></Suspense></Layout>} />
         <Route path="/bahis" element={<Layout><ModuleGate module="betting"><Suspense fallback={<PageLoader />}><Bahis /></Suspense></ModuleGate></Layout>} />
         <Route path="/canli" element={<Layout><ModuleGate module="betting"><Suspense fallback={<PageLoader />}><Live /></Suspense></ModuleGate></Layout>} />
         <Route path="/events/:id" element={<Layout><ModuleGate module="betting"><Suspense fallback={<PageLoader />}><EventDetail /></Suspense></ModuleGate></Layout>} />

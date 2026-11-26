@@ -562,6 +562,14 @@ export default {
   'home.sidebar.newGames': 'Juegos Nuevos',
   'home.sidebar.allGames': 'Todos los Juegos',
   'home.games.viewAll': 'Ver Todos ›',
+  'home.landing.liveNow': 'En vivo ahora',
+  'home.landing.liveNowDesc': 'Apuesta en partidos en juego con cuotas en vivo',
+  'home.landing.featuredMatches': 'Partidos destacados',
+  'home.landing.featuredMatchesDesc': 'Próximos partidos y sus cuotas',
+  'home.landing.goLive': 'Ir a en vivo ›',
+  'home.landing.allMatches': 'Todos los partidos ›',
+  'home.landing.popularCasino': 'Juegos de casino populares',
+  'home.landing.toCasino': 'Ir al casino ›',
   'home.games.allGamesDesc': 'Explora todos los slots y juegos de mesa',
   'home.games.loadMore': 'Mostrar Más',
   'home.rail.winners': 'Últimos Ganadores',
@@ -1744,6 +1752,7 @@ export default {
   'admin.pages.sections.inhouseGames': 'Juegos Exclusivos',
   'admin.pages.sections.sportsBets': 'Apuestas Deportivas',
   'admin.pages.sections.liveBets': 'Apuestas en Vivo',
+  'admin.pages.sections.casinoGames': 'Juegos de Casino',
   'admin.pages.sections.features': '¿Por Qué Nosotros?',
   'admin.pages.sections.bottomCta': 'Banner CTA Inferior',  // Módulo cerrado
 
