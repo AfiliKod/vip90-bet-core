@@ -18,6 +18,8 @@ Madde formatı ve kategoriler için `docs/CHANGELOG_GUIDE.md`'ye bakın —
 
 ## [Yayınlanmadı]
 
+## [1.3.0] — 2026-11-26
+
 ### Ana sayfa: spor ve casino tek akışta
 
 **Eklendi**

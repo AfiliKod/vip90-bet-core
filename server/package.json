@@ -1,6 +1,6 @@
 {
   "name": "vip90-bet-server",
-  "version": "1.2.1",
+  "version": "1.3.0",
   "description": "VIP90.bet API server (Express, MongoDB, Socket.IO).",
   "homepage": "https://vip90.bet",
   "repository": {
